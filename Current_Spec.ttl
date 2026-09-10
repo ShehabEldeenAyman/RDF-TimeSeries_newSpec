@@ -5,22 +5,44 @@
 @prefix tss: <https://w3id.org/tss#> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix TSS2: <https://example.org/tss2#> .
 @prefix ex: <https://example.org/ex#> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
 
-TSS2:ID a TSS2:Snippet ;
-    TSS2:StartTime "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
-    TSS2:IsUpdating true ;
-    TSS2:ProducedBy ex:system1 ;
-    TSS2:Columns (
-        [ TSS2:columnIndex 0 ;
-          TSS2:Col_name "col_name_1"^^xsd:string ;
-          qudt:hasUnit unit:DEG_C ;
-          rdfs:range xsd:double ]
-        [ TSS2:columnIndex 1 ;
-          TSS2:Col_name "col_name_2"^^xsd:string ;
-          qudt:hasUnit unit:M ;
-          rdfs:range xsd:double ]
-    ) .
+TSS2:ID a TSS2:Snippet, csvw:Table ;
+    csvw:url <https://example.org/data/system1.csv> ;
+    TSS2:startTime "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
+    TSS2:isUpdating true ;
+    TSS2:committedUntil "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
+    TSS2:producedBy ex:system1 ;
+    ldes:retentionPolicy [
+        ldes:startingFrom "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime
+    ] ;
+    csvw:tableSchema [
+        a csvw:Schema ;
+        csvw:primaryKey "timestamp" ;
+        csvw:column (
+            [ TSS2:columnIndex 0 ;
+              TSS2:isTimestampColumn true ;
+              csvw:name "timestamp" ;
+              csvw:title "timestamp" ;
+              csvw:datatype xsd:dateTime ;
+              csvw:required true ]
+            [ TSS2:columnIndex 1 ;
+              csvw:name "col_name_1" ;
+              csvw:title "col_name_1" ;
+              csvw:datatype xsd:double ;
+              qudt:hasUnit unit:DEG_C ;
+              sosa:observedProperty quantitykind:Temperature ;
+              sosa:madeBySensor ex:tempSensor ]
+            [ TSS2:columnIndex 2 ;
+              csvw:name "col_name_2" ;
+              csvw:title "col_name_2" ;
+              csvw:datatype xsd:double ;
+              qudt:hasUnit unit:M ;
+              sosa:observedProperty quantitykind:Length ;
+              sosa:madeBySensor ex:levelSensor ]
+        )
+    ] .
 
