@@ -13,7 +13,7 @@
 TSS2:ID a TSS2:Snippet, csvw:Table ;
     csvw:url <https://example.org/data/system1.csv> ;
     TSS2:startTime "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
-    TSS2:isUpdating true ;
+    TSS2:mutable true ;
     TSS2:committedUntil "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
     TSS2:producedBy ex:system1 ;
     ldes:retentionPolicy [
