@@ -1,0 +1,68 @@
+@prefix quantitykind: <https://qudt.org/vocab/quantitykind/> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix TSS2: <https://example.org/tss2#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
+# ADDED: two new prefixes for the live-channel additions (both real W3C WoT vocabularies, reused as-is)
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+
+TSS2:ID a TSS2:Snippet, csvw:Table ;
+    csvw:url <https://example.org/data/system1.csv> ;
+    TSS2:startTime "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
+    TSS2:mutable true ;
+    # committedUntil is unchanged as a property, but its role is now also the exact
+    # handoff boundary between the CSV history above and the live channel below:
+    # read CSV rows with timestamp <= committedUntil, accept live messages with t > committedUntil.
+    TSS2:committedUntil "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
+    TSS2:producedBy ex:system1 ;
+    ldes:retentionPolicy [
+        ldes:startingFrom "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime
+    ] ;
+
+    # ADDED: declares that this snippet can also be watched live, not just read as a file.
+    td:isObservable true ;
+    # ADDED: where/how to listen, and what action is offered at that address (subscribe).
+    td:hasForm [
+        a hctl:Form ;
+        hctl:hasTarget <mqtt://broker.example.org/system1/readings> ;
+        hctl:hasOperationType td:observeProperty
+    ] ;
+    # ADDED: declares the wire format of messages pushed over that channel.
+    # Each pushed record ({"n":"col_name_1","t":...,"v":...}) is bound back to the
+    # existing csvw:column entries below by matching "n" against csvw:name - no
+    # unit/meaning is repeated per message, it's only ever declared once, right here.
+    TSS2:liveEncoding TSS2:SenMLPack ;
+
+    csvw:tableSchema [
+        a csvw:Schema ;
+        csvw:primaryKey "timestamp" ;
+        csvw:column (
+            [ TSS2:columnIndex 0 ;
+              TSS2:isTimestampColumn true ;
+              csvw:name "timestamp" ;
+              csvw:title "timestamp" ;
+              csvw:datatype xsd:dateTime ;
+              csvw:required true ]
+            [ TSS2:columnIndex 1 ;
+              csvw:name "col_name_1" ;
+              csvw:title "col_name_1" ;
+              csvw:datatype xsd:double ;
+              qudt:hasUnit unit:DEG_C ;
+              sosa:observedProperty quantitykind:Temperature ;
+              sosa:madeBySensor ex:tempSensor ]
+            [ TSS2:columnIndex 2 ;
+              csvw:name "col_name_2" ;
+              csvw:title "col_name_2" ;
+              csvw:datatype xsd:double ;
+              qudt:hasUnit unit:M ;
+              sosa:observedProperty quantitykind:Length ;
+              sosa:madeBySensor ex:levelSensor ]
+        )
+    ] .
