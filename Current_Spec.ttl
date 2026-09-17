@@ -30,8 +30,8 @@ TSS2:ID a TSS2:Snippet, csvw:Table ;
               csvw:datatype xsd:dateTime ;
               csvw:required true ]
             [ TSS2:columnIndex 1 ;
-              csvw:name "col_name_1" ;
-              csvw:title "col_name_1" ;
+              csvw:name "temperature_C" ;
+              csvw:title "temperature_C" ;
               csvw:datatype xsd:double ;
               qudt:hasUnit unit:DEG_C ;
               sosa:observedProperty quantitykind:Temperature ;

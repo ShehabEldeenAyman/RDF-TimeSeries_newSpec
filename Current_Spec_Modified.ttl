@@ -15,14 +15,13 @@
 
 TSS2:ID a TSS2:Snippet, csvw:Table ;
     csvw:url <https://example.org/data/system1.csv> ;
-    TSS2:startTime "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
     TSS2:mutable true ;
     # committedUntil is unchanged as a property, but its role is now also the exact
     # handoff boundary between the CSV history above and the live channel below:
     # read CSV rows with timestamp <= committedUntil, accept live messages with t > committedUntil.
     TSS2:committedUntil "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
-    TSS2:producedBy ex:system1 ;
-    ldes:retentionPolicy [
+    TSS2:producedBy ex:system1 ; #system or sensor producing the data
+    ldes:retentionPolicy [ # how far back can I get the data?
         ldes:startingFrom "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime
     ] ;
 
@@ -35,7 +34,7 @@ TSS2:ID a TSS2:Snippet, csvw:Table ;
         hctl:hasOperationType td:observeProperty
     ] ;
     # ADDED: declares the wire format of messages pushed over that channel.
-    # Each pushed record ({"n":"col_name_1","t":...,"v":...}) is bound back to the
+    # Each pushed record ({"n":"temperature_C","t":...,"v":...}) is bound back to the
     # existing csvw:column entries below by matching "n" against csvw:name - no
     # unit/meaning is repeated per message, it's only ever declared once, right here.
     TSS2:liveEncoding TSS2:SenMLPack ;
@@ -51,18 +50,11 @@ TSS2:ID a TSS2:Snippet, csvw:Table ;
               csvw:datatype xsd:dateTime ;
               csvw:required true ]
             [ TSS2:columnIndex 1 ;
-              csvw:name "col_name_1" ;
-              csvw:title "col_name_1" ;
+              csvw:name "temperature_C" ;
+              csvw:title "temperature_C" ;
               csvw:datatype xsd:double ;
               qudt:hasUnit unit:DEG_C ;
               sosa:observedProperty quantitykind:Temperature ;
               sosa:madeBySensor ex:tempSensor ]
-            [ TSS2:columnIndex 2 ;
-              csvw:name "col_name_2" ;
-              csvw:title "col_name_2" ;
-              csvw:datatype xsd:double ;
-              qudt:hasUnit unit:M ;
-              sosa:observedProperty quantitykind:Length ;
-              sosa:madeBySensor ex:levelSensor ]
         )
     ] .

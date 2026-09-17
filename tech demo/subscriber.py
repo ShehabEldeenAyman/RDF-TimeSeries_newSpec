@@ -1,30 +1,128 @@
-import time
-import random
-import paho.mqtt.client as mqtt
+"""Reads data_endpoint.ttl and uses its metadata to load the actual CSV data.
 
-BROKER = "test.mosquitto.org" #shared public broker between publisher and subscriber
-#A broker is the central server that MQTT clients connect to — it's the middleman that routes messages between publishers and subscribers. Publishers and subscribers never talk to each other directly; they both connect to the broker, and the broker forwards messages based on topic.
-#We should create our own broker later.
-PORT = 1883
-TOPIC = "example/sensors/temperature"
+1) Parses data_endpoint.ttl with rdflib.
+2) Extracts the csvw:url value (the location of the historical CSV).
+3) Extracts hctl:hasTarget and splits it into broker + topic.
+4) Reads csvw:column to learn the CSV's column names/order/datatypes, then
+   uses that to load the CSV into memory and print the first 5 records.
+"""
 
-def on_connect(client, userdata, flags, reason_code, properties):
-    print(f"Connected with result code {reason_code}")
-    client.subscribe(TOPIC)
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import url2pathname
+import csv
 
-#client	the same mqtt.Client object  — passed back to you so you can call methods on it (like .subscribe(...)) from inside the callback
-#userdata	arbitrary data you can attach via client.user_data_set(...) — unused here, so it's just None
-#flags	a dict of connection info the broker sends back (e.g. whether a previous session was resumed)
-#reason_code	the connection result from the broker (0 = success, other values = various failures) — this is why it's printed
-#properties	MQTT v5 protocol metadata from the broker — mostly unused for basic use
+from rdflib import Graph, Namespace
+from rdflib.collection import Collection
+from rdflib.namespace import XSD
 
-def on_message(client, userdata, msg):
-    print(f"{msg.topic}: {msg.payload.decode()}")
+TTL_PATH = Path(__file__).resolve().parent / "data_endpoint.ttl"
+
+CSVW = Namespace("http://www.w3.org/ns/csvw#")
+TSS2 = Namespace("https://example.org/tss2#")
+HCTL = Namespace("https://www.w3.org/2019/wot/hypermedia#")
+LDES = Namespace("https://w3id.org/ldes#")
+
+# how to turn a CSV cell (always a string) into a Python value, based on
+# the xsd: datatype declared for that column in csvw:datatype
+XSD_CASTERS = {
+    XSD.dateTime: lambda s: datetime.fromisoformat(s.replace("Z", "+00:00")),
+    XSD.double: float,
+    XSD.float: float,
+    XSD.integer: int,
+    XSD.boolean: lambda s: s.strip().lower() == "true",
+    XSD.string: str,
+}
 
 
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-client.on_connect = on_connect
-client.on_message = on_message
+def file_uri_to_path(uri: str) -> Path:
+    parsed = urlparse(str(uri))
+    return Path(url2pathname(parsed.path))
 
-client.connect(BROKER, PORT, keepalive=60)
-client.loop_forever()  # blocks, keeps listening
+
+def get_csv_url(graph: Graph) -> Path:
+    url = next(graph.objects(predicate=CSVW.url))
+    return file_uri_to_path(url)
+
+
+def get_broker_and_topic(graph: Graph) -> tuple[str, str]:
+    target = next(graph.objects(predicate=HCTL.hasTarget))
+    parsed = urlparse(str(target))
+    broker = f"{parsed.scheme}://{parsed.netloc}"
+    topic = parsed.path.lstrip("/")
+    return broker, topic
+
+
+def parse_datetime(literal) -> datetime:
+    return datetime.fromisoformat(str(literal).replace("Z", "+00:00"))
+
+
+def get_committed_until(graph: Graph) -> datetime:
+    value = next(graph.objects(predicate=TSS2.committedUntil))
+    return parse_datetime(value)
+
+
+def get_retention_starting_from(graph: Graph) -> datetime:
+    policy = next(graph.objects(predicate=LDES.retentionPolicy))
+    value = next(graph.objects(subject=policy, predicate=LDES.startingFrom))
+    return parse_datetime(value)
+
+
+def get_column_schema(graph: Graph) -> list[dict]:
+    schema = next(graph.objects(predicate=CSVW.tableSchema))
+    column_list_head = next(graph.objects(subject=schema, predicate=CSVW.column))
+    columns = []
+    for col in Collection(graph, column_list_head):
+        name = str(next(graph.objects(subject=col, predicate=CSVW.name)))
+        datatype = next(graph.objects(subject=col, predicate=CSVW.datatype))
+        columns.append({"name": name, "datatype": datatype})
+    return columns
+
+
+def load_csv(csv_path: Path, columns: list[dict]) -> list[dict]:
+    expected_names = [c["name"] for c in columns]
+    casters = {c["name"]: XSD_CASTERS.get(c["datatype"], str) for c in columns}
+
+    records = []
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        sample = f.read(2048)
+        f.seek(0)
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
+        reader = csv.DictReader(f, dialect=dialect)
+        if reader.fieldnames != expected_names:
+            print(f"WARNING: CSV header {reader.fieldnames} does not match "
+                  f"csvw:column order {expected_names}")
+        for row in reader:
+            records.append({name: casters[name](value) for name, value in row.items()})
+    return records
+
+
+def main():
+    graph = Graph()
+    graph.parse(TTL_PATH, format="turtle")
+
+    csv_path = get_csv_url(graph)
+    print(f"csvw:url resolves to: {csv_path}")
+
+    broker, topic = get_broker_and_topic(graph)
+    print(f"broker: {broker}")
+    print(f"topic:  {topic}")
+
+    committed_until = get_committed_until(graph)
+    print(f"TSS2:committedUntil: {committed_until}")
+
+    starting_from = get_retention_starting_from(graph)
+    print(f"ldes:startingFrom:   {starting_from}")
+
+    columns = get_column_schema(graph)
+    print(f"columns: {[c['name'] for c in columns]}")
+
+    records = load_csv(csv_path, columns)
+    print(f"loaded {len(records)} records, first 5:")
+    for record in records[:5]:
+        print(record)
+
+
+if __name__ == "__main__":
+    main()
