@@ -139,13 +139,14 @@ def listen_for_latest(host: str, port: int, topic: str) -> None:
         client.subscribe(topic)
 
     def on_message(client, userdata, msg):
+        size_bytes = len(msg.payload)
         try:
             records = parse_senml_payload(msg.payload)
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
             print(f"Could not parse SenML JSON on [{msg.topic}]: {msg.payload!r} ({e})")
             return
         for record in records:
-            print(f"Latest point via MQTT [{msg.topic}]: "
+            print(f"Latest point via MQTT [{msg.topic}] ({size_bytes} bytes): "
                   f"name={record['name']} time={record['time']} "
                   f"value={record['value']} unit={record['unit']}")
 

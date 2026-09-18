@@ -149,8 +149,9 @@ def listen_for_latest(host: str, port: int, topic: str) -> None:
         client.subscribe(topic)
 
     def on_message(client, userdata, msg):
+        size_bytes = len(msg.payload)
         print(f"Latest point via MQTT [{msg.topic}] "
-              f"(CBOR, {len(msg.payload)} bytes): {msg.payload.hex()}")
+              f"(CBOR, {size_bytes} bytes): {msg.payload.hex()}")
         try:
             records = parse_senml_cbor_payload(msg.payload)
         except cbor2.CBORDecodeError as e:
@@ -158,7 +159,7 @@ def listen_for_latest(host: str, port: int, topic: str) -> None:
             return
         for record in records:
             readable_time = datetime.fromtimestamp(record["time"], tz=timezone.utc)
-            print(f"  decoded: name={record['name']} time={readable_time} "
+            print(f"  decoded ({size_bytes} bytes): name={record['name']} time={readable_time} "
                   f"value={record['value']}")
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
