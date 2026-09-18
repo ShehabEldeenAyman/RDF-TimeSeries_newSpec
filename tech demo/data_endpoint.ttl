@@ -16,7 +16,7 @@
 TSS2:ID a TSS2:Snippet, csvw:Table ;
     csvw:url <../data/sample_data.csv> ;
     TSS2:mutable true ;
-    TSS2:committedUntil "2026-09-16T23:00:00Z"^^xsd:dateTime ;
+    TSS2:committedUntil "2026-09-18T06:49:30Z"^^xsd:dateTime ;
     TSS2:producedBy ex:system1 ;
     ldes:retentionPolicy [ 
         ldes:startingFrom "2026-01-01T00:00:00Z"^^xsd:dateTime
@@ -25,7 +25,7 @@ TSS2:ID a TSS2:Snippet, csvw:Table ;
     td:isObservable true ;
     td:hasForm [
         a hctl:Form ;
-        hctl:hasTarget <test.mosquitto.org/example/sensors/temperature> ;
+        hctl:hasTarget <mqtt://test.mosquitto.org/example/sensors/temperature> ;
         hctl:hasOperationType td:observeProperty
     ] ;
 

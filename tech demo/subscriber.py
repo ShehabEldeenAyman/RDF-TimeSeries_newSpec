@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 import csv
 
+import paho.mqtt.client as mqtt
 from rdflib import Graph, Namespace
 from rdflib.collection import Collection
 from rdflib.namespace import XSD
@@ -46,12 +47,15 @@ def get_csv_url(graph: Graph) -> Path:
     return file_uri_to_path(url)
 
 
-def get_broker_and_topic(graph: Graph) -> tuple[str, str]:
+def get_broker_and_topic(graph: Graph) -> tuple[str, int, str]:
+    """Returns (host, port, topic), parsed from hctl:hasTarget so the actual
+    MQTT connection is driven by the spec, not hardcoded."""
     target = next(graph.objects(predicate=HCTL.hasTarget))
     parsed = urlparse(str(target))
-    broker = f"{parsed.scheme}://{parsed.netloc}"
+    host = parsed.hostname
+    port = parsed.port or 1883
     topic = parsed.path.lstrip("/")
-    return broker, topic
+    return host, port, topic
 
 
 def parse_datetime(literal) -> datetime:
@@ -98,6 +102,26 @@ def load_csv(csv_path: Path, columns: list[dict]) -> list[dict]:
     return records
 
 
+def listen_for_latest(host: str, port: int, topic: str) -> None:
+    def on_connect(client, userdata, flags, reason_code, properties):
+        print(f"Connected to {host}:{port} (result code {reason_code}), subscribing to {topic}")
+        client.subscribe(topic)
+
+    def on_message(client, userdata, msg):
+        print(f"Latest point via MQTT [{msg.topic}]: {msg.payload.decode()}")
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    client.connect(host, port, keepalive=60)
+    print("Listening for live updates (Ctrl+C to stop)...")
+    try:
+        client.loop_forever()
+    except KeyboardInterrupt:
+        client.disconnect()
+
+
 def main():
     graph = Graph()
     graph.parse(TTL_PATH, format="turtle")
@@ -105,8 +129,8 @@ def main():
     csv_path = get_csv_url(graph)
     print(f"csvw:url resolves to: {csv_path}")
 
-    broker, topic = get_broker_and_topic(graph)
-    print(f"broker: {broker}")
+    host, port, topic = get_broker_and_topic(graph)
+    print(f"broker: mqtt://{host}:{port}")
     print(f"topic:  {topic}")
 
     committed_until = get_committed_until(graph)
@@ -119,9 +143,11 @@ def main():
     print(f"columns: {[c['name'] for c in columns]}")
 
     records = load_csv(csv_path, columns)
-    print(f"loaded {len(records)} records, first 5:")
+    print(f"loaded {len(records)} historical records, first 5:")
     for record in records[:5]:
         print(record)
+
+    listen_for_latest(host, port, topic)
 
 
 if __name__ == "__main__":
