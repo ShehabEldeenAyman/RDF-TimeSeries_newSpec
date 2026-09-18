@@ -8,12 +8,19 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
+import cbor2
 import paho.mqtt.client as mqtt
 from rdflib import Graph, Namespace
 from rdflib.collection import Collection
 
 TTL_PATH = Path(__file__).resolve().parent / "data_endpoint.ttl"
 JSON_CONTENT_TYPE = "application/senml+json"
+CBOR_CONTENT_TYPE = "application/senml+cbor"
+
+# SenML CBOR integer labels (RFC 8428) for the fields this publisher uses
+SENML_LABEL_NAME = 0
+SENML_LABEL_VALUE = 2
+SENML_LABEL_TIME = 6
 
 CSVW = Namespace("http://www.w3.org/ns/csvw#")
 TSS2 = Namespace("https://example.org/tss2#")
@@ -60,17 +67,11 @@ def get_columns(graph: Graph) -> tuple[list[str], str]:
     return columns, timestamp_col
 
 
-def sniff_dialect(csv_path: Path):
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        sample = f.read(2048)
-    return csv.Sniffer().sniff(sample, delimiters=",;\t")
-
-
 def append_row(csv_path: Path, columns: list[str], timestamp_col: str,
-               timestamp_str: str, value: float, dialect) -> None:
+               timestamp_str: str, value: float) -> None:
     row = [timestamp_str if name == timestamp_col else value for name in columns]
     with open(csv_path, "a", newline="", encoding="utf-8") as f:
-        csv.writer(f, dialect=dialect).writerow(row)
+        csv.writer(f).writerow(row)
 
 
 def update_committed_until(ttl_path: Path, new_timestamp: str) -> None:
@@ -90,7 +91,6 @@ def main():
     csv_path = get_csv_path(graph)
     columns, timestamp_col = get_columns(graph)
     value_col = next(name for name in columns if name != timestamp_col)
-    dialect = sniff_dialect(csv_path)
     print(f"Appending to: {csv_path}")
     print(f"Columns (in order): {columns}, timestamp column: {timestamp_col}")
 
@@ -98,6 +98,14 @@ def main():
     print(f"selected Form with hctl:forContentType={JSON_CONTENT_TYPE!r}")
     print(f"broker: mqtt://{host}:{port}")
     print(f"topic:  {topic}")
+
+    cbor_host, cbor_port, cbor_topic = get_form_target(graph, CBOR_CONTENT_TYPE)
+    print(f"selected Form with hctl:forContentType={CBOR_CONTENT_TYPE!r}")
+    print(f"broker: mqtt://{cbor_host}:{cbor_port}")
+    print(f"topic:  {cbor_topic}")
+    if (cbor_host, cbor_port) != (host, port):
+        print("WARNING: JSON and CBOR Forms point at different brokers - "
+              "this publisher only opens one MQTT connection, using the JSON broker.")
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.connect(host, port, keepalive=60)
@@ -109,14 +117,27 @@ def main():
             now = datetime.now(timezone.utc)
             timestamp_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-            append_row(csv_path, columns, timestamp_col, timestamp_str, value, dialect)
+            append_row(csv_path, columns, timestamp_col, timestamp_str, value)
             update_committed_until(TTL_PATH, timestamp_str)
 
             senml_record = {"n": value_col, "t": now.timestamp(), "v": value}
             payload = json.dumps(senml_record)
             client.publish(topic, payload=payload, qos=0)
             print(f"Published {payload} at {timestamp_str} to {topic}")
-            time.sleep(2)
+
+            # same data point, binary-compressed via SenML CBOR - published only,
+            # never written to the CSV (that's what append_row above already did)
+            cbor_record = {
+                SENML_LABEL_NAME: value_col,
+                SENML_LABEL_TIME: now.timestamp(),
+                SENML_LABEL_VALUE: value,
+            }
+            cbor_payload = cbor2.dumps(cbor_record)
+            client.publish(cbor_topic, payload=cbor_payload, qos=0)
+            print(f"Published (CBOR, {len(cbor_payload)} bytes) {cbor_payload.hex()} "
+                  f"at {timestamp_str} to {cbor_topic}")
+
+            time.sleep(5)
     except KeyboardInterrupt:
         client.loop_stop()
         client.disconnect()
