@@ -20,7 +20,7 @@ TSS2:ID a TSS2:Snippet, csvw:Table ;
     # handoff boundary between the CSV history above and the live channel below:
     # read CSV rows with timestamp <= committedUntil, accept live messages with t > committedUntil.
     TSS2:committedUntil "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
-    TSS2:producedBy ex:system1 ; #system or sensor producing the data
+    TSS2:producedBy ex:system1 ; #system or sensor producing the data 
     ldes:retentionPolicy [ # how far back can I get the data?
         ldes:startingFrom "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime
     ] ;
@@ -28,16 +28,23 @@ TSS2:ID a TSS2:Snippet, csvw:Table ;
     # ADDED: declares that this snippet can also be watched live, not just read as a file.
     td:isObservable true ;
     # ADDED: where/how to listen, and what action is offered at that address (subscribe).
-    td:hasForm [
-        a hctl:Form ;
-        hctl:hasTarget <mqtt://broker.example.org/system1/readings> ;
-        hctl:hasOperationType td:observeProperty
-    ] ;
-    # ADDED: declares the wire format of messages pushed over that channel.
-    # Each pushed record ({"n":"temperature_C","t":...,"v":...}) is bound back to the
-    # existing csvw:column entries below by matching "n" against csvw:name - no
-    # unit/meaning is repeated per message, it's only ever declared once, right here.
-    TSS2:liveEncoding TSS2:SenMLPack ;
+    # td:hasForm is repeatable - listing more than one Form here means "the same
+    # observable data, reachable multiple ways" - csvw:tableSchema below stays
+    # exactly as-is regardless of how many Forms are listed.
+    # hctl:forContentType is the machine-readable version of the comments below -
+    # it's what actually lets a parser pick a Form by encoding, not just guess from
+    # the URI scheme. Each pushed record ({"n":"temperature_C","t":...,"v":...}) is
+    # bound back to the existing csvw:column entries below by matching "n" against
+    # csvw:name - no unit/meaning is repeated per message, only declared once, here.
+    td:hasForm
+        [ a hctl:Form ;
+          hctl:hasTarget <mqtt://broker.example.org/system1/readings> ;
+          hctl:hasOperationType td:observeProperty ;
+          hctl:forContentType "application/senml+json" ] , # the normal reading stream
+        [ a hctl:Form ;
+          hctl:hasTarget <wss://broker.example.org/system1/readings> ;
+          hctl:hasOperationType td:observeProperty ;
+          hctl:forContentType "application/senml+cbor" ] ; # binary compressed version of the same stream
 
     csvw:tableSchema [
         a csvw:Schema ;

@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 import csv
+import json
 
 import paho.mqtt.client as mqtt
 from rdflib import Graph, Namespace
@@ -19,9 +20,11 @@ from rdflib.collection import Collection
 from rdflib.namespace import XSD
 
 TTL_PATH = Path(__file__).resolve().parent / "data_endpoint.ttl"
+JSON_CONTENT_TYPE = "application/senml+json"
 
 CSVW = Namespace("http://www.w3.org/ns/csvw#")
 TSS2 = Namespace("https://example.org/tss2#")
+TD = Namespace("https://www.w3.org/2019/wot/td#")
 HCTL = Namespace("https://www.w3.org/2019/wot/hypermedia#")
 LDES = Namespace("https://w3id.org/ldes#")
 
@@ -47,15 +50,43 @@ def get_csv_url(graph: Graph) -> Path:
     return file_uri_to_path(url)
 
 
-def get_broker_and_topic(graph: Graph) -> tuple[str, int, str]:
-    """Returns (host, port, topic), parsed from hctl:hasTarget so the actual
-    MQTT connection is driven by the spec, not hardcoded."""
-    target = next(graph.objects(predicate=HCTL.hasTarget))
-    parsed = urlparse(str(target))
-    host = parsed.hostname
-    port = parsed.port or 1883
-    topic = parsed.path.lstrip("/")
-    return host, port, topic
+def get_form_target(graph: Graph, content_type: str) -> tuple[str, int, str]:
+    """Finds the td:hasForm entry whose hctl:forContentType matches content_type
+    (there can be several Forms for the same data, e.g. JSON vs CBOR) and
+    returns (host, port, topic) parsed from that Form's hctl:hasTarget."""
+    for form in graph.objects(predicate=TD.hasForm):
+        form_content_type = next(graph.objects(subject=form, predicate=HCTL.forContentType), None)
+        if form_content_type is not None and str(form_content_type) == content_type:
+            target = next(graph.objects(subject=form, predicate=HCTL.hasTarget))
+            parsed = urlparse(str(target))
+            return parsed.hostname, parsed.port or 1883, parsed.path.lstrip("/")
+    raise ValueError(f"No td:hasForm found with hctl:forContentType {content_type!r}")
+
+
+def resolve_senml_record(record: dict, base: dict) -> dict:
+    """Applies SenML base-field inheritance (RFC 8428): bn/bt/bu declared in an
+    earlier record apply to every following record until overridden."""
+    return {
+        "name": base.get("bn", "") + record.get("n", ""),
+        "time": base.get("bt", 0) + record.get("t", 0),
+        "unit": record.get("u", base.get("bu")),
+        "value": record.get("v"),
+    }
+
+
+def parse_senml_payload(payload: bytes) -> list[dict]:
+    """A SenML Pack is a JSON array of records; a single reading may also
+    arrive as one bare record object rather than a one-element array."""
+    data = json.loads(payload.decode("utf-8"))
+    pack = data if isinstance(data, list) else [data]
+    base = {}
+    resolved = []
+    for record in pack:
+        for key in ("bn", "bt", "bu"):
+            if key in record:
+                base[key] = record[key]
+        resolved.append(resolve_senml_record(record, base))
+    return resolved
 
 
 def parse_datetime(literal) -> datetime:
@@ -108,7 +139,15 @@ def listen_for_latest(host: str, port: int, topic: str) -> None:
         client.subscribe(topic)
 
     def on_message(client, userdata, msg):
-        print(f"Latest point via MQTT [{msg.topic}]: {msg.payload.decode()}")
+        try:
+            records = parse_senml_payload(msg.payload)
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            print(f"Could not parse SenML JSON on [{msg.topic}]: {msg.payload!r} ({e})")
+            return
+        for record in records:
+            print(f"Latest point via MQTT [{msg.topic}]: "
+                  f"name={record['name']} time={record['time']} "
+                  f"value={record['value']} unit={record['unit']}")
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
@@ -129,7 +168,8 @@ def main():
     csv_path = get_csv_url(graph)
     print(f"csvw:url resolves to: {csv_path}")
 
-    host, port, topic = get_broker_and_topic(graph)
+    host, port, topic = get_form_target(graph, JSON_CONTENT_TYPE)
+    print(f"selected Form with hctl:forContentType={JSON_CONTENT_TYPE!r}")
     print(f"broker: mqtt://{host}:{port}")
     print(f"topic:  {topic}")
 

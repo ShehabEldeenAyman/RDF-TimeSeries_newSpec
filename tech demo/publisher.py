@@ -1,4 +1,5 @@
 import csv
+import json
 import re
 import time
 import random
@@ -11,14 +12,27 @@ import paho.mqtt.client as mqtt
 from rdflib import Graph, Namespace
 from rdflib.collection import Collection
 
-BROKER = "test.mosquitto.org"
-PORT = 1883
-TOPIC = "example/sensors/temperature"
-
 TTL_PATH = Path(__file__).resolve().parent / "data_endpoint.ttl"
+JSON_CONTENT_TYPE = "application/senml+json"
 
 CSVW = Namespace("http://www.w3.org/ns/csvw#")
 TSS2 = Namespace("https://example.org/tss2#")
+TD = Namespace("https://www.w3.org/2019/wot/td#")
+HCTL = Namespace("https://www.w3.org/2019/wot/hypermedia#")
+
+
+def get_form_target(graph: Graph, content_type: str) -> tuple[str, int, str]:
+    """Finds the td:hasForm entry whose hctl:forContentType matches content_type
+    and returns (host, port, topic) parsed from that Form's hctl:hasTarget -
+    so the publisher only ever sends to the endpoint the spec actually declares
+    for this encoding, never a hardcoded broker/topic."""
+    for form in graph.objects(predicate=TD.hasForm):
+        form_content_type = next(graph.objects(subject=form, predicate=HCTL.forContentType), None)
+        if form_content_type is not None and str(form_content_type) == content_type:
+            target = next(graph.objects(subject=form, predicate=HCTL.hasTarget))
+            parsed = urlparse(str(target))
+            return parsed.hostname, parsed.port or 1883, parsed.path.lstrip("/")
+    raise ValueError(f"No td:hasForm found with hctl:forContentType {content_type!r}")
 
 
 def file_uri_to_path(uri) -> Path:
@@ -75,24 +89,33 @@ def main():
 
     csv_path = get_csv_path(graph)
     columns, timestamp_col = get_columns(graph)
+    value_col = next(name for name in columns if name != timestamp_col)
     dialect = sniff_dialect(csv_path)
     print(f"Appending to: {csv_path}")
     print(f"Columns (in order): {columns}, timestamp column: {timestamp_col}")
 
+    host, port, topic = get_form_target(graph, JSON_CONTENT_TYPE)
+    print(f"selected Form with hctl:forContentType={JSON_CONTENT_TYPE!r}")
+    print(f"broker: mqtt://{host}:{port}")
+    print(f"topic:  {topic}")
+
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.connect(BROKER, PORT, keepalive=60)
+    client.connect(host, port, keepalive=60)
     client.loop_start()  # runs network loop in background thread
 
     try:
         while True:
             value = round(random.uniform(18.0, 25.0), 2)
-            timestamp_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            now = datetime.now(timezone.utc)
+            timestamp_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
 
             append_row(csv_path, columns, timestamp_col, timestamp_str, value, dialect)
             update_committed_until(TTL_PATH, timestamp_str)
 
-            client.publish(TOPIC, payload=str(value), qos=0)
-            print(f"Published {value} at {timestamp_str} to {TOPIC}")
+            senml_record = {"n": value_col, "t": now.timestamp(), "v": value}
+            payload = json.dumps(senml_record)
+            client.publish(topic, payload=payload, qos=0)
+            print(f"Published {payload} at {timestamp_str} to {topic}")
             time.sleep(2)
     except KeyboardInterrupt:
         client.loop_stop()
