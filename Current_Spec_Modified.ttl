@@ -19,7 +19,7 @@ TSS2:ID a TSS2:Snippet, csvw:Table ;
     # committedUntil is unchanged as a property, but its role is now also the exact
     # handoff boundary between the CSV history above and the live channel below:
     # read CSV rows with timestamp <= committedUntil, accept live messages with t > committedUntil.
-    TSS2:committedUntil "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ;
+    TSS2:committedUntil "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime ; # Will probably be removed from the spec
     TSS2:producedBy ex:system1 ; #system or sensor producing the data 
     ldes:retentionPolicy [ # how far back can I get the data?
         ldes:startingFrom "yyyy-mm-ddThh:mm:ssZ"^^xsd:dateTime
