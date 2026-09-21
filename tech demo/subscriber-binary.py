@@ -59,32 +59,39 @@ def get_csv_url(graph: Graph) -> Path:
     return file_uri_to_path(url)
 
 
-def get_form_target(graph: Graph, content_type: str) -> tuple[str, int, str]:
+def get_form_target(graph: Graph, content_type: str) -> tuple[str, int, str, object]:
     """Finds the td:hasForm entry whose hctl:forContentType matches content_type
     (there can be several Forms for the same data, e.g. JSON vs CBOR) and
-    returns (host, port, topic) parsed from that Form's hctl:hasTarget."""
+    returns (host, port, topic, sequence_field) parsed from that Form's
+    hctl:hasTarget/TSS2:sequenceField. sequence_field comes back as the int
+    CBOR label declared for this Form (e.g. 100), not a field name."""
     for form in graph.objects(predicate=TD.hasForm):
         form_content_type = next(graph.objects(subject=form, predicate=HCTL.forContentType), None)
         if form_content_type is not None and str(form_content_type) == content_type:
             target = next(graph.objects(subject=form, predicate=HCTL.hasTarget))
             parsed = urlparse(str(target))
-            return parsed.hostname, parsed.port or 1883, parsed.path.lstrip("/")
+            seq_field = next(graph.objects(subject=form, predicate=TSS2.sequenceField), None)
+            seq_field = seq_field.toPython() if seq_field is not None else None
+            return parsed.hostname, parsed.port or 1883, parsed.path.lstrip("/"), seq_field
     raise ValueError(f"No td:hasForm found with hctl:forContentType {content_type!r}")
 
 
-def resolve_senml_cbor_record(record: dict, base: dict) -> dict:
+def resolve_senml_cbor_record(record: dict, base: dict, seq_field: int) -> dict:
     """Applies SenML base-field inheritance (RFC 8428), using the CBOR integer
     labels instead of the JSON string keys: base fields declared in an earlier
-    record apply to every following record until overridden."""
+    record apply to every following record until overridden. seq_field is the
+    TSS2:sequenceField label declared for this Form - not a standard SenML
+    label, just read straight off the record."""
     return {
         "name": base.get(SENML_LABEL_BASE_NAME, "") + record.get(SENML_LABEL_NAME, ""),
         "time": base.get(SENML_LABEL_BASE_TIME, 0) + record.get(SENML_LABEL_TIME, 0),
         "unit": record.get(SENML_LABEL_UNIT, base.get(SENML_LABEL_BASE_UNIT)),
         "value": record.get(SENML_LABEL_VALUE),
+        "seq": record.get(seq_field),
     }
 
 
-def parse_senml_cbor_payload(payload: bytes) -> list[dict]:
+def parse_senml_cbor_payload(payload: bytes, seq_field: int) -> list[dict]:
     """A SenML Pack is a CBOR array of records; a single reading may also
     arrive as one bare record map rather than a one-element array."""
     data = cbor2.loads(payload)
@@ -95,7 +102,7 @@ def parse_senml_cbor_payload(payload: bytes) -> list[dict]:
         for key in (SENML_LABEL_BASE_NAME, SENML_LABEL_BASE_TIME, SENML_LABEL_BASE_UNIT):
             if key in record:
                 base[key] = record[key]
-        resolved.append(resolve_senml_cbor_record(record, base))
+        resolved.append(resolve_senml_cbor_record(record, base, seq_field))
     return resolved
 
 
@@ -143,24 +150,49 @@ def load_csv(csv_path: Path, columns: list[dict]) -> list[dict]:
     return records
 
 
-def listen_for_latest(host: str, port: int, topic: str) -> None:
+def count_csv_rows(csv_path: Path) -> int:
+    """Number of data rows already in the CSV (header excluded) - used only to
+    establish where live sequence numbering should start from; unlike
+    load_csv(), this never loads full historic records into memory."""
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        return sum(1 for _ in csv.reader(f)) - 1
+
+
+def listen_for_latest(host: str, port: int, topic: str, seq_field: int, start_seq: int) -> None:
+    last_seq = start_seq
+    is_first_reading = True
+
     def on_connect(client, userdata, flags, reason_code, properties):
         print(f"Connected to {host}:{port} (result code {reason_code}), subscribing to {topic}")
         client.subscribe(topic)
 
     def on_message(client, userdata, msg):
+        nonlocal last_seq, is_first_reading
         size_bytes = len(msg.payload)
         print(f"Latest point via MQTT [{msg.topic}] "
               f"(CBOR, {size_bytes} bytes): {msg.payload.hex()}")
         try:
-            records = parse_senml_cbor_payload(msg.payload)
+            records = parse_senml_cbor_payload(msg.payload, seq_field)
         except cbor2.CBORDecodeError as e:
             print(f"Could not parse SenML CBOR on [{msg.topic}]: {msg.payload!r} ({e})")
             return
         for record in records:
+            seq = record["seq"]
+            mismatch_note = ""
+            if seq is not None and last_seq is not None and seq != last_seq + 1:
+                missing = seq - last_seq - 1
+                if is_first_reading:
+                    mismatch_note = (f" [SEQUENCE NUMBER MISMATCH: CSV ends at seq {last_seq}, "
+                                      f"first live reading is seq {seq} - missing {missing} reading(s)]")
+                else:
+                    mismatch_note = (f" [SEQUENCE NUMBER MISMATCH: expected seq {last_seq + 1}, "
+                                      f"got {seq} - missing {missing} reading(s)]")
+            if seq is not None:
+                last_seq = seq
+            is_first_reading = False
             readable_time = datetime.fromtimestamp(record["time"], tz=timezone.utc)
             print(f"  decoded ({size_bytes} bytes): name={record['name']} time={readable_time} "
-                  f"value={record['value']}")
+                  f"value={record['value']} seq={seq}{mismatch_note}")
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
@@ -181,10 +213,11 @@ def main():
     csv_path = get_csv_url(graph)
     print(f"csvw:url resolves to: {csv_path}")
 
-    host, port, topic = get_form_target(graph, CBOR_CONTENT_TYPE)
+    host, port, topic, seq_field = get_form_target(graph, CBOR_CONTENT_TYPE)
     print(f"selected Form with hctl:forContentType={CBOR_CONTENT_TYPE!r}")
     print(f"broker: mqtt://{host}:{port}")
     print(f"topic:  {topic}")
+    print(f"sequence field: {seq_field!r}")
 
     committed_until = get_committed_until(graph)
     print(f"TSS2:committedUntil: {committed_until}")
@@ -203,7 +236,10 @@ def main():
     # for record in records[:5]:
     #     print(record)
 
-    listen_for_latest(host, port, topic)
+    start_seq = count_csv_rows(csv_path)
+    print(f"CSV has {start_seq} historic row(s) - expecting first live seq to be {start_seq + 1}")
+
+    listen_for_latest(host, port, topic, seq_field, start_seq)
 
 
 if __name__ == "__main__":
