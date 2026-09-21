@@ -137,7 +137,7 @@ def main():
             print(f"Published (CBOR, {len(cbor_payload)} bytes) {cbor_payload.hex()} "
                   f"at {timestamp_str} to {cbor_topic}")
 
-            time.sleep(5)
+            time.sleep(60)
     except KeyboardInterrupt:
         client.loop_stop()
         client.disconnect()

@@ -40,11 +40,21 @@ TSS2:ID a TSS2:Snippet, csvw:Table ;
         [ a hctl:Form ;
           hctl:hasTarget <mqtt://broker.example.org/system1/readings> ;
           hctl:hasOperationType td:observeProperty ;
-          hctl:forContentType "application/senml+json" ] , # the normal reading stream
+          hctl:forContentType "application/senml+json" ;
+          # ADDED: names the field that carries a running sequence number on each
+          # live message, continuing from the historic CSV's row count. Lets a
+          # subscriber detect a dropped or out-of-order message (MQTT qos=0 gives
+          # no delivery guarantee, so this is the only way to notice a gap).
+          TSS2:sequenceField "seq" ] , # the normal reading stream. Actual number will be published by the publisher. Spec file does not having to append that number. 
         [ a hctl:Form ;
           hctl:hasTarget <wss://broker.example.org/system1/readings> ;
           hctl:hasOperationType td:observeProperty ;
-          hctl:forContentType "application/senml+cbor" ] ; # binary compressed version of the same stream
+          hctl:forContentType "application/senml+cbor" ;
+          # ADDED: same sequence number, but SenML CBOR identifies fields by
+          # integer label rather than name - 100 is outside RFC 8428's reserved
+          # label range, marking it as a TSS2-specific extension field.
+          TSS2:sequenceField 100 ] ; # binary compressed version of the same stream
+          #The SenML spec reserves small numbers for its own standard fields (name, unit, value, time, etc.). This number is outside its reserved range.
 
     csvw:tableSchema [
         a csvw:Schema ;

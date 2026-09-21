@@ -16,7 +16,7 @@
 TSS2:ID a TSS2:Snippet, csvw:Table ;
     csvw:url <../data/sample_data.csv> ;
     TSS2:mutable true ;
-    TSS2:committedUntil "2026-09-18T09:16:21Z"^^xsd:dateTime ;
+    TSS2:committedUntil "2026-09-21T06:51:26Z"^^xsd:dateTime ;
     TSS2:producedBy ex:system1 ;
     ldes:retentionPolicy [ 
         ldes:startingFrom "2026-01-01T00:00:00Z"^^xsd:dateTime
