@@ -1,0 +1,232 @@
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix TSS2: <https://example.org/tss2#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
+@prefix wdrs: <http://www.w3.org/2007/05/powder-s#> .
+# ADDED: two new prefixes for the live-channel additions (both real W3C WoT vocabularies, reused as-is)
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+
+# The physical table: one CSV file holding several time series. How to parse it
+# (dialect, columns, datatypes) is described in its CSVW metadata; the properties
+# below apply to every snippet that reads from this table.
+ex:factory-conductivity-table a csvw:Table ;
+    csvw:url <../data/factory_conductivity.csv> ;
+    wdrs:describedby <../data/factory_conductivity.csv-metadata.json> ; # same relation CSVW uses for rel="describedby" discovery
+    TSS2:mutable false ;
+    TSS2:committedUntil "2025-12-31T23:45:00Z"^^xsd:dateTime ;
+    TSS2:producedBy ex:system1 ;
+    TSS2:startingFrom "2025-01-01T00:00:00Z"^^xsd:dateTime .
+
+# One snippet per time series, i.e. per value column of the table. Expanding a
+# snippet (as in TSS v1, section 3.2) turns each non-empty cell of valueColumn
+# into a resource of tss:pointType, with the timeColumn value on tss:timePath,
+# the cell value on tss:valuePath (datatypes from the CSVW metadata), plus the
+# triples of the tss:about template. Sensors (ex:sensor-*) are described in the
+# domain knowledge graph.
+
+ex:snippet-ro1_a_permeate_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "RO1 train A permeate conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "ro1_a_permeate_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-ro1_a_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-ro1_b_permeate_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "RO1 train B permeate conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "ro1_b_permeate_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-ro1_b_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-ro1_c_permeate_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "RO1 train C permeate conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "ro1_c_permeate_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-ro1_c_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-ro2_a_permeate_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "RO2 train A permeate conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "ro2_a_permeate_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-ro2_a_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-ro2_b_permeate_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "RO2 train B permeate conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "ro2_b_permeate_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-ro2_b_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-cooling_water_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "Cooling water conductivity (including drinking-water blend), 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "cooling_water_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-cooling_water ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-boiler_feed_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "Boiler feed water conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "boiler_feed_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-boiler_feed ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-boiler_water_delivery_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "Delivered boiler water conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "boiler_water_delivery_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-boiler_water_delivery ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-dockwater_blowdown_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "Dock water and blowdown conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "dockwater_blowdown_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-dockwater_blowdown ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+ex:snippet-venturi_reject_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "Venturi reject conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "venturi_reject_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-venturi_reject ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    qudt:hasUnit unit:MicroS-PER-CentiM .
+
+# The three RO1D/E feed series have no qudt:hasUnit: the source labels them m3/h,
+# which is not a conductivity unit, so their unit is still to be confirmed.
+
+ex:snippet-ro1de_feed_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "RO1D+E combined feed conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "ro1de_feed_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-ro1de_feed ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en .
+
+ex:snippet-ro1d_feed_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "RO1D feed conductivity (after chemical injection), 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "ro1d_feed_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-ro1d_feed ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en .
+
+ex:snippet-ro1e_feed_conductivity-2025 a TSS2:Snippet ;
+    rdfs:label "RO1E feed conductivity, 2025"@en ;
+    TSS2:table ex:factory-conductivity-table ;
+    TSS2:timeColumn "datetime" ;
+    TSS2:valueColumn "ro1e_feed_conductivity" ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:pointType sosa:Observation ;
+    tss:timePath sosa:resultTime ;
+    tss:valuePath sosa:hasSimpleResult ;
+    tss:about [ a tss:PointTemplate ;
+        sosa:madeBySensor ex:sensor-ro1e_feed ;
+        sosa:observedProperty quantitykind:ElectricConductivity ] ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en .
