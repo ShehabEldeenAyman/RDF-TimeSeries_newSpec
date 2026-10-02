@@ -1,3 +1,6 @@
+import { useState } from 'react'
+
+
 export const timeSeriesData = [
   {
     id: 'https://example.org/ex#snippet-grootdok-ec20',
@@ -37,18 +40,31 @@ export const timeSeriesData = [
   },
 ]
 
-export function TimeseriesList({timeSeriesData}){
+export function TimeseriesListItem({itemId}){
+    const item = timeSeriesData.find(item => item.id === itemId);
+    return(
+        <div>
+          <h2>{item.stationName}</h2>,
+          <h2>{item.tsId}</h2>,
+          <h2>{item.unit}</h2>,
+          <h2>{item.from}</h2>,
+          <h2>{item.until}</h2>,
+        </div>
+    )
+}
+
+export function TimeseriesList({timeSeriesData, onSelect,selectedId}){
       return (
     <ul>
       {timeSeriesData.map((item) => (
-        <li key={item.id}>
-          <strong>{item.label}</strong>
-          <br />
+        <li key={item.id} onClick={()=>onSelect(item.id)} style={{cursor: 'pointer', fontWeight: item.id === selectedId? 'bold':'normal'}}>
+          {item.label}
+          {/* <br />
           {item.stationName},
           {item.tsId},
           {item.unit},
           {item.from},
-          {item.until},
+          {item.until}, */}
         </li>
       ))}
     </ul>
