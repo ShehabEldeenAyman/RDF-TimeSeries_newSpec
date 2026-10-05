@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState,useEffect  } from 'react'
 
 
 export const timeSeriesData = [
@@ -69,4 +69,26 @@ export function TimeseriesList({timeSeriesData, onSelect,selectedId}){
       ))}
     </ul>
   )
+}
+
+export function FetchTimeseriesList({message, setMessage,error, setError}){
+  useEffect(()=>{
+    fetch('http://localhost:8000/series').then((response)=>{
+      return response.json()
+    })
+    .then((data)=>setMessage(data))
+    .catch((err) => setError(err.error))
+  },[])
+
+    if (message === null) return <p>Loading…</p>
+
+
+  return(
+     <ul>
+    {message.map((s) => (
+      <li key={s.id}>{s.label} ({s.tsId})</li>
+    ))}
+  </ul>
+  );
+
 }
