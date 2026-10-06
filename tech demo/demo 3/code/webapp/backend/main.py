@@ -354,39 +354,118 @@ def parse_time(text):
     return value
 
 
+def load_csvw_json(described_by):
+    """The CSVW file as a Python dict. Raises ValueError when it can't be used."""
+    try:
+        metadata = json.loads(read_text(described_by))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"The CSVW file {described_by} is not valid JSON: {error}")
+    schema = metadata.get("tableSchema") if isinstance(metadata, dict) else None
+    if not isinstance(schema, dict) or not isinstance(schema.get("columns"), list):
+        raise ValueError(f"The CSVW file {described_by} has no tableSchema with a list of columns in it")
+    for column in schema["columns"]:
+        if not isinstance(column, dict) or "name" not in column:
+            raise ValueError(f"The CSVW file {described_by} has a column without a name")
+    return metadata
+
+
+def titles_of(column):
+    """Every CSV header the CSVW file accepts for a column. "titles" can be a text,
+    a list of texts, or one per language ({"en": "Value", "nl": "Waarde"}).
+    Without titles, the header is the column's name."""
+    titles = column.get("titles", column["name"])
+    if isinstance(titles, str):
+        return [titles]
+    result = []
+    if isinstance(titles, list):
+        for title in titles:
+            result.append(str(title))
+    if isinstance(titles, dict):
+        for value in titles.values():
+            if isinstance(value, list):
+                for title in value:
+                    result.append(str(title))
+            else:
+                result.append(str(value))
+    if len(result) == 0:
+        result.append(column["name"])
+    return result
+
+
+def null_values(metadata, column):
+    """The texts that mean "no value" in a column (CSVW "null"), e.g. ["", "NA"].
+    The column's own setting wins, then the tableSchema's, then the table's."""
+    for source in [column, metadata["tableSchema"], metadata]:
+        if "null" in source:
+            value = source["null"]
+            return value if isinstance(value, list) else [value]
+    return [""]
+
+
 def read_csvw(described_by):
     """Read a CSVW file. Returns (delimiter, headers), where headers maps every
     column name (what TSS2 uses, e.g. "timestamp") to its CSV header (e.g. "Timestamp").
     Returns None when there is no such file."""
     if not file_exists(described_by):
         return None
+    try:
+        metadata = load_csvw_json(described_by)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
-    metadata = json.loads(read_text(described_by))
-    delimiter = metadata.get("dialect", {}).get("delimiter", ",")
+    dialect = metadata.get("dialect", {})
+    delimiter = dialect.get("delimiter", ",") if isinstance(dialect, dict) else ","
     headers = {}
     for column in metadata["tableSchema"]["columns"]:
-        headers[column["name"]] = column.get("titles", column["name"])
+        headers[column["name"]] = titles_of(column)[0]
     return delimiter, headers
 
 
 def csvw_columns(described_by):
-    """The columns of a CSVW file, in CSV order: [{"name", "header", "datatype"}],
-    plus the delimiter and whether the CSV starts with a header line.
-    Returns None when there is no such file."""
+    """What the SQL box needs from a CSVW file: the columns in CSV order
+    ({"name", "header", "titles", "datatype", "nulls"}) and how to read the CSV
+    (delimiter, quote, escape, skip, header, comment).
+    Returns {"error": "..."} when the file is missing or can't be used."""
     if not file_exists(described_by):
-        return None
-    metadata = json.loads(read_text(described_by))
+        return {"error": f"CSVW file not found: {described_by}"}
+    try:
+        metadata = load_csvw_json(described_by)
+    except ValueError as error:
+        return {"error": str(error)}
+
     dialect = metadata.get("dialect", {})
+    if not isinstance(dialect, dict):
+        dialect = {}  # a dialect that is a link to another file: we use the defaults
+    header_rows = dialect.get("headerRowCount", 1 if dialect.get("header", True) else 0)
+    if header_rows > 1:
+        return {"error": f"The CSVW file {described_by} says the CSV has {header_rows} header lines; "
+                         "the SQL box can only read files with one."}
+    quote = dialect.get("quoteChar", '"') or ""  # null means: no quoting at all
+
     columns = []
     for column in metadata["tableSchema"]["columns"]:
         if column.get("virtual"):
             continue  # a "virtual" column is not in the CSV file itself
+        titles = titles_of(column)
         columns.append({
             "name": column["name"],
-            "header": column.get("titles", column["name"]),
+            "header": titles[0],
+            "titles": titles,
             "datatype": column.get("datatype", "string"),
+            "nulls": null_values(metadata, column),
         })
-    return {"delimiter": dialect.get("delimiter", ","), "header": dialect.get("header", True), "columns": columns}
+
+    return {
+        "error": None,
+        "delimiter": dialect.get("delimiter", ","),
+        "quote": quote,
+        # doubleQuote (the default): a quote inside a quoted value is written twice ""
+        "escape": quote if dialect.get("doubleQuote", True) else "\\",
+        "skip": dialect.get("skipRows", 0),
+        "header": header_rows == 1,
+        "comment": dialect.get("commentPrefix"),
+        "columns": columns,
+    }
 
 
 def get_endpoint_info(endpoint_id):
@@ -1184,6 +1263,8 @@ def sql_tables(info):
     tables = []
     by_table = {}  # csvw:Table IRI -> its entry in tables
     for snippet in info["snippets"]:
+        if snippet["table"] is None:
+            continue  # a snippet without a table (e.g. not in any group) has no CSV to load
         if snippet["table"] not in by_table:
             taken = []
             for table in tables:
@@ -1203,11 +1284,15 @@ def sql_tables(info):
 
     for table in tables:
         csvw = csvw_columns(table["csvw"])
-        if csvw is None:
-            table["error"] = f"CSVW file not found: {table['csvw']}"
+        if csvw["error"] is not None:
+            table["error"] = csvw["error"]
             continue
-        table["delimiter"] = csvw["delimiter"]
-        table["header"] = csvw["header"]
+        if not file_exists(table["file"]):
+            table["error"] = f"CSV file not found: {table['file']}"
+            continue
+        # How to read the CSV, from the CSVW dialect
+        for key in ["delimiter", "quote", "escape", "skip", "header", "comment"]:
+            table[key] = csvw[key]
         for column in csvw["columns"]:
             # What does TSS2 say about this column?
             role = None
@@ -1220,6 +1305,8 @@ def sql_tables(info):
             table["columns"].append({
                 "name": column["name"],
                 "header": column["header"],
+                "titles": column["titles"],
+                "nulls": column["nulls"],
                 "type": sql_box.duckdb_type(column["datatype"]),
                 "role": role,
             })
@@ -1270,26 +1357,31 @@ def run_sql(endpoint_id, query: SqlQuery):
     """Run one read-only SQL query with DuckDB on the CSV files of this endpoint"""
     info = get_endpoint_info(endpoint_id)
 
-    # 1. The tables to load: every CSV file of the endpoint, as a file on this computer
+    # 1. The tables to load: every CSV file of the endpoint, as a file on this computer.
+    #    A table that can't be made (e.g. its CSVW file is missing) is skipped:
+    #    the other tables and the snippets table still work.
     tables = []
+    skipped = []
+    table_names = {}  # csvw:Table IRI -> SQL table name, for the snippets table
     for table in sql_tables(info):
+        table_names[table["rdf"]] = table["name"]
         if table["error"] is not None:
-            raise HTTPException(status_code=404, detail=f"Can't make table {table['name']}: {table['error']}")
-        if not file_exists(table["file"]):
-            raise HTTPException(status_code=404, detail=f"CSV file not found: {table['file']}")
+            skipped.append({"name": table["name"], "error": table["error"]})
+            continue
         tables.append({
             "name": table["name"],
             "file": table["file"],
             "path": local_copy(table["file"]).as_posix(),
             "delimiter": table["delimiter"],
+            "quote": table["quote"],
+            "escape": table["escape"],
+            "skip": table["skip"],
             "header": table["header"],
+            "comment": table["comment"],
             "columns": table["columns"],
         })
 
     # 2. The TSS2 metadata, one row per snippet, for the "snippets" table
-    table_names = {}
-    for table in sql_tables(info):
-        table_names[table["rdf"]] = table["name"]
     snippet_rows = []
     for s in info["snippets"]:
         snippet_rows.append({
@@ -1308,13 +1400,20 @@ def run_sql(endpoint_id, query: SqlQuery):
 
     # 3. Load, lock, run, throw away
     try:
-        con = sql_box.open_database(tables, snippet_rows)
+        con, not_loaded = sql_box.open_database(tables, snippet_rows)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+    skipped = skipped + not_loaded  # tables without a CSVW file + CSV files that don't match theirs
     try:
-        return sql_box.run_query(con, query.sql)
+        result = sql_box.run_query(con, query.sql)
+        result["skipped"] = skipped  # the tables that could not be loaded, and why
+        return result
     except (ValueError, sql_box.duckdb.Error) as error:
-        # a mistake in the query: show DuckDB's own message, it says what is wrong
-        raise HTTPException(status_code=400, detail=str(error))
+        # a mistake in the query: show DuckDB's own message, it says what is wrong.
+        # If a table was not loaded, say so too: that may be why the query fails.
+        message = str(error)
+        for table in skipped:
+            message += f"\n(Table {table['name']} was not loaded: {table['error']})"
+        raise HTTPException(status_code=400, detail=message)
     finally:
         con.close()

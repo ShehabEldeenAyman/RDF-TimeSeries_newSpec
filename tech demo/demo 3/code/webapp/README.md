@@ -68,7 +68,13 @@ If the backend runs into an error, the page shows the error message itself (it s
 each CSV file in as one table (names and types from the CSVW file), adds the `snippets` table, locks the database
 (no reading or writing files, no internet, no extensions, settings can't be changed back), runs the query and throws
 the database away. Only one `SELECT` is allowed (also `WITH ...`, `DESCRIBE`, `SUMMARIZE`, `SHOW TABLES`), at most
-1000 rows come back, and a query is stopped after 30 seconds.
+1000 rows and about 5 MB come back, and a query is stopped after 30 seconds.
+
+The CSVW file decides how a CSV is read; DuckDB guesses nothing. The delimiter, quote character, `skipRows`,
+`commentPrefix` and `null` values come from the CSVW dialect and columns. The header line must match the CSVW column
+titles, in the same order. Every value must fit its CSVW datatype: a timestamp without seconds, or `1.5` in a
+whole-number column, is an error, not a silent NULL. A CSV that doesn't match its CSVW file is skipped, with the
+reason shown; the other tables and the `snippets` table still work.
 
 **`main.py`** holds everything else, in this order:
 

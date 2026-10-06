@@ -129,6 +129,12 @@ function SqlResult({ result }) {
         {result.moreRows && ' (there are more: add a LIMIT, or a WHERE, to see the ones you want)'}
       </h3>
       <p className="muted small">Ran in {result.seconds} s</p>
+      {result.skipped.length > 0 && (
+        <p className="error small long-text">
+          Not loaded (so not in this query):{' '}
+          {result.skipped.map((table) => `${table.name}: ${table.error}`).join('; ')}
+        </p>
+      )}
       <div className="table-scroll">
         <table className="data">
           <thead>
