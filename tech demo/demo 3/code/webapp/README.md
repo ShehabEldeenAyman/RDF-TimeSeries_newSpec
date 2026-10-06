@@ -10,6 +10,7 @@ Pick a data source in the drop down, then use the tabs:
 | Files | The CSV the endpoint points to with `csvw:url` (first 20 lines) and the CSVW file it points to with `wdrs:describedby`. Each has a download icon for the whole file |
 | CSVW validation | Runs the `csvw` Python validator on the CSV and its CSVW file |
 | Query | A guided form for one time series: a time range, a value range, a filter on another column (for example the quality code), and every reading or one value per hour or day (mean, min or max). It also shows summary numbers (count, mean, min, max, empty cells) and the gaps in the data |
+| SQL (DuckDB) | Read-only SQL on the CSV files: one table per CSV file, with the column names and types from its CSVW file, plus a `snippets` table with the TSS2 metadata. Start from one of the examples |
 
 ## Running it
 
@@ -63,6 +64,12 @@ If the backend runs into an error, the page shows the error message itself (it s
 
 **`tss2.py`** holds the TSS2 inheritance rule, in one place: a snippet uses the value from its group's template, unless it states its own value. `resolve_with_source` applies the rule to one property and says where the value came from: `own`, `group`, `override` or `missing`.
 
+**`sql_box.py`** holds the SQL box (DuckDB). For every query it opens a new, empty DuckDB database in memory, copies
+each CSV file in as one table (names and types from the CSVW file), adds the `snippets` table, locks the database
+(no reading or writing files, no internet, no extensions, settings can't be changed back), runs the query and throws
+the database away. Only one `SELECT` is allowed (also `WITH ...`, `DESCRIBE`, `SUMMARIZE`, `SHOW TABLES`), at most
+1000 rows come back, and a query is stopped after 30 seconds.
+
 **`main.py`** holds everything else, in this order:
 
 1. **SPARQL queries.** `TABLE_QUERY` gets the table and the snippet template. `SNIPPETS_QUERY` gets one row per snippet.
@@ -85,6 +92,8 @@ If the backend runs into an error, the page shows the error message itself (it s
 | `GET /endpoints/{id}/csvw` | the CSVW JSON file |
 | `GET /endpoints/{id}/csvw/download` | the CSVW JSON file as a download |
 | `GET /endpoints/{id}/validate` | the result of the CSVW validation |
+| `GET /endpoints/{id}/sql/tables` | for the SQL box: the tables, their columns (with type and TSS2 role), and example queries |
+| `POST /endpoints/{id}/sql` with `{"sql": "SELECT ..."}` | runs one read-only query with DuckDB |
 | `GET /endpoints/{id}/filter-columns?snippet=...` | the other CSV columns of a series that the query form can filter on (2 to 30 different values, like the quality code), with their values |
 | `GET /endpoints/{id}/query?snippet=...&start=...&end=...&min_value=...&max_value=...&filter_column=...&filter_value=...&resample=hour\|day&aggregate=mean\|min\|max&limit=...` | the readings (or one value per hour/day), the summary numbers and the gaps |
 
@@ -109,6 +118,7 @@ The query route shows how TSS2 and CSVW work together:
 | `FileViewer.jsx` | shows one file, with a download icon. App uses it twice: for the CSV and for the CSVW file |
 | `Validation.jsx` | the validation button and its result |
 | `QueryForm.jsx` | the query form, the summary (numbers and gaps) and the results table |
+| `SqlBox.jsx` | the SQL (DuckDB) tab: examples, the text box, the result, and the list of tables |
 | `App.css` | all the styling |
 
 Every component talks to the backend the same way:
@@ -123,4 +133,6 @@ fetch(url)
   .catch((err) => setError(fetchErrorText(err)))      // the backend could not be reached at all
 ```
 
-App and Inspector add one more thing: an `ignore` flag, so that when you switch quickly, a late answer for your previous choice is thrown away instead of being shown.
+App, Inspector, QueryForm (for its filter columns) and SqlBox (for its tables) add one more thing: an `ignore` flag, so that when you switch quickly, a late answer for your previous choice is thrown away instead of being shown.
+
+The SQL box sends its query with `POST` and a JSON body (`{"sql": "..."}`) instead of in the address, because a query can be long.

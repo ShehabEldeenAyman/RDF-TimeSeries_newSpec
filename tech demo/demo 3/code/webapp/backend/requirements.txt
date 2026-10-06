@@ -3,3 +3,4 @@ uvicorn
 rdflib
 csvw
 requests
+duckdb

@@ -6,6 +6,7 @@ import { FileViewer } from './FileViewer'
 import { Validation } from './Validation'
 import { QueryForm } from './QueryForm'
 import { OnlineEndpointForm } from './OnlineEndpointForm'
+import { SqlBox } from './SqlBox'
 
 // The tabs of the dashboard: an id we use in the code, and the text on the button
 const tabs = [
@@ -14,6 +15,7 @@ const tabs = [
   { id: 'files', label: 'Files' },
   { id: 'validation', label: 'CSVW validation' },
   { id: 'query', label: 'Query' },
+  { id: 'sql', label: 'SQL (DuckDB)' },
 ]
 
 function App() {
@@ -180,6 +182,12 @@ function App() {
           </div>
 
           {tab === 'query' && <QueryForm info={info} />}
+
+          {/* Like Validation: the SQL box stays on the page (only hidden), so your query
+              and its result are still there when you come back to the tab */}
+          <div style={{ display: tab === 'sql' ? 'block' : 'none' }}>
+            <SqlBox info={info} />
+          </div>
         </>
       )}
     </div>

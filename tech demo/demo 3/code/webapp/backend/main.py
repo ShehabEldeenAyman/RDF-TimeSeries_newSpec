@@ -7,7 +7,9 @@ from pathlib import Path
 from urllib.parse import urlparse, unquote
 from urllib.request import url2pathname
 from datetime import datetime, timezone
+from pydantic import BaseModel
 import requests
+import tempfile
 import csv
 import json
 import time
@@ -15,6 +17,9 @@ import time
 # The TSS2 inheritance rule (snippet <- group template) lives in tss2.py
 from tss2 import TSS, TSS2, SOSA, QUDT, CSVW_TERMS, WDRS
 from tss2 import value_of, find_group, resolve, resolve_with_source
+
+# The SQL box (DuckDB) lives in sql_box.py
+import sql_box
 
 
 # This file lives in demo 3/code/webapp/backend/, so demo 3/ is three folders up
@@ -212,6 +217,26 @@ def file_name(location):
     return unquote(urlparse(location).path.split("/")[-1])
 
 
+# Online files that are needed as a file on this computer (DuckDB reads files,
+# not web addresses): web address -> downloaded copy. Kept while the backend
+# runs; restart the backend to download fresh copies.
+DOWNLOADED = {}
+
+
+def local_copy(location):
+    """A file on this computer with the content of a location"""
+    if not is_url(location):
+        return DEMO_DIR / location
+    if location not in DOWNLOADED or not DOWNLOADED[location].exists():
+        target = Path(tempfile.mkdtemp(prefix="tss2-")) / "data.csv"
+        with download(location, stream=True) as response:
+            with open(target, "wb") as f:
+                for piece in response.iter_content(chunk_size=65536):
+                    f.write(piece)
+        DOWNLOADED[location] = target
+    return DOWNLOADED[location]
+
+
 def send_as_download(location, media_type):
     """Answer with a whole file (local or online) and tell the browser to save it"""
     if not file_exists(location):
@@ -344,6 +369,26 @@ def read_csvw(described_by):
     return delimiter, headers
 
 
+def csvw_columns(described_by):
+    """The columns of a CSVW file, in CSV order: [{"name", "header", "datatype"}],
+    plus the delimiter and whether the CSV starts with a header line.
+    Returns None when there is no such file."""
+    if not file_exists(described_by):
+        return None
+    metadata = json.loads(read_text(described_by))
+    dialect = metadata.get("dialect", {})
+    columns = []
+    for column in metadata["tableSchema"]["columns"]:
+        if column.get("virtual"):
+            continue  # a "virtual" column is not in the CSV file itself
+        columns.append({
+            "name": column["name"],
+            "header": column.get("titles", column["name"]),
+            "datatype": column.get("datatype", "string"),
+        })
+    return {"delimiter": dialect.get("delimiter", ","), "header": dialect.get("header", True), "columns": columns}
+
+
 def get_endpoint_info(endpoint_id):
     """Everything the dashboard needs to know about one metadata endpoint"""
     graph = load_graph(endpoint_id)
@@ -390,6 +435,7 @@ def get_endpoint_info(endpoint_id):
             "identifier": show(graph, row.identifier),
             "comment": show(graph, row.comment),
             # Everything below can come from the group's template (the TSS2 rule)
+            "table": show(graph, table),
             "valueColumn": show(graph, resolve(graph, snippet, template, TSS2.valueColumn)),
             "timeColumn": show(graph, resolve(graph, snippet, template, TSS2.timeColumn)),
             "from": show(graph, resolve(graph, snippet, template, TSS["from"])),
@@ -1126,3 +1172,149 @@ def series_metadata(endpoint_id, snippet):
             "csv": first_csv_rows(csv_url, described_by, time_column, value_column),
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# The SQL box (DuckDB): read-only SQL on the CSV files of an endpoint
+# ---------------------------------------------------------------------------
+
+def sql_tables(info):
+    """The SQL tables of an endpoint: one per CSV file (csvw:Table) its snippets use,
+    with the column names and types from the CSVW file"""
+    tables = []
+    by_table = {}  # csvw:Table IRI -> its entry in tables
+    for snippet in info["snippets"]:
+        if snippet["table"] not in by_table:
+            taken = []
+            for table in tables:
+                taken.append(table["name"])
+            entry = {
+                "name": sql_box.table_name(snippet["table"], taken),
+                "rdf": snippet["table"],
+                "file": snippet["csvUrl"],
+                "csvw": snippet["describedBy"],
+                "snippets": [],
+                "columns": [],
+                "error": None,
+            }
+            by_table[snippet["table"]] = entry
+            tables.append(entry)
+        by_table[snippet["table"]]["snippets"].append(snippet)
+
+    for table in tables:
+        csvw = csvw_columns(table["csvw"])
+        if csvw is None:
+            table["error"] = f"CSVW file not found: {table['csvw']}"
+            continue
+        table["delimiter"] = csvw["delimiter"]
+        table["header"] = csvw["header"]
+        for column in csvw["columns"]:
+            # What does TSS2 say about this column?
+            role = None
+            for snippet in table["snippets"]:
+                if column["name"] == snippet["timeColumn"]:
+                    role = "time column"
+                if column["name"] == snippet["valueColumn"]:
+                    unit = f" ({snippet['unit']})" if snippet["unit"] else ""
+                    role = f"value of: {snippet['label']}{unit}"
+            table["columns"].append({
+                "name": column["name"],
+                "header": column["header"],
+                "type": sql_box.duckdb_type(column["datatype"]),
+                "role": role,
+            })
+    return tables
+
+
+@app.get("/endpoints/{endpoint_id}/sql/tables")
+def sql_schema(endpoint_id):
+    """What the SQL box can query for this endpoint: the tables, their columns, and example queries"""
+    info = get_endpoint_info(endpoint_id)
+    tables = sql_tables(info)
+
+    snippet_columns = []
+    for name, sql_type in sql_box.SNIPPET_COLUMNS:
+        snippet_columns.append({"name": name, "type": sql_type})
+
+    shown_tables = []
+    for table in tables:
+        shown_tables.append({
+            "name": table["name"],
+            "rdf": table["rdf"],
+            "file": table["file"],
+            "csvw": table["csvw"],
+            "error": table["error"],
+            "columns": table["columns"],
+        })
+
+    usable = []
+    for table in tables:
+        if table["error"] is None:
+            usable.append(table)
+    return {
+        "tables": shown_tables,
+        "snippetColumns": snippet_columns,
+        "examples": sql_box.example_queries(usable),
+        "maxRows": sql_box.MAX_ROWS,
+        "maxSeconds": sql_box.MAX_SECONDS,
+    }
+
+
+class SqlQuery(BaseModel):
+    """What the browser sends: {"sql": "SELECT ..."} (in the body, because a query can be long)"""
+    sql: str
+
+
+@app.post("/endpoints/{endpoint_id}/sql")
+def run_sql(endpoint_id, query: SqlQuery):
+    """Run one read-only SQL query with DuckDB on the CSV files of this endpoint"""
+    info = get_endpoint_info(endpoint_id)
+
+    # 1. The tables to load: every CSV file of the endpoint, as a file on this computer
+    tables = []
+    for table in sql_tables(info):
+        if table["error"] is not None:
+            raise HTTPException(status_code=404, detail=f"Can't make table {table['name']}: {table['error']}")
+        if not file_exists(table["file"]):
+            raise HTTPException(status_code=404, detail=f"CSV file not found: {table['file']}")
+        tables.append({
+            "name": table["name"],
+            "file": table["file"],
+            "path": local_copy(table["file"]).as_posix(),
+            "delimiter": table["delimiter"],
+            "header": table["header"],
+            "columns": table["columns"],
+        })
+
+    # 2. The TSS2 metadata, one row per snippet, for the "snippets" table
+    table_names = {}
+    for table in sql_tables(info):
+        table_names[table["rdf"]] = table["name"]
+    snippet_rows = []
+    for s in info["snippets"]:
+        snippet_rows.append({
+            "label": s["label"],
+            "snippet": s["id"],
+            "sql_table": table_names.get(s["table"]),
+            "time_column": s["timeColumn"],
+            "value_column": s["valueColumn"],
+            "unit": s["unit"],
+            "from_time": s["from"],
+            "until_time": s["until"],
+            "observed_property": s["observedProperty"],
+            "sensor": s["sensor"],
+            "feature_of_interest": s["featureOfInterest"],
+        })
+
+    # 3. Load, lock, run, throw away
+    try:
+        con = sql_box.open_database(tables, snippet_rows)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    try:
+        return sql_box.run_query(con, query.sql)
+    except (ValueError, sql_box.duckdb.Error) as error:
+        # a mistake in the query: show DuckDB's own message, it says what is wrong
+        raise HTTPException(status_code=400, detail=str(error))
+    finally:
+        con.close()
