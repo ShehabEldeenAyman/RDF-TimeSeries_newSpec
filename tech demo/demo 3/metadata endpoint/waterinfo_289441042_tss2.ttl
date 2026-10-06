@@ -1,0 +1,52 @@
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix TSS2: <https://example.org/tss2#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
+@prefix wdrs: <http://www.w3.org/2007/05/powder-s#> .
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+
+ex:zevenaarshaven-table a csvw:Table ;
+    csvw:url <../data/waterinfo_289441042.csv> ;
+    wdrs:describedby <../csvw/waterinfo_289441042_csvw.json> ; # same relation CSVW uses for rel="describedby" discovery
+    TSS2:mutable false ;
+    TSS2:committedUntil "2025-12-31T23:45:00Z"^^xsd:dateTime ;
+    TSS2:producedBy ex:station-zevenaarshaven ;
+    TSS2:startingFrom "2021-03-03T23:15:00Z"^^xsd:dateTime .
+
+ex:zevenaarshaven-snippets a TSS2:SnippetGroup ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    TSS2:snippetTemplate [
+        a TSS2:SnippetTemplate ; #defaults each member snippet inherits.
+        TSS2:table ex:zevenaarshaven-table ;
+        TSS2:timeColumn "timestamp" ;
+        tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+        tss:pointType sosa:Observation ;
+        tss:timePath sosa:resultTime ;
+        tss:valuePath sosa:hasSimpleResult ] ;
+
+    TSS2:hasSnippet ex:snippet-zevenaarshaven-ec20 .
+
+# One snippet per time series; this table holds a single series (waterinfo ts_id 289441042).
+# The interpolation and quality columns vary per row, so they are described in the
+# CSVW metadata but not bound here.
+
+ex:snippet-zevenaarshaven-ec20 a TSS2:Snippet ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    dcterms:identifier "289441042" ;
+    TSS2:valueColumn "value" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-zevenaarshaven-ec20 ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:water-zevenaarshaven ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .

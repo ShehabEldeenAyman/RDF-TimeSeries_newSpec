@@ -1,0 +1,178 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "@id": "https://example.org/ex#factory-table",
+  "url": "factory_conductivity.csv",
+  "http://purl.org/dc/terms/title": "Factory water conductivity",
+  "http://purl.org/dc/terms/publisher": {
+    "@id": "https://www.ugent.be/",
+    "http://xmlns.com/foaf/0.1/name": "Ghent University"
+  },
+  "http://www.w3.org/ns/dcat#keyword": [
+    "conductivity",
+    "water treatment",
+    "reverse osmosis",
+    "time series",
+    "sensor data"
+  ],
+  "http://purl.org/dc/terms/license": {
+    "@id": "https://example.org/license-to-be-decided"
+  },
+  "http://purl.org/dc/terms/description": "Conductivity measurements from an industrial water treatment plant, 2025, 15-minute resolution. Values are perturbed with ~2% multiplicative noise.",
+  "http://purl.org/dc/terms/issued": {
+    "@value": "2026-09-25",
+    "@type": "http://www.w3.org/2001/XMLSchema#date"
+  },
+  "http://purl.org/dc/terms/modified": {
+    "@value": "2026-09-28",
+    "@type": "http://www.w3.org/2001/XMLSchema#date"
+  },
+  "http://www.w3.org/ns/prov#wasDerivedFrom": {
+    "http://purl.org/dc/terms/description": "Confidential industrial water-treatment sensor export (not published)",
+    "http://purl.org/dc/terms/temporal": {
+      "@value": "2025-01-01/2025-12-31",
+      "@type": "http://www.w3.org/2001/XMLSchema#string"
+    }
+  },
+  "http://www.w3.org/ns/prov#wasGeneratedBy": {
+    "@type": "http://www.w3.org/ns/prov#Activity",
+    "http://purl.org/dc/terms/description": "Selected conductivity columns, renamed them, and multiplied each value by an independent random factor 1 + N(0, 0.02), clipped at 0. The noise is unseeded and cannot be reproduced.",
+    "http://www.w3.org/ns/prov#endedAtTime": {
+      "@value": "2026-09-25T00:00:00Z",
+      "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+    }
+  },
+  "dialect": {
+    "delimiter": ";",
+    "header": true,
+    "encoding": "utf-8"
+  },
+  "tableSchema": {
+    "columns": [
+      {
+        "name": "datetime",
+        "titles": "datetime",
+        "datatype": "dateTime",
+        "required": true,
+        "http://purl.org/dc/terms/description": "Observation time (UTC), 15-minute resolution"
+      },
+      {
+        "name": "ro1_a_permeate_conductivity",
+        "titles": "ro1_a_permeate_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO1 train A"
+      },
+      {
+        "name": "ro1_b_permeate_conductivity",
+        "titles": "ro1_b_permeate_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO1 train B"
+      },
+      {
+        "name": "ro1_c_permeate_conductivity",
+        "titles": "ro1_c_permeate_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO1 train C"
+      },
+      {
+        "name": "ro2_a_permeate_conductivity",
+        "titles": "ro2_a_permeate_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO2 train A"
+      },
+      {
+        "name": "ro2_b_permeate_conductivity",
+        "titles": "ro2_b_permeate_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO2 train B"
+      },
+      {
+        "name": "cooling_water_conductivity",
+        "titles": "cooling_water_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Conductivity of the cooling water supply (including drinking-water blend)"
+      },
+      {
+        "name": "boiler_feed_conductivity",
+        "titles": "boiler_feed_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Conductivity of the boiler feed water"
+      },
+      {
+        "name": "boiler_water_delivery_conductivity",
+        "titles": "boiler_water_delivery_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Conductivity of the boiler water delivered to the customer"
+      },
+      {
+        "name": "dockwater_blowdown_conductivity",
+        "titles": "dockwater_blowdown_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Conductivity of combined dock water and blowdown"
+      },
+      {
+        "name": "venturi_reject_conductivity",
+        "titles": "venturi_reject_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Conductivity of the venturi drain reject stream"
+      },
+      {
+        "name": "ro1de_feed_conductivity",
+        "titles": "ro1de_feed_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Feed conductivity to RO1D and RO1E combined"
+      },
+      {
+        "name": "ro1d_feed_conductivity",
+        "titles": "ro1d_feed_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Feed conductivity to RO1D (after chemical injection)"
+      },
+      {
+        "name": "ro1e_feed_conductivity",
+        "titles": "ro1e_feed_conductivity",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "http://purl.org/dc/terms/description": "Feed conductivity to RO1E"
+      }
+    ],
+    "primaryKey": "datetime"
+  }
+}
