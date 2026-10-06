@@ -225,6 +225,56 @@ td {
   gap: 12px;
 }
 
+/* The form is three rows: series + time, which readings, what to show */
+.query-form {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.form-row input[type="number"] {
+  width: 110px;
+}
+
+/* A drop down with long names (the series) may shrink on a phone, instead of
+   making the whole form wider than the screen */
+.query-form label {
+  min-width: 0;
+}
+
+.query-form select {
+  width: 100%;
+}
+
+.form-row p {
+  margin: 0 0 8px;
+}
+
+/* The summary numbers, side by side (they wrap on a small screen) */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.stat {
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 120px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
 .query-form label {
   display: flex;
   flex-direction: column;

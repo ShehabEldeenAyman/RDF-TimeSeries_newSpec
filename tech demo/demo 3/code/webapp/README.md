@@ -9,7 +9,7 @@ Pick a data source in the drop down, then use the tabs:
 | Series inspector | Pick one series (snippet) and see everything known about it. Every value is marked: stated on the snippet itself (own), inherited from its group's template (from group), or replacing the template's value (overrides group). Below: the Turtle, CSVW JSON and first CSV rows, with the parts this series uses marked |
 | Files | The CSV the endpoint points to with `csvw:url` (first 20 lines) and the CSVW file it points to with `wdrs:describedby`. Each has a download icon for the whole file |
 | CSVW validation | Runs the `csvw` Python validator on the CSV and its CSVW file |
-| Query | A form to get the readings of one time series between two times |
+| Query | A guided form for one time series: a time range, a value range, a filter on another column (for example the quality code), and every reading or one value per hour or day (mean, min or max). It also shows summary numbers (count, mean, min, max, empty cells) and the gaps in the data |
 
 ## Running it
 
@@ -69,8 +69,9 @@ If the backend runs into an error, the page shows the error message itself (it s
 2. **Files: local or online.** A file "location" is a path inside demo 3 (`data/x.csv`) or a web address. `file_exists`, `read_text`, `read_lines` and `send_as_download` work for both, so the routes don't have to care which one it is.
 3. **Metadata endpoints.** The local `.ttl` files plus the online ones from `online_endpoints.json`. `load_graph` reads one endpoint's Turtle, wherever it is.
 4. **Helper functions.** `get_endpoint_info` runs both queries, applies the rule from `tss2.py` to every snippet, and puts the answers in one dictionary. Most routes use it.
-5. **Helper functions for the series inspector.** `describe` turns an RDF value into readable text (plus the exact RDF for hovering). `mark_turtle` and `mark_csvw` mark the lines of the source files.
-6. **Routes**:
+5. **Helper functions for the query form.** `summarize` (count, mean, min, max), `find_gaps` (where readings are missing, compared with the usual step between readings) and `resample_readings` (one value per hour or day).
+6. **Helper functions for the series inspector.** `describe` turns an RDF value into readable text (plus the exact RDF for hovering). `mark_turtle` and `mark_csvw` mark the lines of the source files.
+7. **Routes**:
 
 | Route | Returns |
 |---|---|
@@ -84,7 +85,8 @@ If the backend runs into an error, the page shows the error message itself (it s
 | `GET /endpoints/{id}/csvw` | the CSVW JSON file |
 | `GET /endpoints/{id}/csvw/download` | the CSVW JSON file as a download |
 | `GET /endpoints/{id}/validate` | the result of the CSVW validation |
-| `GET /endpoints/{id}/query?snippet=...&start=...&end=...&limit=...` | the readings |
+| `GET /endpoints/{id}/filter-columns?snippet=...` | the other CSV columns of a series that the query form can filter on (2 to 30 different values, like the quality code), with their values |
+| `GET /endpoints/{id}/query?snippet=...&start=...&end=...&min_value=...&max_value=...&filter_column=...&filter_value=...&resample=hour\|day&aggregate=mean\|min\|max&limit=...` | the readings (or one value per hour/day), the summary numbers and the gaps |
 
 The `{id}` of a local endpoint is its file name without `.ttl`, for example `waterinfo_289423042_tss2`. Online endpoints get `online-1`, `online-2`, ...
 `snippet=...` is the full IRI of a snippet, for example `https://example.org/ex#snippet-grootdok-ec20`.
@@ -106,7 +108,7 @@ The query route shows how TSS2 and CSVW work together:
 | `SourceFiles.jsx` | the Turtle / CSVW JSON / CSV rows views under the inspector, with the used parts coloured |
 | `FileViewer.jsx` | shows one file, with a download icon. App uses it twice: for the CSV and for the CSVW file |
 | `Validation.jsx` | the validation button and its result |
-| `QueryForm.jsx` | the query form and the results table |
+| `QueryForm.jsx` | the query form, the summary (numbers and gaps) and the results table |
 | `App.css` | all the styling |
 
 Every component talks to the backend the same way:

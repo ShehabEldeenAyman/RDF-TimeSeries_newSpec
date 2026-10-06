@@ -534,6 +534,137 @@ def first_csv_rows(csv_url, described_by, time_column, value_column, count=10):
 
 
 # ---------------------------------------------------------------------------
+# Helper functions for the query form (filters, summary, gaps, hourly/daily values)
+# ---------------------------------------------------------------------------
+
+def parse_number(text, what):
+    """A number typed in the form, or None when the field was left empty"""
+    if text is None or text == "":
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"{what} must be a number, not '{text}'")
+
+
+def time_text(moment):
+    """A date-time as text, always in UTC, e.g. 2021-03-04T01:00:00Z"""
+    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def duration_text(seconds):
+    """A number of seconds as text people can read, e.g. 2 d 3 h 15 min"""
+    minutes = int(seconds // 60)
+    days = minutes // (24 * 60)
+    hours = (minutes // 60) % 24
+    minutes = minutes % 60
+    parts = []
+    if days > 0:
+        parts.append(f"{days} d")
+    if hours > 0:
+        parts.append(f"{hours} h")
+    if minutes > 0 or len(parts) == 0:
+        parts.append(f"{minutes} min")
+    return " ".join(parts)
+
+
+def summarize(readings):
+    """Count, mean, min and max of the readings (empty cells are counted apart)"""
+    count = 0
+    empty = 0
+    total = 0
+    lowest = None
+    highest = None
+    for reading in readings:
+        value = reading["value"]
+        if value is None:
+            empty += 1
+            continue
+        count += 1
+        total += value
+        if lowest is None or value < lowest["value"]:
+            lowest = {"value": value, "time": reading["time"]}
+        if highest is None or value > highest["value"]:
+            highest = {"value": value, "time": reading["time"]}
+
+    return {
+        "count": count,
+        "empty": empty,
+        "mean": round(total / count, 3) if count > 0 else None,
+        "min": lowest,
+        "max": highest,
+    }
+
+
+def find_gaps(moments):
+    """Gaps: places where the time between two readings is longer than usual.
+    "Usual" is the step that occurs most often (15 minutes in our files).
+    moments must be in time order, like the rows of our CSV files."""
+    if len(moments) < 3:
+        return {"step": None, "count": 0, "missing": None, "longest": []}
+
+    # 1. How often does each step occur? {900.0: 80000, 1800.0: 4000, ...} (in seconds)
+    steps = {}
+    for i in range(1, len(moments)):
+        seconds = (moments[i] - moments[i - 1]).total_seconds()
+        steps[seconds] = steps.get(seconds, 0) + 1
+    usual = None
+    for seconds, how_often in steps.items():
+        if usual is None or how_often > steps[usual]:
+            usual = seconds
+
+    # 2. Every step longer than the usual one is a gap
+    gaps = []
+    missing = 0
+    for i in range(1, len(moments)):
+        seconds = (moments[i] - moments[i - 1]).total_seconds()
+        if seconds > usual:
+            gaps.append((seconds, moments[i - 1], moments[i]))
+            missing += seconds - usual
+    gaps.sort(reverse=True)  # longest first, because the length comes first in each gap
+
+    longest = []
+    for seconds, before, after in gaps[:5]:
+        longest.append({"from": time_text(before), "until": time_text(after), "length": duration_text(seconds)})
+
+    return {
+        "step": duration_text(usual),
+        "count": len(gaps),
+        "missing": duration_text(missing),
+        "longest": longest,
+    }
+
+
+def resample_readings(readings, period, aggregate):
+    """Put the readings in groups per hour or per day, and turn each group into
+    one value: the mean, the min or the max of the values in it"""
+    groups = {}  # start of the hour (or day) -> the values in it. A dict keeps the time order.
+    for reading in readings:
+        moment = reading["moment"].astimezone(timezone.utc)
+        if period == "hour":
+            group_start = moment.replace(minute=0, second=0, microsecond=0)
+        else:
+            group_start = moment.replace(hour=0, minute=0, second=0, microsecond=0)
+        if group_start not in groups:
+            groups[group_start] = []
+        if reading["value"] is not None:
+            groups[group_start].append(reading["value"])
+
+    rows = []
+    for group_start, values in groups.items():
+        if len(values) == 0:
+            value = None
+        elif aggregate == "min":
+            value = min(values)
+        elif aggregate == "max":
+            value = max(values)
+        else:
+            value = round(sum(values) / len(values), 3)
+        rows.append({"time": time_text(group_start), "value": value, "count": len(values)})
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # API routes
 # ---------------------------------------------------------------------------
 
@@ -728,31 +859,18 @@ def validate(endpoint_id):
     }
 
 
-@app.get("/endpoints/{endpoint_id}/query")
-def query_series(endpoint_id, snippet, start=None, end=None, limit: int = 100):
-    """Get the readings of one snippet (one time series) between start and end.
-
-    TSS2 tells us which CSV (csvw:url of the table), which columns
-    (TSS2:timeColumn, TSS2:valueColumn) and which time window (tss:from,
-    tss:until). Each of these can come from the group's template.
-    The CSVW file tells us how to read that CSV."""
-    info = get_endpoint_info(endpoint_id)
-    limit = max(1, min(limit, 5000))  # don't send huge answers to the browser
-
-    # 1. Find the snippet the user picked
-    chosen = None
+def find_snippet(info, snippet):
+    """The snippet (one time series) with this IRI, from get_endpoint_info"""
     for s in info["snippets"]:
         if s["id"] == snippet:
-            chosen = s
-    if chosen is None:
-        raise HTTPException(status_code=404, detail=f"Unknown snippet: {snippet}")
+            return s
+    raise HTTPException(status_code=404, detail=f"Unknown snippet: {snippet}")
 
-    start_time = parse_time(start) if start else None
-    end_time = parse_time(end) if end else None
 
-    # 2. TSS2 uses CSVW column *names* (e.g. "timestamp"). The CSVW file says
-    #    which CSV header belongs to each name (e.g. "Timestamp") and which
-    #    delimiter the CSV uses.
+def snippet_csv(chosen):
+    """How to read the CSV of a snippet: (delimiter, headers, time header, value header).
+    TSS2 uses CSVW column *names* (e.g. "timestamp"). The CSVW file says which
+    CSV header belongs to each name (e.g. "Timestamp") and which delimiter the CSV uses."""
     csvw = read_csvw(chosen["describedBy"])
     if csvw is None:
         raise HTTPException(status_code=404, detail=f"CSVW file not found: {chosen['describedBy']}")
@@ -761,19 +879,82 @@ def query_series(endpoint_id, snippet, start=None, end=None, limit: int = 100):
     for name in [chosen["timeColumn"], chosen["valueColumn"]]:
         if name not in headers:
             raise HTTPException(status_code=400, detail=f"Column '{name}' is not described in {chosen['describedBy']}")
-    time_header = headers[chosen["timeColumn"]]
-    value_header = headers[chosen["valueColumn"]]
+    if not file_exists(chosen["csvUrl"]):
+        raise HTTPException(status_code=404, detail=f"CSV file not found: {chosen['csvUrl']}")
+    return delimiter, headers, headers[chosen["timeColumn"]], headers[chosen["valueColumn"]]
+
+
+@app.get("/endpoints/{endpoint_id}/filter-columns")
+def filter_columns(endpoint_id, snippet):
+    """The other CSV columns the query form can filter on (like a quality code),
+    with the values that occur in them. Only columns with a few different values
+    (2 to 30) are useful for that, so only those are sent."""
+    info = get_endpoint_info(endpoint_id)
+    chosen = find_snippet(info, snippet)
+    delimiter, headers, time_header, value_header = snippet_csv(chosen)
+
+    # Start with every column except the time and the value, and drop a column
+    # as soon as it has too many different values
+    candidates = {}  # column name -> the different values seen so far
+    for name in headers:
+        if name != chosen["timeColumn"] and name != chosen["valueColumn"]:
+            candidates[name] = set()
+
+    for row in csv.DictReader(read_lines(chosen["csvUrl"]), delimiter=delimiter):
+        for name in list(candidates):  # list(...): we may delete from candidates inside the loop
+            candidates[name].add(row.get(headers[name], ""))
+            if len(candidates[name]) > 30:
+                del candidates[name]
+        if len(candidates) == 0:
+            break
+
+    columns = []
+    for name, values in candidates.items():
+        if len(values) >= 2:  # a column with one value is no use as a filter
+            columns.append({"name": name, "header": headers[name], "values": sorted(values)})
+    return columns
+
+
+@app.get("/endpoints/{endpoint_id}/query")
+def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max_value=None,
+                 filter_column=None, filter_value=None, resample="", aggregate="mean", limit: int = 100):
+    """Get the readings of one snippet (one time series), with the filters of the query form,
+    plus summary numbers and the gaps in the data.
+
+    TSS2 tells us which CSV (csvw:url of the table), which columns
+    (TSS2:timeColumn, TSS2:valueColumn) and which time window (tss:from,
+    tss:until). Each of these can come from the group's template.
+    The CSVW file tells us how to read that CSV."""
+    info = get_endpoint_info(endpoint_id)
+    limit = max(1, min(limit, 5000))  # don't send huge answers to the browser
+
+    # 1. The snippet the user picked, and what the form asks for
+    chosen = find_snippet(info, snippet)
+    start_time = parse_time(start) if start else None
+    end_time = parse_time(end) if end else None
+    low = parse_number(min_value, "The lowest value")
+    high = parse_number(max_value, "The highest value")
+    if resample not in ["", "hour", "day"]:
+        raise HTTPException(status_code=400, detail="resample must be empty, 'hour' or 'day'")
+    if aggregate not in ["mean", "min", "max"]:
+        raise HTTPException(status_code=400, detail="aggregate must be 'mean', 'min' or 'max'")
+
+    # 2. How to read the CSV (from the CSVW file)
+    delimiter, headers, time_header, value_header = snippet_csv(chosen)
+    filter_header = None
+    if filter_column:
+        if filter_column not in headers:
+            raise HTTPException(status_code=400, detail=f"Column '{filter_column}' is not described in {chosen['describedBy']}")
+        filter_header = headers[filter_column]
 
     # 3. The series only covers its own time window: from is included, until is not
     #    (in all our files the last reading comes just before until)
     window_start = parse_time(chosen["from"]) if chosen["from"] else None
     window_end = parse_time(chosen["until"]) if chosen["until"] else None
 
-    # 4. Go through the CSV row by row and keep the rows inside both time ranges
-    if not file_exists(chosen["csvUrl"]):
-        raise HTTPException(status_code=404, detail=f"CSV file not found: {chosen['csvUrl']}")
-
-    readings = []
+    # 4. Go through the CSV row by row
+    moments = []  # the time of every row inside the time range: to find the gaps
+    kept = []     # the readings that also pass the column filter and the value range
     for row in csv.DictReader(read_lines(chosen["csvUrl"]), delimiter=delimiter):
         row_time = parse_time(row[time_header])
         if window_start and row_time < window_start:
@@ -784,14 +965,27 @@ def query_series(endpoint_id, snippet, start=None, end=None, limit: int = 100):
             continue
         if end_time and row_time > end_time:
             continue
+        moments.append(row_time)
 
-        value = row[value_header]
-        readings.append({
-            "time": row[time_header],
-            "value": float(value) if value != "" else None,  # an empty cell means: no reading
-        })
-        if len(readings) == limit:
-            break
+        if filter_header and row[filter_header] != filter_value:
+            continue
+        text = row[value_header]
+        value = float(text) if text != "" else None  # an empty cell means: no reading
+        if value is None and (low is not None or high is not None):
+            continue  # with a value range, an empty cell can never match
+        if low is not None and value < low:
+            continue
+        if high is not None and value > high:
+            continue
+        kept.append({"time": row[time_header], "moment": row_time, "value": value})
+
+    # 5. The rows to show: every reading, or one value per hour or per day
+    if resample:
+        rows = resample_readings(kept, resample, aggregate)
+    else:
+        rows = []
+        for reading in kept:
+            rows.append({"time": reading["time"], "value": reading["value"]})
 
     return {
         "snippet": chosen["label"],
@@ -802,8 +996,15 @@ def query_series(endpoint_id, snippet, start=None, end=None, limit: int = 100):
         "timeHeader": time_header,
         "valueColumn": chosen["valueColumn"],
         "valueHeader": value_header,
-        "limitReached": len(readings) == limit,
-        "readings": readings,
+        "filterHeader": filter_header,
+        "filterValue": filter_value if filter_header else None,
+        "resample": resample,
+        "aggregate": aggregate,
+        "summary": summarize(kept),   # over the single readings that passed all filters
+        "gaps": find_gaps(moments),   # over every reading in the time range
+        "totalRows": len(rows),
+        "limitReached": len(rows) > limit,
+        "readings": rows[:limit],     # [:limit] = only the first "limit" rows
     }
 
 
