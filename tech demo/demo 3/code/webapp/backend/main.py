@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from rdflib import Graph, URIRef, Literal, RDF, RDFS
 from csvw import CSVW
@@ -1414,3 +1415,9 @@ def run_sql(endpoint_id, query: SqlQuery):
 
 # Add all the routes of the api router to the app (must come after all of them)
 app.include_router(api)
+# The built frontend (npm run build) is in frontend/dist. Every address that is not
+# an /api route is looked up as a file in there, and "/" gives index.html.
+# Not built yet? Then we skip this, and you use the dashboard through npm run dev.
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+if FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
