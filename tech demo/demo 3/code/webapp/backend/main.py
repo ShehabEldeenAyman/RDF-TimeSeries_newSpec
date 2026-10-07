@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from rdflib import Graph, URIRef, Literal, RDF, RDFS
@@ -154,6 +154,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# All data routes go on this router, so they all start with /api
+api = APIRouter(prefix="/api")
 
 # ---------------------------------------------------------------------------
 # Files: local or online
@@ -793,12 +795,12 @@ def resample_readings(readings, period, aggregate):
 # API routes
 # ---------------------------------------------------------------------------
 
-@app.get("/")
+@api.get("/")
 def hello():
     return {"message": "Hello from the demo 3 backend"}
 
 
-@app.get("/endpoints")
+@api.get("/endpoints")
 def list_endpoints():
     """The list for the drop down: the local endpoints first, then the online ones"""
     online = load_online_endpoints()
@@ -818,7 +820,7 @@ def list_endpoints():
     return endpoints
 
 
-@app.post("/endpoints/online")
+@api.post("/endpoints/online")
 def add_online_endpoint(url):
     """Add an online TSS2 metadata endpoint: the web address of a Turtle file.
     From then on it works like the local ones."""
@@ -850,7 +852,7 @@ def add_online_endpoint(url):
     return {"id": endpoint_id, "label": info["label"], "online": True, "file": url}
 
 
-@app.delete("/endpoints/{endpoint_id}")
+@api.delete("/endpoints/{endpoint_id}")
 def remove_online_endpoint(endpoint_id):
     """Take an online endpoint out of the list (the local .ttl files can't be removed here)"""
     online = load_online_endpoints()
@@ -861,7 +863,7 @@ def remove_online_endpoint(endpoint_id):
     return {"removed": endpoint_id}
 
 
-@app.get("/endpoints/{endpoint_id}")
+@api.get("/endpoints/{endpoint_id}")
 def get_endpoint(endpoint_id):
     """What one metadata endpoint holds, plus its raw Turtle text"""
     info = get_endpoint_info(endpoint_id)
@@ -869,7 +871,7 @@ def get_endpoint(endpoint_id):
     return info
 
 
-@app.get("/endpoints/{endpoint_id}/csv")
+@api.get("/endpoints/{endpoint_id}/csv")
 def get_csv_file(endpoint_id, lines: int = 20):
     """The data file the endpoint points to with csvw:url.
     These files are big (up to 17 MB), so we only send the first lines."""
@@ -898,14 +900,14 @@ def get_csv_file(endpoint_id, lines: int = 20):
     }
 
 
-@app.get("/endpoints/{endpoint_id}/csv/download")
+@api.get("/endpoints/{endpoint_id}/csv/download")
 def download_csv_file(endpoint_id):
     """The whole CSV file (csvw:url), sent as a download"""
     info = get_endpoint_info(endpoint_id)
     return send_as_download(info["csvUrl"], "text/csv")
 
 
-@app.get("/endpoints/{endpoint_id}/csvw")
+@api.get("/endpoints/{endpoint_id}/csvw")
 def get_csvw_file(endpoint_id):
     """The CSVW metadata file the endpoint points to with wdrs:describedby"""
     info = get_endpoint_info(endpoint_id)
@@ -921,14 +923,14 @@ def get_csvw_file(endpoint_id):
     }
 
 
-@app.get("/endpoints/{endpoint_id}/csvw/download")
+@api.get("/endpoints/{endpoint_id}/csvw/download")
 def download_csvw_file(endpoint_id):
     """The CSVW metadata file (wdrs:describedby), sent as a download"""
     info = get_endpoint_info(endpoint_id)
     return send_as_download(info["describedBy"], "application/json")
 
 
-@app.get("/endpoints/{endpoint_id}/validate")
+@api.get("/endpoints/{endpoint_id}/validate")
 def validate(endpoint_id):
     """Run the csvw validator: it reads the CSV through its CSVW metadata and
     checks every row against the table schema (datatypes, required values, headers)."""
@@ -1009,7 +1011,7 @@ def snippet_csv(chosen):
     return delimiter, headers, headers[chosen["timeColumn"]], headers[chosen["valueColumn"]]
 
 
-@app.get("/endpoints/{endpoint_id}/filter-columns")
+@api.get("/endpoints/{endpoint_id}/filter-columns")
 def filter_columns(endpoint_id, snippet):
     """The other CSV columns the query form can filter on (like a quality code),
     with the values that occur in them. Only columns with a few different values
@@ -1040,7 +1042,7 @@ def filter_columns(endpoint_id, snippet):
     return columns
 
 
-@app.get("/endpoints/{endpoint_id}/query")
+@api.get("/endpoints/{endpoint_id}/query")
 def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max_value=None,
                  filter_column=None, filter_value=None, resample="", aggregate="mean", limit: int = 100):
     """Get the readings of one snippet (one time series), with the filters of the query form,
@@ -1133,7 +1135,7 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
     }
 
 
-@app.get("/endpoints/{endpoint_id}/series/metadata")
+@api.get("/endpoints/{endpoint_id}/series/metadata")
 def series_metadata(endpoint_id, snippet):
     """The series inspector: everything known about one snippet, and where each
     value comes from: stated on the snippet ("own"), inherited from its group's
@@ -1313,7 +1315,7 @@ def sql_tables(info):
     return tables
 
 
-@app.get("/endpoints/{endpoint_id}/sql/tables")
+@api.get("/endpoints/{endpoint_id}/sql/tables")
 def sql_schema(endpoint_id):
     """What the SQL box can query for this endpoint: the tables, their columns, and example queries"""
     info = get_endpoint_info(endpoint_id)
@@ -1352,7 +1354,7 @@ class SqlQuery(BaseModel):
     sql: str
 
 
-@app.post("/endpoints/{endpoint_id}/sql")
+@api.post("/endpoints/{endpoint_id}/sql")
 def run_sql(endpoint_id, query: SqlQuery):
     """Run one read-only SQL query with DuckDB on the CSV files of this endpoint"""
     info = get_endpoint_info(endpoint_id)
@@ -1417,3 +1419,6 @@ def run_sql(endpoint_id, query: SqlQuery):
         raise HTTPException(status_code=400, detail=message)
     finally:
         con.close()
+
+# Add all the routes of the api router to the app (must come after all of them)
+app.include_router(api)
