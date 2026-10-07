@@ -1,7 +1,7 @@
 // Where the FastAPI backend runs. Every component imports this,
 // so if the backend moves you only change it here.
 // Port 8001, because demo 2's backend uses 8000.
-export const API_URL = 'http://localhost:8001'
+export const API_URL = '/api'
 
 // FastAPI puts its error message in "detail". Usually that is a text, but for a
 // wrongly typed parameter it is a list of objects, which React can't show.
@@ -16,3 +16,4 @@ export function errorText(detail) {
 export function fetchErrorText(err) {
   return `${err.message}: could not reach the backend at ${API_URL}. Is it still running? Check its terminal.`
 }
+

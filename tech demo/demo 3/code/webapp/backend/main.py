@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from rdflib import Graph, URIRef, Literal, RDF, RDFS
 from csvw import CSVW
@@ -146,13 +145,6 @@ async def crash_to_message(request, call_next):
 
 
 # Start this backend with:  uvicorn main:app --reload --port 8001
-# The browser only lets the frontend read our answers if its address is in this list.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5174"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # All data routes go on this router, so they all start with /api
 api = APIRouter(prefix="/api")
