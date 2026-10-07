@@ -4,3 +4,4 @@ rdflib
 csvw
 requests
 duckdb
+pyngrok
