@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+rdflib
+csvw
+requests
+duckdb
+pyngrok

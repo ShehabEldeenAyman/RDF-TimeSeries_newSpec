@@ -16,7 +16,7 @@
 
 ex:factory-table a csvw:Table ;
     csvw:url <../data/factory_conductivity.csv> ;
-    wdrs:describedby <../data/factory_conductivity.csv-metadata.json> ; # same relation CSVW uses for rel="describedby" discovery
+    wdrs:describedby <../csvw/factory_conductivity_csvw.json> ; # same relation CSVW uses for rel="describedby" discovery
     TSS2:mutable false ;
     TSS2:committedUntil "2025-12-31T23:45:00Z"^^xsd:dateTime ;
     TSS2:producedBy ex:system1 ;

@@ -1,7 +1,7 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
   "@id": "https://example.org/ex#factory-table",
-  "url": "factory_conductivity.csv",
+  "url": "../data/factory_conductivity.csv",
   "http://purl.org/dc/terms/title": "Factory water conductivity",
   "http://purl.org/dc/terms/publisher": {
     "@id": "https://www.ugent.be/",

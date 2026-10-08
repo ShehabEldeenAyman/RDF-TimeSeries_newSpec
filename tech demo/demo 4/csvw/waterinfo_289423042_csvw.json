@@ -1,0 +1,82 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "@id": "https://example.org/ex#grootdok-table",
+  "url": "../data/waterinfo_289423042.csv",
+  "http://purl.org/dc/terms/title": "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)",
+  "http://purl.org/dc/terms/description": "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289423042 (station HIS_BWO_VITO_IOW48), 2021-03-03 to 2025-12-18.",
+  "http://purl.org/dc/terms/source": {
+    "@id": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289423042"
+  },
+  "http://www.w3.org/ns/dcat#keyword": [
+    "conductivity",
+    "EC20",
+    "surface water",
+    "Kanaal Gent-Terneuzen",
+    "waterinfo",
+    "time series"
+  ],
+  "dialect": {
+    "delimiter": ",",
+    "header": true,
+    "encoding": "utf-8"
+  },
+  "tableSchema": {
+    "columns": [
+      {
+        "name": "ts_id",
+        "titles": "ts_id",
+        "datatype": "integer",
+        "required": true,
+        "http://purl.org/dc/terms/description": "waterinfo.be time series identifier (the same on every row)"
+      },
+      {
+        "name": "timestamp",
+        "titles": "Timestamp",
+        "datatype": "dateTime",
+        "required": true,
+        "http://purl.org/dc/terms/description": "Observation time (UTC)"
+      },
+      {
+        "name": "value",
+        "titles": "Value",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "required": true,
+        "http://purl.org/dc/terms/description": "Electrical conductivity at 20 °C"
+      },
+      {
+        "name": "interpolation_type",
+        "titles": "Interpolation Type",
+        "datatype": "integer",
+        "http://purl.org/dc/terms/description": "KiWIS interpolation type code of the value"
+      },
+      {
+        "name": "quality_code",
+        "titles": "Quality Code",
+        "datatype": "integer",
+        "http://purl.org/dc/terms/description": "KiWIS quality code of the value"
+      },
+      {
+        "name": "quality_code_name",
+        "titles": "Quality Code Name",
+        "datatype": "string",
+        "http://purl.org/dc/terms/description": "Short name of the quality code"
+      },
+      {
+        "name": "quality_code_description",
+        "titles": "Quality Code Description",
+        "datatype": "string",
+        "http://purl.org/dc/terms/description": "Description of the quality code"
+      },
+      {
+        "name": "quality_code_color",
+        "titles": "Quality Code Color",
+        "datatype": "string",
+        "http://purl.org/dc/terms/description": "Display colour of the quality code (RGBA)"
+      }
+    ],
+    "primaryKey": "timestamp"
+  }
+}
