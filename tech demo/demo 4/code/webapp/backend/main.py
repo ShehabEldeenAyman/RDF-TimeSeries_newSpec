@@ -15,7 +15,7 @@ import json
 import time
 
 # The TSS2 inheritance rule (snippet <- group template) lives in tss2.py
-from tss2 import TSS, SOSA, QUDT, CSVW_TERMS, WDRS
+from tss2 import TSS, SOSA, QUDT, WDRS
 from tss2 import value_of, find_group, resolve, resolve_with_source
 
 # The SQL box (DuckDB) lives in sql_box.py
@@ -45,8 +45,8 @@ LINKABLE_VOCABULARIES = {
 INSPECTOR_SECTIONS = [
     {
         "title": "Data binding",
-        "explanation": "Where the values are: the table, and the columns that hold the time and the value of each reading.",
-        "properties": [("table", TSS.table), ("time column", TSS.timeColumn), ("value column", TSS.valueColumn)],
+        "explanation": "Where the values are: the data file, and the columns that hold the time and the value of each reading.",
+        "properties": [("time column", TSS.timeColumn), ("value column", TSS.valueColumn)],
     },
     {
         "title": "Time window",
@@ -74,37 +74,33 @@ ABOUT_PROPERTIES = [
 # SPARQL queries
 # ---------------------------------------------------------------------------
 
-# The snippet group, its template, and the csvw:Table the template points to.
-# In this demo every metadata endpoint holds exactly one group and one table.
-TABLE_QUERY = """
+# The snippet group and its template.
+# One group = one data file: the group itself says which CSV file holds its series
+# (tss:dataFile) and which CSVW file describes it (wdrs:describedby).
+# In this demo every metadata endpoint holds exactly one group.
+GROUP_QUERY = """
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX csvw: <http://www.w3.org/ns/csvw#>
 PREFIX wdrs: <http://www.w3.org/2007/05/powder-s#>
 PREFIX tss:  <https://w3id.org/tss#>
 
-SELECT ?label ?table ?csvUrl ?describedBy
-       ?mutable ?startingFrom ?committedUntil ?producedBy
+SELECT ?group ?label ?dataFile ?describedBy ?mutable ?producedBy
        ?timeColumn ?fromTime ?untilTime ?pointType ?timePath ?valuePath
 WHERE {
   ?group a tss:SnippetGroup ;
          rdfs:label ?label ;
+         tss:dataFile ?dataFile ;
+         wdrs:describedby ?describedBy ;
          tss:snippetTemplate ?template .
 
-  ?template tss:table ?table ;
-            tss:timeColumn ?timeColumn ;
+  ?template tss:timeColumn ?timeColumn ;
             tss:from ?fromTime ;
             tss:until ?untilTime .
 
-  ?table csvw:url ?csvUrl ;
-         wdrs:describedby ?describedBy .
-
+  OPTIONAL { ?group tss:mutable ?mutable }
+  OPTIONAL { ?group tss:producedBy ?producedBy }
   OPTIONAL { ?template tss:pointType ?pointType }
   OPTIONAL { ?template tss:timePath ?timePath }
   OPTIONAL { ?template tss:valuePath ?valuePath }
-  OPTIONAL { ?table tss:mutable ?mutable }
-  OPTIONAL { ?table tss:startingFrom ?startingFrom }
-  OPTIONAL { ?table tss:committedUntil ?committedUntil }
-  OPTIONAL { ?table tss:producedBy ?producedBy }
 }
 """
 
@@ -466,9 +462,9 @@ def get_endpoint_info(endpoint_id):
     """Everything the dashboard needs to know about one metadata endpoint"""
     graph = load_graph(endpoint_id)
 
-    rows = list(graph.query(TABLE_QUERY))
+    rows = list(graph.query(GROUP_QUERY))
     if len(rows) == 0:
-        raise HTTPException(status_code=404, detail=f"No tss:SnippetGroup with a csvw:Table found in {endpoint_file(endpoint_id)}")
+        raise HTTPException(status_code=404, detail=f"No tss:SnippetGroup with a tss:dataFile and wdrs:describedby found in {endpoint_file(endpoint_id)}")
     row = rows[0]
 
     info = {
@@ -476,13 +472,11 @@ def get_endpoint_info(endpoint_id):
         "file": endpoint_file(endpoint_id),
         "online": is_url(endpoint_file(endpoint_id)),
         "label": str(row.label),
-        # the table
-        "table": show(graph, row.table),
-        "csvUrl": iri_to_location(row.csvUrl),
+        # the group: its data file and how that file changes
+        "group": show(graph, row.group),
+        "csvUrl": iri_to_location(row.dataFile),
         "describedBy": iri_to_location(row.describedBy),
         "mutable": show(graph, row.mutable),
-        "startingFrom": show(graph, row.startingFrom),
-        "committedUntil": show(graph, row.committedUntil),
         "producedBy": show(graph, row.producedBy),
         # the snippet template
         "timeColumn": str(row.timeColumn),
@@ -498,7 +492,6 @@ def get_endpoint_info(endpoint_id):
     for row in graph.query(SNIPPETS_QUERY):
         snippet = row.snippet
         group, template = find_group(graph, snippet)
-        table = resolve(graph, snippet, template, TSS.table)
         about = resolve(graph, snippet, template, TSS.about)
         unit = value_of(graph, about, QUDT.hasUnit)
 
@@ -507,14 +500,15 @@ def get_endpoint_info(endpoint_id):
             "label": str(row.label),
             "identifier": show(graph, row.identifier),
             "comment": show(graph, row.comment),
+            # The data file is stated on the group itself (one group = one file)
+            "group": show(graph, group),
+            "csvUrl": iri_to_location(value_of(graph, group, TSS.dataFile)),
+            "describedBy": iri_to_location(value_of(graph, group, WDRS.describedby)),
             # Everything below can come from the group's template (the TSS2 rule)
-            "table": show(graph, table),
             "valueColumn": show(graph, resolve(graph, snippet, template, TSS.valueColumn)),
             "timeColumn": show(graph, resolve(graph, snippet, template, TSS.timeColumn)),
             "from": show(graph, resolve(graph, snippet, template, TSS["from"])),
             "until": show(graph, resolve(graph, snippet, template, TSS["until"])),
-            "csvUrl": iri_to_location(value_of(graph, table, CSVW_TERMS.url)),
-            "describedBy": iri_to_location(value_of(graph, table, WDRS.describedby)),
             "observedProperty": show(graph, value_of(graph, about, SOSA.observedProperty)),
             "unit": READABLE_NAMES.get(str(unit), show(graph, unit)),
             "sensor": show(graph, value_of(graph, about, SOSA.madeBySensor)),
@@ -1149,6 +1143,15 @@ def series_metadata(endpoint_id, snippet):
             shown.add(prop)
         sections.append({"title": section["title"], "explanation": section["explanation"], "lines": lines})
 
+    #    The data file is stated on the group itself, not in its template (one group = one file),
+    #    so every snippet of the group reads from it. It goes first in "Data binding".
+    data_file = value_of(graph, group, TSS.dataFile)
+    source = "group" if data_file is not None else "missing"
+    data_file_line = make_line(graph, "data file", "tss:dataFile (on the group)", data_file, source, None)
+    if data_file is not None:
+        data_file_line["value"]["text"] = iri_to_location(data_file)  # e.g. data/waterinfo_289423042.csv
+    sections[0]["lines"].insert(0, data_file_line)
+
     # 2. The SOSA part ("made by", "observes", ...) sits inside tss:about.
     #    The rule works on tss:about as a whole: a snippet with its own tss:about
     #    takes nothing from the template's tss:about.
@@ -1214,14 +1217,13 @@ def series_metadata(endpoint_id, snippet):
         }
 
     # 6. The source files, with the parts this series uses marked
-    table = resolve(graph, snippet, template, TSS.table)
     time_column = show(graph, resolve(graph, snippet, template, TSS.timeColumn))
     value_column = show(graph, resolve(graph, snippet, template, TSS.valueColumn))
-    csv_url = iri_to_location(value_of(graph, table, CSVW_TERMS.url))
-    described_by = iri_to_location(value_of(graph, table, WDRS.describedby))
+    csv_url = iri_to_location(data_file)
+    described_by = iri_to_location(value_of(graph, group, WDRS.describedby))
 
     turtle_marks = {}
-    for node, mark in [(snippet, "snippet"), (group, "group"), (table, "table")]:
+    for node, mark in [(snippet, "snippet"), (group, "group")]:
         if node is not None:
             turtle_marks[show(graph, node)] = mark  # how our files write it, e.g. ex:snippet-grootdok-ec20
             turtle_marks[f"<{node}>"] = mark        # in case a file writes the full IRI
@@ -1252,29 +1254,29 @@ def series_metadata(endpoint_id, snippet):
 # ---------------------------------------------------------------------------
 
 def sql_tables(info):
-    """The SQL tables of an endpoint: one per CSV file (csvw:Table) its snippets use,
-    with the column names and types from the CSVW file"""
+    """The SQL tables of an endpoint: one per CSV file (the tss:dataFile of a group) its
+    snippets use, with the column names and types from the CSVW file"""
     tables = []
-    by_table = {}  # csvw:Table IRI -> its entry in tables
+    by_file = {}  # CSV file -> its entry in tables
     for snippet in info["snippets"]:
-        if snippet["table"] is None:
-            continue  # a snippet without a table (e.g. not in any group) has no CSV to load
-        if snippet["table"] not in by_table:
+        if snippet["csvUrl"] is None:
+            continue  # a snippet without a data file (e.g. not in any group) has no CSV to load
+        if snippet["csvUrl"] not in by_file:
             taken = []
             for table in tables:
                 taken.append(table["name"])
             entry = {
-                "name": sql_box.table_name(snippet["table"], taken),
-                "rdf": snippet["table"],
+                "name": sql_box.table_name(snippet["csvUrl"], taken),
+                "group": snippet["group"],
                 "file": snippet["csvUrl"],
                 "csvw": snippet["describedBy"],
                 "snippets": [],
                 "columns": [],
                 "error": None,
             }
-            by_table[snippet["table"]] = entry
+            by_file[snippet["csvUrl"]] = entry
             tables.append(entry)
-        by_table[snippet["table"]]["snippets"].append(snippet)
+        by_file[snippet["csvUrl"]]["snippets"].append(snippet)
 
     for table in tables:
         csvw = csvw_columns(table["csvw"])
@@ -1321,7 +1323,7 @@ def sql_schema(endpoint_id):
     for table in tables:
         shown_tables.append({
             "name": table["name"],
-            "rdf": table["rdf"],
+            "group": table["group"],
             "file": table["file"],
             "csvw": table["csvw"],
             "error": table["error"],
@@ -1356,9 +1358,9 @@ def run_sql(endpoint_id, query: SqlQuery):
     #    the other tables and the snippets table still work.
     tables = []
     skipped = []
-    table_names = {}  # csvw:Table IRI -> SQL table name, for the snippets table
+    table_names = {}  # CSV file -> SQL table name, for the snippets table
     for table in sql_tables(info):
-        table_names[table["rdf"]] = table["name"]
+        table_names[table["file"]] = table["name"]
         if table["error"] is not None:
             skipped.append({"name": table["name"], "error": table["error"]})
             continue
@@ -1381,7 +1383,7 @@ def run_sql(endpoint_id, query: SqlQuery):
         snippet_rows.append({
             "label": s["label"],
             "snippet": s["id"],
-            "sql_table": table_names.get(s["table"]),
+            "sql_table": table_names.get(s["csvUrl"]),
             "time_column": s["timeColumn"],
             "value_column": s["valueColumn"],
             "unit": s["unit"],

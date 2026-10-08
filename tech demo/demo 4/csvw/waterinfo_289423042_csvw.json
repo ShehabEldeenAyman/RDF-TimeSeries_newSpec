@@ -1,6 +1,5 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
-  "@id": "https://example.org/ex#grootdok-table",
   "url": "../data/waterinfo_289423042.csv",
   "http://purl.org/dc/terms/title": "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)",
   "http://purl.org/dc/terms/description": "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289423042 (station HIS_BWO_VITO_IOW48), 2021-03-03 to 2025-12-18.",

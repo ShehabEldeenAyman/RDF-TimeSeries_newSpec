@@ -23,7 +23,7 @@ export function SourceFiles({ files }) {
         <>
           <p className="muted small long-text">
             <code>{files.turtleFile}</code> · marked: <span className="mark-snippet">this snippet</span>{' '}
-            <span className="mark-group">its group</span> <span className="mark-table">the table</span> ·{' '}
+            <span className="mark-group">its group</span> ·{' '}
             <a href="#turtle-snippet">jump to this snippet</a>
           </p>
           <MarkedLines lines={files.turtle} />

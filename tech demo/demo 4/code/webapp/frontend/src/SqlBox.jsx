@@ -170,7 +170,7 @@ function Tables({ schema }) {
             <code>{table.name}</code>
           </h4>
           <p className="muted small long-text">
-            {table.file} ({table.rdf})
+            {table.file} (tss:dataFile of {table.group})
           </p>
           {table.error && <p className="error small long-text">{table.error}</p>}
           <ul>

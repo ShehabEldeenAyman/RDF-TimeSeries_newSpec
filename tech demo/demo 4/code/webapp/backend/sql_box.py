@@ -96,9 +96,10 @@ def sql_identifier(name):
     return '"' + name.replace('"', '""') + '"'
 
 
-def table_name(short_iri, taken):
-    """A SQL table name made from the csvw:Table IRI, e.g. ex:grootdok-table -> grootdok_table"""
-    name = short_iri.strip("<>").split(":")[-1].split("#")[-1].split("/")[-1].lower()
+def table_name(csv_file, taken):
+    """A SQL table name made from the CSV file's name, e.g. data/waterinfo_289423042.csv -> waterinfo_289423042"""
+    name = csv_file.split("?")[0].split("#")[0].split("/")[-1].lower()
+    name = re.sub(r"\.csv$", "", name)
     name = re.sub(r"[^a-z0-9_]", "_", name)
     if name == "" or not name[0].isalpha():
         name = "t_" + name

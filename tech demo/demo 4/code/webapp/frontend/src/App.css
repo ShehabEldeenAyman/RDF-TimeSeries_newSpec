@@ -415,10 +415,6 @@ a.marker:hover {
   background: #fff8c5;
 }
 
-.mark-table {
-  background: #fbefff;
-}
-
 .data th.bound,
 .data td.bound {
   background: #ddf4ff;

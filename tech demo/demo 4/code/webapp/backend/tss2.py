@@ -15,7 +15,6 @@ from rdflib import Namespace
 TSS = Namespace("https://w3id.org/tss#")
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
 QUDT = Namespace("http://qudt.org/schema/qudt/")
-CSVW_TERMS = Namespace("http://www.w3.org/ns/csvw#")  # not called CSVW: the csvw library already uses that name
 WDRS = Namespace("http://www.w3.org/2007/05/powder-s#")
 
 

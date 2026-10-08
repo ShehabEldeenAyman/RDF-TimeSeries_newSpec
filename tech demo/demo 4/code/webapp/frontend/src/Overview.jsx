@@ -22,16 +22,17 @@ export function Overview({ info }) {
 
       <div className="two-columns">
         <section className="card">
-          <h3>Table</h3>
-          <p className="muted small">The csvw:Table node: where the data is and how it changes over time.</p>
+          <h3>Snippet group</h3>
+          <p className="muted small">
+            Stated on the group itself: the one CSV file all its snippets read, the CSVW file that describes it, and
+            whether it changes.
+          </p>
           <table className="facts">
             <tbody>
-              <Fact name="IRI" value={info.table} />
-              <Fact name="csvw:url" value={info.csvUrl} />
+              <Fact name="IRI" value={info.group} />
+              <Fact name="tss:dataFile" value={info.csvUrl} />
               <Fact name="wdrs:describedby" value={info.describedBy} />
               <Fact name="tss:mutable" value={info.mutable} />
-              <Fact name="tss:startingFrom" value={info.startingFrom} />
-              <Fact name="tss:committedUntil" value={info.committedUntil} />
               <Fact name="tss:producedBy" value={info.producedBy} />
             </tbody>
           </table>

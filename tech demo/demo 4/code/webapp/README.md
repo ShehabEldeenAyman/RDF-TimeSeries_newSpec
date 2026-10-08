@@ -5,9 +5,9 @@ Pick a data source in the drop down, then use the tabs:
 
 | Tab | What it does |
 |---|---|
-| Overview | What the endpoint holds: the `csvw:Table`, the snippet template and every snippet, plus the raw Turtle |
+| Overview | What the endpoint holds: the snippet group (its data file, CSVW file, `tss:mutable`, `tss:producedBy`), the snippet template and every snippet, plus the raw Turtle |
 | Series inspector | Pick one series (snippet) and see everything known about it. Every value is marked: stated on the snippet itself (own), inherited from its group's template (from group), or replacing the template's value (overrides group). Below: the Turtle, CSVW JSON and first CSV rows, with the parts this series uses marked |
-| Files | The CSV the endpoint points to with `csvw:url` (first 20 lines) and the CSVW file it points to with `wdrs:describedby`. Each has a download icon for the whole file |
+| Files | The CSV the group points to with `tss:dataFile` (first 20 lines) and the CSVW file it points to with `wdrs:describedby`. Each has a download icon for the whole file |
 | CSVW validation | Runs the `csvw` Python validator on the CSV and its CSVW file |
 | Query | A guided form for one time series: a time range, a value range, a filter on another column (for example the quality code), and every reading or one value per hour or day (mean, min or max). It also shows summary numbers (count, mean, min, max, empty cells) and the gaps in the data |
 | SQL (DuckDB) | Read-only SQL on the CSV files: one table per CSV file, with the column names and types from its CSVW file, plus a `snippets` table with the TSS2 metadata. Start from one of the examples |
@@ -46,11 +46,11 @@ If you see "Failed to fetch" / "could not reach the backend", check that:
 
 Under the drop down, paste the web address of a TSS2 metadata endpoint (a Turtle file, for example
 `https://example.org/metadata endpoint/my_series_tss2.ttl`) and click **Add**. The backend downloads it and checks
-that it holds a `tss:SnippetGroup` with a `csvw:Table`. If so, it appears in the drop down as "(online)" and every tab
+that it holds a `tss:SnippetGroup` with a `tss:dataFile` and a `wdrs:describedby`. If so, it appears in the drop down as "(online)" and every tab
 works as for the local files:
 
 - relative addresses in it, like `<../data/x.csv>`, are read against the endpoint's own web address,
-  so `csvw:url` and `wdrs:describedby` point at files on the same website;
+  so `tss:dataFile` and `wdrs:describedby` point at files on the same website;
 - the backend downloads the CSVW file and the CSV from there (a big CSV is read line by line, never all at once).
 
 The online endpoints you add are remembered in `backend/online_endpoints.json`. **Remove** (next to the drop down) takes the
@@ -78,7 +78,7 @@ reason shown; the other tables and the `snippets` table still work.
 
 **`main.py`** holds everything else, in this order:
 
-1. **SPARQL queries.** `TABLE_QUERY` gets the table and the snippet template. `SNIPPETS_QUERY` gets one row per snippet.
+1. **SPARQL queries.** `GROUP_QUERY` gets the snippet group (with its data file) and its template. `SNIPPETS_QUERY` gets one row per snippet.
 2. **Files: local or online.** A file "location" is a path inside demo 3 (`data/x.csv`) or a web address. `file_exists`, `read_text`, `read_lines` and `send_as_download` work for both, so the routes don't have to care which one it is.
 3. **Metadata endpoints.** The local `.ttl` files plus the online ones from `online_endpoints.json`. `load_graph` reads one endpoint's Turtle, wherever it is.
 4. **Helper functions.** `get_endpoint_info` runs both queries, applies the rule from `tss2.py` to every snippet, and puts the answers in one dictionary. Most routes use it.
@@ -108,7 +108,7 @@ The `{id}` of a local endpoint is its file name without `.ttl`, for example `wat
 
 The query route shows how TSS2 and CSVW work together:
 
-- TSS2 says which CSV to read (`csvw:url` of the table), which columns to use (`tss:timeColumn`, `tss:valueColumn`) and which time window the series covers (`tss:from`, `tss:until`). Each of these can come from the group's template.
+- TSS2 says which CSV to read (`tss:dataFile` of the snippet's group: one group = one file), which columns to use (`tss:timeColumn`, `tss:valueColumn`) and which time window the series covers (`tss:from`, `tss:until`). Each of these can come from the group's template.
 - Those columns are CSVW column *names*. The CSVW file says which CSV header belongs to each name (`timestamp` → `Timestamp`) and which delimiter the CSV uses.
 
 ### Frontend: `frontend/src/`
