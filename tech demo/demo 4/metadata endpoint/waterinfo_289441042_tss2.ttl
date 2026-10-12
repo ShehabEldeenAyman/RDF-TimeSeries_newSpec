@@ -14,35 +14,57 @@
 @prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
 
-# One group = one data file: every snippet in this group reads its values from tss:dataFile.
+# Every snippet in this group embeds its readings (tss:points), so the group points to no data file.
 ex:zevenaarshaven-snippets a tss:SnippetGroup ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
-    tss:dataFile <../data/waterinfo_289441042.csv> ;
-    wdrs:describedby <../csvw/waterinfo_289441042_csvw.json> ; # same relation as CSVW's rel="describedby" link
     tss:mutable false ;
-    tss:producedBy ex:station-zevenaarshaven ;
+    tss:producedBy ex:289441042 ;
     tss:snippetTemplate [
         a tss:SnippetTemplate ; #defaults each member snippet inherits.
-        tss:timeColumn "timestamp" ;
         tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
         tss:pointType sosa:Observation ;
         tss:timePath sosa:resultTime ;
         tss:valuePath sosa:hasSimpleResult ] ;
 
-    tss:hasSnippet ex:snippet-zevenaarshaven-ec20 .
+    tss:hasSnippet
+        ex:snippet-zevenaarshaven-ec20 ,
+        ex:snippet-zevenaarshaven-quality-code-color .
 
-# One snippet per time series; this file holds a single series (waterinfo ts_id 289441042).
-# The interpolation and quality columns vary per row, so they are described in the
-# CSVW metadata but not bound here.
+# One snippet per column of the CSV, each built from its file in data/waterinfo_289441042_points/.
+# Experiment: every snippet embeds only the first five readings of its column.
+# The EC20 value is the measured series; the other columns describe each EC20 value
+# (which series, how it was interpolated, its quality), so their feature of interest is the EC20 series.
 
 ex:snippet-zevenaarshaven-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     dcterms:identifier "289441042" ;
-    tss:valueColumn "value" ;
-    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
+    tss:embedded true; # Indicates whether actual time series data reside in the snippet or not.
+    tss:points """[
+        { "time": "2021-03-03T23:15:00Z", "value": "4797.72"},
+        { "time": "2021-03-03T23:30:00Z", "value": "4717.8"},
+        { "time": "2021-03-03T23:45:00Z", "value": "4745.36"},
+        { "time": "2021-03-04T00:30:00Z", "value": "4716.1"},
+        { "time": "2021-03-04T01:00:00Z", "value": "4775.96"}
+      ]"""^^rdf:JSON ;
     tss:about [
         sosa:madeBySensor ex:sensor-zevenaarshaven-ec20 ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
         sosa:hasFeatureOfInterest ex:water-zevenaarshaven ;
         qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-zevenaarshaven-quality-code-color a tss:Snippet ;
+    rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
+    tss:embedded true; # Indicates whether actual time series data reside in the snippet or not.
+    tss:points """[
+        { "time": "2021-03-03T23:15:00Z", "value": "rgba(0, 128, 0, 1.0)"},
+        { "time": "2021-03-03T23:30:00Z", "value": "rgba(0, 128, 0, 1.0)"},
+        { "time": "2021-03-03T23:45:00Z", "value": "rgba(0, 128, 0, 1.0)"},
+        { "time": "2021-03-04T00:30:00Z", "value": "rgba(0, 128, 0, 1.0)"},
+        { "time": "2021-03-04T01:00:00Z", "value": "rgba(0, 128, 0, 1.0)"}
+      ]"""^^rdf:JSON ;
+    tss:about [
+        sosa:observedProperty ex:qualityCodeColor ;
+        sosa:hasFeatureOfInterest ex:snippet-zevenaarshaven-ec20 ] .
+
+

@@ -48,7 +48,7 @@ ex:factory-snippet a tss:SnippetGroup ;
 
 ex:snippet-ro1_a_permeate_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO1 train A permeate conductivity, 2025"@en ;
-    tss:valueColumn "ro1_a_permeate_conductivity" ;
+    tss:valueColumn "ro1_a_permeate_conductivity" ; #this should be present to describe the column name from the original csv
     tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro1_a_permeate ;
