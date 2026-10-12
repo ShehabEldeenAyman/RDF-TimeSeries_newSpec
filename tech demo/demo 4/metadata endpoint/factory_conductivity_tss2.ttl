@@ -13,19 +13,15 @@
 @prefix td: <https://www.w3.org/2019/wot/td#> .
 @prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
 
-ex:factory-table a csvw:Table ;
-    csvw:url <../data/factory_conductivity.csv> ;
-    wdrs:describedby <../csvw/factory_conductivity_csvw.json> ; # same relation CSVW uses for rel="describedby" discovery
-    tss:mutable false ;
-    tss:committedUntil "2025-12-31T23:45:00Z"^^xsd:dateTime ;
-    tss:producedBy ex:system1 ;
-    tss:startingFrom "2025-01-01T00:00:00Z"^^xsd:dateTime .
-
+# One group = one data file: every snippet in this group reads its values from tss:dataFile.
 ex:factory-snippet a tss:SnippetGroup ;
     rdfs:label "Factory water conductivity, 2025"@en ;
+    tss:dataFile <../data/factory_conductivity.csv> ;
+    wdrs:describedby <../csvw/factory_conductivity_csvw.json> ; # same relation as CSVW's rel="describedby" link
+    tss:mutable false ;
+    tss:producedBy ex:system1 ;
     tss:snippetTemplate [
          a tss:SnippetTemplate ; #defaults each member snippet inherits.
-        tss:table ex:factory-table ;
         tss:timeColumn "datetime" ;
         tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
@@ -48,11 +44,12 @@ ex:factory-snippet a tss:SnippetGroup ;
         ex:snippet-ro1d_feed_conductivity-2025 ,
         ex:snippet-ro1e_feed_conductivity-2025 .
 
-# One snippet per time series, i.e. per value column of the table. 
+# One snippet per time series, i.e. per value column of the data file. 
 
 ex:snippet-ro1_a_permeate_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO1 train A permeate conductivity, 2025"@en ;
     tss:valueColumn "ro1_a_permeate_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro1_a_permeate ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -62,6 +59,7 @@ ex:snippet-ro1_a_permeate_conductivity-2025 a tss:Snippet ;
 ex:snippet-ro1_b_permeate_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO1 train B permeate conductivity, 2025"@en ;
     tss:valueColumn "ro1_b_permeate_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro1_b_permeate ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -71,6 +69,7 @@ ex:snippet-ro1_b_permeate_conductivity-2025 a tss:Snippet ;
 ex:snippet-ro1_c_permeate_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO1 train C permeate conductivity, 2025"@en ;
     tss:valueColumn "ro1_c_permeate_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro1_c_permeate ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -80,6 +79,7 @@ ex:snippet-ro1_c_permeate_conductivity-2025 a tss:Snippet ;
 ex:snippet-ro2_a_permeate_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO2 train A permeate conductivity, 2025"@en ;
     tss:valueColumn "ro2_a_permeate_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro2_a_permeate ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -89,6 +89,7 @@ ex:snippet-ro2_a_permeate_conductivity-2025 a tss:Snippet ;
 ex:snippet-ro2_b_permeate_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO2 train B permeate conductivity, 2025"@en ;
     tss:valueColumn "ro2_b_permeate_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro2_b_permeate ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -98,6 +99,7 @@ ex:snippet-ro2_b_permeate_conductivity-2025 a tss:Snippet ;
 ex:snippet-cooling_water_conductivity-2025 a tss:Snippet ;
     rdfs:label "Cooling water conductivity (including drinking-water blend), 2025"@en ;
     tss:valueColumn "cooling_water_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-cooling_water ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -107,6 +109,7 @@ ex:snippet-cooling_water_conductivity-2025 a tss:Snippet ;
 ex:snippet-boiler_feed_conductivity-2025 a tss:Snippet ;
     rdfs:label "Boiler feed water conductivity, 2025"@en ;
     tss:valueColumn "boiler_feed_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-boiler_feed ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -116,6 +119,7 @@ ex:snippet-boiler_feed_conductivity-2025 a tss:Snippet ;
 ex:snippet-boiler_water_delivery_conductivity-2025 a tss:Snippet ;
     rdfs:label "Delivered boiler water conductivity, 2025"@en ;
     tss:valueColumn "boiler_water_delivery_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-boiler_water_delivery ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -125,6 +129,7 @@ ex:snippet-boiler_water_delivery_conductivity-2025 a tss:Snippet ;
 ex:snippet-dockwater_blowdown_conductivity-2025 a tss:Snippet ;
     rdfs:label "Dock water and blowdown conductivity, 2025"@en ;
     tss:valueColumn "dockwater_blowdown_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-dockwater_blowdown ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -134,6 +139,7 @@ ex:snippet-dockwater_blowdown_conductivity-2025 a tss:Snippet ;
 ex:snippet-venturi_reject_conductivity-2025 a tss:Snippet ;
     rdfs:label "Venturi reject conductivity, 2025"@en ;
     tss:valueColumn "venturi_reject_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-venturi_reject ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -146,6 +152,7 @@ ex:snippet-venturi_reject_conductivity-2025 a tss:Snippet ;
 ex:snippet-ro1de_feed_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO1D+E combined feed conductivity, 2025"@en ;
     tss:valueColumn "ro1de_feed_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro1de_feed ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -155,6 +162,7 @@ ex:snippet-ro1de_feed_conductivity-2025 a tss:Snippet ;
 ex:snippet-ro1d_feed_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO1D feed conductivity (after chemical injection), 2025"@en ;
     tss:valueColumn "ro1d_feed_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro1d_feed ;
         sosa:observedProperty quantitykind:ElectricConductivity ;
@@ -164,6 +172,7 @@ ex:snippet-ro1d_feed_conductivity-2025 a tss:Snippet ;
 ex:snippet-ro1e_feed_conductivity-2025 a tss:Snippet ;
     rdfs:label "RO1E feed conductivity, 2025"@en ;
     tss:valueColumn "ro1e_feed_conductivity" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-ro1e_feed ;
         sosa:observedProperty quantitykind:ElectricConductivity ;

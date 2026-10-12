@@ -14,19 +14,15 @@
 @prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
 
-ex:zevenaarshaven-table a csvw:Table ;
-    csvw:url <../data/waterinfo_289441042.csv> ;
-    wdrs:describedby <../csvw/waterinfo_289441042_csvw.json> ; # same relation CSVW uses for rel="describedby" discovery
-    tss:mutable false ;
-    tss:committedUntil "2025-12-31T23:45:00Z"^^xsd:dateTime ;
-    tss:producedBy ex:station-zevenaarshaven ;
-    tss:startingFrom "2021-03-03T23:15:00Z"^^xsd:dateTime .
-
+# One group = one data file: every snippet in this group reads its values from tss:dataFile.
 ex:zevenaarshaven-snippets a tss:SnippetGroup ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:dataFile <../data/waterinfo_289441042.csv> ;
+    wdrs:describedby <../csvw/waterinfo_289441042_csvw.json> ; # same relation as CSVW's rel="describedby" link
+    tss:mutable false ;
+    tss:producedBy ex:station-zevenaarshaven ;
     tss:snippetTemplate [
         a tss:SnippetTemplate ; #defaults each member snippet inherits.
-        tss:table ex:zevenaarshaven-table ;
         tss:timeColumn "timestamp" ;
         tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
@@ -36,7 +32,7 @@ ex:zevenaarshaven-snippets a tss:SnippetGroup ;
 
     tss:hasSnippet ex:snippet-zevenaarshaven-ec20 .
 
-# One snippet per time series; this table holds a single series (waterinfo ts_id 289441042).
+# One snippet per time series; this file holds a single series (waterinfo ts_id 289441042).
 # The interpolation and quality columns vary per row, so they are described in the
 # CSVW metadata but not bound here.
 
@@ -44,6 +40,7 @@ ex:snippet-zevenaarshaven-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     dcterms:identifier "289441042" ;
     tss:valueColumn "value" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-zevenaarshaven-ec20 ;
         sosa:observedProperty quantitykind:ElectricConductivity ;

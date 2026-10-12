@@ -14,19 +14,15 @@
 @prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
 
-ex:grootdok-table a csvw:Table ;
-    csvw:url <../data/waterinfo_289423042.csv> ;
-    wdrs:describedby <../csvw/waterinfo_289423042_csvw.json> ; # same relation CSVW uses for rel="describedby" discovery
-    tss:mutable false ;
-    tss:committedUntil "2025-12-18T23:00:00Z"^^xsd:dateTime ;
-    tss:producedBy ex:station-grootdok ;
-    tss:startingFrom "2021-03-03T23:45:00Z"^^xsd:dateTime .
-
+# One group = one data file: every snippet in this group reads its values from tss:dataFile.
 ex:grootdok-snippets a tss:SnippetGroup ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
+    tss:dataFile <../data/waterinfo_289423042.csv> ;
+    wdrs:describedby <../csvw/waterinfo_289423042_csvw.json> ; # same relation as CSVW's rel="describedby" link
+    tss:mutable false ;
+    tss:producedBy ex:station-grootdok ;
     tss:snippetTemplate [
         a tss:SnippetTemplate ; #defaults each member snippet inherits.
-        tss:table ex:grootdok-table ;
         tss:timeColumn "timestamp" ;
         tss:from "2021-03-03T23:45:00Z"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00Z"^^xsd:dateTime ;
@@ -36,7 +32,7 @@ ex:grootdok-snippets a tss:SnippetGroup ;
 
     tss:hasSnippet ex:snippet-grootdok-ec20 .
 
-# One snippet per time series; this table holds a single series (waterinfo ts_id 289423042).
+# One snippet per time series; this file holds a single series (waterinfo ts_id 289423042).
 # The interpolation and quality columns vary per row, so they are described in the
 # CSVW metadata but not bound here.
 
@@ -44,6 +40,7 @@ ex:snippet-grootdok-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
     dcterms:identifier "289423042" ;
     tss:valueColumn "value" ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-grootdok-ec20 ;
         sosa:observedProperty quantitykind:ElectricConductivity ;

@@ -1,6 +1,5 @@
 {
   "@context": "http://www.w3.org/ns/csvw",
-  "@id": "https://example.org/ex#autrichehaven-table",
   "url": "../data/waterinfo_289435042.csv",
   "http://purl.org/dc/terms/title": "Waterinfo EC20, Kanaal Gent-Terneuzen Autrichehaven (NL)",
   "http://purl.org/dc/terms/description": "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289435042 (station HIS_BWO_VITO_IOW50), 2021-03-03 to 2025-10-07.",
