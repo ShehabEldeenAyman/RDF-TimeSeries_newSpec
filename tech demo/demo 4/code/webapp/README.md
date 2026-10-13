@@ -7,6 +7,8 @@ The dashboard loads local Turtle files from `demo 4/metadata endpoint/`, or onli
 - `tss:embedded false`: groups link to external CSV data (`tss:dataFile`) and CSVW descriptions (`tss:describedby`). Snippets select CSVW time/value column names.
 - `tss:embedded true`: each snippet stores a JSON point array in `tss:points`. Its effective JSON-LD `tss:context` identifies numeric or text values.
 
+Every dashboard CSV-reading path requires an explicit, single-character `dialect.delimiter` in the corresponding CSVW file. Missing or invalid delimiters stop parsing with an error; there is no delimiter guessing or comma fallback. This applies to the inspector preview, query/filter forms, SQL and CSVW validation. Raw file previews and downloads do not parse CSV cells.
+
 Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they state their own value. `tss:about` is replaced as a whole. The snippet window includes `tss:from` and excludes `tss:until`.
 
 | Tab | Purpose |
@@ -61,7 +63,7 @@ Online endpoint URLs are saved in backend/online_endpoints.json. Relative file l
 
 ```powershell
 # From backend/
-python -B -m unittest -v test_storage_profiles
+python -B -m unittest -v test_storage_profiles test_csvw_delimiter
 # From frontend/
 npm run lint
 npm run build

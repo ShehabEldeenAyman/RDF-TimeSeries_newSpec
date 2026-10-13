@@ -360,7 +360,19 @@ def load_csvw_json(described_by):
     for column in schema["columns"]:
         if not isinstance(column, dict) or "name" not in column:
             raise ValueError(f"The CSVW file {described_by} has a column without a name")
+    csvw_delimiter(metadata, described_by)
     return metadata
+
+
+def csvw_delimiter(metadata, described_by):
+    """Every CSV parser must use an explicit delimiter from its CSVW description."""
+    dialect = metadata.get("dialect")
+    if not isinstance(dialect, dict) or "delimiter" not in dialect:
+        raise ValueError(f"The CSVW file {described_by} must explicitly define dialect.delimiter; the dashboard does not guess or use a default delimiter.")
+    delimiter = dialect["delimiter"]
+    if not isinstance(delimiter, str) or len(delimiter) != 1 or delimiter in "\r\n\0":
+        raise ValueError(f"The CSVW file {described_by} must define dialect.delimiter as one character (for example ';', ',' or a tab).")
+    return delimiter
 
 
 def titles_of(column):
@@ -407,8 +419,7 @@ def read_csvw(described_by):
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
 
-    dialect = metadata.get("dialect", {})
-    delimiter = dialect.get("delimiter", ",") if isinstance(dialect, dict) else ","
+    delimiter = csvw_delimiter(metadata, described_by)
     headers = {}
     for column in metadata["tableSchema"]["columns"]:
         headers[column["name"]] = titles_of(column)[0]
@@ -427,9 +438,7 @@ def csvw_columns(described_by):
     except ValueError as error:
         return {"error": str(error)}
 
-    dialect = metadata.get("dialect", {})
-    if not isinstance(dialect, dict):
-        dialect = {}  # a dialect that is a link to another file: we use the defaults
+    dialect = metadata["dialect"]
     header_rows = dialect.get("headerRowCount", 1 if dialect.get("header", True) else 0)
     if header_rows > 1:
         return {"error": f"The CSVW file {described_by} says the CSV has {header_rows} header lines; "
@@ -451,7 +460,7 @@ def csvw_columns(described_by):
 
     return {
         "error": None,
-        "delimiter": dialect.get("delimiter", ","),
+        "delimiter": csvw_delimiter(metadata, described_by),
         "quote": quote,
         # doubleQuote (the default): a quote inside a quoted value is written twice ""
         "escape": quote if dialect.get("doubleQuote", True) else "\\",
@@ -1075,7 +1084,14 @@ def validate(endpoint_id):
 
     started = time.time()
     try:
+        metadata = load_csvw_json(location)
+        delimiter = csvw_delimiter(metadata, location)
         data = CSVW(source, validate=True)
+        # Check the library's loaded dialect before it reads any CSV cells.
+        # In particular, do not allow an online metadata change to enable a fallback.
+        if any(table.dialect is None or table.dialect.delimiter != delimiter for table in data.tables):
+            raise ValueError("The validator's delimiter does not match the corresponding CSVW file. Reload the metadata and try again.")
+        valid = data.is_valid
     except Exception as error:
         # For example: the CSV file named in the CSVW "url" does not exist
         return {
@@ -1100,7 +1116,7 @@ def validate(endpoint_id):
         })
 
     return {
-        "valid": data.is_valid,
+        "valid": valid,
         "seconds": round(time.time() - started, 1),
         "messages": messages,
         "messageCount": len(data.warnings),
