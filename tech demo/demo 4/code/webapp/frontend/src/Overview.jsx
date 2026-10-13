@@ -30,8 +30,9 @@ export function Overview({ info }) {
           <table className="facts">
             <tbody>
               <Fact name="IRI" value={info.group} />
+              <Fact name="tss:embedded" value={info.embedded} />
               <Fact name="tss:dataFile" value={info.csvUrl} />
-              <Fact name="wdrs:describedby" value={info.describedBy} />
+              <Fact name="tss:describedby" value={info.describedBy} />
               <Fact name="tss:mutable" value={info.mutable} />
               <Fact name="tss:producedBy" value={info.producedBy} />
             </tbody>

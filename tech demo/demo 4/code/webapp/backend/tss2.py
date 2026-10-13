@@ -15,7 +15,6 @@ from rdflib import Namespace
 TSS = Namespace("https://w3id.org/tss#")
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
 QUDT = Namespace("http://qudt.org/schema/qudt/")
-WDRS = Namespace("http://www.w3.org/2007/05/powder-s#")
 
 
 def value_of(graph, node, prop):

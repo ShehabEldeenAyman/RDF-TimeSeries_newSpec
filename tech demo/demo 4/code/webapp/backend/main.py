@@ -15,7 +15,7 @@ import json
 import time
 
 # The TSS2 inheritance rule (snippet <- group template) lives in tss2.py
-from tss2 import TSS, SOSA, QUDT, WDRS
+from tss2 import TSS, SOSA, QUDT
 from tss2 import value_of, find_group, resolve, resolve_with_source
 
 # The SQL box (DuckDB) lives in sql_box.py
@@ -76,26 +76,26 @@ ABOUT_PROPERTIES = [
 
 # The snippet group and its template.
 # One group = one data file: the group itself says which CSV file holds its series
-# (tss:dataFile) and which CSVW file describes it (wdrs:describedby).
+# (tss:dataFile) and which CSVW file describes it (tss:describedby).
 # In this demo every metadata endpoint holds exactly one group.
 GROUP_QUERY = """
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX wdrs: <http://www.w3.org/2007/05/powder-s#>
 PREFIX tss:  <https://w3id.org/tss#>
 
-SELECT ?group ?label ?dataFile ?describedBy ?mutable ?producedBy
+SELECT ?group ?label ?embedded ?dataFile ?describedBy ?mutable ?producedBy
        ?timeColumn ?fromTime ?untilTime ?pointType ?timePath ?valuePath
 WHERE {
   ?group a tss:SnippetGroup ;
          rdfs:label ?label ;
          tss:dataFile ?dataFile ;
-         wdrs:describedby ?describedBy ;
+         tss:describedby ?describedBy ;
          tss:snippetTemplate ?template .
 
   ?template tss:timeColumn ?timeColumn ;
             tss:from ?fromTime ;
             tss:until ?untilTime .
 
+  OPTIONAL { ?group tss:embedded ?embedded }
   OPTIONAL { ?group tss:mutable ?mutable }
   OPTIONAL { ?group tss:producedBy ?producedBy }
   OPTIONAL { ?template tss:pointType ?pointType }
@@ -464,7 +464,7 @@ def get_endpoint_info(endpoint_id):
 
     rows = list(graph.query(GROUP_QUERY))
     if len(rows) == 0:
-        raise HTTPException(status_code=404, detail=f"No tss:SnippetGroup with a tss:dataFile and wdrs:describedby found in {endpoint_file(endpoint_id)}")
+        raise HTTPException(status_code=404, detail=f"No tss:SnippetGroup with a tss:dataFile and tss:describedby found in {endpoint_file(endpoint_id)}")
     row = rows[0]
 
     info = {
@@ -474,6 +474,7 @@ def get_endpoint_info(endpoint_id):
         "label": str(row.label),
         # the group: its data file and how that file changes
         "group": show(graph, row.group),
+        "embedded": show(graph, row.embedded),
         "csvUrl": iri_to_location(row.dataFile),
         "describedBy": iri_to_location(row.describedBy),
         "mutable": show(graph, row.mutable),
@@ -503,7 +504,7 @@ def get_endpoint_info(endpoint_id):
             # The data file is stated on the group itself (one group = one file)
             "group": show(graph, group),
             "csvUrl": iri_to_location(value_of(graph, group, TSS.dataFile)),
-            "describedBy": iri_to_location(value_of(graph, group, WDRS.describedby)),
+            "describedBy": iri_to_location(value_of(graph, group, TSS.describedby)),
             # Everything below can come from the group's template (the TSS2 rule)
             "valueColumn": show(graph, resolve(graph, snippet, template, TSS.valueColumn)),
             "timeColumn": show(graph, resolve(graph, snippet, template, TSS.timeColumn)),
@@ -895,7 +896,7 @@ def download_csv_file(endpoint_id):
 
 @api.get("/endpoints/{endpoint_id}/csvw")
 def get_csvw_file(endpoint_id):
-    """The CSVW metadata file the endpoint points to with wdrs:describedby"""
+    """The CSVW metadata file the endpoint points to with tss:describedby"""
     info = get_endpoint_info(endpoint_id)
     location = info["describedBy"]
     if not file_exists(location):
@@ -911,7 +912,7 @@ def get_csvw_file(endpoint_id):
 
 @api.get("/endpoints/{endpoint_id}/csvw/download")
 def download_csvw_file(endpoint_id):
-    """The CSVW metadata file (wdrs:describedby), sent as a download"""
+    """The CSVW metadata file (tss:describedby), sent as a download"""
     info = get_endpoint_info(endpoint_id)
     return send_as_download(info["describedBy"], "application/json")
 
@@ -1220,7 +1221,7 @@ def series_metadata(endpoint_id, snippet):
     time_column = show(graph, resolve(graph, snippet, template, TSS.timeColumn))
     value_column = show(graph, resolve(graph, snippet, template, TSS.valueColumn))
     csv_url = iri_to_location(data_file)
-    described_by = iri_to_location(value_of(graph, group, WDRS.describedby))
+    described_by = iri_to_location(value_of(graph, group, TSS.describedby))
 
     turtle_marks = {}
     for node, mark in [(snippet, "snippet"), (group, "group")]:

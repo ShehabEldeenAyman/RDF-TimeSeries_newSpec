@@ -17,6 +17,7 @@
 # Every snippet in this group embeds its readings (tss:points), so the group points to no data file.
 ex:zevenaarshaven-snippets a tss:SnippetGroup ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:embedded true; # Indicates whether actual time series data reside in the snippets of this group or not.
     tss:mutable false ;
     tss:producedBy ex:289441042 ;
     tss:snippetTemplate [
@@ -39,7 +40,6 @@ ex:zevenaarshaven-snippets a tss:SnippetGroup ;
 ex:snippet-zevenaarshaven-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     dcterms:identifier "289441042" ;
-    tss:embedded true; # Indicates whether actual time series data reside in the snippet or not.
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "value": "4797.72"},
         { "time": "2021-03-03T23:30:00Z", "value": "4717.8"},
@@ -67,7 +67,6 @@ ex:snippet-zevenaarshaven-ec20 a tss:Snippet ;
 
 ex:snippet-zevenaarshaven-quality-code-color a tss:Snippet ;
     rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
-    tss:embedded true; # Indicates whether actual time series data reside in the snippet or not.
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "value": "rgba(0, 128, 0, 1.0)"},
         { "time": "2021-03-03T23:30:00Z", "value": "rgba(0, 128, 0, 1.0)"},

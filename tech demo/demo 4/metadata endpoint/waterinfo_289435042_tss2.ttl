@@ -17,8 +17,9 @@
 # One group = one data file: every snippet in this group reads its values from tss:dataFile.
 ex:autrichehaven-snippets a tss:SnippetGroup ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippets of this group or not.
     tss:dataFile <../data/waterinfo_289435042.csv> ;
-    wdrs:describedby <../csvw/waterinfo_289435042_csvw.json> ; # same relation as CSVW's rel="describedby" link
+    tss:describedby <../csvw/waterinfo_289435042_csvw.json> ; # same relation as CSVW's rel="describedby" link
     tss:mutable false ;
     tss:producedBy ex:station-autrichehaven ;
     tss:snippetTemplate [
@@ -40,7 +41,6 @@ ex:snippet-autrichehaven-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
     dcterms:identifier "289435042" ;
     tss:valueColumn "value" ;
-    tss:embedded false; # Indicates whether actual time series data reside in the snippet or not.
     tss:about [
         sosa:madeBySensor ex:sensor-autrichehaven-ec20 ;
         sosa:observedProperty quantitykind:ElectricConductivity ;

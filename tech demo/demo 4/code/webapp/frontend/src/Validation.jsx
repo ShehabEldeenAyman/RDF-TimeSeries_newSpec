@@ -28,7 +28,7 @@ export function Validation({ endpointId }) {
       <h3>CSVW validation</h3>
       <p>
         The <code>csvw</code> Python library reads the CSV through its CSVW metadata
-        (the <code>wdrs:describedby</code> file) and checks every row against the table schema:
+        (the <code>tss:describedby</code> file) and checks every row against the table schema:
         headers, datatypes and required values. Large files can take 10 to 20 seconds.
       </p>
 

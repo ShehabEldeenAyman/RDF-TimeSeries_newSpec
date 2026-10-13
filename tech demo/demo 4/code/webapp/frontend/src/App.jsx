@@ -168,7 +168,7 @@ function App() {
                 downloadUrl={`${API_URL}/endpoints/${info.id}/csv/download`}
               />
               <FileViewer
-                title="CSVW metadata file (wdrs:describedby)"
+                title="CSVW metadata file (tss:describedby)"
                 url={`${API_URL}/endpoints/${info.id}/csvw`}
                 downloadUrl={`${API_URL}/endpoints/${info.id}/csvw/download`}
               />
