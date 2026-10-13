@@ -39,7 +39,6 @@ ex:zevenaarshaven-snippets a tss:SnippetGroup ;
 
 ex:snippet-zevenaarshaven-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
-    dcterms:identifier "289441042" ;
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "value": "4797.72"},
         { "time": "2021-03-03T23:30:00Z", "value": "4717.8"},

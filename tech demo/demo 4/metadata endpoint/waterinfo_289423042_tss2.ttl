@@ -39,7 +39,6 @@ ex:grootdok-snippets a tss:SnippetGroup ;
 
 ex:snippet-grootdok-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
-    dcterms:identifier "289423042" ;
     tss:valueColumn "value" ;
     tss:about [
         sosa:madeBySensor ex:sensor-grootdok-ec20 ;

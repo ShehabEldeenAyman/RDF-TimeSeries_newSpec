@@ -39,7 +39,6 @@ ex:rodenhuizedok-snippets a tss:SnippetGroup ;
 
 ex:snippet-rodenhuizedok-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
-    dcterms:identifier "289429042" ;
     tss:valueColumn "value" ;
     tss:about [
         sosa:madeBySensor ex:sensor-rodenhuizedok-ec20 ;

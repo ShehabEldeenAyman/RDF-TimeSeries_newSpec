@@ -39,7 +39,6 @@ ex:autrichehaven-snippets a tss:SnippetGroup ;
 
 ex:snippet-autrichehaven-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
-    dcterms:identifier "289435042" ;
     tss:valueColumn "value" ;
     tss:about [
         sosa:madeBySensor ex:sensor-autrichehaven-ec20 ;

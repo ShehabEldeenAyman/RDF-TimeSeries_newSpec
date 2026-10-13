@@ -1,0 +1,447 @@
+@prefix sh:      <http://www.w3.org/ns/shacl#> .
+@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl:     <http://www.w3.org/2002/07/owl#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix tss:     <https://w3id.org/tss#> .
+@prefix ext:     <https://w3id.org/tss/shapes/external-csv#> .
+
+# =============================================================================
+# RDFTSS conformance shapes, profile 1: readings in an EXTERNAL CSV file
+#
+# For a metadata endpoint whose tss:SnippetGroup has tss:embedded false: the group
+# points to one CSV file (tss:dataFile) and its CSVW description (tss:describedby),
+# and each snippet reads one column of that file (tss:valueColumn).
+#
+# Run:   pyshacl -s external_csv_shapes.ttl "<endpoint>.ttl"
+#
+# Numbers like "1.1.3" refer to the common requirements (the same in both profiles):
+#   1.1    a snippet group exists, with
+#   1.1.1    a label                       1.1.4  produced by
+#   1.1.2    embedded                      1.1.5  a snippet template, with a time column,
+#   1.1.3    mutable                              from, until, point type, time path, value path
+#   1.1.6    has snippet
+#   1.2    a snippet exists
+#   1.2.1    its label is optional
+#   1.2.2    it has tss:about (contents not checked)
+# Checks marked "E..." are specific to this profile.
+#
+# Every property shape is in one of these groups (sh:group):
+#   Required     sh:Violation  missing or malformed: the endpoint does not conform
+#   Recommended  sh:Warning    should be stated: the endpoint conforms, but with a warning
+#   Optional     -             may be left out; when present it must be well-formed (sh:Violation)
+#   Not allowed  sh:Violation  contradicts this profile, or sh:Warning: has no effect in it
+# =============================================================================
+
+<https://w3id.org/tss/shapes/external-csv>
+    a owl:Ontology ;
+    rdfs:label "RDFTSS conformance shapes: readings in an external CSV file"@en ;
+    sh:declare
+        [ sh:prefix "tss" ; sh:namespace "https://w3id.org/tss#"^^xsd:anyURI ] .
+
+
+# --- The labels ---------------------------------------------------------------
+
+ext:Required a sh:PropertyGroup ;
+    rdfs:label "Required"@en ;
+    rdfs:comment "Must be present and well-formed (sh:Violation)."@en ;
+    sh:order 0 .
+
+ext:Recommended a sh:PropertyGroup ;
+    rdfs:label "Recommended"@en ;
+    rdfs:comment "Should be present; missing gives a sh:Warning."@en ;
+    sh:order 1 .
+
+ext:Optional a sh:PropertyGroup ;
+    rdfs:label "Optional"@en ;
+    rdfs:comment "May be left out; when present it must be well-formed (sh:Violation)."@en ;
+    sh:order 2 .
+
+ext:NotAllowed a sh:PropertyGroup ;
+    rdfs:label "Not allowed"@en ;
+    rdfs:comment "Contradicts this profile (sh:Violation) or has no effect in it (sh:Warning)."@en ;
+    sh:order 3 .
+
+
+# --- 1.1 and 1.2: a snippet group and a snippet exist ----------------------------
+# sh:targetNode makes the class itself the focus node, whether or not it occurs in the
+# data, so an endpoint without any group or snippet is reported instead of passing silently.
+
+ext:GroupExistsShape a sh:NodeShape ;
+    rdfs:label "1.1 A snippet group exists"@en ;
+    sh:targetNode tss:SnippetGroup ;
+    sh:property [
+        sh:name "1.1 a snippet group" ;
+        sh:path [ sh:inversePath rdf:type ] ;
+        sh:minCount 1 ;
+        sh:group ext:Required ;
+        sh:message "1.1: the endpoint holds no tss:SnippetGroup."@en ] .
+
+ext:SnippetExistsShape a sh:NodeShape ;
+    rdfs:label "1.2 A snippet exists"@en ;
+    sh:targetNode tss:Snippet ;
+    sh:property [
+        sh:name "1.2 a snippet" ;
+        sh:path [ sh:inversePath rdf:type ] ;
+        sh:minCount 1 ;
+        sh:group ext:Required ;
+        sh:message "1.2: the endpoint holds no tss:Snippet."@en ] .
+
+
+# --- 1.1 The snippet group -----------------------------------------------------
+
+ext:GroupShape a sh:NodeShape ;
+    rdfs:label "1.1 Snippet group"@en ;
+    sh:targetClass tss:SnippetGroup ;
+
+    # 1.1.1 label
+    sh:property [
+        sh:name "1.1.1 label" ;
+        sh:path rdfs:label ;
+        sh:minCount 1 ;
+        sh:or ( [ sh:datatype xsd:string ] [ sh:datatype rdf:langString ] ) ;
+        sh:minLength 1 ;
+        sh:group ext:Required ;
+        sh:message "1.1.1: a snippet group needs a label (rdfs:label): a non-empty string, with or without a language tag."@en ] ,
+
+    # 1.1.2 embedded: false in this profile
+    [
+        sh:name "1.1.2 embedded" ;
+        sh:description "false: the readings are in the external CSV file, not in the snippets."@en ;
+        sh:path tss:embedded ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:hasValue false ;
+        sh:group ext:Required ;
+        sh:message "1.1.2: tss:embedded must be stated once, as the boolean false, in this profile (readings in an external CSV file). An embedded group is checked with embedded_shapes.ttl."@en ] ,
+
+    # 1.1.3 mutable
+    [
+        sh:name "1.1.3 mutable" ;
+        sh:path tss:mutable ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:group ext:Required ;
+        sh:message "1.1.3: tss:mutable must be stated once, as a boolean (true or false)."@en ] ,
+
+    # 1.1.4 produced by
+    [
+        sh:name "1.1.4 produced by" ;
+        sh:path tss:producedBy ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:group ext:Required ;
+        sh:message "1.1.4: tss:producedBy must be stated once, as an IRI (the producing system or sensor)."@en ] ,
+
+    # 1.1.5 snippet template (its contents: ext:TemplateShape)
+    [
+        sh:name "1.1.5 snippet template" ;
+        sh:path tss:snippetTemplate ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:class tss:SnippetTemplate ;
+        sh:group ext:Required ;
+        sh:message "1.1.5: a group has exactly one tss:snippetTemplate, a node typed tss:SnippetTemplate."@en ] ,
+
+    # 1.1.6 has snippet
+    [
+        sh:name "1.1.6 has snippet" ;
+        sh:path tss:hasSnippet ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:class tss:Snippet ;
+        sh:group ext:Required ;
+        sh:message "1.1.6: a group lists at least one member with tss:hasSnippet; every member is an IRI typed tss:Snippet (a member that is not described in the endpoint fails this check)."@en ] ,
+
+    # E1 data file
+    [
+        sh:name "E1 data file" ;
+        sh:description "One group = one data file: the CSV file that holds the readings of every snippet in the group."@en ;
+        sh:path tss:dataFile ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:group ext:Required ;
+        sh:message "E1: state the group's CSV file exactly once, as an IRI, with tss:dataFile (one group = one data file)."@en ] ,
+
+    # E2 CSVW description
+    [
+        sh:name "E2 CSVW description" ;
+        sh:description "The CSVW metadata of the data file. tss:timeColumn and tss:valueColumn are CSVW column names, so the CSVW file is needed to find them in the CSV."@en ;
+        sh:path tss:describedby ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:group ext:Required ;
+        sh:message "E2: state the CSVW metadata file of the data file exactly once, as an IRI, with tss:describedby."@en ] .
+
+
+# --- 1.1.5 The snippet template ---------------------------------------------------
+
+ext:TemplateShape a sh:NodeShape ;
+    rdfs:label "1.1.5 Snippet template"@en ;
+    sh:targetObjectsOf tss:snippetTemplate ;
+
+    # 1.1.5.1 time column
+    sh:property [
+        sh:name "1.1.5.1 time column" ;
+        sh:path tss:timeColumn ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:group ext:Required ;
+        sh:message "1.1.5.1: the template states tss:timeColumn once, as a non-empty string (a CSVW column name)."@en ] ,
+
+    # 1.1.5.2 from
+    [
+        sh:name "1.1.5.2 from" ;
+        sh:path tss:from ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:lessThan tss:until ;
+        sh:group ext:Required ;
+        sh:message "1.1.5.2: the template states tss:from once, as an xsd:dateTime before its tss:until."@en ] ,
+
+    # 1.1.5.3 until
+    [
+        sh:name "1.1.5.3 until" ;
+        sh:path tss:until ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:group ext:Required ;
+        sh:message "1.1.5.3: the template states tss:until once, as an xsd:dateTime."@en ] ,
+
+    # 1.1.5.4 point type
+    [
+        sh:name "1.1.5.4 point type" ;
+        sh:path tss:pointType ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:group ext:Required ;
+        sh:message "1.1.5.4: the template states tss:pointType once, as a class IRI (for example sosa:Observation)."@en ] ,
+
+    # 1.1.5.5 time path
+    [
+        sh:name "1.1.5.5 time path" ;
+        sh:path tss:timePath ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:group ext:Required ;
+        sh:message "1.1.5.5: the template states tss:timePath once: a SHACL property path (a property IRI such as sosa:resultTime, or a path node)."@en ] ,
+
+    # 1.1.5.6 value path
+    [
+        sh:name "1.1.5.6 value path" ;
+        sh:path tss:valuePath ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:group ext:Required ;
+        sh:message "1.1.5.6: the template states tss:valuePath once: a SHACL property path (a property IRI such as sosa:hasSimpleResult, or a path node)."@en ] ,
+
+    # Optional defaults beyond 1.1.5
+    [
+        sh:name "value column (default)" ;
+        sh:path tss:valueColumn ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:group ext:Optional ;
+        sh:message "tss:valueColumn is one non-empty string (a CSVW column name)."@en ] ,
+    [
+        sh:name "about (default)" ;
+        sh:path tss:about ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:group ext:Optional ;
+        sh:message "tss:about is one point template (a node)."@en ] ,
+
+    # Not allowed in this profile
+    [
+        sh:name "points" ;
+        sh:path tss:points ;
+        sh:maxCount 0 ;
+        sh:group ext:NotAllowed ;
+        sh:message "A template can't hold readings (tss:points), and this profile keeps the readings in the CSV file."@en ] ,
+    [
+        sh:name "context" ;
+        sh:path tss:context ;
+        sh:maxCount 0 ;
+        sh:severity sh:Warning ;
+        sh:group ext:NotAllowed ;
+        sh:message "tss:context describes embedded JSON points; it has no effect when the readings are in a CSV file."@en ] .
+
+
+# --- 1.2 The snippet --------------------------------------------------------------
+
+ext:SnippetShape a sh:NodeShape ;
+    rdfs:label "1.2 Snippet"@en ;
+    sh:targetClass tss:Snippet ;
+
+    # Membership: the template and data file a snippet uses come from its group
+    sh:property [
+        sh:name "1.1.6 member of one group" ;
+        sh:path [ sh:inversePath tss:hasSnippet ] ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:class tss:SnippetGroup ;
+        sh:group ext:Required ;
+        sh:message "Every snippet is a member (tss:hasSnippet) of exactly one tss:SnippetGroup: its data file and template come from there."@en ] ,
+
+    # 1.2.1 label: optional
+    [
+        sh:name "1.2.1 label" ;
+        sh:path rdfs:label ;
+        sh:or ( [ sh:datatype xsd:string ] [ sh:datatype rdf:langString ] ) ;
+        sh:minLength 1 ;
+        sh:group ext:Optional ;
+        sh:message "1.2.1: a snippet's label (rdfs:label, optional) is a non-empty string, with or without a language tag."@en ] ,
+
+    # 1.2.2 about: present; its contents are not checked
+    [
+        sh:name "1.2.2 about" ;
+        sh:path tss:about ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:group ext:Required ;
+        sh:message "1.2.2: a snippet states tss:about once: a point template node (its contents are not checked)."@en ] ,
+
+    # E3 value column: on the snippet, or (unusually) as a default on the template
+    [
+        sh:name "E3 value column (own or inherited)" ;
+        sh:path [ sh:alternativePath ( tss:valueColumn ( [ sh:inversePath tss:hasSnippet ] tss:snippetTemplate tss:valueColumn ) ) ] ;
+        sh:minCount 1 ;
+        sh:group ext:Required ;
+        sh:message "E3: no value column: state tss:valueColumn on the snippet (the CSVW column that holds its readings)."@en ] ,
+    [
+        sh:name "E3 value column (form)" ;
+        sh:path tss:valueColumn ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:group ext:Required ;
+        sh:message "E3: tss:valueColumn is one non-empty string (a CSVW column name)."@en ] ,
+
+    # Optional: a snippet may override its template's values (the TSS2 inheritance rule)
+    [
+        sh:name "time column (override)" ; sh:path tss:timeColumn ;
+        sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ; sh:group ext:Optional ;
+        sh:message "A snippet's own tss:timeColumn is one non-empty string."@en ] ,
+    [
+        sh:name "from (override)" ; sh:path tss:from ;
+        sh:maxCount 1 ; sh:datatype xsd:dateTime ; sh:lessThan tss:until ; sh:group ext:Optional ;
+        sh:message "A snippet's own tss:from is one xsd:dateTime, before its own tss:until."@en ] ,
+    [
+        sh:name "until (override)" ; sh:path tss:until ;
+        sh:maxCount 1 ; sh:datatype xsd:dateTime ; sh:group ext:Optional ;
+        sh:message "A snippet's own tss:until is one xsd:dateTime."@en ] ,
+    [
+        sh:name "point type (override)" ; sh:path tss:pointType ;
+        sh:maxCount 1 ; sh:nodeKind sh:IRI ; sh:group ext:Optional ;
+        sh:message "A snippet's own tss:pointType is one class IRI."@en ] ,
+    [
+        sh:name "time path (override)" ; sh:path tss:timePath ;
+        sh:maxCount 1 ; sh:nodeKind sh:BlankNodeOrIRI ; sh:group ext:Optional ;
+        sh:message "A snippet's own tss:timePath is one SHACL property path."@en ] ,
+    [
+        sh:name "value path (override)" ; sh:path tss:valuePath ;
+        sh:maxCount 1 ; sh:nodeKind sh:BlankNodeOrIRI ; sh:group ext:Optional ;
+        sh:message "A snippet's own tss:valuePath is one SHACL property path."@en ] ,
+
+    # Optional extra description
+    [
+        sh:name "identifier" ; sh:path dcterms:identifier ;
+        sh:nodeKind sh:Literal ; sh:group ext:Optional ;
+        sh:message "dcterms:identifier is a literal."@en ] ,
+    [
+        sh:name "comment" ; sh:path rdfs:comment ;
+        sh:or ( [ sh:datatype xsd:string ] [ sh:datatype rdf:langString ] ) ; sh:group ext:Optional ;
+        sh:message "rdfs:comment is a string, with or without a language tag."@en ] ,
+
+    # Not allowed in this profile
+    [
+        sh:name "points" ; sh:path tss:points ;
+        sh:maxCount 0 ; sh:group ext:NotAllowed ;
+        sh:message "tss:points embeds readings in the snippet, which contradicts tss:embedded false: in this profile the readings are in the CSV file."@en ] ,
+    [
+        sh:name "context" ; sh:path tss:context ;
+        sh:maxCount 0 ; sh:severity sh:Warning ; sh:group ext:NotAllowed ;
+        sh:message "tss:context describes embedded JSON points; it has no effect when the readings are in a CSV file."@en ] .
+
+
+# --- Checks across the snippet and its template (SHACL-SPARQL) --------------------
+
+ext:TimeWindowShape a sh:NodeShape ;
+    rdfs:label "Time window after overrides"@en ;
+    sh:targetClass tss:Snippet ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "The snippet's time window is empty: tss:from {?from} is not before tss:until {?until} (its own value, else the template's)."@en ;
+        sh:prefixes <https://w3id.org/tss/shapes/external-csv> ;
+        # Only when the snippet overrides from or until: the template alone is checked by sh:lessThan.
+        sh:select """
+            SELECT $this ?from ?until WHERE {
+                OPTIONAL { $this tss:from ?ownFrom }
+                OPTIONAL { $this tss:until ?ownUntil }
+                OPTIONAL {
+                    ?group tss:hasSnippet $this ; tss:snippetTemplate ?template .
+                    OPTIONAL { ?template tss:from ?templateFrom }
+                    OPTIONAL { ?template tss:until ?templateUntil }
+                }
+                FILTER (BOUND(?ownFrom) || BOUND(?ownUntil))
+                BIND (COALESCE(?ownFrom, ?templateFrom) AS ?from)
+                BIND (COALESCE(?ownUntil, ?templateUntil) AS ?until)
+                FILTER (BOUND(?from) && BOUND(?until) && ?from >= ?until)
+            }
+        """ ] .
+
+ext:DistinctColumnsShape a sh:NodeShape ;
+    rdfs:label "E4 Value column differs from time column"@en ;
+    sh:targetClass tss:Snippet ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "E4: the snippet reads its values from its time column ({?column})."@en ;
+        sh:prefixes <https://w3id.org/tss/shapes/external-csv> ;
+        sh:select """
+            SELECT $this ?column WHERE {
+                OPTIONAL { $this tss:valueColumn ?ownValue }
+                OPTIONAL { $this tss:timeColumn ?ownTime }
+                OPTIONAL {
+                    ?group tss:hasSnippet $this ; tss:snippetTemplate ?template .
+                    OPTIONAL { ?template tss:valueColumn ?templateValue }
+                    OPTIONAL { ?template tss:timeColumn ?templateTime }
+                }
+                BIND (COALESCE(?ownValue, ?templateValue) AS ?column)
+                BIND (COALESCE(?ownTime, ?templateTime) AS ?timeColumn)
+                FILTER (BOUND(?column) && BOUND(?timeColumn) && STR(?column) = STR(?timeColumn))
+            }
+        """ ] .
+
+ext:OneSnippetPerColumnShape a sh:NodeShape ;
+    rdfs:label "E5 One snippet per value column"@en ;
+    sh:targetClass tss:Snippet ;
+    sh:severity sh:Warning ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "E5: another snippet of the same group ({?other}) also reads value column {?column}: one snippet per series."@en ;
+        sh:prefixes <https://w3id.org/tss/shapes/external-csv> ;
+        sh:select """
+            SELECT $this ?other ?column WHERE {
+                ?group tss:hasSnippet $this , ?other .
+                FILTER ($this != ?other)
+                $this tss:valueColumn ?column .
+                ?other tss:valueColumn ?otherColumn .
+                FILTER (STR(?column) = STR(?otherColumn))
+            }
+        """ ] .
