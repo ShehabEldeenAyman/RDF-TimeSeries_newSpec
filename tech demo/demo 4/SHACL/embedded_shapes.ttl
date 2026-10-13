@@ -14,22 +14,30 @@
 # carries its own readings in tss:points, a JSON array of {"time": ..., "value": ...}
 # objects (as in TSS v1), and tss:context says what "time" and "value" mean.
 #
-# Run:   pyshacl -s embedded_shapes.ttl "<endpoint>.ttl"
+# Run:   pyshacl -w -s embedded_shapes.ttl "<endpoint>.ttl"
+#        (-w: warnings alone don't fail the run; in Python: validate(..., allow_warnings=True))
+# The endpoint conforms to this profile when the report holds no sh:Violation. (Plain SHACL
+# sets sh:conforms to false as soon as the report holds any result, warnings included.)
 #
 # Numbers like "1.1.3" refer to the common requirements (the same in both profiles):
 #   1.1    a snippet group exists, with
 #   1.1.1    a label                       1.1.4  produced by
-#   1.1.2    embedded                      1.1.5  a snippet template, with a time column,
-#   1.1.3    mutable                              from, until, point type, time path, value path
+#   1.1.2    embedded                      1.1.5  a snippet template, with from (1.1.5.2),
+#   1.1.3    mutable                              until, point type, time path, value path (1.1.5.3-6)
 #   1.1.6    has snippet
 #   1.2    a snippet exists
 #   1.2.1    its label is optional
 #   1.2.2    it has tss:about (contents not checked)
-# Checks marked "M..." are specific to this profile.
+# Checks specific to this profile:
+#   M1 points (tss:points): required, one rdf:JSON literal, a JSON array of point objects,
+#      each with a "value" and a "time" in xsd:dateTime form
+#   M2 context (tss:context): required, on the snippet or its template; one rdf:JSON literal,
+#      a JSON object that maps "time" and "value"
+#   M3 the context agrees with tss:timePath and tss:valuePath (warning)
 #
 # Every property shape is in one of these groups (sh:group):
 #   Required     sh:Violation  missing or malformed: the endpoint does not conform
-#   Recommended  sh:Warning    should be stated (TSS v1 SHOULD): conforms, but with a warning
+#   Recommended  sh:Warning    should be fixed (TSS v1 SHOULD), but the endpoint still conforms
 #   Optional     -             may be left out; when present it must be well-formed (sh:Violation)
 #   Not allowed  sh:Violation  contradicts this profile, or sh:Warning: has no effect in it
 # =============================================================================
@@ -38,7 +46,8 @@
     a owl:Ontology ;
     rdfs:label "RDFTSS conformance shapes: readings embedded in the snippets"@en ;
     sh:declare
-        [ sh:prefix "tss" ; sh:namespace "https://w3id.org/tss#"^^xsd:anyURI ] .
+        [ sh:prefix "tss" ; sh:namespace "https://w3id.org/tss#"^^xsd:anyURI ] ,
+        [ sh:prefix "xsd" ; sh:namespace "http://www.w3.org/2001/XMLSchema#"^^xsd:anyURI ] .
 
 
 # --- The labels ---------------------------------------------------------------
@@ -50,7 +59,7 @@ emb:Required a sh:PropertyGroup ;
 
 emb:Recommended a sh:PropertyGroup ;
     rdfs:label "Recommended"@en ;
-    rdfs:comment "Should be present (TSS v1 SHOULD); missing gives a sh:Warning."@en ;
+    rdfs:comment "Should be fixed (TSS v1 SHOULD); gives a sh:Warning, the endpoint still conforms."@en ;
     sh:order 1 .
 
 emb:Optional a sh:PropertyGroup ;
@@ -62,6 +71,22 @@ emb:NotAllowed a sh:PropertyGroup ;
     rdfs:label "Not allowed"@en ;
     rdfs:comment "Contradicts this profile (sh:Violation) or has no effect in it (sh:Warning)."@en ;
     sh:order 3 .
+
+
+# --- Reusable forms -----------------------------------------------------------
+
+emb:PropertyPathShape a sh:NodeShape ;
+    rdfs:label "A SHACL property path"@en ;
+    rdfs:comment "A property IRI, a list (sequence path), or a node with sh:inversePath, sh:alternativePath, sh:zeroOrMorePath, sh:oneOrMorePath or sh:zeroOrOnePath. Used by tss:timePath and tss:valuePath."@en ;
+    sh:or (
+        [ sh:nodeKind sh:IRI ]
+        [ sh:path rdf:first ; sh:minCount 1 ]
+        [ sh:path sh:inversePath ; sh:minCount 1 ]
+        [ sh:path sh:alternativePath ; sh:minCount 1 ]
+        [ sh:path sh:zeroOrMorePath ; sh:minCount 1 ]
+        [ sh:path sh:oneOrMorePath ; sh:minCount 1 ]
+        [ sh:path sh:zeroOrOnePath ; sh:minCount 1 ]
+    ) .
 
 
 # --- 1.1 and 1.2: a snippet group and a snippet exist ----------------------------
@@ -105,17 +130,23 @@ emb:GroupShape a sh:NodeShape ;
         sh:group emb:Required ;
         sh:message "1.1.1: a snippet group needs a label (rdfs:label): a non-empty string, with or without a language tag."@en ] ,
 
-    # 1.1.2 embedded: true in this profile
+    # 1.1.2 embedded: stated once, as a boolean ...
     [
         sh:name "1.1.2 embedded" ;
-        sh:description "true: every snippet of the group carries its readings in tss:points."@en ;
         sh:path tss:embedded ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
-        sh:hasValue true ;
         sh:group emb:Required ;
-        sh:message "1.1.2: tss:embedded must be stated once, as the boolean true, in this profile (readings embedded in the snippets). A group with an external CSV file is checked with external_csv_shapes.ttl."@en ] ,
+        sh:message "1.1.2: state tss:embedded exactly once, as a boolean (true in this profile: the readings are embedded in the snippets)."@en ] ,
+
+    # ... and true in this profile (any form of the boolean true: true or "1")
+    [
+        sh:name "1.1.2 embedded is true" ;
+        sh:path tss:embedded ;
+        sh:not [ sh:in ( false "0"^^xsd:boolean ) ] ;
+        sh:group emb:Required ;
+        sh:message "1.1.2: tss:embedded is false: this group keeps its readings in an external CSV file, so check it with external_csv_shapes.ttl."@en ] ,
 
     # 1.1.3 mutable
     [
@@ -125,7 +156,7 @@ emb:GroupShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
         sh:group emb:Required ;
-        sh:message "1.1.3: tss:mutable must be stated once, as a boolean (true or false)."@en ] ,
+        sh:message "1.1.3: state tss:mutable exactly once, as a boolean (true or false)."@en ] ,
 
     # 1.1.4 produced by
     [
@@ -135,7 +166,7 @@ emb:GroupShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
         sh:group emb:Required ;
-        sh:message "1.1.4: tss:producedBy must be stated once, as an IRI (the producing system or sensor)."@en ] ,
+        sh:message "1.1.4: state tss:producedBy exactly once, as an IRI (the producing system or sensor)."@en ] ,
 
     # 1.1.5 snippet template (its contents: emb:TemplateShape)
     [
@@ -158,7 +189,13 @@ emb:GroupShape a sh:NodeShape ;
         sh:group emb:Required ;
         sh:message "1.1.6: a group lists at least one member with tss:hasSnippet; every member is an IRI typed tss:Snippet (a member that is not described in the endpoint fails this check)."@en ] ,
 
-    # Not used in this profile
+    # Not allowed / not used in this profile
+    [
+        sh:name "points" ;
+        sh:path tss:points ;
+        sh:maxCount 0 ;
+        sh:group emb:NotAllowed ;
+        sh:message "A group can't hold readings: tss:points belongs on each snippet."@en ] ,
     [
         sh:name "data file" ;
         sh:path tss:dataFile ;
@@ -181,27 +218,15 @@ emb:TemplateShape a sh:NodeShape ;
     rdfs:label "1.1.5 Snippet template"@en ;
     sh:targetObjectsOf tss:snippetTemplate ;
 
-    # 1.1.5.1 time column
-    sh:property [
-        sh:name "1.1.5.1 time column" ;
-        sh:path tss:timeColumn ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:string ;
-        sh:minLength 1 ;
-        sh:group emb:Required ;
-        sh:message "1.1.5.1: the template states tss:timeColumn once, as a non-empty string."@en ] ,
-
     # 1.1.5.2 from
-    [
+    sh:property [
         sh:name "1.1.5.2 from" ;
         sh:path tss:from ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:lessThan tss:until ;
         sh:group emb:Required ;
-        sh:message "1.1.5.2: the template states tss:from once, as an xsd:dateTime before its tss:until."@en ] ,
+        sh:message "1.1.5.2: the template states tss:from once, as an xsd:dateTime."@en ] ,
 
     # 1.1.5.3 until
     [
@@ -212,6 +237,15 @@ emb:TemplateShape a sh:NodeShape ;
         sh:datatype xsd:dateTime ;
         sh:group emb:Required ;
         sh:message "1.1.5.3: the template states tss:until once, as an xsd:dateTime."@en ] ,
+
+    # 1.1.5.2 and 1.1.5.3: with a timezone (the order of from and until: emb:TemplateTimeWindowShape)
+    [
+        sh:name "1.1.5.2-3 from and until have a timezone" ;
+        sh:path [ sh:alternativePath ( tss:from tss:until ) ] ;
+        sh:or ( [ sh:not [ sh:datatype xsd:dateTime ] ] [ sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ] ) ;
+        sh:severity sh:Warning ;
+        sh:group emb:Recommended ;
+        sh:message "1.1.5.2-3: this tss:from or tss:until has no timezone (Z or +hh:mm); it is compared as UTC."@en ] ,
 
     # 1.1.5.4 point type
     [
@@ -229,9 +263,9 @@ emb:TemplateShape a sh:NodeShape ;
         sh:path tss:timePath ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:node emb:PropertyPathShape ;
         sh:group emb:Required ;
-        sh:message "1.1.5.5: the template states tss:timePath once: a SHACL property path (a property IRI such as sosa:resultTime, or a path node)."@en ] ,
+        sh:message "1.1.5.5: the template states tss:timePath once, as a SHACL property path (a property IRI such as sosa:resultTime, or a path node)."@en ] ,
 
     # 1.1.5.6 value path
     [
@@ -239,9 +273,9 @@ emb:TemplateShape a sh:NodeShape ;
         sh:path tss:valuePath ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:node emb:PropertyPathShape ;
         sh:group emb:Required ;
-        sh:message "1.1.5.6: the template states tss:valuePath once: a SHACL property path (a property IRI such as sosa:hasSimpleResult, or a path node)."@en ] ,
+        sh:message "1.1.5.6: the template states tss:valuePath once, as a SHACL property path (a property IRI such as sosa:hasSimpleResult, or a path node)."@en ] ,
 
     # Optional defaults beyond 1.1.5
     [
@@ -249,19 +283,19 @@ emb:TemplateShape a sh:NodeShape ;
         sh:path tss:context ;
         sh:maxCount 1 ;
         sh:datatype rdf:JSON ;
-        sh:group emb:Optional ;
+        sh:group emb:Required ;
         sh:message "M2: tss:context is one rdf:JSON literal (a JSON-LD context)."@en ] ,
     [
         sh:name "M2 context is a JSON object" ; sh:path tss:context ;
-        sh:pattern """^\\s*\\{[\\s\\S]*\\}\\s*$""" ; sh:group emb:Optional ;
+        sh:pattern """^\\s*\\{[\\s\\S]*\\}\\s*$""" ; sh:group emb:Required ;
         sh:message "M2: tss:context must be a JSON object, for example { \"@context\": { ... } }."@en ] ,
     [
         sh:name "M2 context maps time" ; sh:path tss:context ;
-        sh:pattern """"time"\\s*:""" ; sh:group emb:Optional ;
+        sh:pattern """"time"\\s*:""" ; sh:group emb:Required ;
         sh:message "M2: tss:context doesn't map the \"time\" key: the readings' times would be dropped when the points are expanded."@en ] ,
     [
         sh:name "M2 context maps value" ; sh:path tss:context ;
-        sh:pattern """"value"\\s*:""" ; sh:group emb:Optional ;
+        sh:pattern """"value"\\s*:""" ; sh:group emb:Required ;
         sh:message "M2: tss:context doesn't map the \"value\" key: the readings' values would be dropped when the points are expanded."@en ] ,
     [
         sh:name "about (default)" ;
@@ -279,12 +313,37 @@ emb:TemplateShape a sh:NodeShape ;
         sh:group emb:NotAllowed ;
         sh:message "A template can't hold readings: tss:points belongs on each snippet."@en ] ,
     [
-        sh:name "value column" ;
-        sh:path tss:valueColumn ;
+        sh:name "time and value column" ;
+        sh:path [ sh:alternativePath ( tss:timeColumn tss:valueColumn ) ] ;
         sh:maxCount 0 ;
         sh:severity sh:Warning ;
         sh:group emb:NotAllowed ;
-        sh:message "tss:valueColumn names a CSV column; it has no effect when the readings are embedded."@en ] .
+        sh:message "tss:timeColumn and tss:valueColumn name CSV columns; they have no effect when the readings are embedded."@en ] ,
+    [
+        sh:name "group-level property on the template" ;
+        sh:path [ sh:alternativePath ( tss:embedded tss:dataFile tss:describedby tss:mutable tss:producedBy tss:snippetTemplate tss:hasSnippet ) ] ;
+        sh:maxCount 0 ;
+        sh:severity sh:Warning ;
+        sh:group emb:NotAllowed ;
+        sh:message "tss:embedded, tss:dataFile, tss:describedby, tss:mutable, tss:producedBy, tss:snippetTemplate and tss:hasSnippet belong on the snippet group; on a template they have no effect."@en ] .
+
+emb:TemplateTimeWindowShape a sh:NodeShape ;
+    rdfs:label "1.1.5.2-3 The template's time window"@en ;
+    sh:targetObjectsOf tss:snippetTemplate ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "1.1.5.2-3: the template's time window is empty: tss:from {?from} is not before tss:until {?until}."@en ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?from ?until WHERE {
+                $this tss:from ?from ; tss:until ?until .
+                FILTER (datatype(?from) = xsd:dateTime && datatype(?until) = xsd:dateTime)
+                # a time without a timezone is compared as UTC
+                BIND (IF(TZ(?from) = "", xsd:dateTime(CONCAT(STR(?from), "Z")), ?from) AS ?f)
+                BIND (IF(TZ(?until) = "", xsd:dateTime(CONCAT(STR(?until), "Z")), ?until) AS ?u)
+                FILTER (?f >= ?u)
+            }
+        """ ] .
 
 
 # --- 1.2 The snippet --------------------------------------------------------------
@@ -351,55 +410,58 @@ emb:SnippetShape a sh:NodeShape ;
         sh:group emb:Required ;
         sh:message "M1: every point in tss:points must have a \"time\" key whose value is an xsd:dateTime string, like \"2021-03-03T23:15:00Z\"."@en ] ,
 
-    # M2 context: recommended (TSS v1 SHOULD), on the snippet or as a default on the template
+    # M2 context: required, on the snippet itself or as a default on the group's template
     [
         sh:name "M2 context (own or inherited)" ;
         sh:path [ sh:alternativePath ( tss:context ( [ sh:inversePath tss:hasSnippet ] tss:snippetTemplate tss:context ) ) ] ;
         sh:minCount 1 ;
-        sh:severity sh:Warning ;
-        sh:group emb:Recommended ;
-        sh:message "M2: no tss:context on the snippet or its template: the points expand with the TSS v1 default context (tss:time, and tss:value as an untyped string)."@en ] ,
+        sh:group emb:Required ;
+        sh:message "M2: no tss:context on the snippet or its template: state the JSON-LD context that says what \"time\" and \"value\" in tss:points mean."@en ] ,
+
+    # M2 the form of the snippet's own context (a template's context gets the same checks in emb:TemplateShape)
     [
-        sh:name "M2 context (own)" ; sh:path tss:context ;
-        sh:maxCount 1 ; sh:datatype rdf:JSON ; sh:group emb:Optional ;
+        sh:name "M2 context (form)" ; sh:path tss:context ;
+        sh:maxCount 1 ; sh:datatype rdf:JSON ; sh:group emb:Required ;
         sh:message "M2: tss:context is one rdf:JSON literal (a JSON-LD context)."@en ] ,
     [
         sh:name "M2 context is a JSON object" ; sh:path tss:context ;
-        sh:pattern """^\\s*\\{[\\s\\S]*\\}\\s*$""" ; sh:group emb:Optional ;
+        sh:pattern """^\\s*\\{[\\s\\S]*\\}\\s*$""" ; sh:group emb:Required ;
         sh:message "M2: tss:context must be a JSON object, for example { \"@context\": { ... } }."@en ] ,
     [
         sh:name "M2 context maps time" ; sh:path tss:context ;
-        sh:pattern """"time"\\s*:""" ; sh:group emb:Optional ;
+        sh:pattern """"time"\\s*:""" ; sh:group emb:Required ;
         sh:message "M2: tss:context doesn't map the \"time\" key: the readings' times would be dropped when the points are expanded."@en ] ,
     [
         sh:name "M2 context maps value" ; sh:path tss:context ;
-        sh:pattern """"value"\\s*:""" ; sh:group emb:Optional ;
+        sh:pattern """"value"\\s*:""" ; sh:group emb:Required ;
         sh:message "M2: tss:context doesn't map the \"value\" key: the readings' values would be dropped when the points are expanded."@en ] ,
 
     # Optional: a snippet may override its template's values (the TSS2 inheritance rule)
     [
-        sh:name "time column (override)" ; sh:path tss:timeColumn ;
-        sh:maxCount 1 ; sh:datatype xsd:string ; sh:minLength 1 ; sh:group emb:Optional ;
-        sh:message "A snippet's own tss:timeColumn is one non-empty string."@en ] ,
-    [
         sh:name "from (override)" ; sh:path tss:from ;
-        sh:maxCount 1 ; sh:datatype xsd:dateTime ; sh:lessThan tss:until ; sh:group emb:Optional ;
-        sh:message "A snippet's own tss:from is one xsd:dateTime, before its own tss:until."@en ] ,
+        sh:maxCount 1 ; sh:datatype xsd:dateTime ; sh:group emb:Optional ;
+        sh:message "A snippet's own tss:from is one xsd:dateTime."@en ] ,
     [
         sh:name "until (override)" ; sh:path tss:until ;
         sh:maxCount 1 ; sh:datatype xsd:dateTime ; sh:group emb:Optional ;
         sh:message "A snippet's own tss:until is one xsd:dateTime."@en ] ,
+    [
+        sh:name "from and until have a timezone (override)" ;
+        sh:path [ sh:alternativePath ( tss:from tss:until ) ] ;
+        sh:or ( [ sh:not [ sh:datatype xsd:dateTime ] ] [ sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ] ) ;
+        sh:severity sh:Warning ; sh:group emb:Recommended ;
+        sh:message "This tss:from or tss:until has no timezone (Z or +hh:mm); it is compared as UTC."@en ] ,
     [
         sh:name "point type (override)" ; sh:path tss:pointType ;
         sh:maxCount 1 ; sh:nodeKind sh:IRI ; sh:group emb:Optional ;
         sh:message "A snippet's own tss:pointType is one class IRI."@en ] ,
     [
         sh:name "time path (override)" ; sh:path tss:timePath ;
-        sh:maxCount 1 ; sh:nodeKind sh:BlankNodeOrIRI ; sh:group emb:Optional ;
+        sh:maxCount 1 ; sh:node emb:PropertyPathShape ; sh:group emb:Optional ;
         sh:message "A snippet's own tss:timePath is one SHACL property path."@en ] ,
     [
         sh:name "value path (override)" ; sh:path tss:valuePath ;
-        sh:maxCount 1 ; sh:nodeKind sh:BlankNodeOrIRI ; sh:group emb:Optional ;
+        sh:maxCount 1 ; sh:node emb:PropertyPathShape ; sh:group emb:Optional ;
         sh:message "A snippet's own tss:valuePath is one SHACL property path."@en ] ,
 
     # Optional extra description
@@ -414,12 +476,19 @@ emb:SnippetShape a sh:NodeShape ;
 
     # Not used in this profile
     [
-        sh:name "value column" ; sh:path tss:valueColumn ;
+        sh:name "time and value column" ;
+        sh:path [ sh:alternativePath ( tss:timeColumn tss:valueColumn ) ] ;
         sh:maxCount 0 ; sh:severity sh:Warning ; sh:group emb:NotAllowed ;
-        sh:message "tss:valueColumn names a CSV column; it has no effect when the readings are embedded."@en ] .
+        sh:message "tss:timeColumn and tss:valueColumn name CSV columns; they have no effect when the readings are embedded."@en ] ,
+    [
+        sh:name "group-level property on the snippet" ;
+        sh:path [ sh:alternativePath ( tss:embedded tss:dataFile tss:describedby tss:mutable tss:producedBy tss:snippetTemplate tss:hasSnippet ) ] ;
+        sh:maxCount 0 ; sh:severity sh:Warning ; sh:group emb:NotAllowed ;
+        sh:message "tss:embedded, tss:dataFile, tss:describedby, tss:mutable, tss:producedBy, tss:snippetTemplate and tss:hasSnippet belong on the snippet group; on a snippet they have no effect."@en ] .
 
 
 # --- Checks across the snippet and its template (SHACL-SPARQL) --------------------
+# "Own or inherited": a snippet uses its own value, else its group template's (the TSS2 rule).
 
 emb:TimeWindowShape a sh:NodeShape ;
     rdfs:label "Time window after overrides"@en ;
@@ -428,7 +497,7 @@ emb:TimeWindowShape a sh:NodeShape ;
         a sh:SPARQLConstraint ;
         sh:message "The snippet's time window is empty: tss:from {?from} is not before tss:until {?until} (its own value, else the template's)."@en ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
-        # Only when the snippet overrides from or until: the template alone is checked by sh:lessThan.
+        # Only when the snippet overrides from or until: the template alone is checked by emb:TemplateTimeWindowShape.
         sh:select """
             SELECT $this ?from ?until WHERE {
                 OPTIONAL { $this tss:from ?ownFrom }
@@ -441,7 +510,11 @@ emb:TimeWindowShape a sh:NodeShape ;
                 FILTER (BOUND(?ownFrom) || BOUND(?ownUntil))
                 BIND (COALESCE(?ownFrom, ?templateFrom) AS ?from)
                 BIND (COALESCE(?ownUntil, ?templateUntil) AS ?until)
-                FILTER (BOUND(?from) && BOUND(?until) && ?from >= ?until)
+                FILTER (datatype(?from) = xsd:dateTime && datatype(?until) = xsd:dateTime)
+                # a time without a timezone is compared as UTC
+                BIND (IF(TZ(?from) = "", xsd:dateTime(CONCAT(STR(?from), "Z")), ?from) AS ?f)
+                BIND (IF(TZ(?until) = "", xsd:dateTime(CONCAT(STR(?until), "Z")), ?until) AS ?u)
+                FILTER (?f >= ?u)
             }
         """ ] .
 
@@ -484,5 +557,26 @@ emb:ContextAgreesWithPathsShape a sh:NodeShape ;
                 BIND (COALESCE(?ownContext, ?templateContext) AS ?context)
                 BIND (COALESCE(?ownPath, ?templatePath) AS ?path)
                 FILTER (BOUND(?context) && isIRI(?path) && !CONTAINS(STR(?context), STR(?path)))
+            }
+        """ ] .
+
+emb:KnownTermsShape a sh:NodeShape ;
+    rdfs:label "No unknown tss: properties"@en ;
+    rdfs:comment "Catches typos such as tss:mutabel, which would otherwise be ignored silently."@en ;
+    sh:targetClass tss:SnippetGroup , tss:Snippet ;
+    sh:targetObjectsOf tss:snippetTemplate ;
+    sh:severity sh:Warning ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "Unknown TSS property {?property} (a typo?): it is ignored."@en ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?property WHERE {
+                $this ?property ?value .
+                FILTER (STRSTARTS(STR(?property), "https://w3id.org/tss#"))
+                FILTER (?property NOT IN (tss:embedded, tss:dataFile, tss:describedby, tss:mutable,
+                    tss:producedBy, tss:snippetTemplate, tss:hasSnippet, tss:timeColumn, tss:valueColumn,
+                    tss:from, tss:until, tss:pointType, tss:timePath, tss:valuePath, tss:about,
+                    tss:points, tss:context))
             }
         """ ] .
