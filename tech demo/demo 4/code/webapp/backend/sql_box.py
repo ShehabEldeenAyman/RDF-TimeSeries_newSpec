@@ -13,6 +13,7 @@ For every query we:
   5. throw the database away.
 """
 import csv
+import json
 import duckdb
 import math
 import re
@@ -199,6 +200,27 @@ def check_header(table):
 
 def load_table(con, table):
     """Copy one CSV file into the database as one table"""
+    if "points" in table:
+        name = sql_identifier(table["name"])
+        value_type = table["columns"][1]["type"]
+        con.execute(f"CREATE TABLE {name} (time TIMESTAMPTZ, value {value_type})")
+        try:
+            rows = []
+            for point in table["points"]:
+                value = point["value"]
+                if value_type == "DOUBLE":
+                    value = float(value) if value not in (None, "") else None
+                    if value is not None and not math.isfinite(value):
+                        raise ValueError("non-finite numeric value")
+                elif value is not None and not isinstance(value, str):
+                    value = json.dumps(value, ensure_ascii=False)
+                rows.append((point["time"], value))
+            if rows:
+                con.executemany(f"INSERT INTO {name} VALUES (?, ?)", rows)
+        except (ValueError, TypeError, duckdb.Error) as error:
+            con.execute(f"DROP TABLE {name}")
+            raise ValueError(f"Could not load embedded points: {error}")
+        return
     # DuckDB would treat * ? [ ] in a file name as a pattern and maybe read other files
     if re.search(r"[*?\[\]]", table["path"]):
         raise ValueError(f"The SQL box can't read files with * ? [ or ] in their name: {table['file']}")
@@ -390,6 +412,10 @@ def example_queries(tables):
     when = sql_identifier(first["timeColumn"])
     value = sql_identifier(first["valueColumn"])
     label = first["label"]
+
+    value_type = next((column["type"] for column in table["columns"] if column["name"] == first["valueColumn"]), None)
+    if value_type == "VARCHAR":
+        return examples
 
     examples.append({
         "title": f"Daily mean, min and max: {label}",

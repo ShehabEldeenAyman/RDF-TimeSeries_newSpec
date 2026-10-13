@@ -7,12 +7,15 @@ from pathlib import Path
 from urllib.parse import urlparse, unquote
 from urllib.request import url2pathname
 from datetime import datetime, timezone
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import requests
 import tempfile
 import csv
 import json
 import time
+import math
+from collections import Counter
+from pyshacl import validate as shacl_validate
 
 # The TSS2 inheritance rule (snippet <- group template) lives in tss2.py
 from tss2 import TSS, SOSA, QUDT
@@ -85,22 +88,23 @@ PREFIX tss:  <https://w3id.org/tss#>
 SELECT ?group ?label ?embedded ?dataFile ?describedBy ?mutable ?producedBy
        ?timeColumn ?fromTime ?untilTime ?pointType ?timePath ?valuePath
 WHERE {
-  ?group a tss:SnippetGroup ;
-         rdfs:label ?label ;
-         tss:dataFile ?dataFile ;
-         tss:describedby ?describedBy ;
-         tss:snippetTemplate ?template .
+  ?group a tss:SnippetGroup .
+  OPTIONAL { ?group rdfs:label ?label }
+  OPTIONAL {
+    ?group tss:snippetTemplate ?template .
+    OPTIONAL { ?template tss:from ?fromTime }
+    OPTIONAL { ?template tss:until ?untilTime }
+    OPTIONAL { ?template tss:timeColumn ?timeColumn }
+    OPTIONAL { ?template tss:pointType ?pointType }
+    OPTIONAL { ?template tss:timePath ?timePath }
+    OPTIONAL { ?template tss:valuePath ?valuePath }
+  }
 
-  ?template tss:timeColumn ?timeColumn ;
-            tss:from ?fromTime ;
-            tss:until ?untilTime .
-
+  OPTIONAL { ?group tss:dataFile ?dataFile }
+  OPTIONAL { ?group tss:describedby ?describedBy }
   OPTIONAL { ?group tss:embedded ?embedded }
   OPTIONAL { ?group tss:mutable ?mutable }
   OPTIONAL { ?group tss:producedBy ?producedBy }
-  OPTIONAL { ?template tss:pointType ?pointType }
-  OPTIONAL { ?template tss:timePath ?timePath }
-  OPTIONAL { ?template tss:valuePath ?valuePath }
 }
 """
 
@@ -115,8 +119,8 @@ PREFIX tss:     <https://w3id.org/tss#>
 
 SELECT ?snippet ?label ?identifier ?comment
 WHERE {
-  ?snippet a tss:Snippet ;
-           rdfs:label ?label .
+  ?snippet a tss:Snippet .
+  OPTIONAL { ?snippet rdfs:label ?label }
 
   OPTIONAL { ?snippet dcterms:identifier ?identifier }
   OPTIONAL { ?snippet rdfs:comment ?comment }
@@ -464,25 +468,25 @@ def get_endpoint_info(endpoint_id):
 
     rows = list(graph.query(GROUP_QUERY))
     if len(rows) == 0:
-        raise HTTPException(status_code=404, detail=f"No tss:SnippetGroup with a tss:dataFile and tss:describedby found in {endpoint_file(endpoint_id)}")
+        raise HTTPException(status_code=404, detail=f"No tss:SnippetGroup found in {endpoint_file(endpoint_id)}")
     row = rows[0]
 
     info = {
         "id": endpoint_id,
         "file": endpoint_file(endpoint_id),
         "online": is_url(endpoint_file(endpoint_id)),
-        "label": str(row.label),
+        "label": str(row.label) if row.label is not None else endpoint_id,
         # the group: its data file and how that file changes
         "group": show(graph, row.group),
-        "embedded": show(graph, row.embedded),
+        "embedded": embedded_mode(graph, row.group),
         "csvUrl": iri_to_location(row.dataFile),
         "describedBy": iri_to_location(row.describedBy),
         "mutable": show(graph, row.mutable),
         "producedBy": show(graph, row.producedBy),
         # the snippet template
-        "timeColumn": str(row.timeColumn),
-        "from": str(row.fromTime),
-        "until": str(row.untilTime),
+        "timeColumn": show(graph, row.timeColumn),
+        "from": show(graph, row.fromTime),
+        "until": show(graph, row.untilTime),
         "pointType": show(graph, row.pointType),
         "timePath": show(graph, row.timePath),
         "valuePath": show(graph, row.valuePath),
@@ -498,11 +502,12 @@ def get_endpoint_info(endpoint_id):
 
         info["snippets"].append({
             "id": str(snippet),
-            "label": str(row.label),
+            "label": str(row.label) if row.label is not None else show(graph, snippet),
             "identifier": show(graph, row.identifier),
             "comment": show(graph, row.comment),
             # The data file is stated on the group itself (one group = one file)
             "group": show(graph, group),
+            "embedded": embedded_mode(graph, group),
             "csvUrl": iri_to_location(value_of(graph, group, TSS.dataFile)),
             "describedBy": iri_to_location(value_of(graph, group, TSS.describedby)),
             # Everything below can come from the group's template (the TSS2 rule)
@@ -517,6 +522,134 @@ def get_endpoint_info(endpoint_id):
         })
 
     return info
+
+
+def embedded_mode(graph, group):
+    """Require an explicit boolean, rather than guessing a storage profile."""
+    values = list(graph.objects(group, TSS.embedded)) if group is not None else []
+    if len(values) != 1 or not isinstance(values[0], Literal) or not isinstance(values[0].toPython(), bool):
+        return None
+    return values[0].toPython()
+
+
+def embedded_points(graph, snippet):
+    """Read the snippet's JSON points without losing string-valued series."""
+    literal = graph.value(snippet, TSS.points)
+    try:
+        points = json.loads(str(literal))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="This embedded snippet has no valid JSON in tss:points.")
+    if not isinstance(points, list) or any(
+        not isinstance(point, dict) or "time" not in point or "value" not in point
+        or not isinstance(point["time"], str) for point in points
+    ):
+        raise HTTPException(status_code=400, detail='tss:points must be an array of objects with a string "time" and a "value".')
+    for point in points:
+        parse_time(point["time"])
+    return points
+
+
+def embedded_value_type(graph, snippet):
+    """Use the effective JSON-LD value mapping to distinguish numbers from text."""
+    group, template = find_group(graph, snippet)
+    context = resolve(graph, snippet, template, TSS.context)
+    if context is None:
+        return None
+    try:
+        context = json.loads(str(context))
+        context = context.get("@context", context)
+        mapping = context.get("value", {})
+        datatype = mapping.get("@type") if isinstance(mapping, dict) else None
+        if datatype and ":" in datatype and not datatype.startswith(("http:", "https:")):
+            prefix, local = datatype.split(":", 1)
+            namespace = context.get(prefix)
+            if isinstance(namespace, str):
+                datatype = namespace + local
+        return datatype
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(status_code=400, detail="tss:context must contain a usable JSON-LD context object.")
+
+
+def numeric_points(graph, snippet, points):
+    datatype = embedded_value_type(graph, snippet)
+    if datatype is not None:
+        return (datatype.startswith("http://www.w3.org/2001/XMLSchema#")
+                and sql_box.duckdb_type(datatype.rsplit("#", 1)[-1]) in ("DOUBLE", "BIGINT"))
+    return all(point["value"] is None or isinstance(point["value"], (int, float))
+               and not isinstance(point["value"], bool) for point in points)
+
+
+@api.get("/endpoints/{endpoint_id}/points")
+def get_points_file(endpoint_id, snippet):
+    graph = load_graph(endpoint_id)
+    chosen = find_snippet(get_endpoint_info(endpoint_id), snippet)
+    if chosen["embedded"] is not True:
+        raise HTTPException(status_code=400, detail="This series uses external CSV data.")
+    points = embedded_points(graph, URIRef(snippet))
+    return {"path": "tss:points", "found": True, "note": f"{len(points)} embedded readings",
+            "text": json.dumps(points, indent=2, ensure_ascii=False)}
+
+
+@api.get("/endpoints/{endpoint_id}/shacl")
+def check_shacl(endpoint_id):
+    """Validate the original graph with the profile selected by tss:embedded."""
+    graph = load_graph(endpoint_id)
+    groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
+    modes = {embedded_mode(graph, group) for group in groups}
+    if not groups or None in modes or len(modes) != 1:
+        raise HTTPException(status_code=400, detail="Cannot select SHACL shapes: every SnippetGroup must state one boolean tss:embedded, and all groups must use the same profile.")
+    embedded = modes.pop()
+    name = "embedded_shapes.ttl" if embedded else "external_csv_shapes.ttl"
+    shapes = Graph().parse(DEMO_DIR / "SHACL" / name, format="turtle")
+    return shacl_report(graph, shapes, name, embedded)
+
+
+def shacl_report(graph, shapes, name, embedded, custom=False):
+    """Use the same report format for bundled and user-provided shapes."""
+    started = time.monotonic()
+    try:
+        conforms, report, report_text = shacl_validate(graph, shacl_graph=shapes, allow_warnings=True)
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=f"Could not validate with {name}: {error}")
+    if not isinstance(report, Graph):
+        raise HTTPException(status_code=400, detail=f"Could not validate with {name}: {report}")
+    sh = URIRef("http://www.w3.org/ns/shacl#ValidationResult")
+    severity = URIRef("http://www.w3.org/ns/shacl#resultSeverity")
+    counts = Counter(str(report.value(result, severity)).rsplit("#", 1)[-1]
+                     for result in report.subjects(RDF.type, sh))
+    return {"conforms": bool(conforms), "embedded": embedded, "shapes": name, "custom": custom,
+            "seconds": round(time.monotonic() - started, 2), "report": report_text,
+            "violations": counts["Violation"], "warnings": counts["Warning"], "infos": counts["Info"]}
+
+
+class CustomShacl(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    turtle: str = Field(min_length=1, max_length=5_000_000)
+
+
+@api.post("/endpoints/{endpoint_id}/shacl")
+def check_custom_shacl(endpoint_id, upload: CustomShacl):
+    """Validate with uploaded Turtle shapes, without replacing bundled files."""
+    graph = load_graph(endpoint_id)
+    name = upload.filename.replace("\\", "/").rsplit("/", 1)[-1]
+    if len(upload.turtle.encode("utf-8")) > 5_000_000:
+        raise HTTPException(status_code=413, detail="The shapes file must be at most 5 MB.")
+    shapes = Graph()
+    try:
+        shapes.parse(data=upload.turtle.lstrip("\ufeff"), format="turtle", publicID="https://example.org/uploaded-shapes/")
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=f"Could not read {name} as Turtle: {error}")
+    sh = "http://www.w3.org/ns/shacl#"
+    has_shapes = any((None, RDF.type, URIRef(sh + kind)) in shapes for kind in ("NodeShape", "PropertyShape")) or any(
+        (None, URIRef(sh + prop), None) in shapes
+        for prop in ("targetClass", "targetNode", "targetSubjectsOf", "targetObjectsOf", "property", "path")
+    )
+    if not has_shapes:
+        raise HTTPException(status_code=400, detail=f"{name} contains no SHACL shapes or targets.")
+    groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
+    modes = {embedded_mode(graph, group) for group in groups}
+    embedded = modes.pop() if len(modes) == 1 else None
+    return shacl_report(graph, shapes, name, embedded, custom=True)
 
 
 # ---------------------------------------------------------------------------
@@ -693,6 +826,8 @@ def summarize(readings):
         value = reading["value"]
         if value is None:
             empty += 1
+            continue
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
             continue
         count += 1
         total += value
@@ -1005,6 +1140,8 @@ def filter_columns(endpoint_id, snippet):
     (2 to 30) are useful for that, so only those are sent."""
     info = get_endpoint_info(endpoint_id)
     chosen = find_snippet(info, snippet)
+    if chosen["embedded"] is True:
+        return []
     delimiter, headers, time_header, value_header = snippet_csv(chosen)
 
     # Start with every column except the time and the value, and drop a column
@@ -1053,8 +1190,22 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
     if aggregate not in ["mean", "min", "max"]:
         raise HTTPException(status_code=400, detail="aggregate must be 'mean', 'min' or 'max'")
 
-    # 2. How to read the CSV (from the CSVW file)
-    delimiter, headers, time_header, value_header = snippet_csv(chosen)
+    # 2. Both storage profiles feed the same filtering and aggregation pipeline.
+    embedded = chosen["embedded"] is True
+    numeric = True
+    if embedded:
+        graph = load_graph(endpoint_id)
+        points = embedded_points(graph, URIRef(snippet))
+        numeric = numeric_points(graph, URIRef(snippet), points)
+        if not numeric and (low is not None or high is not None or resample):
+            raise HTTPException(status_code=400, detail="Value ranges and mean/min/max aggregation require a numeric series. This embedded series contains text or other non-numeric values.")
+        if filter_column:
+            raise HTTPException(status_code=400, detail="CSV column filters are only available for external CSV series.")
+        delimiter, headers, time_header, value_header = None, {}, "time", "value"
+        source_rows = sorted(points, key=lambda point: parse_time(point["time"]))
+    else:
+        delimiter, headers, time_header, value_header = snippet_csv(chosen)
+        source_rows = csv.DictReader(read_lines(chosen["csvUrl"]), delimiter=delimiter)
     filter_header = None
     if filter_column:
         if filter_column not in headers:
@@ -1069,7 +1220,7 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
     # 4. Go through the CSV row by row
     moments = []  # the time of every row inside the time range: to find the gaps
     kept = []     # the readings that also pass the column filter and the value range
-    for row in csv.DictReader(read_lines(chosen["csvUrl"]), delimiter=delimiter):
+    for row in source_rows:
         row_time = parse_time(row[time_header])
         if window_start and row_time < window_start:
             continue
@@ -1084,7 +1235,15 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
         if filter_header and row[filter_header] != filter_value:
             continue
         text = row[value_header]
-        value = float(text) if text != "" else None  # an empty cell means: no reading
+        if embedded and not numeric:
+            value = text
+        else:
+            try:
+                value = float(text) if text not in ("", None) else None
+            except (ValueError, TypeError):
+                raise HTTPException(status_code=400, detail=f"The series declares numeric values, but contains {text!r}.")
+            if value is not None and not math.isfinite(value):
+                raise HTTPException(status_code=400, detail="The series contains a non-finite numeric value.")
         if value is None and (low is not None or high is not None):
             continue  # with a value range, an empty cell can never match
         if low is not None and value < low:
@@ -1103,6 +1262,8 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
 
     return {
         "snippet": chosen["label"],
+        "embedded": embedded,
+        "numeric": numeric,
         "unit": chosen["unit"],
         "csvFile": chosen["csvUrl"],
         "delimiter": delimiter,
@@ -1114,7 +1275,11 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
         "filterValue": filter_value if filter_header else None,
         "resample": resample,
         "aggregate": aggregate,
-        "summary": summarize(kept),   # over the single readings that passed all filters
+        "summary": summarize(kept) if numeric else {
+            "count": sum(reading["value"] is not None for reading in kept),
+            "empty": sum(reading["value"] is None for reading in kept),
+            "mean": None, "min": None, "max": None,
+        },
         "gaps": find_gaps(moments),   # over every reading in the time range
         "totalRows": len(rows),
         "limitReached": len(rows) > limit,
@@ -1132,6 +1297,7 @@ def series_metadata(endpoint_id, snippet):
     if (snippet, RDF.type, TSS.Snippet) not in graph:
         raise HTTPException(status_code=404, detail=f"Unknown snippet: {snippet}")
     group, template = find_group(graph, snippet)
+    embedded = embedded_mode(graph, group) is True
 
     # 1. The lines of each section, with the TSS2 rule applied to every property
     sections = []
@@ -1139,6 +1305,8 @@ def series_metadata(endpoint_id, snippet):
     for section in INSPECTOR_SECTIONS:
         lines = []
         for name, prop in section["properties"]:
+            if embedded and prop in (TSS.timeColumn, TSS.valueColumn):
+                continue
             value, source, group_value = resolve_with_source(graph, snippet, template, prop)
             lines.append(make_line(graph, name, show(graph, prop), value, source, group_value))
             shown.add(prop)
@@ -1151,7 +1319,14 @@ def series_metadata(endpoint_id, snippet):
     data_file_line = make_line(graph, "data file", "tss:dataFile (on the group)", data_file, source, None)
     if data_file is not None:
         data_file_line["value"]["text"] = iri_to_location(data_file)  # e.g. data/waterinfo_289423042.csv
-    sections[0]["lines"].insert(0, data_file_line)
+    if embedded:
+        points = embedded_points(graph, snippet)
+        shown.add(TSS.points)
+        sections[0]["explanation"] = "The readings are embedded directly in this snippet as JSON points."
+        sections[0]["lines"].append(make_line(graph, "readings", "tss:points", Literal(len(points)), "own", None))
+        sections[2]["explanation"] = "The context maps each JSON point's time and value to RDF properties; the point template supplies its shared metadata."
+    else:
+        sections[0]["lines"].insert(0, data_file_line)
 
     # 2. The SOSA part ("made by", "observes", ...) sits inside tss:about.
     #    The rule works on tss:about as a whole: a snippet with its own tss:about
@@ -1245,7 +1420,9 @@ def series_metadata(endpoint_id, snippet):
             "turtle": mark_turtle(turtle_text, turtle_marks),
             "csvwFile": described_by,
             "csvw": csvw_lines,
-            "csv": first_csv_rows(csv_url, described_by, time_column, value_column),
+            "embedded": embedded,
+            "points": json.dumps(points, indent=2, ensure_ascii=False) if embedded else None,
+            "csv": None if embedded else first_csv_rows(csv_url, described_by, time_column, value_column),
         },
     }
 
@@ -1258,6 +1435,21 @@ def sql_tables(info):
     """The SQL tables of an endpoint: one per CSV file (the tss:dataFile of a group) its
     snippets use, with the column names and types from the CSVW file"""
     tables = []
+    if info["embedded"] is True:
+        graph = load_graph(info["id"])
+        for snippet in info["snippets"]:
+            node = URIRef(snippet["id"])
+            points = embedded_points(graph, node)
+            numeric = numeric_points(graph, node, points)
+            bound = dict(snippet, timeColumn="time", valueColumn="value")
+            tables.append({
+                "name": sql_box.table_name(snippet["id"].rsplit("#", 1)[-1], [table["name"] for table in tables]),
+                "group": snippet["group"], "file": "tss:points", "csvw": None,
+                "snippets": [bound], "points": points, "error": None,
+                "columns": [{"name": "time", "type": "TIMESTAMPTZ", "role": "time"},
+                            {"name": "value", "type": "DOUBLE" if numeric else "VARCHAR", "role": snippet["label"]}],
+            })
+        return tables
     by_file = {}  # CSV file -> its entry in tables
     for snippet in info["snippets"]:
         if snippet["csvUrl"] is None:
@@ -1365,6 +1557,10 @@ def run_sql(endpoint_id, query: SqlQuery):
         if table["error"] is not None:
             skipped.append({"name": table["name"], "error": table["error"]})
             continue
+        if "points" in table:
+            table_names[table["snippets"][0]["id"]] = table["name"]
+            tables.append(table)
+            continue
         tables.append({
             "name": table["name"],
             "file": table["file"],
@@ -1384,9 +1580,9 @@ def run_sql(endpoint_id, query: SqlQuery):
         snippet_rows.append({
             "label": s["label"],
             "snippet": s["id"],
-            "sql_table": table_names.get(s["csvUrl"]),
-            "time_column": s["timeColumn"],
-            "value_column": s["valueColumn"],
+            "sql_table": table_names.get(s["id"] if s["embedded"] else s["csvUrl"]),
+            "time_column": "time" if s["embedded"] else s["timeColumn"],
+            "value_column": "value" if s["embedded"] else s["valueColumn"],
             "unit": s["unit"],
             "from_time": s["from"],
             "until_time": s["until"],

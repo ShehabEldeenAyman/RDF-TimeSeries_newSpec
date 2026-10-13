@@ -66,6 +66,8 @@ export function QueryForm({ info }) {
 
   function pickSnippet(id) {
     setSnippetId(id)
+    setResult(null)
+    setError(null)
     setFilterColumns(null) // the new series may have other columns
     setFilterColumn('')
     setFilterValue('')
@@ -116,6 +118,7 @@ export function QueryForm({ info }) {
     <>
       <section className="card">
         <h3>Query a time series</h3>
+        {info.embedded && <p className="muted small">Reads the points embedded in the selected snippet. Numeric filters and aggregation apply to numeric series; text series support time filtering.</p>}
         <p className="muted small">
           {chosen && <>This series runs from {chosen.from} until {chosen.until} (until itself not included). </>}
           All times are UTC. Leave a field empty to not use it.
@@ -238,7 +241,7 @@ function Summary({ result }) {
   return (
     <section className="card">
       <h3>Summary</h3>
-      <p className="muted small">Over the single readings that passed all filters (before any grouping per hour or day).</p>
+      <p className="muted small">Over the single readings that passed all filters (before any grouping per hour or day). {result.numeric === false && 'This is a non-numeric series; numeric statistics are not applicable.'}</p>
       <div className="stats">
         <Stat name="Readings" value={summary.count} />
         <Stat name="Mean" value={summary.mean === null ? '—' : summary.mean + unit} />
@@ -302,11 +305,11 @@ function QueryResult({ result, requestUrl }) {
         Request sent: <a href={requestUrl} target="_blank" rel="noreferrer">{requestUrl}</a>
       </p>
       <p className="muted small">
-        How the backend answered: it opened <code>{result.csvFile}</code> (delimiter <code>{result.delimiter}</code>),
+        {result.embedded ? <>The backend read the embedded <code>tss:points</code> of this snippet and applied its time window{grouped && `, grouping readings per ${result.resample}`}.</> : <>How the backend answered: it opened <code>{result.csvFile}</code> (delimiter <code>{result.delimiter}</code>),
         took the time from column <code>{result.timeColumn}</code> (CSV header "{result.timeHeader}")
         and the value from column <code>{result.valueColumn}</code> (CSV header "{result.valueHeader}")
         {result.filterHeader && <>, kept only the rows where "{result.filterHeader}" is "{result.filterValue}"</>}
-        {grouped && <>, and turned each {result.resample} into one value: the {aggregateName}</>}.
+        {grouped && <>, and turned each {result.resample} into one value: the {aggregateName}</>}.</>}
       </p>
 
       <div className="table-scroll">
@@ -315,7 +318,7 @@ function QueryResult({ result, requestUrl }) {
             <tr>
               <th>{grouped ? `Start of the ${result.resample}` : 'Time'}</th>
               <th>
-                {grouped ? `${aggregateName} ` : 'Value '}({result.unit ? result.unit : 'unit unknown'})
+                {grouped ? `${aggregateName} ` : 'Value '}{result.numeric !== false && `(${result.unit ? result.unit : 'unit unknown'})`}
               </th>
               {grouped && <th>Readings in it</th>}
             </tr>
@@ -324,7 +327,7 @@ function QueryResult({ result, requestUrl }) {
             {result.readings.map((reading) => (
               <tr key={reading.time}>
                 <td>{reading.time}</td>
-                <td>{reading.value === null ? '—' : reading.value}</td>
+                <td>{reading.value === null ? '—' : typeof reading.value === 'object' ? JSON.stringify(reading.value) : String(reading.value)}</td>
                 {grouped && <td>{reading.count}</td>}
               </tr>
             ))}

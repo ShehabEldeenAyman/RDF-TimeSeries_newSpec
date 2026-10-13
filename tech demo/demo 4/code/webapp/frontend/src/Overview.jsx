@@ -24,13 +24,12 @@ export function Overview({ info }) {
         <section className="card">
           <h3>Snippet group</h3>
           <p className="muted small">
-            Stated on the group itself: the one CSV file all its snippets read, the CSVW file that describes it, and
-            whether it changes.
+            {info.embedded ? 'The group shares metadata for snippets whose readings are embedded as JSON.' : 'The group identifies the CSV file and its CSVW description shared by its snippets.'}
           </p>
           <table className="facts">
             <tbody>
               <Fact name="IRI" value={info.group} />
-              <Fact name="tss:embedded" value={info.embedded} />
+              <Fact name="tss:embedded" value={info.embedded === null ? 'not stated' : String(info.embedded)} />
               <Fact name="tss:dataFile" value={info.csvUrl} />
               <Fact name="tss:describedby" value={info.describedBy} />
               <Fact name="tss:mutable" value={info.mutable} />
@@ -44,7 +43,7 @@ export function Overview({ info }) {
           <p className="muted small">The defaults that every snippet in the group inherits.</p>
           <table className="facts">
             <tbody>
-              <Fact name="tss:timeColumn" value={info.timeColumn} />
+              {!info.embedded && <Fact name="tss:timeColumn" value={info.timeColumn} />}
               <Fact name="tss:from" value={info.from} />
               <Fact name="tss:until" value={info.until} />
               <Fact name="tss:pointType" value={info.pointType} />
@@ -57,13 +56,13 @@ export function Overview({ info }) {
 
       <section className="card">
         <h3>Snippets ({info.snippets.length})</h3>
-        <p className="muted small">One snippet = one time series = one value column in the CSV.</p>
+        <p className="muted small">{info.embedded ? 'Each snippet holds a time series in tss:points.' : 'One snippet = one time series = one value column in the CSV.'}</p>
         <div className="table-scroll">
           <table className="data">
             <thead>
               <tr>
                 <th>Label</th>
-                <th>Value column</th>
+                {!info.embedded && <th>Value column</th>}
                 <th>Unit</th>
                 <th>Observed property</th>
                 <th>Sensor</th>
@@ -78,7 +77,7 @@ export function Overview({ info }) {
                     {snippet.label}
                     {snippet.comment && <div className="muted small">{snippet.comment}</div>}
                   </td>
-                  <td><code>{snippet.valueColumn}</code></td>
+                  {!info.embedded && <td><code>{snippet.valueColumn}</code></td>}
                   <td>{snippet.unit ? snippet.unit : 'unknown'}</td>
                   <td>{snippet.observedProperty}</td>
                   <td>{snippet.sensor}</td>

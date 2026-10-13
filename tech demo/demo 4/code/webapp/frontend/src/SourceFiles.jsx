@@ -11,12 +11,14 @@ export function SourceFiles({ files }) {
         <button className={view === 'turtle' ? 'source-tab active' : 'source-tab'} onClick={() => setView('turtle')}>
           Turtle
         </button>
+        {files.embedded ? <button className={view === 'points' ? 'source-tab active' : 'source-tab'} onClick={() => setView('points')}>Points JSON</button> : <>
         <button className={view === 'csvw' ? 'source-tab active' : 'source-tab'} onClick={() => setView('csvw')}>
           CSVW JSON
         </button>
         <button className={view === 'csv' ? 'source-tab active' : 'source-tab'} onClick={() => setView('csv')}>
           First 10 CSV rows
         </button>
+        </>}
       </div>
 
       {view === 'turtle' && (
@@ -46,6 +48,7 @@ export function SourceFiles({ files }) {
       )}
 
       {view === 'csv' && <CsvRows csv={files.csv} />}
+      {view === 'points' && <pre>{files.points}</pre>}
     </section>
   )
 }

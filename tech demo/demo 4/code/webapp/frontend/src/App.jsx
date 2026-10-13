@@ -7,11 +7,14 @@ import { Validation } from './Validation'
 import { QueryForm } from './QueryForm'
 import { OnlineEndpointForm } from './OnlineEndpointForm'
 import { SqlBox } from './SqlBox'
+import { Shacl } from './Shacl'
+import { EmbeddedFiles } from './EmbeddedFiles'
 
 // The tabs of the dashboard: an id we use in the code, and the text on the button
 const tabs = [
   { id: 'overview', label: 'Overview' },
   { id: 'inspector', label: 'Series inspector' },
+  { id: 'shacl', label: 'SHACL' },
   { id: 'files', label: 'Files' },
   { id: 'validation', label: 'CSVW validation' },
   { id: 'query', label: 'Query' },
@@ -160,10 +163,15 @@ function App() {
 
           {tab === 'inspector' && <Inspector info={info} />}
 
-          {tab === 'files' && (
+          <div style={{ display: tab === 'shacl' ? 'block' : 'none' }}>
+            <Shacl info={info} />
+          </div>
+
+          {tab === 'files' && info.embedded && <EmbeddedFiles info={info} />}
+          {tab === 'files' && !info.embedded && (
             <>
               <FileViewer
-                title="Data file (csvw:url)"
+                title="Data file (tss:dataFile)"
                 url={`${API_URL}/endpoints/${info.id}/csv`}
                 downloadUrl={`${API_URL}/endpoints/${info.id}/csv/download`}
               />
@@ -178,7 +186,7 @@ function App() {
           {/* Validation stays on the page (only hidden), so a running validation and its
               result are not lost when you look at another tab in the meantime */}
           <div style={{ display: tab === 'validation' ? 'block' : 'none' }}>
-            <Validation endpointId={info.id} />
+            {info.embedded ? <section className="card"><h3>CSVW validation</h3><p>This endpoint embeds JSON points. Use the SHACL tab to check its metadata and point structure.</p></section> : <Validation endpointId={info.id} />}
           </div>
 
           {tab === 'query' && <QueryForm info={info} />}

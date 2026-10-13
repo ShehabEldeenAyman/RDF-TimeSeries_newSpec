@@ -1,144 +1,68 @@
-# TSS2 Dashboard (demo 3)
+# TSS2 Dashboard (Demo 4)
 
-A small dashboard for TSS2 metadata endpoints: the `.ttl` files in `demo 3/metadata endpoint/`, plus any online endpoint you add.
-Pick a data source in the drop down, then use the tabs:
+The dashboard loads local Turtle files from `demo 4/metadata endpoint/`, or online Turtle URLs.
 
-| Tab | What it does |
+## Storage profiles
+
+- `tss:embedded false`: groups link to external CSV data (`tss:dataFile`) and CSVW descriptions (`tss:describedby`). Snippets select CSVW time/value column names.
+- `tss:embedded true`: each snippet stores a JSON point array in `tss:points`. Its effective JSON-LD `tss:context` identifies numeric or text values.
+
+Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they state their own value. `tss:about` is replaced as a whole. The snippet window includes `tss:from` and excludes `tss:until`.
+
+| Tab | Purpose |
 |---|---|
-| Overview | What the endpoint holds: the snippet group (its data file, CSVW file, `tss:mutable`, `tss:producedBy`), the snippet template and every snippet, plus the raw Turtle |
-| Series inspector | Pick one series (snippet) and see everything known about it. Every value is marked: stated on the snippet itself (own), inherited from its group's template (from group), or replacing the template's value (overrides group). Below: the Turtle, CSVW JSON and first CSV rows, with the parts this series uses marked |
-| Files | The CSV the group points to with `tss:dataFile` (first 20 lines) and the CSVW file it points to with `tss:describedby`. Each has a download icon for the whole file |
-| CSVW validation | Runs the `csvw` Python validator on the CSV and its CSVW file |
-| Query | A guided form for one time series: a time range, a value range, a filter on another column (for example the quality code), and every reading or one value per hour or day (mean, min or max). It also shows summary numbers (count, mean, min, max, empty cells) and the gaps in the data |
-| SQL (DuckDB) | Read-only SQL on the CSV files: one table per CSV file, with the column names and types from its CSVW file, plus a `snippets` table with the TSS2 metadata. Start from one of the examples |
+| Overview | Group, template, series and raw Turtle |
+| Series inspector | Metadata provenance and source files, including embedded points |
+| SHACL | Automatic profile detection or uploaded custom Turtle shapes, conformance test and full text report |
+| Files | CSV/CSVW previews and downloads, or embedded points with a series picker |
+| CSVW validation | External CSV validation; embedded endpoints direct users to SHACL |
+| Query | Filtering, summaries, gaps and hourly/daily aggregation; text series support time filtering |
+| SQL (DuckDB) | One table per external CSV or embedded snippet, plus a snippets metadata table |
 
-## Running it
+SHACL selects `demo 4/SHACL/embedded_shapes.ttl` or `external_csv_shapes.ttl` from the group's boolean `tss:embedded`. Violations fail conformance; warnings are shown without failing it. Tests use the original metadata graph. The existing embedded shapes check JSON structure with regular expressions; they do not replace a full JSON parser. CSV contents are validated separately in CSVW validation.
 
-You need two terminals. Demo 3 uses its own ports (8001 and 5174), so it can run next to demo 2 (8000 and 5173).
-The `cd` commands below start from the `tech demo` folder.
+In the SHACL tab, choose a custom `.ttl` file (up to 5 MB) to validate with your own shapes instead of the bundled profile. The selected filename is shown before running and in the report. **Use default shapes** clears the upload and restores automatic selection. Uploaded shapes are used only for that validation and are not saved over any project files. Malformed Turtle or invalid shapes produce an error.
 
-**Backend** (FastAPI, port 8001)
+The embedded Zevenaarshaven example has only five readings per series. Its queries read these samples, not the complete CSV stored elsewhere in the demo. Numeric ranges and mean/min/max aggregation apply only to numeric series.
 
-```
-cd "demo 3/code/webapp/backend"
+## Running
+
+From the repository root:
+
+```powershell
+cd "tech demo/demo 4/code/webapp/backend"
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8001
 ```
 
-Test it in the browser: <http://localhost:8001/endpoints>, or look at all routes at <http://localhost:8001/docs>.
+In another terminal:
 
-**Frontend** (React + Vite, port 5174)
-
-```
-cd "demo 3/code/webapp/frontend"
+```powershell
+cd "tech demo/demo 4/code/webapp/frontend"
 npm install
 npm run dev
 ```
 
-Then open <http://localhost:5174>.
+Open <http://localhost:5174>. Vite proxies `/api` to port 8001. Alternatively, run `npm run build` in the frontend folder and open <http://localhost:8001>; the backend serves `frontend/dist` when present. These ports are shared with Demo 3.
 
-If you see "Failed to fetch" / "could not reach the backend", check that:
-- the backend terminal shows `Uvicorn running on http://127.0.0.1:8001`
-- the browser address is exactly `http://localhost:5174`. The backend only answers pages from that address (CORS).
-- you started the backend before opening the page. If not, refresh the page.
+## Code and API
 
-## Online endpoints
+`main.py` loads endpoints, resolves metadata, reads both storage profiles, runs SHACL and provides the API. `tss2.py` defines inheritance and provenance. `sql_box.py` loads data into a temporary DuckDB database and runs read-only queries. Embedded SQL tables have time and value columns; numeric XSD value mappings become numbers and other values remain text. SQL permits one reading statement, up to 1000 returned rows, about 5 MB of values and 30 seconds of query execution. External access is disabled after loading.
 
-Under the drop down, paste the web address of a TSS2 metadata endpoint (a Turtle file, for example
-`https://example.org/metadata endpoint/my_series_tss2.ttl`) and click **Add**. The backend downloads it and checks
-that it holds a `tss:SnippetGroup` with a `tss:dataFile` and a `tss:describedby`. If so, it appears in the drop down as "(online)" and every tab
-works as for the local files:
+All routes use `/api`; API documentation is at <http://localhost:8001/docs>. New routes:
 
-- relative addresses in it, like `<../data/x.csv>`, are read against the endpoint's own web address,
-  so `tss:dataFile` and `tss:describedby` point at files on the same website;
-- the backend downloads the CSVW file and the CSV from there (a big CSV is read line by line, never all at once).
+- `GET /api/endpoints/{id}/shacl`: conformance status, selected shapes, full report, timing and severity counts.
+- `POST /api/endpoints/{id}/shacl`: custom validation with a JSON body containing `filename` and `turtle`; returns the same report fields plus `custom: true`.
+- `GET /api/endpoints/{id}/points?snippet=...`: embedded JSON preview.
 
-The online endpoints you add are remembered in `backend/online_endpoints.json`. **Remove** (next to the drop down) takes the
-picked online endpoint out of the list again.
+Online endpoint URLs are saved in backend/online_endpoints.json. Relative file links resolve against the endpoint URL. Embedded endpoints need no external data file. Each endpoint is expected to describe one group; SHACL rejects missing, invalid or conflicting storage flags rather than guessing.
 
-If the backend runs into an error, the page shows the error message itself (it starts with "The backend crashed" or names the file it could not read).
+## Verification
 
-## How the code is organised
-
-### Backend: `backend/`
-
-**`tss2.py`** holds the TSS2 inheritance rule, in one place: a snippet uses the value from its group's template, unless it states its own value. `resolve_with_source` applies the rule to one property and says where the value came from: `own`, `group`, `override` or `missing`.
-
-**`sql_box.py`** holds the SQL box (DuckDB). For every query it opens a new, empty DuckDB database in memory, copies
-each CSV file in as one table (names and types from the CSVW file), adds the `snippets` table, locks the database
-(no reading or writing files, no internet, no extensions, settings can't be changed back), runs the query and throws
-the database away. Only one `SELECT` is allowed (also `WITH ...`, `DESCRIBE`, `SUMMARIZE`, `SHOW TABLES`), at most
-1000 rows and about 5 MB come back, and a query is stopped after 30 seconds.
-
-The CSVW file decides how a CSV is read; DuckDB guesses nothing. The delimiter, quote character, `skipRows`,
-`commentPrefix` and `null` values come from the CSVW dialect and columns. The header line must match the CSVW column
-titles, in the same order. Every value must fit its CSVW datatype: a timestamp without seconds, or `1.5` in a
-whole-number column, is an error, not a silent NULL. A CSV that doesn't match its CSVW file is skipped, with the
-reason shown; the other tables and the `snippets` table still work.
-
-**`main.py`** holds everything else, in this order:
-
-1. **SPARQL queries.** `GROUP_QUERY` gets the snippet group (with its data file) and its template. `SNIPPETS_QUERY` gets one row per snippet.
-2. **Files: local or online.** A file "location" is a path inside demo 3 (`data/x.csv`) or a web address. `file_exists`, `read_text`, `read_lines` and `send_as_download` work for both, so the routes don't have to care which one it is.
-3. **Metadata endpoints.** The local `.ttl` files plus the online ones from `online_endpoints.json`. `load_graph` reads one endpoint's Turtle, wherever it is.
-4. **Helper functions.** `get_endpoint_info` runs both queries, applies the rule from `tss2.py` to every snippet, and puts the answers in one dictionary. Most routes use it.
-5. **Helper functions for the query form.** `summarize` (count, mean, min, max), `find_gaps` (where readings are missing, compared with the usual step between readings) and `resample_readings` (one value per hour or day).
-6. **Helper functions for the series inspector.** `describe` turns an RDF value into readable text (plus the exact RDF for hovering). `mark_turtle` and `mark_csvw` mark the lines of the source files.
-7. **Routes**:
-
-| Route | Returns |
-|---|---|
-| `GET /endpoints` | the list for the drop down |
-| `POST /endpoints/online?url=...` | adds an online endpoint (after checking it) |
-| `DELETE /endpoints/{id}` | removes an online endpoint |
-| `GET /endpoints/{id}` | everything about one endpoint (used by the Overview and Query tabs) |
-| `GET /endpoints/{id}/series/metadata?snippet=...` | the series inspector: every value of one snippet with its source (own / group / override), the group, and the marked source files |
-| `GET /endpoints/{id}/csv` | the first lines of the CSV file |
-| `GET /endpoints/{id}/csv/download` | the whole CSV file as a download |
-| `GET /endpoints/{id}/csvw` | the CSVW JSON file |
-| `GET /endpoints/{id}/csvw/download` | the CSVW JSON file as a download |
-| `GET /endpoints/{id}/validate` | the result of the CSVW validation |
-| `GET /endpoints/{id}/sql/tables` | for the SQL box: the tables, their columns (with type and TSS2 role), and example queries |
-| `POST /endpoints/{id}/sql` with `{"sql": "SELECT ..."}` | runs one read-only query with DuckDB |
-| `GET /endpoints/{id}/filter-columns?snippet=...` | the other CSV columns of a series that the query form can filter on (2 to 30 different values, like the quality code), with their values |
-| `GET /endpoints/{id}/query?snippet=...&start=...&end=...&min_value=...&max_value=...&filter_column=...&filter_value=...&resample=hour\|day&aggregate=mean\|min\|max&limit=...` | the readings (or one value per hour/day), the summary numbers and the gaps |
-
-The `{id}` of a local endpoint is its file name without `.ttl`, for example `waterinfo_289423042_tss2`. Online endpoints get `online-1`, `online-2`, ...
-`snippet=...` is the full IRI of a snippet, for example `https://example.org/ex#snippet-grootdok-ec20`.
-
-The query route shows how TSS2 and CSVW work together:
-
-- TSS2 says which CSV to read (`tss:dataFile` of the snippet's group: one group = one file), which columns to use (`tss:timeColumn`, `tss:valueColumn`) and which time window the series covers (`tss:from`, `tss:until`). Each of these can come from the group's template.
-- Those columns are CSVW column *names*. The CSVW file says which CSV header belongs to each name (`timestamp` → `Timestamp`) and which delimiter the CSV uses.
-
-### Frontend: `frontend/src/`
-
-| File | What it is |
-|---|---|
-| `config.js` | the backend address (`http://localhost:8001`), and two helpers that turn errors into readable text |
-| `App.jsx` | the drop down and the tabs. It loads the endpoint list and the picked endpoint, and passes `info` to the tabs |
-| `OnlineEndpointForm.jsx` | the "Add an online endpoint" form under the drop down |
-| `Overview.jsx` | the Overview tab. It only shows the `info` it gets from App |
-| `Inspector.jsx` | the Series inspector tab: the series picker, the panel with own / from group / overrides markers, and the group's panel |
-| `SourceFiles.jsx` | the Turtle / CSVW JSON / CSV rows views under the inspector, with the used parts coloured |
-| `FileViewer.jsx` | shows one file, with a download icon. App uses it twice: for the CSV and for the CSVW file |
-| `Validation.jsx` | the validation button and its result |
-| `QueryForm.jsx` | the query form, the summary (numbers and gaps) and the results table |
-| `SqlBox.jsx` | the SQL (DuckDB) tab: examples, the text box, the result, and the list of tables |
-| `App.css` | all the styling |
-
-Every component talks to the backend the same way:
-
-```js
-fetch(url)
-  .then((response) => response.json())
-  .then((data) => {
-    if (data.detail) setError(errorText(data.detail)) // FastAPI puts its error message in "detail"
-    else setResult(data)
-  })
-  .catch((err) => setError(fetchErrorText(err)))      // the backend could not be reached at all
+```powershell
+# From backend/
+python -B -m unittest -v test_storage_profiles
+# From frontend/
+npm run lint
+npm run build
 ```
-
-App, Inspector, QueryForm (for its filter columns) and SqlBox (for its tables) add one more thing: an `ignore` flag, so that when you switch quickly, a late answer for your previous choice is thrown away instead of being shown.
-
-The SQL box sends its query with `POST` and a JSON body (`{"sql": "..."}`) instead of in the address, because a query can be long.

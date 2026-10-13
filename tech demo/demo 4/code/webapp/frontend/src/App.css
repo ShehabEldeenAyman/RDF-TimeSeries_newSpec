@@ -515,3 +515,9 @@ a.marker:hover {
   font-size: 13px;
   margin-bottom: 4px;
 }
+
+.shacl-report {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 600px;
+}

@@ -75,8 +75,7 @@ export function SqlBox({ info }) {
         <section className="card">
           <h3>SQL (DuckDB)</h3>
           <p className="muted small">
-            Read-only SQL on the CSV files of this data source: one table per CSV file, with the column names and types
-            from its CSVW file, plus a <code>snippets</code> table with the TSS2 metadata.
+            {info.embedded ? 'Read-only SQL on embedded readings: one table per snippet, with time and value columns.' : 'Read-only SQL on external CSV data, with column names and types from CSVW.'} Both include a <code>snippets</code> table with the TSS2 metadata.
             {schema && <> Only one SELECT, at most {schema.maxRows} rows back, stopped after {schema.maxSeconds} seconds.</>}
           </p>
 
@@ -170,7 +169,7 @@ function Tables({ schema }) {
             <code>{table.name}</code>
           </h4>
           <p className="muted small long-text">
-            {table.file} (tss:dataFile of {table.group})
+            {table.file} ({table.csvw ? 'tss:dataFile' : 'embedded readings'} of {table.group})
           </p>
           {table.error && <p className="error small long-text">{table.error}</p>}
           <ul>
