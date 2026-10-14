@@ -25,6 +25,7 @@
         "name": "ts_id",
         "titles": "ts_id",
         "datatype": "integer",
+        "propertyUrl": "https://example.org/ex#ts_id",
         "required": true,
         "http://purl.org/dc/terms/description": "waterinfo.be time series identifier (the same on every row)"
       },
@@ -32,6 +33,7 @@
         "name": "timestamp",
         "titles": "Timestamp",
         "datatype": "dateTime",
+        "propertyUrl": "http://www.w3.org/ns/sosa/resultTime",
         "required": true,
         "http://purl.org/dc/terms/description": "Observation time (UTC)"
       },
@@ -42,6 +44,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#value",
         "required": true,
         "http://purl.org/dc/terms/description": "Electrical conductivity at 20 °C"
       },
@@ -49,31 +52,43 @@
         "name": "interpolation_type",
         "titles": "Interpolation Type",
         "datatype": "integer",
+        "propertyUrl": "https://example.org/ex#interpolation_type",
         "http://purl.org/dc/terms/description": "KiWIS interpolation type code of the value"
       },
       {
         "name": "quality_code",
         "titles": "Quality Code",
         "datatype": "integer",
+        "propertyUrl": "https://example.org/ex#quality_code",
         "http://purl.org/dc/terms/description": "KiWIS quality code of the value"
       },
       {
         "name": "quality_code_name",
         "titles": "Quality Code Name",
         "datatype": "string",
+        "propertyUrl": "https://example.org/ex#quality_code_name",
         "http://purl.org/dc/terms/description": "Short name of the quality code"
       },
       {
         "name": "quality_code_description",
         "titles": "Quality Code Description",
         "datatype": "string",
+        "propertyUrl": "https://example.org/ex#quality_code_description",
         "http://purl.org/dc/terms/description": "Description of the quality code"
       },
       {
         "name": "quality_code_color",
         "titles": "Quality Code Color",
         "datatype": "string",
+        "propertyUrl": "https://example.org/ex#quality_code_color",
         "http://purl.org/dc/terms/description": "Display colour of the quality code (RGBA)"
+      },
+      {
+        "name": "row_type",
+        "virtual": true,
+        "propertyUrl": "rdf:type",
+        "valueUrl": "http://www.w3.org/ns/sosa/Observation",
+        "http://purl.org/dc/terms/description": "Not in the CSV: gives every row node the type sosa:Observation (sosa:resultTime implies it too)"
       }
     ],
     "primaryKey": "timestamp"
