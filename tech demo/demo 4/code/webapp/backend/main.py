@@ -23,6 +23,7 @@ from tss2 import value_of, find_group, resolve, resolve_with_source
 
 # The SQL box (DuckDB) lives in sql_box.py
 import sql_box
+import rdf_generation
 
 
 # This file lives in demo 3/code/webapp/backend/, so demo 3/ is three folders up
@@ -597,6 +598,18 @@ def get_points_file(endpoint_id, snippet):
     points = embedded_points(graph, URIRef(snippet))
     return {"path": "tss:points", "found": True, "note": f"{len(points)} embedded readings",
             "text": json.dumps(points, indent=2, ensure_ascii=False)}
+
+
+@api.post("/endpoints/{endpoint_id}/rdf")
+def generate_rdf(endpoint_id):
+    """Generate Turtle from embedded points; leave the source files intact."""
+    graph = load_graph(endpoint_id)
+    try:
+        result = rdf_generation.generate(graph, endpoint_base(endpoint_id))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    result["filename"] = "observations.ttl"
+    return result
 
 
 @api.get("/endpoints/{endpoint_id}/shacl")

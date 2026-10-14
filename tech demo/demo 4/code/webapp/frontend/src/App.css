@@ -521,3 +521,17 @@ a.marker:hover {
   overflow-wrap: anywhere;
   max-height: 600px;
 }
+
+.rdf-preview {
+  max-height: 600px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rdf-download {
+  display: inline-block;
+  padding: 8px 12px;
+  color: #0969da;
+  border: 1px solid #0969da;
+  border-radius: 6px;
+}

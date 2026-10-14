@@ -9,12 +9,14 @@ import { OnlineEndpointForm } from './OnlineEndpointForm'
 import { SqlBox } from './SqlBox'
 import { Shacl } from './Shacl'
 import { EmbeddedFiles } from './EmbeddedFiles'
+import { RdfGeneration } from './RdfGeneration'
 
 // The tabs of the dashboard: an id we use in the code, and the text on the button
 const tabs = [
   { id: 'overview', label: 'Overview' },
   { id: 'inspector', label: 'Series inspector' },
   { id: 'shacl', label: 'SHACL' },
+  { id: 'rdf', label: 'RDF generation' },
   { id: 'files', label: 'Files' },
   { id: 'validation', label: 'CSVW validation' },
   { id: 'query', label: 'Query' },
@@ -165,6 +167,10 @@ function App() {
 
           <div style={{ display: tab === 'shacl' ? 'block' : 'none' }}>
             <Shacl info={info} />
+          </div>
+
+          <div style={{ display: tab === 'rdf' ? 'block' : 'none' }}>
+            <RdfGeneration key={info.id} info={info} />
           </div>
 
           {tab === 'files' && info.embedded && <EmbeddedFiles info={info} />}
