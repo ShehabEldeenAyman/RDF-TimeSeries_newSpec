@@ -51,6 +51,7 @@
         "name": "datetime",
         "titles": "datetime",
         "datatype": "dateTime",
+        "propertyUrl": "http://www.w3.org/ns/sosa/resultTime",
         "required": true,
         "http://purl.org/dc/terms/description": "Observation time (UTC), 15-minute resolution"
       },
@@ -61,6 +62,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#ro1_a_permeate_conductivity",
         "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO1 train A"
       },
       {
@@ -70,6 +72,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#ro1_b_permeate_conductivity",
         "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO1 train B"
       },
       {
@@ -79,6 +82,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#ro1_c_permeate_conductivity",
         "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO1 train C"
       },
       {
@@ -88,6 +92,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#ro2_a_permeate_conductivity",
         "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO2 train A"
       },
       {
@@ -97,6 +102,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#ro2_b_permeate_conductivity",
         "http://purl.org/dc/terms/description": "Permeate conductivity of reverse-osmosis unit RO2 train B"
       },
       {
@@ -106,6 +112,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#cooling_water_conductivity",
         "http://purl.org/dc/terms/description": "Conductivity of the cooling water supply (including drinking-water blend)"
       },
       {
@@ -115,6 +122,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#boiler_feed_conductivity",
         "http://purl.org/dc/terms/description": "Conductivity of the boiler feed water"
       },
       {
@@ -124,6 +132,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#boiler_water_delivery_conductivity",
         "http://purl.org/dc/terms/description": "Conductivity of the boiler water delivered to the customer"
       },
       {
@@ -133,6 +142,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#dockwater_blowdown_conductivity",
         "http://purl.org/dc/terms/description": "Conductivity of combined dock water and blowdown"
       },
       {
@@ -142,6 +152,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#venturi_reject_conductivity",
         "http://purl.org/dc/terms/description": "Conductivity of the venturi drain reject stream"
       },
       {
@@ -151,6 +162,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#ro1de_feed_conductivity",
         "http://purl.org/dc/terms/description": "Feed conductivity to RO1D and RO1E combined"
       },
       {
@@ -160,6 +172,7 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#ro1d_feed_conductivity",
         "http://purl.org/dc/terms/description": "Feed conductivity to RO1D (after chemical injection)"
       },
       {
@@ -169,7 +182,15 @@
           "base": "double",
           "minimum": 0
         },
+        "propertyUrl": "https://example.org/ex#ro1e_feed_conductivity",
         "http://purl.org/dc/terms/description": "Feed conductivity to RO1E"
+      },
+      {
+        "name": "row_type",
+        "virtual": true,
+        "propertyUrl": "rdf:type",
+        "valueUrl": "http://www.w3.org/ns/sosa/Observation",
+        "http://purl.org/dc/terms/description": "Not in the CSV: gives every row node the type sosa:Observation (sosa:resultTime implies it too)"
       }
     ],
     "primaryKey": "datetime"
