@@ -29,8 +29,8 @@ export function RdfGeneration({ info }) {
       if (request.signal.aborted) return
       if (data.detail) setError(errorText(data.detail))
       else {
-        downloadUrl.current = URL.createObjectURL(new Blob([data.turtle], { type: 'text/turtle;charset=utf-8' }))
-        setResult({ ...data, downloadUrl: downloadUrl.current })
+        if (!data.downloadUrl) downloadUrl.current = URL.createObjectURL(new Blob([data.turtle], { type: 'text/turtle;charset=utf-8' }))
+        setResult({ ...data, downloadUrl: data.downloadUrl || downloadUrl.current })
       }
     } catch (err) {
       if (err.name !== 'AbortError') setError(fetchErrorText(err))
@@ -41,14 +41,15 @@ export function RdfGeneration({ info }) {
 
   return <section className="card">
     <h3>RDF generation</h3>
-    {info.embedded !== true ? <p>This iteration generates RDF only for endpoints with embedded points (<code>tss:embedded true</code>). Select an embedded endpoint to use it.</p> : <>
-      <p>Expand the embedded readings of all series into an RDF graph, then view or download it as Turtle.</p>
+    {typeof info.embedded !== 'boolean' ? <p>Cannot generate RDF until the endpoint declares its storage profile.</p> : <>
+      <p>Expand {info.embedded ? 'embedded readings' : 'external CSV readings using their CSVW mappings'} into an RDF graph, then view or download it as Turtle.</p>
       <p className="muted small">Each reading is a standalone RDF node with its type, time, value and shared domain metadata. Points without identifiers become blank nodes. Source containers, TSS vocabulary and references to source snippets are omitted.</p>
       <button disabled={running} onClick={generate}>{running ? 'Generating…' : 'Generate RDF'}</button>
     </>}
     {error && <p className="error long-text" role="alert">{error}</p>}
     {result && <div className="result" aria-live="polite">
       <p><strong>{result.points}</strong> points from <strong>{result.series.length}</strong> series · <strong>{result.triples}</strong> RDF triples</p>
+      {result.previewTruncated && <p className="muted small">The preview shows the first {result.previewPoints} readings. Download Turtle includes all {result.points} readings.</p>}
       <p><a className="rdf-download" href={result.downloadUrl} download={result.filename}>Download Turtle (.ttl)</a></p>
       <pre className="rdf-preview" tabIndex={0} aria-label="Generated RDF graph">{result.turtle}</pre>
     </div>}

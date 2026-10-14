@@ -115,10 +115,7 @@ class RdfGeneration(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "invalid .*double"):
                 self.generate()
 
-    def test_api_rejects_external_csv_and_returns_download_filename(self):
-        with self.assertRaises(HTTPException) as caught:
-            main.generate_rdf("waterinfo_289423042_tss2")
-        self.assertEqual(caught.exception.status_code, 400)
+    def test_embedded_api_returns_download_filename(self):
         result = main.generate_rdf(EMBEDDED)
         self.assertEqual(result["filename"], "observations.ttl")
         self.assertEqual(len(Graph().parse(data=result["turtle"], format="turtle")), result["triples"])

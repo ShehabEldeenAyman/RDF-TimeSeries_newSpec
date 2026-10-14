@@ -15,6 +15,7 @@ import json
 import time
 import math
 from collections import Counter
+from uuid import uuid4
 from pyshacl import validate as shacl_validate
 
 # The TSS2 inheritance rule (snippet <- group template) lives in tss2.py
@@ -24,6 +25,7 @@ from tss2 import value_of, find_group, resolve, resolve_with_source
 # The SQL box (DuckDB) lives in sql_box.py
 import sql_box
 import rdf_generation
+import csv_rdf_generation
 
 
 # This file lives in demo 3/code/webapp/backend/, so demo 3/ is three folders up
@@ -32,6 +34,10 @@ METADATA_DIR = DEMO_DIR / "metadata endpoint"
 
 # The online endpoints the user adds are remembered in this file
 ONLINE_ENDPOINTS_FILE = Path(__file__).parent / "online_endpoints.json"
+
+# Full external RDF exports are streamed to temporary files; previews stay small.
+RDF_EXPORT_DIRECTORY = tempfile.TemporaryDirectory(prefix="rdf-observations-")
+RDF_EXPORTS = {}
 
 # Readable names for IRIs that have no rdfs:label in our files
 READABLE_NAMES = {
@@ -602,14 +608,50 @@ def get_points_file(endpoint_id, snippet):
 
 @api.post("/endpoints/{endpoint_id}/rdf")
 def generate_rdf(endpoint_id):
-    """Generate Turtle from embedded points; leave the source files intact."""
+    """Generate standalone Turtle readings from either storage profile."""
     graph = load_graph(endpoint_id)
     try:
-        result = rdf_generation.generate(graph, endpoint_base(endpoint_id))
+        groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
+        modes = {embedded_mode(graph, group) for group in groups}
+        if not groups or None in modes or len(modes) != 1:
+            raise ValueError("Every group must state the same boolean tss:embedded storage profile.")
+        if modes == {True}:
+            result = rdf_generation.generate(graph, endpoint_base(endpoint_id))
+        else:
+            token = uuid4().hex
+            target = Path(RDF_EXPORT_DIRECTORY.name) / f"{token}.ttl"
+
+            def load_files(group):
+                csv_iri = rdf_generation.single(graph, group, TSS.dataFile, required=True)
+                csvw_iri = rdf_generation.single(graph, group, TSS.describedby, required=True)
+                if not isinstance(csv_iri, URIRef) or not isinstance(csvw_iri, URIRef):
+                    raise ValueError("dataFile and describedby must be file IRIs.")
+                csv_location = iri_to_location(csv_iri)
+                csvw_location = iri_to_location(csvw_iri)
+                metadata = load_csvw_json(csvw_location)
+                if not file_exists(csv_location):
+                    raise ValueError(f"CSV file not found: {csv_location}")
+                return metadata, local_copy(csv_location), csv_iri
+
+            try:
+                result = csv_rdf_generation.generate(graph, load_files, target)
+            except Exception:
+                target.unlink(missing_ok=True)
+                raise
+            RDF_EXPORTS[token] = (endpoint_id, target)
+            result["downloadUrl"] = f"/api/endpoints/{endpoint_id}/rdf/download/{token}"
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     result["filename"] = "observations.ttl"
     return result
+
+
+@api.get("/endpoints/{endpoint_id}/rdf/download/{token}")
+def download_generated_rdf(endpoint_id, token):
+    artifact = RDF_EXPORTS.get(token)
+    if artifact is None or artifact[0] != endpoint_id or not artifact[1].is_file():
+        raise HTTPException(status_code=404, detail="This generated RDF download is unavailable. Generate it again.")
+    return FileResponse(artifact[1], media_type="text/turtle", filename="observations.ttl")
 
 
 @api.get("/endpoints/{endpoint_id}/shacl")
