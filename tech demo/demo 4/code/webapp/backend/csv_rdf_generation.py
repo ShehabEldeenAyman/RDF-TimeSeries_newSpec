@@ -7,4 +7,4 @@ code_directory = str(Path(__file__).resolve().parents[2])
 if code_directory not in sys.path:
     sys.path.insert(0, code_directory)
 
-from TSS2RDF.tss2rdf import generate_external as generate
+from TSS2RDF.tss2rdf import csvw_delimiter, generate_external as generate

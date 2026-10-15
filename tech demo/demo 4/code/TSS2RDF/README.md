@@ -46,7 +46,7 @@ All input arguments are local file paths, absolute or relative to the working di
 - Embedded values are expanded using the effective JSON-LD context. Their original time/value mappings and nested result structure are preserved.
 - External values use CSVW `propertyUrl`, `datatype` strings or `datatype.base`, and `valueUrl` mappings, including virtual columns. Each series receives its own measured value, shared timestamp, mapped auxiliary columns, and its domain metadata.
 - External readings respect each snippet's inclusive `from` and exclusive `until` bounds. Null measured values produce no reading. As in the dashboard, embedded expansion materializes the supplied point arrays without window filtering.
-- CSV parsing requires the CSVW's explicit single-character `dialect.delimiter`; there is no guessing or fallback. It supports headers or headerless CSVs, column names, encoding, quoting, null/default settings, and datatype constraints. The same dashboard restrictions apply: zero or one header row, no skipped columns, no `aboutUrl` subject mappings, and no ordered separator lists.
+- CSV parsing uses the CSVW's single-character `dialect.delimiter`, defaulting to comma (`","`) when `delimiter` or the entire `dialect` is omitted. Invalid explicit delimiters still produce an error; there is no guessing. It supports headers or headerless CSVs, column names, encoding, quoting, null/default settings, and datatype constraints. The same dashboard restrictions apply: zero or one header row, no skipped columns, no `aboutUrl` subject mappings, and no ordered separator lists.
 - External output streams to disk and contains **all** generated readings; it is not restricted to the dashboard's 200-reading preview.
 - Existing output is replaced only after successful conversion. Errors preserve the previous output and source files. The output cannot be an input file.
 
@@ -67,4 +67,4 @@ Verified demo conversions:
 | `waterinfo_289441042_tss2_points_embedded.ttl` | 10 | 55 | `output/embedded.ttl` |
 | `waterinfo_289423042_tss2.ttl` and its CSV/CSVW | 94,853 | 1,233,089 | `output/external.ttl` |
 
-The generated files and verification report are available locally in `output/`. Six standalone CLI tests and all 32 dashboard regression tests passed.
+The generated files and verification report are available locally in `output/`. The standalone CLI and dashboard regression tests also cover omitted delimiters/dialects defaulting to comma and explicit semicolon delimiters remaining in effect.

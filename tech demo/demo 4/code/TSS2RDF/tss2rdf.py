@@ -22,6 +22,18 @@ from rdflib.plugins.shared.jsonld.context import Context
 TSS = Namespace("https://w3id.org/tss#")
 
 
+def csvw_delimiter(metadata, described_by=None):
+    """Use the CSVW delimiter, or comma when the dialect/field is omitted."""
+    label = f"The CSVW file {described_by}" if described_by is not None else "The CSVW"
+    dialect = metadata.get("dialect", {})
+    if not isinstance(dialect, dict):
+        raise ValueError(f"{label} must define dialect as an object.")
+    delimiter = dialect.get("delimiter", ",")
+    if not isinstance(delimiter, str) or len(delimiter) != 1 or delimiter in "\r\n\0":
+        raise ValueError(f"{label} must define dialect.delimiter as one character (for example ';', ',' or a tab).")
+    return delimiter
+
+
 def single(graph, node, prop, required=False):
     values = list(graph.objects(node, prop))
     if len(values) > 1 or required and not values:
@@ -245,11 +257,9 @@ def generate_external(source, load_files, target, preview_limit=200):
             single(source, group, TSS.producedBy)
             template = single(source, group, TSS.snippetTemplate, required=True)
             metadata, csv_path, csv_iri = file_inputs[group]
-            dialect = metadata.get("dialect")
-            delimiter = dialect.get("delimiter") if isinstance(dialect, dict) else None
-            if not isinstance(delimiter, str) or len(delimiter) != 1 or delimiter in "\r\n\0":
-                raise ValueError("The CSVW must explicitly define a single-character dialect.delimiter.")
-            table = Table.fromvalue(dict(metadata, url=str(csv_iri)))
+            delimiter = csvw_delimiter(metadata)
+            dialect = metadata.get("dialect", {})
+            table = Table.fromvalue(dict(metadata, url=str(csv_iri), dialect=dialect))
             columns = table.tableSchema.columns
             physical = [column for column in columns if not column.virtual]
             names = [column.name for column in columns]
@@ -312,13 +322,13 @@ def generate_external(source, load_files, target, preview_limit=200):
                     if not raw and d.skipBlankRows:
                         continue
                     if len(raw) != len(physical):
-                        raise ValueError(f"CSV row at line {reader.line_num} has {len(raw)} columns; CSVW describes {len(physical)}. The declared delimiter is {delimiter!r}.")
+                        raise ValueError(f"CSV row at line {reader.line_num} has {len(raw)} columns; CSVW describes {len(physical)}. The effective delimiter is {delimiter!r}.")
                     if header_pending:
                         for cell, column in zip(raw, physical):
                             titles = column.titles
                             accepted = {title for values in titles.values() for title in values} if titles else {column.name}
                             if cell.strip() not in accepted:
-                                raise ValueError(f"CSV header {cell!r} does not match CSVW column {column.name!r}; the declared delimiter is {delimiter!r}.")
+                                raise ValueError(f"CSV header {cell!r} does not match CSVW column {column.name!r}; the effective delimiter is {delimiter!r}.")
                         header_pending = False
                         continue
                     row_number += 1

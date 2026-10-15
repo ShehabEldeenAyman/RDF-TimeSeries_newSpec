@@ -1,4 +1,5 @@
 """Exercise the portable CLI, its RDF semantics, and failed-conversion handling."""
+import csv
 import json
 from pathlib import Path
 import shutil
@@ -140,14 +141,32 @@ ex:series-b a tss:Snippet ; tss:valueColumn "b" .
                 self.assertIn("conflicts with tss:embedded", result.stderr)
                 self.assertFalse(self.output.exists())
 
+    def test_missing_delimiter_or_dialect_defaults_to_comma(self):
+        with self.csv.open(encoding="utf-8", newline="") as source:
+            rows = list(csv.reader(source, delimiter=";"))
+        with self.csv.open("w", encoding="utf-8", newline="") as target:
+            csv.writer(target, delimiter=",").writerows(rows)
+        for dialect in ({}, {"header": True}, None):
+            with self.subTest(dialect=dialect):
+                metadata = json.loads(json.dumps(self.metadata))
+                if dialect is None:
+                    metadata.pop("dialect")
+                else:
+                    metadata["dialect"] = dialect
+                self.csvw.write_text(json.dumps(metadata), encoding="utf-8")
+                stats, graph = self.assert_success(self.invoke(*self.external_args()))
+                self.assertEqual(stats["points"], 3)
+                self.assertEqual(stats["triples"], 18)
+                self.assertIn("good;review", {str(value) for value in graph.objects(None, EX.quality)})
+
     def test_bad_delimiter_or_values_preserve_existing_output(self):
         self.output.parent.mkdir()
         self.output.write_text("previous graph", encoding="utf-8")
-        for broken in ("missing delimiter", "wrong delimiter", "bad value"):
+        for broken in ("invalid delimiter", "wrong delimiter", "bad value"):
             with self.subTest(broken=broken):
                 metadata = json.loads(json.dumps(self.metadata))
-                if broken == "missing delimiter":
-                    del metadata["dialect"]["delimiter"]
+                if broken == "invalid delimiter":
+                    metadata["dialect"]["delimiter"] = None
                 elif broken == "wrong delimiter":
                     metadata["dialect"]["delimiter"] = ","
                 else:

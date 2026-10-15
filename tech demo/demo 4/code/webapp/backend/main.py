@@ -372,14 +372,8 @@ def load_csvw_json(described_by):
 
 
 def csvw_delimiter(metadata, described_by):
-    """Every CSV parser must use an explicit delimiter from its CSVW description."""
-    dialect = metadata.get("dialect")
-    if not isinstance(dialect, dict) or "delimiter" not in dialect:
-        raise ValueError(f"The CSVW file {described_by} must explicitly define dialect.delimiter; the dashboard does not guess or use a default delimiter.")
-    delimiter = dialect["delimiter"]
-    if not isinstance(delimiter, str) or len(delimiter) != 1 or delimiter in "\r\n\0":
-        raise ValueError(f"The CSVW file {described_by} must define dialect.delimiter as one character (for example ';', ',' or a tab).")
-    return delimiter
+    """Use the declared delimiter, with the CSVW comma default when omitted."""
+    return csv_rdf_generation.csvw_delimiter(metadata, described_by)
 
 
 def titles_of(column):
@@ -445,7 +439,7 @@ def csvw_columns(described_by):
     except ValueError as error:
         return {"error": str(error)}
 
-    dialect = metadata["dialect"]
+    dialect = metadata.get("dialect", {})
     header_rows = dialect.get("headerRowCount", 1 if dialect.get("header", True) else 0)
     if header_rows > 1:
         return {"error": f"The CSVW file {described_by} says the CSV has {header_rows} header lines; "
@@ -1142,9 +1136,10 @@ def validate(endpoint_id):
         metadata = load_csvw_json(location)
         delimiter = csvw_delimiter(metadata, location)
         data = CSVW(source, validate=True)
-        # Check the library's loaded dialect before it reads any CSV cells.
-        # In particular, do not allow an online metadata change to enable a fallback.
-        if any(table.dialect is None or table.dialect.delimiter != delimiter for table in data.tables):
+        # Check the library's effective delimiter, including the comma default,
+        # before it reads CSV cells; metadata may have changed between fetches.
+        if any((table.dialect.delimiter if table.dialect is not None else ",") != delimiter
+               for table in data.tables):
             raise ValueError("The validator's delimiter does not match the corresponding CSVW file. Reload the metadata and try again.")
         valid = data.is_valid
     except Exception as error:

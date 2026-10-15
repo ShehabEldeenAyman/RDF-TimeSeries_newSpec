@@ -1,5 +1,6 @@
 """CSVW-driven standalone RDF export: mappings, types, dialect and full downloads."""
 import copy
+import csv
 import json
 from pathlib import Path
 import tempfile
@@ -104,13 +105,31 @@ class CsvRdfGeneration(unittest.TestCase):
         self.assertEqual(result["points"], 2)
         self.assertEqual(set(graph.objects(None, EX.category)), {EX["category/good"]})
 
-    def test_missing_mapping_or_delimiter_wrong_width_and_bad_datatype(self):
+    def test_missing_delimiter_or_dialect_defaults_to_comma(self):
+        with self.csv.open(encoding="utf-8", newline="") as source:
+            rows = list(csv.reader(source, delimiter=";"))
+        with self.csv.open("w", encoding="utf-8", newline="") as target:
+            csv.writer(target, delimiter=",").writerows(rows)
+        for dialect in ({}, {"header": True}, None):
+            with self.subTest(dialect=dialect):
+                if dialect is None:
+                    self.metadata.pop("dialect", None)
+                else:
+                    self.metadata["dialect"] = dialect
+                result, graph = self.generate()
+                self.assertEqual(result["points"], 3)
+                self.assertEqual([entry["points"] for entry in result["series"]], [1, 2])
+                self.assertEqual({str(value) for value in graph.objects(None, EX.category)},
+                                 {"good,review", "bad,review"})
+                self.assertEqual(result["triples"], len(graph))
+
+    def test_invalid_mapping_delimiter_width_and_datatypes(self):
         original = copy.deepcopy(self.metadata)
         for broken in ("delimiter", "mapping", "wrong_delimiter", "integer", "minimum"):
             with self.subTest(broken=broken):
                 self.metadata = copy.deepcopy(original)
                 if broken == "delimiter":
-                    del self.metadata["dialect"]["delimiter"]
+                    self.metadata["dialect"]["delimiter"] = None
                 elif broken == "mapping":
                     del self.metadata["tableSchema"]["columns"][1]["propertyUrl"]
                 elif broken == "wrong_delimiter":
