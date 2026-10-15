@@ -18,8 +18,7 @@
 ex:rodenhuizedok-snippets a tss:SnippetGroup ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
     tss:embedded false; # Indicates whether actual time series data reside in the snippets of this group or not.
-    tss:dataFile <../data/waterinfo_289429042.csv> ;
-    tss:describedby <../csvw/waterinfo_289429042_csvw.json> ; # same relation as CSVW's rel="describedby" link
+    tss:dataFile <../data/waterinfo_289429042.parquet> ;
     tss:mutable false ;
     tss:producedBy ex:station-rodenhuizedok ;
     tss:snippetTemplate [
