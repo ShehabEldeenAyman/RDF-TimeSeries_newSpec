@@ -5,7 +5,7 @@ every column (numbers, timestamps, text) by itself, and writes them to Parquet.
 Needs duckdb (pip install duckdb).
 
 Examples:
-    python csv2parquet.py ../../data/waterinfo_289423042.csv output/waterinfo_289423042.parquet
+    python csv2parquet.py ../../data/waterinfo_289429042.csv ../../data/waterinfo_289429042.parquet
     python csv2parquet.py ../../data/factory_conductivity.csv output/
 """
 import argparse
