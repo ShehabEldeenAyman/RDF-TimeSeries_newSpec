@@ -31,7 +31,7 @@ class StorageProfiles(unittest.TestCase):
             self.assertTrue(info["snippets"])
             report = main.check_shacl(endpoint)
             self.assertTrue(report["conforms"], report["report"])
-            self.assertEqual(report["shapes"], "embedded_shapes.ttl" if endpoint == EMBEDDED else "external_csv_shapes.ttl")
+            self.assertEqual(report["shapes"], "embedded_shapes.ttl" if endpoint == EMBEDDED else "external_shapes.ttl")
 
     def test_inspector_and_sources_for_both_profiles(self):
         result = main.series_metadata(EMBEDDED, VALUE)
@@ -156,7 +156,7 @@ class StorageProfiles(unittest.TestCase):
         result = main.check_shacl(EXTERNAL)
         self.assertTrue(result["conforms"])
         self.assertFalse(result["custom"])
-        self.assertEqual(result["shapes"], "external_csv_shapes.ttl")
+        self.assertEqual(result["shapes"], "external_shapes.ttl")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ export function Shacl({ info }) {
   const controller = useRef(null)
   useEffect(() => () => controller.current?.abort(), [])
   const known = typeof info.embedded === 'boolean'
-  const shapes = info.embedded ? 'embedded_shapes.ttl' : 'external_csv_shapes.ttl'
+  const shapes = info.embedded ? 'embedded_shapes.ttl' : 'external_shapes.ttl'
 
   async function selectFile(event) {
     const file = event.target.files[0]

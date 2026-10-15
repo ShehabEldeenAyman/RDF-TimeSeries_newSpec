@@ -13,12 +13,14 @@
 @prefix td: <https://www.w3.org/2019/wot/td#> .
 @prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix filetype: <http://publications.europa.eu/resource/authority/file-type/> .
 
 # One group = one data file: every snippet in this group reads its values from tss:dataFile.
 ex:autrichehaven-snippets a tss:SnippetGroup ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
     tss:embedded false; # Indicates whether actual time series data reside in the snippets of this group or not.
     tss:dataFile <../data/waterinfo_289435042.csv> ;
+    dcterms:format filetype:CSV ; # the file type of tss:dataFile
     tss:describedby <../csvw/waterinfo_289435042_csvw.json> ; # same relation as CSVW's rel="describedby" link
     tss:mutable false ;
     tss:producedBy ex:station-autrichehaven ;

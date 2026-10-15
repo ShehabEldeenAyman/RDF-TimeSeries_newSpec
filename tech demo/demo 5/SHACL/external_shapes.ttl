@@ -14,7 +14,7 @@
 # points to one CSV file (tss:dataFile) and its CSVW description (tss:describedby),
 # and each snippet reads one column of that file (tss:valueColumn).
 #
-# Run:   pyshacl -w -s external_csv_shapes.ttl "<endpoint>.ttl"
+# Run:   pyshacl -w -s external_shapes.ttl "<endpoint>.ttl"
 #        (-w: warnings alone don't fail the run; in Python: validate(..., allow_warnings=True))
 # The endpoint conforms to this profile when the report holds no sh:Violation. (Plain SHACL
 # sets sh:conforms to false as soon as the report holds any result, warnings included.)
@@ -32,6 +32,7 @@
 #   E1 data file (tss:dataFile)            E4 time column (tss:timeColumn, own or from the template)
 #   E2 CSVW description (tss:describedby)  E5 the value column is not the time column
 #   E3 value column (tss:valueColumn)      E6 one snippet per column and period (warning)
+#   E1 also requires the data file's type (dcterms:format, e.g. filetype:CSV or filetype:PARQUET)
 #
 # Every property shape is in one of these groups (sh:group):
 #   Required     sh:Violation  missing or malformed: the endpoint does not conform
@@ -201,6 +202,17 @@ ext:GroupShape a sh:NodeShape ;
         sh:nodeKind sh:IRI ;
         sh:group ext:Required ;
         sh:message "E1: state the group's CSV file exactly once, as an IRI, with tss:dataFile (one group = one data file)."@en ] ,
+
+    # E1 data file format (only in this profile: embedded groups have no data file)
+    [
+        sh:name "E1 data file format" ;
+        sh:description "The file type of tss:dataFile, as an IRI from the EU file-type vocabulary (http://publications.europa.eu/resource/authority/file-type/), e.g. CSV or PARQUET."@en ;
+        sh:path dcterms:format ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:group ext:Required ;
+        sh:message "E1: state the file type of tss:dataFile exactly once, as an IRI, with dcterms:format (e.g. filetype:CSV or filetype:PARQUET)."@en ] ,
 
     # E2 CSVW description
     [

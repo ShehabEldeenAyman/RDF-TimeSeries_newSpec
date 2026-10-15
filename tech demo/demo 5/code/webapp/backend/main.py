@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from rdflib import Graph, URIRef, Literal, RDF, RDFS
+from rdflib.namespace import DCTERMS
 from csvw import CSVW
 from pathlib import Path
 from urllib.parse import urlparse, unquote
@@ -11,6 +12,8 @@ from pydantic import BaseModel, Field
 import requests
 import tempfile
 import csv
+import io
+import duckdb
 import json
 import time
 import math
@@ -31,6 +34,8 @@ import csv_rdf_generation
 # This file lives in demo 3/code/webapp/backend/, so demo 3/ is three folders up
 DEMO_DIR = Path(__file__).resolve().parents[3]
 METADATA_DIR = DEMO_DIR / "metadata endpoint"
+CSV_FILE_TYPE = URIRef("http://publications.europa.eu/resource/authority/file-type/CSV")
+PARQUET_FILE_TYPE = URIRef("http://publications.europa.eu/resource/authority/file-type/PARQUET")
 
 # The online endpoints the user adds are remembered in this file
 ONLINE_ENDPOINTS_FILE = Path(__file__).parent / "online_endpoints.json"
@@ -480,6 +485,8 @@ def get_endpoint_info(endpoint_id):
     if len(rows) == 0:
         raise HTTPException(status_code=404, detail=f"No tss:SnippetGroup found in {endpoint_file(endpoint_id)}")
     row = rows[0]
+    formats = list(graph.objects(row.group, DCTERMS.format))
+    declared_format = formats[0] if len(formats) == 1 else None
 
     info = {
         "id": endpoint_id,
@@ -489,6 +496,8 @@ def get_endpoint_info(endpoint_id):
         # the group: its data file and how that file changes
         "group": show(graph, row.group),
         "embedded": embedded_mode(graph, row.group),
+        "dataFormat": str(declared_format) if declared_format is not None else None,
+        "csvwApplicable": embedded_mode(graph, row.group) is False and formats == [CSV_FILE_TYPE],
         "csvUrl": iri_to_location(row.dataFile),
         "describedBy": iri_to_location(row.describedBy),
         "mutable": show(graph, row.mutable),
@@ -657,7 +666,7 @@ def check_shacl(endpoint_id):
     if not groups or None in modes or len(modes) != 1:
         raise HTTPException(status_code=400, detail="Cannot select SHACL shapes: every SnippetGroup must state one boolean tss:embedded, and all groups must use the same profile.")
     embedded = modes.pop()
-    name = "embedded_shapes.ttl" if embedded else "external_csv_shapes.ttl"
+    name = "embedded_shapes.ttl" if embedded else "external_shapes.ttl"
     shapes = Graph().parse(DEMO_DIR / "SHACL" / name, format="turtle")
     return shacl_report(graph, shapes, name, embedded)
 
@@ -1053,13 +1062,39 @@ def get_endpoint(endpoint_id):
 
 @api.get("/endpoints/{endpoint_id}/csv")
 def get_csv_file(endpoint_id, lines: int = 20):
-    """The data file the endpoint points to with csvw:url.
-    These files are big (up to 17 MB), so we only send the first lines."""
+    """Preview tss:dataFile as CSV text, converting a bounded Parquet sample."""
     info = get_endpoint_info(endpoint_id)
     lines = max(1, min(lines, 1000))
     location = info["csvUrl"]
     if not file_exists(location):
         return {"path": location, "found": False}
+
+    if info["dataFormat"] == str(PARQUET_FILE_TYPE):
+        try:
+            with duckdb.connect() as connection:
+                result = connection.execute(
+                    "SELECT * FROM read_parquet(?, hive_partitioning = false) LIMIT ?",
+                    [str(local_copy(location)), lines - 1],
+                )
+                columns = [column[0] for column in result.description]
+                rows = result.fetchall()
+        except duckdb.Error as error:
+            raise HTTPException(status_code=400, detail=f"Could not preview Parquet file {location}: {error}") from error
+        text = io.StringIO(newline="")
+        writer = csv.writer(text, lineterminator="\n")
+        writer.writerow(columns)
+        writer.writerows(
+            [sql_box.to_json_value(value) if isinstance(value, datetime) else value for value in row]
+            for row in rows
+        )
+        return {
+            "path": location,
+            "found": True,
+            "note": f"CSV preview of the first {len(rows)} Parquet rows; download contains the original Parquet file",
+            "text": text.getvalue(),
+        }
+    if info["dataFormat"] not in (None, str(CSV_FILE_TYPE)):
+        raise HTTPException(status_code=400, detail="A data preview is available for CSV and Parquet sources only.")
 
     first_lines = []
     for line in read_lines(location):
@@ -1082,9 +1117,10 @@ def get_csv_file(endpoint_id, lines: int = 20):
 
 @api.get("/endpoints/{endpoint_id}/csv/download")
 def download_csv_file(endpoint_id):
-    """The whole CSV file (csvw:url), sent as a download"""
+    """Download the original data file, including Parquet sources."""
     info = get_endpoint_info(endpoint_id)
-    return send_as_download(info["csvUrl"], "text/csv")
+    media_type = "application/vnd.apache.parquet" if info["dataFormat"] == str(PARQUET_FILE_TYPE) else "text/csv"
+    return send_as_download(info["csvUrl"], media_type)
 
 
 @api.get("/endpoints/{endpoint_id}/csvw")
@@ -1092,6 +1128,13 @@ def get_csvw_file(endpoint_id):
     """The CSVW metadata file the endpoint points to with tss:describedby"""
     info = get_endpoint_info(endpoint_id)
     location = info["describedBy"]
+    if not info["csvwApplicable"]:
+        return {
+            "path": location,
+            "found": False,
+            "applicable": False,
+            "note": "Not applicable. CSVW metadata is only used when the TSS declares dcterms:format filetype:CSV.",
+        }
     if not file_exists(location):
         return {"path": location, "found": False}
 
@@ -1107,6 +1150,8 @@ def get_csvw_file(endpoint_id):
 def download_csvw_file(endpoint_id):
     """The CSVW metadata file (tss:describedby), sent as a download"""
     info = get_endpoint_info(endpoint_id)
+    if not info["csvwApplicable"]:
+        raise HTTPException(status_code=400, detail="CSVW metadata is not applicable: the TSS must declare dcterms:format filetype:CSV.")
     return send_as_download(info["describedBy"], "application/json")
 
 
@@ -1115,6 +1160,11 @@ def validate(endpoint_id):
     """Run the csvw validator: it reads the CSV through its CSVW metadata and
     checks every row against the table schema (datatypes, required values, headers)."""
     info = get_endpoint_info(endpoint_id)
+    if not info["csvwApplicable"]:
+        return {
+            "applicable": False,
+            "note": "Not applicable. CSVW validation is only available when the TSS declares dcterms:format filetype:CSV.",
+        }
     location = info["describedBy"]
     if not file_exists(location):
         return {

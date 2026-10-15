@@ -55,6 +55,49 @@ def read_json(literal, name):
         raise ValueError(f"Invalid JSON in {name}: {error}") from error
 
 
+# The type of a group's data file: dcterms:format on the group, from the EU file-type
+# vocabulary or as an IANA media type. A group without dcterms:format keeps the original
+# behaviour: its data file is a CSV described by CSVW.
+DCTERMS_FORMAT = URIRef("http://purl.org/dc/terms/format")
+FILE_TYPES = {
+    "http://publications.europa.eu/resource/authority/file-type/CSV": "csv",
+    "http://publications.europa.eu/resource/authority/file-type/PARQUET": "parquet",
+    "http://www.iana.org/assignments/media-types/text/csv": "csv",
+    "https://www.iana.org/assignments/media-types/text/csv": "csv",
+    "http://www.iana.org/assignments/media-types/application/vnd.apache.parquet": "parquet",
+    "https://www.iana.org/assignments/media-types/application/vnd.apache.parquet": "parquet",
+}
+
+
+def data_format(graph, group):
+    """'csv' or 'parquet' for the group's data file, or None when its dcterms:format
+    names another file type or several. Without dcterms:format the file is CSV."""
+    values = list(graph.objects(group, DCTERMS_FORMAT))
+    if not values:
+        return "csv"
+    if len(values) > 1:
+        return None
+    return FILE_TYPES.get(str(values[0]))
+
+
+def parquet_column(names, wanted):
+    """The Parquet column that a TSS column binding (tss:timeColumn, tss:valueColumn) means.
+    An exact match wins. Otherwise one column whose name differs only in upper/lower case
+    is accepted, as SQL engines such as DuckDB do. None when no column (or several) match."""
+    if wanted is None:
+        return None
+    wanted = str(wanted)
+    if wanted in names:
+        return wanted
+    matches = [name for name in names if name.lower() == wanted.lower()]
+    return matches[0] if len(matches) == 1 else None
+
+
+def generate_parquet(source, load_files, target, preview_limit=200):
+    """load_files(group) returns (local Parquet path, original data file IRI)."""
+    raise NotImplementedError("Parquet RDF generation is not implemented yet.")
+
+
 def generate_embedded(graph, base):
     groups = sorted(set(graph.subjects(RDF.type, TSS.SnippetGroup)), key=str)
     if not groups:

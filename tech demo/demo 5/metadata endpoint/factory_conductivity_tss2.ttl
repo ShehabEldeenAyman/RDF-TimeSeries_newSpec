@@ -12,12 +12,15 @@
 @prefix wdrs: <http://www.w3.org/2007/05/powder-s#> .
 @prefix td: <https://www.w3.org/2019/wot/td#> .
 @prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix filetype: <http://publications.europa.eu/resource/authority/file-type/> .
 
 # One group = one data file: every snippet in this group reads its values from tss:dataFile.
 ex:factory-snippet a tss:SnippetGroup ;
     rdfs:label "Factory water conductivity, 2025"@en ;
     tss:embedded false; # Indicates whether actual time series data reside in the snippets of this group or not.
     tss:dataFile <../data/factory_conductivity.csv> ;
+    dcterms:format filetype:CSV ; # the file type of tss:dataFile
     tss:describedby <../csvw/factory_conductivity_csvw.json> ; # same relation as CSVW's rel="describedby" link
     tss:mutable false ;
     tss:producedBy ex:system1 ;
