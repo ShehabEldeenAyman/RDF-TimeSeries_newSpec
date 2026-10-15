@@ -3,9 +3,9 @@ import { errorText, fetchErrorText } from './config'
 
 // A small download icon. A normal link is enough here (no fetch):
 // the backend answers with the file and tells the browser to save it.
-function DownloadLink({ url }) {
+function DownloadLink({ url, label }) {
   return (
-    <a className="download" href={url} title="Download the whole file" aria-label="Download the whole file">
+    <a className="download" href={url} title={label} aria-label={label}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 3v12" />       {/* the arrow's line */}
@@ -17,20 +17,24 @@ function DownloadLink({ url }) {
 }
 
 // Shows one file that a metadata endpoint points to.
-// App uses this same component twice: once for the CSV and once for the CSVW file.
+// Data previews may be CSV text converted from Parquet; CSVW can be inapplicable.
 // downloadUrl is optional: when App gives one, the card shows a download icon.
-export function FileViewer({ title, url, downloadUrl }) {
+export function FileViewer({ title, url, downloadUrl, downloadLabel = 'Download the whole file' }) {
   const [file, setFile] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    fetch(url)
+    const controller = new AbortController()
+    fetch(url, { signal: controller.signal })
       .then((response) => response.json())
       .then((data) => {
         if (data.detail) setError(errorText(data.detail))
         else setFile(data)
       })
-      .catch((err) => setError(fetchErrorText(err)))
+      .catch((err) => {
+        if (err.name !== 'AbortError') setError(fetchErrorText(err))
+      })
+    return () => controller.abort()
   }, [url])
 
   // First decide what goes inside the card...
@@ -39,6 +43,8 @@ export function FileViewer({ title, url, downloadUrl }) {
     content = <p className="error">Error: {error}</p>
   } else if (file === null) {
     content = <p>Loading…</p>
+  } else if (file.applicable === false) {
+    content = <p className="muted">{file.note}</p>
   } else if (!file.found) {
     content = <p className="error long-text">File not found: <code>{file.path}</code></p>
   } else {
@@ -46,7 +52,7 @@ export function FileViewer({ title, url, downloadUrl }) {
       <>
         <p className="muted small long-text">
           <code>{file.path}</code> {file.note && <span>({file.note})</span>}
-          {downloadUrl && <DownloadLink url={downloadUrl} />}
+          {downloadUrl && <DownloadLink url={downloadUrl} label={downloadLabel} />}
         </p>
         <pre>{file.text}</pre>
       </>

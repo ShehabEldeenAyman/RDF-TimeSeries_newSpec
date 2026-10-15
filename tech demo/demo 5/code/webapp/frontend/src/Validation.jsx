@@ -43,6 +43,8 @@ export function Validation({ endpointId }) {
 }
 
 function ValidationResult({ result }) {
+  if (result.applicable === false) return <p className="muted">{result.note}</p>
+
   return (
     <div className="result">
       <p>

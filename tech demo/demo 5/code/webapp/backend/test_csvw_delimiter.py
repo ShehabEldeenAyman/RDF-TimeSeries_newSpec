@@ -34,7 +34,8 @@ class CsvwDelimiter(unittest.TestCase):
             "valueColumn": "reading", "from": None, "until": None, "unit": None,
             "observedProperty": None, "sensor": None, "featureOfInterest": None,
         }
-        self.info = {"id": "fixture", "embedded": False, "describedBy": "schema.json", "snippets": [snippet]}
+        self.info = {"id": "fixture", "embedded": False, "describedBy": "schema.json", "snippets": [snippet],
+                     "dataFormat": str(main.CSV_FILE_TYPE), "csvwApplicable": True}
         self.addCleanup(patch.stopall)
         patch.object(main, "DEMO_DIR", self.root).start()
         patch.object(main, "get_endpoint_info", return_value=self.info).start()

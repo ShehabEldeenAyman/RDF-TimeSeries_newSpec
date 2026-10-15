@@ -114,6 +114,7 @@ function App() {
 
   // The endpoint that is picked in the drop down (undefined when none is picked)
   const selected = endpoints.find((endpoint) => endpoint.id === selectedId)
+  const parquet = info?.dataFormat === 'http://publications.europa.eu/resource/authority/file-type/PARQUET'
 
   return (
     <div className="page">
@@ -177,11 +178,14 @@ function App() {
           {tab === 'files' && !info.embedded && (
             <>
               <FileViewer
-                title="Data file (tss:dataFile)"
+                key={`${info.id}-data`}
+                title={parquet ? 'Data file (Parquet, previewed as CSV)' : 'Data file (tss:dataFile)'}
                 url={`${API_URL}/endpoints/${info.id}/csv`}
                 downloadUrl={`${API_URL}/endpoints/${info.id}/csv/download`}
+                downloadLabel={parquet ? 'Download the original Parquet file' : 'Download the whole file'}
               />
               <FileViewer
+                key={`${info.id}-csvw`}
                 title="CSVW metadata file (tss:describedby)"
                 url={`${API_URL}/endpoints/${info.id}/csvw`}
                 downloadUrl={`${API_URL}/endpoints/${info.id}/csvw/download`}
@@ -192,7 +196,16 @@ function App() {
           {/* Validation stays on the page (only hidden), so a running validation and its
               result are not lost when you look at another tab in the meantime */}
           <div style={{ display: tab === 'validation' ? 'block' : 'none' }}>
-            {info.embedded ? <section className="card"><h3>CSVW validation</h3><p>This endpoint embeds JSON points. Use the SHACL tab to check its metadata and point structure.</p></section> : <Validation endpointId={info.id} />}
+            {info.csvwApplicable ? <Validation key={info.id} endpointId={info.id} /> : (
+              <section className="card">
+                <h3>CSVW validation</h3>
+                <p className="muted">
+                  Not applicable. CSVW validation is only available when the TSS declares{' '}
+                  <code>dcterms:format filetype:CSV</code>.
+                </p>
+                {info.embedded && <p>Use the SHACL tab to check this endpoint's metadata and embedded point structure.</p>}
+              </section>
+            )}
           </div>
 
           {tab === 'query' && <QueryForm info={info} />}
