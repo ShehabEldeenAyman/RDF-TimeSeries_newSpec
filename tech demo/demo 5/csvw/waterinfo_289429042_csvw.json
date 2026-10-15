@@ -1,0 +1,96 @@
+{
+  "@context": "http://www.w3.org/ns/csvw",
+  "url": "../data/waterinfo_289429042.csv",
+  "http://purl.org/dc/terms/title": "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)",
+  "http://purl.org/dc/terms/description": "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289429042 (station BWO_VITO_IOW49), 2021-03-03 to 2025-12-31.",
+  "http://purl.org/dc/terms/source": {
+    "@id": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289429042"
+  },
+  "http://www.w3.org/ns/dcat#keyword": [
+    "conductivity",
+    "EC20",
+    "surface water",
+    "Kanaal Gent-Terneuzen",
+    "waterinfo",
+    "time series"
+  ],
+  "dialect": {
+    "delimiter": ",",
+    "header": true,
+    "encoding": "utf-8"
+  },
+  "tableSchema": {
+    "columns": [
+      {
+        "name": "ts_id",
+        "titles": "ts_id",
+        "datatype": "integer",
+        "propertyUrl": "https://example.org/ex#ts_id",
+        "required": true,
+        "http://purl.org/dc/terms/description": "waterinfo.be time series identifier (the same on every row)"
+      },
+      {
+        "name": "timestamp",
+        "titles": "Timestamp",
+        "datatype": "dateTime",
+        "propertyUrl": "http://www.w3.org/ns/sosa/resultTime",
+        "required": true,
+        "http://purl.org/dc/terms/description": "Observation time (UTC)"
+      },
+      {
+        "name": "value",
+        "titles": "Value",
+        "datatype": {
+          "base": "double",
+          "minimum": 0
+        },
+        "propertyUrl": "https://example.org/ex#value",
+        "required": true,
+        "http://purl.org/dc/terms/description": "Electrical conductivity at 20 °C"
+      },
+      {
+        "name": "interpolation_type",
+        "titles": "Interpolation Type",
+        "datatype": "integer",
+        "propertyUrl": "https://example.org/ex#interpolation_type",
+        "http://purl.org/dc/terms/description": "KiWIS interpolation type code of the value"
+      },
+      {
+        "name": "quality_code",
+        "titles": "Quality Code",
+        "datatype": "integer",
+        "propertyUrl": "https://example.org/ex#quality_code",
+        "http://purl.org/dc/terms/description": "KiWIS quality code of the value"
+      },
+      {
+        "name": "quality_code_name",
+        "titles": "Quality Code Name",
+        "datatype": "string",
+        "propertyUrl": "https://example.org/ex#quality_code_name",
+        "http://purl.org/dc/terms/description": "Short name of the quality code"
+      },
+      {
+        "name": "quality_code_description",
+        "titles": "Quality Code Description",
+        "datatype": "string",
+        "propertyUrl": "https://example.org/ex#quality_code_description",
+        "http://purl.org/dc/terms/description": "Description of the quality code"
+      },
+      {
+        "name": "quality_code_color",
+        "titles": "Quality Code Color",
+        "datatype": "string",
+        "propertyUrl": "https://example.org/ex#quality_code_color",
+        "http://purl.org/dc/terms/description": "Display colour of the quality code (RGBA)"
+      },
+      {
+        "name": "row_type",
+        "virtual": true,
+        "propertyUrl": "rdf:type",
+        "valueUrl": "http://www.w3.org/ns/sosa/Observation",
+        "http://purl.org/dc/terms/description": "Not in the CSV: gives every row node the type sosa:Observation (sosa:resultTime implies it too)"
+      }
+    ],
+    "primaryKey": "timestamp"
+  }
+}

@@ -1,0 +1,51 @@
+SHACL report, 2026-10-13 14:44
+Endpoint: ..\..\metadata endpoint\waterinfo_289423042_tss2.ttl
+Shapes:   ..\..\SHACL\embedded_shapes.ttl
+Result:   DOES NOT CONFORM (3 violations, 4 warnings, 0 infos)
+======================================================================
+Validation Report
+Conforms: False
+Results (7):
+Constraint Violation in MinCountConstraintComponent (http://www.w3.org/ns/shacl#MinCountConstraintComponent):
+	Severity: sh:Violation
+	Source Shape: [ sh:datatype rdf:JSON ; sh:group emb:Required ; sh:maxCount Literal("1", datatype=xsd:integer) ; sh:message Literal("M1: an embedded snippet carries its readings exactly once in tss:points, an rdf:JSON literal.", lang=en) ; sh:minCount Literal("1", datatype=xsd:integer) ; sh:name Literal("M1 points") ; sh:path tss:points ]
+	Focus Node: ex:snippet-grootdok-ec20
+	Result Path: tss:points
+	Message: M1: an embedded snippet carries its readings exactly once in tss:points, an rdf:JSON literal.
+Constraint Violation in MinCountConstraintComponent (http://www.w3.org/ns/shacl#MinCountConstraintComponent):
+	Severity: sh:Violation
+	Source Shape: [ sh:group emb:Required ; sh:message Literal("M2: no tss:context on the snippet or its template: state the JSON-LD context that says what "time" and "value" in tss:points mean.", lang=en) ; sh:minCount Literal("1", datatype=xsd:integer) ; sh:name Literal("M2 context (own or inherited)") ; sh:path [ sh:alternativePath ( tss:context ( [ sh:inversePath tss:hasSnippet ] tss:snippetTemplate tss:context ) ) ] ]
+	Focus Node: ex:snippet-grootdok-ec20
+	Result Path: [ sh:alternativePath ( tss:context ( [ sh:inversePath tss:hasSnippet ] tss:snippetTemplate tss:context ) ) ]
+	Message: M2: no tss:context on the snippet or its template: state the JSON-LD context that says what "time" and "value" in tss:points mean.
+Constraint Violation in NotConstraintComponent (http://www.w3.org/ns/shacl#NotConstraintComponent):
+	Severity: sh:Violation
+	Source Shape: [ sh:group emb:Required ; sh:message Literal("1.1.2: tss:embedded is false: this group keeps its readings in an external CSV file, so check it with external_csv_shapes.ttl.", lang=en) ; sh:name Literal("1.1.2 embedded is true") ; sh:not [ sh:in ( Literal("false" = False, datatype=xsd:boolean) Literal("false" = False, datatype=xsd:boolean) ) ] ; sh:path tss:embedded ]
+	Focus Node: ex:grootdok-snippets
+	Value Node: Literal("false" = False, datatype=xsd:boolean)
+	Result Path: tss:embedded
+	Message: 1.1.2: tss:embedded is false: this group keeps its readings in an external CSV file, so check it with external_csv_shapes.ttl.
+Validation Result in MaxCountConstraintComponent (http://www.w3.org/ns/shacl#MaxCountConstraintComponent):
+	Severity: sh:Warning
+	Source Shape: [ sh:group emb:NotAllowed ; sh:maxCount Literal("0", datatype=xsd:integer) ; sh:message Literal("tss:dataFile has no effect when the readings are embedded in the snippets.", lang=en) ; sh:name Literal("data file") ; sh:path tss:dataFile ; sh:severity sh:Warning ]
+	Focus Node: ex:grootdok-snippets
+	Result Path: tss:dataFile
+	Message: tss:dataFile has no effect when the readings are embedded in the snippets.
+Validation Result in MaxCountConstraintComponent (http://www.w3.org/ns/shacl#MaxCountConstraintComponent):
+	Severity: sh:Warning
+	Source Shape: [ sh:group emb:NotAllowed ; sh:maxCount Literal("0", datatype=xsd:integer) ; sh:message Literal("tss:describedby (a CSVW file) has no effect when the readings are embedded in the snippets.", lang=en) ; sh:name Literal("CSVW description") ; sh:path tss:describedby ; sh:severity sh:Warning ]
+	Focus Node: ex:grootdok-snippets
+	Result Path: tss:describedby
+	Message: tss:describedby (a CSVW file) has no effect when the readings are embedded in the snippets.
+Validation Result in MaxCountConstraintComponent (http://www.w3.org/ns/shacl#MaxCountConstraintComponent):
+	Severity: sh:Warning
+	Source Shape: [ sh:group emb:NotAllowed ; sh:maxCount Literal("0", datatype=xsd:integer) ; sh:message Literal("tss:timeColumn and tss:valueColumn name CSV columns; they have no effect when the readings are embedded.", lang=en) ; sh:name Literal("time and value column") ; sh:path [ sh:alternativePath ( tss:timeColumn tss:valueColumn ) ] ; sh:severity sh:Warning ]
+	Focus Node: [ rdf:type tss:SnippetTemplate ; tss:from Literal("2021-03-03T23:45:00+00:00" = 2021-03-03 23:45:00+00:00, datatype=xsd:dateTime) ; tss:pointType sosa:Observation ; tss:timeColumn Literal("timestamp") ; tss:timePath sosa:resultTime ; tss:until Literal("2025-12-18T23:15:00+00:00" = 2025-12-18 23:15:00+00:00, datatype=xsd:dateTime) ; tss:valuePath sosa:hasSimpleResult ]
+	Result Path: [ sh:alternativePath ( tss:timeColumn tss:valueColumn ) ]
+	Message: tss:timeColumn and tss:valueColumn name CSV columns; they have no effect when the readings are embedded.
+Validation Result in MaxCountConstraintComponent (http://www.w3.org/ns/shacl#MaxCountConstraintComponent):
+	Severity: sh:Warning
+	Source Shape: [ sh:group emb:NotAllowed ; sh:maxCount Literal("0", datatype=xsd:integer) ; sh:message Literal("tss:timeColumn and tss:valueColumn name CSV columns; they have no effect when the readings are embedded.", lang=en) ; sh:name Literal("time and value column") ; sh:path [ sh:alternativePath ( tss:timeColumn tss:valueColumn ) ] ; sh:severity sh:Warning ]
+	Focus Node: ex:snippet-grootdok-ec20
+	Result Path: [ sh:alternativePath ( tss:timeColumn tss:valueColumn ) ]
+	Message: tss:timeColumn and tss:valueColumn name CSV columns; they have no effect when the readings are embedded.

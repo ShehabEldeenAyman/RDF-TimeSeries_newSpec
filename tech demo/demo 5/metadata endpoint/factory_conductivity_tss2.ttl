@@ -1,0 +1,168 @@
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
+@prefix wdrs: <http://www.w3.org/2007/05/powder-s#> .
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+
+# One group = one data file: every snippet in this group reads its values from tss:dataFile.
+ex:factory-snippet a tss:SnippetGroup ;
+    rdfs:label "Factory water conductivity, 2025"@en ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippets of this group or not.
+    tss:dataFile <../data/factory_conductivity.csv> ;
+    tss:describedby <../csvw/factory_conductivity_csvw.json> ; # same relation as CSVW's rel="describedby" link
+    tss:mutable false ;
+    tss:producedBy ex:system1 ;
+    tss:snippetTemplate [
+         a tss:SnippetTemplate ; #defaults each member snippet inherits.
+        tss:timeColumn "datetime" ;
+        tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+        tss:pointType sosa:Observation ;
+        tss:timePath sosa:resultTime ;
+        tss:valuePath sosa:hasSimpleResult ] ;
+
+    tss:hasSnippet
+        ex:snippet-ro1_a_permeate_conductivity-2025 ,
+        ex:snippet-ro1_b_permeate_conductivity-2025 ,
+        ex:snippet-ro1_c_permeate_conductivity-2025 ,
+        ex:snippet-ro2_a_permeate_conductivity-2025 ,
+        ex:snippet-ro2_b_permeate_conductivity-2025 ,
+        ex:snippet-cooling_water_conductivity-2025 ,
+        ex:snippet-boiler_feed_conductivity-2025 ,
+        ex:snippet-boiler_water_delivery_conductivity-2025 ,
+        ex:snippet-dockwater_blowdown_conductivity-2025 ,
+        ex:snippet-venturi_reject_conductivity-2025 ,
+        ex:snippet-ro1de_feed_conductivity-2025 ,
+        ex:snippet-ro1d_feed_conductivity-2025 ,
+        ex:snippet-ro1e_feed_conductivity-2025 .
+
+# One snippet per time series, i.e. per value column of the data file. 
+
+ex:snippet-ro1_a_permeate_conductivity-2025 a tss:Snippet ;
+    rdfs:label "RO1 train A permeate conductivity, 2025"@en ;
+    tss:valueColumn "ro1_a_permeate_conductivity" ; #this should be present to describe the column name from the original csv
+    tss:about [
+        sosa:madeBySensor ex:sensor-ro1_a_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:ro1_a_permeate ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-ro1_b_permeate_conductivity-2025 a tss:Snippet ;
+    rdfs:label "RO1 train B permeate conductivity, 2025"@en ;
+    tss:valueColumn "ro1_b_permeate_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-ro1_b_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:ro1_b_permeate ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-ro1_c_permeate_conductivity-2025 a tss:Snippet ;
+    rdfs:label "RO1 train C permeate conductivity, 2025"@en ;
+    tss:valueColumn "ro1_c_permeate_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-ro1_c_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:ro1_c_permeate ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-ro2_a_permeate_conductivity-2025 a tss:Snippet ;
+    rdfs:label "RO2 train A permeate conductivity, 2025"@en ;
+    tss:valueColumn "ro2_a_permeate_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-ro2_a_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:ro2_a_permeate ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-ro2_b_permeate_conductivity-2025 a tss:Snippet ;
+    rdfs:label "RO2 train B permeate conductivity, 2025"@en ;
+    tss:valueColumn "ro2_b_permeate_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-ro2_b_permeate ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:ro2_b_permeate ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-cooling_water_conductivity-2025 a tss:Snippet ;
+    rdfs:label "Cooling water conductivity (including drinking-water blend), 2025"@en ;
+    tss:valueColumn "cooling_water_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-cooling_water ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:cooling_water ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-boiler_feed_conductivity-2025 a tss:Snippet ;
+    rdfs:label "Boiler feed water conductivity, 2025"@en ;
+    tss:valueColumn "boiler_feed_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-boiler_feed ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:boiler_feed ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-boiler_water_delivery_conductivity-2025 a tss:Snippet ;
+    rdfs:label "Delivered boiler water conductivity, 2025"@en ;
+    tss:valueColumn "boiler_water_delivery_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-boiler_water_delivery ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:boiler_water_delivery ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-dockwater_blowdown_conductivity-2025 a tss:Snippet ;
+    rdfs:label "Dock water and blowdown conductivity, 2025"@en ;
+    tss:valueColumn "dockwater_blowdown_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-dockwater_blowdown ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:dockwater_blowdown ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+ex:snippet-venturi_reject_conductivity-2025 a tss:Snippet ;
+    rdfs:label "Venturi reject conductivity, 2025"@en ;
+    tss:valueColumn "venturi_reject_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-venturi_reject ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:venturi_reject ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+
+# The three RO1D/E feed series have no qudt:hasUnit: the source labels them m3/h,
+# which is not a conductivity unit, so their unit is still to be confirmed.
+
+ex:snippet-ro1de_feed_conductivity-2025 a tss:Snippet ;
+    rdfs:label "RO1D+E combined feed conductivity, 2025"@en ;
+    tss:valueColumn "ro1de_feed_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-ro1de_feed ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:ro1de_feed ] ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en .
+
+ex:snippet-ro1d_feed_conductivity-2025 a tss:Snippet ;
+    rdfs:label "RO1D feed conductivity (after chemical injection), 2025"@en ;
+    tss:valueColumn "ro1d_feed_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-ro1d_feed ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:ro1d_feed ] ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en .
+
+ex:snippet-ro1e_feed_conductivity-2025 a tss:Snippet ;
+    rdfs:label "RO1E feed conductivity, 2025"@en ;
+    tss:valueColumn "ro1e_feed_conductivity" ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-ro1e_feed ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:ro1e_feed ] ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en .
