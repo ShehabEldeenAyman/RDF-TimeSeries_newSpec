@@ -35,8 +35,7 @@ ex:rodenhuizedok-snippets a tss:SnippetGroup ;
     tss:hasSnippet ex:snippet-rodenhuizedok-ec20 .
 
 # One snippet per time series; this file holds a single series (waterinfo ts_id 289429042).
-# The interpolation and quality columns vary per row, so they are described in the
-# CSVW metadata but not bound here.
+# The interpolation and quality columns vary per row and are mapped by tss:context.
 
 ex:snippet-rodenhuizedok-ec20 a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;

@@ -4,22 +4,23 @@
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 @prefix owl:     <http://www.w3.org/2002/07/owl#> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix filetype: <http://publications.europa.eu/resource/authority/file-type/> .
 @prefix tss:     <https://w3id.org/tss#> .
-@prefix ext:     <https://w3id.org/tss/shapes/external-csv#> .
+@prefix ext:     <https://w3id.org/tss/shapes/external-non-csv#> .
 
 # =============================================================================
-# RDFTSS conformance shapes, profile 1: readings in an EXTERNAL CSV file
+# RDFTSS conformance shapes, profile 3: readings in an EXTERNAL NON-CSV file
 #
 # For a metadata endpoint whose tss:SnippetGroup has tss:embedded false: the group
-# points to one CSV file (tss:dataFile) and its CSVW description (tss:describedby),
-# and each snippet reads one column of that file (tss:valueColumn).
+# points to one non-CSV data file (tss:dataFile), and each snippet reads one column
+# of that file (tss:valueColumn). Its own or inherited tss:context maps columns to RDF.
 #
-# Run:   pyshacl -w -s external_shapes.ttl "<endpoint>.ttl"
+# Run:   pyshacl -w -s external_non_csv_shapes.ttl "<endpoint>.ttl"
 #        (-w: warnings alone don't fail the run; in Python: validate(..., allow_warnings=True))
 # The endpoint conforms to this profile when the report holds no sh:Violation. (Plain SHACL
 # sets sh:conforms to false as soon as the report holds any result, warnings included.)
 #
-# Numbers like "1.1.3" refer to the common requirements (the same in both profiles):
+# Numbers like "1.1.3" refer to the requirements shared by the storage profiles:
 #   1.1    a snippet group exists, with
 #   1.1.1    a label                       1.1.4  produced by
 #   1.1.2    embedded                      1.1.5  a snippet template, with from (1.1.5.2),
@@ -30,9 +31,9 @@
 #   1.2.2    it has tss:about (contents not checked)
 # Checks specific to this profile (all required):
 #   E1 data file (tss:dataFile)            E4 time column (tss:timeColumn, own or from the template)
-#   E2 CSVW description (tss:describedby)  E5 the value column is not the time column
+#   E2 RDF mapping (tss:context)          E5 the value column is not the time column
 #   E3 value column (tss:valueColumn)      E6 one snippet per column and period (warning)
-#   E1 also requires the data file's type (dcterms:format, e.g. filetype:CSV or filetype:PARQUET)
+#   E1 requires one dcterms:format IRI other than filetype:CSV. CSVW is not required.
 #
 # Every property shape is in one of these groups (sh:group):
 #   Required     sh:Violation  missing or malformed: the endpoint does not conform
@@ -41,9 +42,9 @@
 #   Not allowed  sh:Violation  contradicts this profile, or sh:Warning: has no effect in it
 # =============================================================================
 
-<https://w3id.org/tss/shapes/external-csv>
+<https://w3id.org/tss/shapes/external-non-csv>
     a owl:Ontology ;
-    rdfs:label "RDFTSS conformance shapes: readings in an external CSV file"@en ;
+    rdfs:label "RDFTSS conformance shapes: readings in an external non-CSV file"@en ;
     sh:declare
         [ sh:prefix "tss" ; sh:namespace "https://w3id.org/tss#"^^xsd:anyURI ] ,
         [ sh:prefix "xsd" ; sh:namespace "http://www.w3.org/2001/XMLSchema#"^^xsd:anyURI ] .
@@ -87,9 +88,8 @@ ext:PropertyPathShape a sh:NodeShape ;
         [ sh:path sh:zeroOrOnePath ; sh:minCount 1 ]
     ) .
 
-# A CSVW column name (csvw:name, CSVW 5.6): letters, digits, "_" and %-escapes, dot-separated
-# parts, not starting with "_". A column title such as "Quality Code" is not a name.
-# Used as sh:pattern "^([A-Za-z0-9]|%[0-9A-Fa-f]{2})([A-Za-z0-9_]|%[0-9A-Fa-f]{2})*([.]([A-Za-z0-9_]|%[0-9A-Fa-f]{2})+)*$"
+# Column bindings use actual field names, including spaces and punctuation.
+# Each binding must be a non-empty string; CSVW name restrictions do not apply.
 
 
 # --- 1.1 and 1.2: a snippet group and a snippet exist ----------------------------
@@ -141,7 +141,7 @@ ext:GroupShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
         sh:group ext:Required ;
-        sh:message "1.1.2: state tss:embedded exactly once, as a boolean (false in this profile: the readings are in an external CSV file)."@en ] ,
+        sh:message "1.1.2: state tss:embedded exactly once, as a boolean (false in this profile: the readings are in an external non-CSV file)."@en ] ,
 
     # ... and false in this profile (any form of the boolean false: false or "0")
     [
@@ -195,41 +195,25 @@ ext:GroupShape a sh:NodeShape ;
     # E1 data file
     [
         sh:name "E1 data file" ;
-        sh:description "One group = one data file: the CSV file that holds the readings of every snippet in the group."@en ;
+        sh:description "One group = one data file: the external data file that holds the readings of every snippet in the group."@en ;
         sh:path tss:dataFile ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
         sh:group ext:Required ;
-        sh:message "E1: state the group's CSV file exactly once, as an IRI, with tss:dataFile (one group = one data file)."@en ] ,
+        sh:message "E1: state the group's external data file exactly once, as an IRI, with tss:dataFile (one group = one data file)."@en ] ,
 
     # E1 data file format (only in this profile: embedded groups have no data file)
     [
         sh:name "E1 data file format" ;
-        sh:description "The file type of tss:dataFile, as an IRI from the EU file-type vocabulary (http://publications.europa.eu/resource/authority/file-type/), e.g. CSV or PARQUET."@en ;
+        sh:description "This profile is for external data formats other than filetype:CSV, such as filetype:PARQUET."@en ;
         sh:path dcterms:format ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
+        sh:not [ sh:in ( filetype:CSV ) ] ;
         sh:group ext:Required ;
-        sh:message "E1: state the file type of tss:dataFile exactly once, as an IRI, with dcterms:format (e.g. filetype:CSV or filetype:PARQUET)."@en ] ,
-
-    # E2 CSVW description
-    [
-        sh:name "E2 CSVW description" ;
-        sh:description "The CSVW metadata of the data file. tss:timeColumn and tss:valueColumn are CSVW column names, so the CSVW file is needed to find them in the CSV."@en ;
-        sh:path tss:describedby ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:nodeKind sh:IRI ;
-        sh:group ext:Required ;
-        sh:message "E2: state the CSVW metadata file of the data file exactly once, as an IRI, with tss:describedby."@en ] ,
-    [
-        sh:name "E2 CSVW description is not the data file" ;
-        sh:path tss:describedby ;
-        sh:disjoint tss:dataFile ;
-        sh:group ext:Required ;
-        sh:message "E2: tss:describedby points to the CSV file itself; it must point to the CSVW metadata that describes tss:dataFile."@en ] ,
+        sh:message "E1: state exactly one non-CSV file type IRI with dcterms:format. Use external_csv_shapes.ttl for filetype:CSV."@en ] ,
 
     # Not allowed
     [
@@ -237,7 +221,7 @@ ext:GroupShape a sh:NodeShape ;
         sh:path tss:points ;
         sh:maxCount 0 ;
         sh:group ext:NotAllowed ;
-        sh:message "A group can't hold readings (tss:points); in this profile the readings are in the CSV file (tss:dataFile)."@en ] .
+        sh:message "A group can't hold readings (tss:points); in this profile the readings are in the external data file (tss:dataFile)."@en ] .
 
 
 # --- 1.1.5 The snippet template ---------------------------------------------------
@@ -253,9 +237,9 @@ ext:TemplateShape a sh:NodeShape ;
         sh:path tss:timeColumn ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
-        sh:pattern "^([A-Za-z0-9]|%[0-9A-Fa-f]{2})([A-Za-z0-9_]|%[0-9A-Fa-f]{2})*([.]([A-Za-z0-9_]|%[0-9A-Fa-f]{2})+)*$" ;
+        sh:minLength 1 ;
         sh:group ext:Required ;
-        sh:message "E4: tss:timeColumn is one string that is a CSVW column name (its name, not its title)."@en ] ,
+        sh:message "E4: tss:timeColumn is one string that is a column name in the external data file."@en ] ,
 
     # 1.1.5.2 from
     [
@@ -318,13 +302,26 @@ ext:TemplateShape a sh:NodeShape ;
 
     # Optional defaults beyond 1.1.5
     [
+        sh:name "E2 context (default)" ;
+        sh:path tss:context ;
+        sh:maxCount 1 ;
+        sh:datatype rdf:JSON ;
+        sh:group ext:Required ;
+        sh:message "E2: tss:context is one rdf:JSON literal mapping external field names to RDF."@en ] ,
+    [
+        sh:name "E2 context is a JSON object (default)" ;
+        sh:path tss:context ;
+        sh:pattern """^\\s*\\{[\\s\\S]*\\}\\s*$""" ;
+        sh:group ext:Required ;
+        sh:message "E2: tss:context must be a JSON object containing the JSON-LD field mapping."@en ] ,
+    [
         sh:name "value column (default)" ;
         sh:path tss:valueColumn ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
-        sh:pattern "^([A-Za-z0-9]|%[0-9A-Fa-f]{2})([A-Za-z0-9_]|%[0-9A-Fa-f]{2})*([.]([A-Za-z0-9_]|%[0-9A-Fa-f]{2})+)*$" ;
+        sh:minLength 1 ;
         sh:group ext:Optional ;
-        sh:message "tss:valueColumn is one string that is a CSVW column name (its name, not its title)."@en ] ,
+        sh:message "tss:valueColumn is one string that is a column name in the external data file."@en ] ,
     [
         sh:name "about (default)" ;
         sh:path tss:about ;
@@ -339,14 +336,7 @@ ext:TemplateShape a sh:NodeShape ;
         sh:path tss:points ;
         sh:maxCount 0 ;
         sh:group ext:NotAllowed ;
-        sh:message "A template can't hold readings (tss:points), and this profile keeps the readings in the CSV file."@en ] ,
-    [
-        sh:name "context" ;
-        sh:path tss:context ;
-        sh:maxCount 0 ;
-        sh:severity sh:Warning ;
-        sh:group ext:NotAllowed ;
-        sh:message "tss:context describes embedded JSON points; it has no effect when the readings are in a CSV file."@en ] ,
+        sh:message "A template can't hold readings (tss:points), and this profile keeps the readings in the external data file."@en ] ,
     [
         sh:name "group-level property on the template" ;
         sh:path [ sh:alternativePath ( tss:embedded tss:dataFile tss:describedby tss:mutable tss:producedBy tss:snippetTemplate tss:hasSnippet ) ] ;
@@ -361,7 +351,7 @@ ext:TemplateTimeWindowShape a sh:NodeShape ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "1.1.5.2-3: the template's time window is empty: tss:from {?from} is not before tss:until {?until}."@en ;
-        sh:prefixes <https://w3id.org/tss/shapes/external-csv> ;
+        sh:prefixes <https://w3id.org/tss/shapes/external-non-csv> ;
         sh:select """
             SELECT $this ?from ?until WHERE {
                 $this tss:from ?from ; tss:until ?until .
@@ -409,21 +399,42 @@ ext:SnippetShape a sh:NodeShape ;
         sh:group ext:Required ;
         sh:message "1.2.2: a snippet states tss:about once: a point template node (its contents are not checked)."@en ] ,
 
+    # E2 context: required on the snippet, or inherited from its group's template
+    [
+        sh:name "E2 context (own or inherited)" ;
+        sh:path [ sh:alternativePath ( tss:context ( [ sh:inversePath tss:hasSnippet ] tss:snippetTemplate tss:context ) ) ] ;
+        sh:minCount 1 ;
+        sh:group ext:Required ;
+        sh:message "E2: no tss:context on the snippet or its template: state the JSON-LD mapping from external field names to RDF."@en ] ,
+    [
+        sh:name "E2 context (form)" ;
+        sh:path tss:context ;
+        sh:maxCount 1 ;
+        sh:datatype rdf:JSON ;
+        sh:group ext:Required ;
+        sh:message "E2: tss:context is one rdf:JSON literal mapping external field names to RDF."@en ] ,
+    [
+        sh:name "E2 context is a JSON object" ;
+        sh:path tss:context ;
+        sh:pattern """^\\s*\\{[\\s\\S]*\\}\\s*$""" ;
+        sh:group ext:Required ;
+        sh:message "E2: tss:context must be a JSON object containing the JSON-LD field mapping."@en ] ,
+
     # E3 value column: on the snippet, or (unusually) as a default on the template
     [
         sh:name "E3 value column (own or inherited)" ;
         sh:path [ sh:alternativePath ( tss:valueColumn ( [ sh:inversePath tss:hasSnippet ] tss:snippetTemplate tss:valueColumn ) ) ] ;
         sh:minCount 1 ;
         sh:group ext:Required ;
-        sh:message "E3: no value column: state tss:valueColumn on the snippet (the CSVW column that holds its readings)."@en ] ,
+        sh:message "E3: no value column: state tss:valueColumn on the snippet (the external column that holds its readings)."@en ] ,
     [
         sh:name "E3 value column (form)" ;
         sh:path tss:valueColumn ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
-        sh:pattern "^([A-Za-z0-9]|%[0-9A-Fa-f]{2})([A-Za-z0-9_]|%[0-9A-Fa-f]{2})*([.]([A-Za-z0-9_]|%[0-9A-Fa-f]{2})+)*$" ;
+        sh:minLength 1 ;
         sh:group ext:Required ;
-        sh:message "E3: tss:valueColumn is one string that is a CSVW column name (its name, not its title)."@en ] ,
+        sh:message "E3: tss:valueColumn is one string that is a column name in the external data file."@en ] ,
 
     # E4 time column: usually inherited from the template, or stated on the snippet itself
     [
@@ -437,9 +448,9 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:timeColumn ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
-        sh:pattern "^([A-Za-z0-9]|%[0-9A-Fa-f]{2})([A-Za-z0-9_]|%[0-9A-Fa-f]{2})*([.]([A-Za-z0-9_]|%[0-9A-Fa-f]{2})+)*$" ;
+        sh:minLength 1 ;
         sh:group ext:Required ;
-        sh:message "E4: tss:timeColumn is one string that is a CSVW column name (its name, not its title)."@en ] ,
+        sh:message "E4: tss:timeColumn is one string that is a column name in the external data file."@en ] ,
 
     # Optional: a snippet may override its template's values (the TSS2 inheritance rule)
     [
@@ -483,11 +494,7 @@ ext:SnippetShape a sh:NodeShape ;
     [
         sh:name "points" ; sh:path tss:points ;
         sh:maxCount 0 ; sh:group ext:NotAllowed ;
-        sh:message "tss:points embeds readings in the snippet; in this profile (tss:embedded false) the readings are in the CSV file (tss:dataFile)."@en ] ,
-    [
-        sh:name "context" ; sh:path tss:context ;
-        sh:maxCount 0 ; sh:severity sh:Warning ; sh:group ext:NotAllowed ;
-        sh:message "tss:context describes embedded JSON points; it has no effect when the readings are in a CSV file."@en ] ,
+        sh:message "tss:points embeds readings in the snippet; in this profile (tss:embedded false) the readings are in the external data file (tss:dataFile)."@en ] ,
     [
         sh:name "group-level property on the snippet" ;
         sh:path [ sh:alternativePath ( tss:embedded tss:dataFile tss:describedby tss:mutable tss:producedBy tss:snippetTemplate tss:hasSnippet ) ] ;
@@ -504,7 +511,7 @@ ext:TimeWindowShape a sh:NodeShape ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "The snippet's time window is empty: tss:from {?from} is not before tss:until {?until} (its own value, else the template's)."@en ;
-        sh:prefixes <https://w3id.org/tss/shapes/external-csv> ;
+        sh:prefixes <https://w3id.org/tss/shapes/external-non-csv> ;
         # Only when the snippet overrides from or until: the template alone is checked by ext:TemplateTimeWindowShape.
         sh:select """
             SELECT $this ?from ?until WHERE {
@@ -532,7 +539,7 @@ ext:DistinctColumnsShape a sh:NodeShape ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "E5: the snippet reads its values from its time column ({?column})."@en ;
-        sh:prefixes <https://w3id.org/tss/shapes/external-csv> ;
+        sh:prefixes <https://w3id.org/tss/shapes/external-non-csv> ;
         sh:select """
             SELECT $this ?column WHERE {
                 OPTIONAL { $this tss:valueColumn ?ownValue }
@@ -556,7 +563,7 @@ ext:OneSnippetPerColumnShape a sh:NodeShape ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "E6: another snippet of the same group ({?other}) also reads value column {?column} over an overlapping time window: one snippet per series and period."@en ;
-        sh:prefixes <https://w3id.org/tss/shapes/external-csv> ;
+        sh:prefixes <https://w3id.org/tss/shapes/external-non-csv> ;
         sh:select """
             SELECT $this ?other ?column WHERE {
                 ?group tss:hasSnippet $this , ?other .
@@ -595,7 +602,7 @@ ext:KnownTermsShape a sh:NodeShape ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "Unknown TSS property {?property} (a typo?): it is ignored."@en ;
-        sh:prefixes <https://w3id.org/tss/shapes/external-csv> ;
+        sh:prefixes <https://w3id.org/tss/shapes/external-non-csv> ;
         sh:select """
             SELECT DISTINCT $this ?property WHERE {
                 $this ?property ?value .

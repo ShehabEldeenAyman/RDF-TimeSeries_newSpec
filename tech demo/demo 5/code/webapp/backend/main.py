@@ -659,14 +659,20 @@ def download_generated_rdf(endpoint_id, token):
 
 @api.get("/endpoints/{endpoint_id}/shacl")
 def check_shacl(endpoint_id):
-    """Validate the original graph with the profile selected by tss:embedded."""
+    """Select embedded, external CSV, or external non-CSV shapes from the TSS."""
     graph = load_graph(endpoint_id)
     groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
     modes = {embedded_mode(graph, group) for group in groups}
     if not groups or None in modes or len(modes) != 1:
         raise HTTPException(status_code=400, detail="Cannot select SHACL shapes: every SnippetGroup must state one boolean tss:embedded, and all groups must use the same profile.")
     embedded = modes.pop()
-    name = "embedded_shapes.ttl" if embedded else "external_shapes.ttl"
+    if embedded:
+        name = "embedded_shapes.ttl"
+    else:
+        csv_modes = {list(graph.objects(group, DCTERMS.format)) == [CSV_FILE_TYPE] for group in groups}
+        if len(csv_modes) != 1:
+            raise HTTPException(status_code=400, detail="Cannot select SHACL shapes: external groups must all use the CSV profile or all use the non-CSV profile. Upload custom shapes for mixed profiles.")
+        name = "external_csv_shapes.ttl" if csv_modes.pop() else "external_non_csv_shapes.ttl"
     shapes = Graph().parse(DEMO_DIR / "SHACL" / name, format="turtle")
     return shacl_report(graph, shapes, name, embedded)
 

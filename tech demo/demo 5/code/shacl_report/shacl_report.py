@@ -3,7 +3,8 @@
 The report is printed in the terminal and saved as a text file.
 
 Examples:
-    python shacl_report.py "../../metadata endpoint/waterinfo_289423042_tss2.ttl" ../../SHACL/external_shapes.ttl
+    python shacl_report.py "../../metadata endpoint/waterinfo_289423042_tss2.ttl" ../../SHACL/external_csv_shapes.ttl
+    python shacl_report.py "../../metadata endpoint/waterinfo_289429042_tss2_parquet.ttl" ../../SHACL/external_non_csv_shapes.ttl
     python shacl_report.py endpoint.ttl shapes.ttl --out my_report.txt
 
 Without --out, the report goes to reports/<endpoint>__<shapes>.txt next to this script.

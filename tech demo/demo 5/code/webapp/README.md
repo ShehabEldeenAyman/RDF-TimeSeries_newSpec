@@ -1,6 +1,6 @@
-# TSS2 Dashboard (Demo 4)
+# TSS2 Dashboard (Demo 5)
 
-The dashboard loads local Turtle files from `demo 4/metadata endpoint/`, or online Turtle URLs.
+The dashboard loads local Turtle files from `demo 5/metadata endpoint/`, or online Turtle URLs.
 
 ## Storage profiles
 
@@ -26,7 +26,19 @@ In Demo 5's Files tab, a source declared as `dcterms:format filetype:PARQUET` is
 
 The CSVW metadata card and CSVW validation tab show **Not applicable** unless the external group's TSS explicitly declares `dcterms:format filetype:CSV`, using the EU file-type vocabulary IRI. This also applies when the format is missing or names another file type. For these sources, the validation tab has no Run validation button, and the API skips CSVW loading and validation. A declared CSV source with a missing CSVW file still reports the missing file. Other Parquet dashboard operations are being implemented separately.
 
-SHACL selects `demo 4/SHACL/embedded_shapes.ttl` or `external_shapes.ttl` from the group's boolean `tss:embedded`. Violations fail conformance; warnings are shown without failing it. Tests use the original metadata graph. The existing embedded shapes check JSON structure with regular expressions; they do not replace a full JSON parser. CSV contents are validated separately in CSVW validation.
+SHACL automatically selects one of three files in `demo 5/SHACL/` using the original TSS graph:
+
+| TSS declaration | Default shapes | Mapping requirements |
+|---|---|---|
+| `tss:embedded true` | `embedded_shapes.ttl` | Embedded JSON points and their context |
+| `tss:embedded false` with `dcterms:format filetype:CSV` | `external_csv_shapes.ttl` | CSVW via `tss:describedby` |
+| `tss:embedded false` with another format | `external_non_csv_shapes.ttl` | Mandatory `tss:context` on each snippet or inherited from its template; no CSVW requirement |
+
+Both external profiles require exactly one format IRI. The CSV profile requires the EU `filetype:CSV` IRI; the non-CSV profile excludes it and allows formats such as `filetype:PARQUET`. Non-CSV context values must be `rdf:JSON` objects, and column bindings may contain spaces or punctuation. These checks establish the presence and form of the context; they do not verify its complete mapping against the external file. Missing format declarations are reported as nonconformance by the non-CSV shapes. Mixed CSV/non-CSV groups require custom shapes for one combined test.
+
+The Parquet example is `metadata endpoint/waterinfo_289429042_tss2_parquet.ttl`; its dashboard/API ID is `waterinfo_289429042_tss2_parquet`. Its data file remains `data/waterinfo_289429042.parquet`.
+
+Violations fail conformance; warnings are shown without failing it. Tests use the original metadata graph. JSON structure checks use regular expressions and do not replace a full JSON parser. CSV contents are validated separately in CSVW validation.
 
 In the SHACL tab, choose a custom `.ttl` file (up to 5 MB) to validate with your own shapes instead of the bundled profile. The selected filename is shown before running and in the report. **Use default shapes** clears the upload and restores automatic selection. Uploaded shapes are used only for that validation and are not saved over any project files. Malformed Turtle or invalid shapes produce an error.
 
@@ -55,7 +67,7 @@ The standalone converter in `code/TSS2RDF/tss2rdf.py` supports both profiles wit
 From the repository root:
 
 ```powershell
-cd "tech demo/demo 4/code/webapp/backend"
+cd "tech demo/demo 5/code/webapp/backend"
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8001
 ```
@@ -63,7 +75,7 @@ uvicorn main:app --reload --port 8001
 In another terminal:
 
 ```powershell
-cd "tech demo/demo 4/code/webapp/frontend"
+cd "tech demo/demo 5/code/webapp/frontend"
 npm install
 npm run dev
 ```
@@ -88,7 +100,7 @@ Online endpoint URLs are saved in backend/online_endpoints.json. Relative file l
 
 ```powershell
 # From backend/
-python -B -m unittest -v test_storage_profiles test_csvw_delimiter test_rdf_generation test_csv_rdf_generation
+python -B -m unittest -v test_storage_profiles test_external_shacl test_file_previews test_csvw_delimiter test_rdf_generation test_csv_rdf_generation
 # From frontend/
 npm run lint
 npm run build

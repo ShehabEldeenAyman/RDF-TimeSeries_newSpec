@@ -9,6 +9,7 @@ import main
 
 EMBEDDED = "waterinfo_289441042_tss2_points_embedded"
 EXTERNAL = "waterinfo_289423042_tss2"
+PARQUET = "waterinfo_289429042_tss2_parquet"
 VALUE = "https://example.org/ex#snippet-zevenaarshaven-ec20"
 TEXT = "https://example.org/ex#snippet-zevenaarshaven-quality-code-color"
 CSV_VALUE = "https://example.org/ex#snippet-grootdok-ec20"
@@ -31,7 +32,8 @@ class StorageProfiles(unittest.TestCase):
             self.assertTrue(info["snippets"])
             report = main.check_shacl(endpoint)
             self.assertTrue(report["conforms"], report["report"])
-            self.assertEqual(report["shapes"], "embedded_shapes.ttl" if endpoint == EMBEDDED else "external_shapes.ttl")
+            expected = "embedded_shapes.ttl" if endpoint == EMBEDDED else "external_non_csv_shapes.ttl" if endpoint == PARQUET else "external_csv_shapes.ttl"
+            self.assertEqual(report["shapes"], expected)
 
     def test_inspector_and_sources_for_both_profiles(self):
         result = main.series_metadata(EMBEDDED, VALUE)
@@ -156,7 +158,7 @@ class StorageProfiles(unittest.TestCase):
         result = main.check_shacl(EXTERNAL)
         self.assertTrue(result["conforms"])
         self.assertFalse(result["custom"])
-        self.assertEqual(result["shapes"], "external_shapes.ttl")
+        self.assertEqual(result["shapes"], "external_csv_shapes.ttl")
 
 
 if __name__ == "__main__":

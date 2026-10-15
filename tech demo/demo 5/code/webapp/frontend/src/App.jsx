@@ -167,7 +167,7 @@ function App() {
           {tab === 'inspector' && <Inspector info={info} />}
 
           <div style={{ display: tab === 'shacl' ? 'block' : 'none' }}>
-            <Shacl info={info} />
+            <Shacl key={info.id} info={info} />
           </div>
 
           <div style={{ display: tab === 'rdf' ? 'block' : 'none' }}>

@@ -11,7 +11,8 @@ export function Shacl({ info }) {
   const controller = useRef(null)
   useEffect(() => () => controller.current?.abort(), [])
   const known = typeof info.embedded === 'boolean'
-  const shapes = info.embedded ? 'embedded_shapes.ttl' : 'external_shapes.ttl'
+  const shapes = info.embedded ? 'embedded_shapes.ttl' : info.csvwApplicable ? 'external_csv_shapes.ttl' : 'external_non_csv_shapes.ttl'
+  const profile = info.embedded ? 'embedded time series' : info.csvwApplicable ? 'external CSV time series' : 'external non-CSV time series'
 
   async function selectFile(event) {
     const file = event.target.files[0]
@@ -72,7 +73,7 @@ export function Shacl({ info }) {
 
   return <section className="card">
     <h3>SHACL conformance</h3>
-    {known ? <p>Detected <strong>{info.embedded ? 'embedded time series' : 'external CSV time series'}</strong> from <code>tss:embedded {String(info.embedded)}</code>.</p>
+    {known ? <p>Detected <strong>{profile}</strong> using <code>tss:embedded {String(info.embedded)}</code>{!info.embedded && <> and <code>dcterms:format</code></>}.</p>
       : <p className="muted">Cannot select default shapes: the group must state one boolean tss:embedded. You can upload custom shapes instead.</p>}
     <p><label htmlFor="shacl-file">Upload custom SHACL shapes (.ttl)</label>{' '}
       <input ref={fileInput} id="shacl-file" type="file" accept=".ttl,text/turtle" disabled={running || reading} onChange={selectFile} /></p>

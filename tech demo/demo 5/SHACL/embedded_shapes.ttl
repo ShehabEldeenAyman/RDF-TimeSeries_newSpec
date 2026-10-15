@@ -146,7 +146,7 @@ emb:GroupShape a sh:NodeShape ;
         sh:path tss:embedded ;
         sh:not [ sh:in ( false "0"^^xsd:boolean ) ] ;
         sh:group emb:Required ;
-        sh:message "1.1.2: tss:embedded is false: this group keeps its readings in an external CSV file, so check it with external_shapes.ttl."@en ] ,
+        sh:message "1.1.2: tss:embedded is false: use external_csv_shapes.ttl for filetype:CSV, or external_non_csv_shapes.ttl for other external formats."@en ] ,
 
     # 1.1.3 mutable
     [
