@@ -44,6 +44,8 @@ External generation streams the complete Turtle export to a temporary file inste
 
 The original CLI script in `code/expand_snippets` is separate; the new dashboard uses `backend/rdf_generation.py`.
 
+The standalone converter in `code/TSS2RDF/tss2rdf.py` supports both profiles with `--mode embedded` or `--mode external`, a TSS path, and explicit CSV/CSVW paths for external data. See `code/TSS2RDF/README.md` for commands. The dashboard's `backend/rdf_generation.py` and `backend/csv_rdf_generation.py` import its conversion functions, so the dashboard and command line share the same RDF generation rules.
+
 ## Running
 
 From the repository root:
