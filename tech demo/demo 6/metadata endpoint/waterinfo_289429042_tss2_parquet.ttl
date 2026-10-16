@@ -1,83 +1,130 @@
-@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
-@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix sosa: <http://www.w3.org/ns/sosa/> .
-@prefix tss: <https://w3id.org/tss#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix ex: <https://example.org/ex#> .
-@prefix ldes: <https://w3id.org/ldes#> .
-@prefix csvw: <http://www.w3.org/ns/csvw#> .
-@prefix wdrs: <http://www.w3.org/2007/05/powder-s#> .
-@prefix td: <https://www.w3.org/2019/wot/td#> .
-@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
-@prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix filetype: <http://publications.europa.eu/resource/authority/file-type/> .
 
-# One group = one data file: every snippet in this group reads its values from tss:dataFile.
-ex:rodenhuizedok-snippets a tss:SnippetGroup ;
+# Demo 6: experimental RDF time-series schema and explicit source bindings.
+# The new TSS schema, field, source and binding terms are proposal vocabulary.
+# Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
+# Snippet windows are [from, until). CSV column indices are zero-based.
+# RDFS/catalog annotations and external datatype/unit identifiers are retained.
+
+# Group identity and provenance; each snippet explicitly identifies its source.
+
+ex:rodenhuizedok-snippets
+    a tss:SnippetGroup ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
-    tss:embedded false; # Indicates whether actual time series data reside in the snippets of this group or not.
-    tss:dataFile <../data/waterinfo_289429042.parquet> ;
-    dcterms:format filetype:PARQUET ; # the file type of tss:dataFile
+    tss:embedded false ;
     tss:mutable false ;
     tss:producedBy ex:station-rodenhuizedok ;
-    tss:snippetTemplate [
-        a tss:SnippetTemplate ; #defaults each member snippet inherits.
-        tss:timeColumn "Timestamp" ;
-        tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-        tss:pointType sosa:Observation ;
-        tss:timePath sosa:resultTime ;
-        tss:valuePath sosa:hasSimpleResult ] ;
-
     tss:hasSnippet ex:snippet-rodenhuizedok-ec20 .
 
-# One snippet per time series; this file holds a single series (waterinfo ts_id 289429042).
-# The interpolation and quality columns vary per row and are mapped by tss:context.
+# Physical source and exact field bindings.
 
-ex:snippet-rodenhuizedok-ec20 a tss:Snippet ;
+ex:rodenhuizedok-source
+    a tss:Source ;
+    tss:embedded false ;
+    tss:dataFile <../data/waterinfo_289429042.parquet> ;
+    tss:format tss:Parquet ;
+    tss:schema ex:rodenhuizedok-schema ;
+    tss:binding [ tss:field ex:rodenhuizedok-ts_id-field ; tss:columnName "ts_id" ],
+        [ tss:field ex:rodenhuizedok-time-field ; tss:columnName "Timestamp" ],
+        [ tss:field ex:rodenhuizedok-ec20-field ; tss:columnName "Value" ],
+        [ tss:field ex:rodenhuizedok-interpolation-type-field ; tss:columnName "Interpolation Type" ],
+        [ tss:field ex:rodenhuizedok-quality-code-field ; tss:columnName "Quality Code" ],
+        [ tss:field ex:rodenhuizedok-quality-code-name-field ; tss:columnName "Quality Code Name" ],
+        [ tss:field ex:rodenhuizedok-quality-code-description-field ; tss:columnName "Quality Code Description" ],
+        [ tss:field ex:rodenhuizedok-quality-code-color-field ; tss:columnName "Quality Code Color" ] .
+
+# Logical field schema; units and measurement meaning belong to fields.
+
+ex:rodenhuizedok-schema
+    a tss:Schema ;
+    tss:hasField ex:rodenhuizedok-ts_id-field,
+        ex:rodenhuizedok-time-field,
+        ex:rodenhuizedok-ec20-field,
+        ex:rodenhuizedok-interpolation-type-field,
+        ex:rodenhuizedok-quality-code-field,
+        ex:rodenhuizedok-quality-code-name-field,
+        ex:rodenhuizedok-quality-code-description-field,
+        ex:rodenhuizedok-quality-code-color-field .
+
+ex:rodenhuizedok-ts_id-field
+    a tss:Field ;
+    rdfs:label "ts_id"@en ;
+    tss:role tss:Identifier ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "Waterinfo time series identifier (the same on every row)."@en .
+
+ex:rodenhuizedok-time-field
+    a tss:Field ;
+    rdfs:label "Timestamp"@en ;
+    tss:role tss:Time ;
+    tss:datatype xsd:dateTime ;
+    rdfs:comment "Observation time (UTC)."@en .
+
+ex:rodenhuizedok-ec20-field
+    a tss:Field ;
+    rdfs:label "Value"@en ;
+    tss:role tss:Measurement ;
+    tss:datatype xsd:double ;
+    rdfs:comment "Electrical conductivity corrected to 20 degrees Celsius."@en ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM .
+
+ex:rodenhuizedok-interpolation-type-field
+    a tss:Field ;
+    rdfs:label "Interpolation Type"@en ;
+    tss:role tss:Interpolation ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "KiWIS interpolation type code of the value."@en ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+ex:rodenhuizedok-quality-code-field
+    a tss:Field ;
+    rdfs:label "Quality Code"@en ;
+    tss:role tss:Quality ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "KiWIS quality code of the value."@en ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+ex:rodenhuizedok-quality-code-name-field
+    a tss:Field ;
+    rdfs:label "Quality Code Name"@en ;
+    tss:role tss:Quality ;
+    tss:datatype xsd:string ;
+    rdfs:comment "Short name of the quality code."@en ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+ex:rodenhuizedok-quality-code-description-field
+    a tss:Field ;
+    rdfs:label "Quality Code Description"@en ;
+    tss:role tss:Quality ;
+    tss:datatype rdf:langString ;
+    rdfs:comment "Description of the quality code."@en ;
+    tss:language "en" ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+ex:rodenhuizedok-quality-code-color-field
+    a tss:Field ;
+    rdfs:label "Quality Code Color"@en ;
+    tss:role tss:Quality ;
+    tss:datatype xsd:string ;
+    rdfs:comment "Display colour of the quality code (RGBA)."@en ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+# Snippets select fields and retain their original identities and time windows.
+
+ex:snippet-rodenhuizedok-ec20
+    a tss:Snippet ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
-    tss:valueColumn "value" ;
-    tss:context """{
-        "@context": {
-            "ts_id": {
-                "@id": "https://example.org/ex#ts_id",
-                "@type": "http://www.w3.org/2001/XMLSchema#integer"
-            },
-            "Timestamp": {
-                "@id": "http://www.w3.org/ns/sosa/resultTime",
-                "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
-            },
-            "Value": {
-                "@id": "http://www.w3.org/ns/sosa/hasSimpleResult",
-                "@type": "http://www.w3.org/2001/XMLSchema#double"
-            },
-            "Interpolation Type": {
-                "@id": "https://example.org/ex#interpolation_type",
-                "@type": "http://www.w3.org/2001/XMLSchema#integer"
-            },
-            "Quality Code": {
-                "@id": "https://example.org/ex#quality_code",
-                "@type": "http://www.w3.org/2001/XMLSchema#integer"
-            },
-            "Quality Code Name": {
-                "@id": "https://example.org/ex#quality_code_name",
-                "@type": "http://www.w3.org/2001/XMLSchema#string"
-            },
-            "Quality Code Description": {
-                "@id": "https://example.org/ex#quality_code_description",
-                "@language": "en"
-            },
-            "Quality Code Color": {
-                "@id": "https://example.org/ex#quality_code_color",
-                "@type": "http://www.w3.org/2001/XMLSchema#string"
-            }
-        }
-    }"""^^rdf:JSON ;
-    tss:about [
-        sosa:madeBySensor ex:sensor-rodenhuizedok-ec20 ;
-        sosa:observedProperty quantitykind:ElectricConductivity ;
-        sosa:hasFeatureOfInterest ex:water-rodenhuizedok ;
-        qudt:hasUnit unit:MicroS-PER-CentiM ] .
+    tss:source ex:rodenhuizedok-source ;
+    tss:timeField ex:rodenhuizedok-time-field ;
+    tss:valueField ex:rodenhuizedok-ec20-field ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:sensor ex:sensor-rodenhuizedok-ec20 ;
+    tss:featureOfInterest ex:water-rodenhuizedok .
