@@ -5,10 +5,9 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix dcat: <http://www.w3.org/ns/dcat#> .
 
-# Demo 6: experimental RDF time-series schema and explicit source bindings.
-# The new TSS schema, field, source and binding terms are proposal vocabulary.
+# Demo 6: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
 # Snippet windows are [from, until). CSV column indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
@@ -23,7 +22,7 @@ ex:grootdok-snippets
     tss:producedBy ex:station-grootdok ;
     tss:hasSnippet ex:snippet-grootdok-ec20 .
 
-# Physical source and exact field bindings.
+# Physical source; its schema fields specify their physical locations.
 
 ex:grootdok-source
     a tss:Source ;
@@ -34,23 +33,9 @@ ex:grootdok-source
     tss:delimiter "," ;
     tss:header true ;
     tss:encoding "utf-8" ;
-    tss:binding [ tss:field ex:grootdok-ts_id-field ; tss:columnName "ts_id" ; tss:columnIndex 0 ],
-        [ tss:field ex:grootdok-time-field ; tss:columnName "Timestamp" ; tss:columnIndex 1 ],
-        [ tss:field ex:grootdok-ec20-field ; tss:columnName "Value" ; tss:columnIndex 2 ],
-        [ tss:field ex:grootdok-interpolation-type-field ; tss:columnName "Interpolation Type" ; tss:columnIndex 3 ],
-        [ tss:field ex:grootdok-quality-code-field ; tss:columnName "Quality Code" ; tss:columnIndex 4 ],
-        [ tss:field ex:grootdok-quality-code-name-field ; tss:columnName "Quality Code Name" ; tss:columnIndex 5 ],
-        [ tss:field ex:grootdok-quality-code-description-field ; tss:columnName "Quality Code Description" ; tss:columnIndex 6 ],
-        [ tss:field ex:grootdok-quality-code-color-field ; tss:columnName "Quality Code Color" ; tss:columnIndex 7 ] ;
     dcterms:title "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)" ;
     dcterms:description "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289423042 (station HIS_BWO_VITO_IOW48), 2021-03-03 to 2025-12-18." ;
-    dcterms:source <https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289423042> ;
-    dcat:keyword "conductivity",
-        "EC20",
-        "surface water",
-        "Kanaal Gent-Terneuzen",
-        "waterinfo",
-        "time series" .
+    dcterms:source <https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289423042> .
 
 # Logical field schema; units and measurement meaning belong to fields.
 
@@ -68,6 +53,8 @@ ex:grootdok-schema
 
 ex:grootdok-ts_id-field
     a tss:Field ;
+    tss:columnName "ts_id" ;
+    tss:columnIndex 0 ;
     rdfs:label "ts_id"@en ;
     tss:role tss:Identifier ;
     tss:datatype xsd:integer ;
@@ -76,6 +63,8 @@ ex:grootdok-ts_id-field
 
 ex:grootdok-time-field
     a tss:Field ;
+    tss:columnName "Timestamp" ;
+    tss:columnIndex 1 ;
     rdfs:label "Timestamp"@en ;
     tss:role tss:Time ;
     tss:datatype xsd:dateTime ;
@@ -84,6 +73,8 @@ ex:grootdok-time-field
 
 ex:grootdok-ec20-field
     a tss:Field ;
+    tss:columnName "Value" ;
+    tss:columnIndex 2 ;
     rdfs:label "Value"@en ;
     tss:role tss:Measurement ;
     tss:datatype xsd:double ;
@@ -95,6 +86,8 @@ ex:grootdok-ec20-field
 
 ex:grootdok-interpolation-type-field
     a tss:Field ;
+    tss:columnName "Interpolation Type" ;
+    tss:columnIndex 3 ;
     rdfs:label "Interpolation Type"@en ;
     tss:role tss:Interpolation ;
     tss:datatype xsd:integer ;
@@ -103,6 +96,8 @@ ex:grootdok-interpolation-type-field
 
 ex:grootdok-quality-code-field
     a tss:Field ;
+    tss:columnName "Quality Code" ;
+    tss:columnIndex 4 ;
     rdfs:label "Quality Code"@en ;
     tss:role tss:Quality ;
     tss:datatype xsd:integer ;
@@ -111,6 +106,8 @@ ex:grootdok-quality-code-field
 
 ex:grootdok-quality-code-name-field
     a tss:Field ;
+    tss:columnName "Quality Code Name" ;
+    tss:columnIndex 5 ;
     rdfs:label "Quality Code Name"@en ;
     tss:role tss:Quality ;
     tss:datatype xsd:string ;
@@ -119,6 +116,8 @@ ex:grootdok-quality-code-name-field
 
 ex:grootdok-quality-code-description-field
     a tss:Field ;
+    tss:columnName "Quality Code Description" ;
+    tss:columnIndex 6 ;
     rdfs:label "Quality Code Description"@en ;
     tss:role tss:Quality ;
     tss:datatype xsd:string ;
@@ -127,6 +126,8 @@ ex:grootdok-quality-code-description-field
 
 ex:grootdok-quality-code-color-field
     a tss:Field ;
+    tss:columnName "Quality Code Color" ;
+    tss:columnIndex 7 ;
     rdfs:label "Quality Code Color"@en ;
     tss:role tss:Quality ;
     tss:datatype xsd:string ;

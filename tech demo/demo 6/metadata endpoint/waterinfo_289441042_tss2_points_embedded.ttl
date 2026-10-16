@@ -6,8 +6,8 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 6: experimental RDF time-series schema and explicit source bindings.
-# The new TSS schema, field, source and binding terms are proposal vocabulary.
+# Demo 6: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
 # Snippet windows are [from, until). CSV column indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
@@ -23,7 +23,7 @@ ex:zevenaarshaven-snippets
     tss:hasSnippet ex:snippet-zevenaarshaven-ec20,
         ex:snippet-zevenaarshaven-quality-code-color .
 
-# Embedded object keys are bound explicitly; object ordering has no meaning.
+# Embedded object keys are declared on fields; object ordering has no meaning.
 
 ex:zevenaarshaven-ec20-source
     a tss:Source ;
@@ -31,8 +31,6 @@ ex:zevenaarshaven-ec20-source
     tss:format tss:JSON ;
     tss:schema ex:zevenaarshaven-ec20-schema ;
     tss:pointLayout tss:Object ;
-    tss:binding [ tss:field ex:zevenaarshaven-ec20-time-field ; tss:key "time" ],
-        [ tss:field ex:zevenaarshaven-ec20-value-field ; tss:key "value" ] ;
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "value": "4797.72"},
         { "time": "2021-03-03T23:30:00Z", "value": "4717.8"},
@@ -48,6 +46,7 @@ ex:zevenaarshaven-ec20-schema
 
 ex:zevenaarshaven-ec20-time-field
     a tss:Field ;
+    tss:key "time" ;
     rdfs:label "Observation time"@en ;
     tss:role tss:Time ;
     tss:datatype xsd:dateTime ;
@@ -55,6 +54,7 @@ ex:zevenaarshaven-ec20-time-field
 
 ex:zevenaarshaven-ec20-value-field
     a tss:Field ;
+    tss:key "value" ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:role tss:Measurement ;
     tss:datatype xsd:double ;
@@ -72,7 +72,7 @@ ex:snippet-zevenaarshaven-ec20
     tss:sensor ex:sensor-zevenaarshaven-ec20 ;
     tss:featureOfInterest ex:water-zevenaarshaven .
 
-# Embedded object keys are bound explicitly; object ordering has no meaning.
+# Embedded object keys are declared on fields; object ordering has no meaning.
 
 ex:zevenaarshaven-quality-color-source
     a tss:Source ;
@@ -80,8 +80,6 @@ ex:zevenaarshaven-quality-color-source
     tss:format tss:JSON ;
     tss:schema ex:zevenaarshaven-quality-color-schema ;
     tss:pointLayout tss:Object ;
-    tss:binding [ tss:field ex:zevenaarshaven-quality-color-time-field ; tss:key "time" ],
-        [ tss:field ex:zevenaarshaven-quality-color-value-field ; tss:key "value" ] ;
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "value": "rgba(0, 128, 0, 1.0)"},
         { "time": "2021-03-03T23:30:00Z", "value": "rgba(0, 128, 0, 1.0)"},
@@ -97,6 +95,7 @@ ex:zevenaarshaven-quality-color-schema
 
 ex:zevenaarshaven-quality-color-time-field
     a tss:Field ;
+    tss:key "time" ;
     rdfs:label "Observation time"@en ;
     tss:role tss:Time ;
     tss:datatype xsd:dateTime ;
@@ -104,6 +103,7 @@ ex:zevenaarshaven-quality-color-time-field
 
 ex:zevenaarshaven-quality-color-value-field
     a tss:Field ;
+    tss:key "value" ;
     rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
     tss:role tss:Quality ;
     tss:datatype xsd:string ;
