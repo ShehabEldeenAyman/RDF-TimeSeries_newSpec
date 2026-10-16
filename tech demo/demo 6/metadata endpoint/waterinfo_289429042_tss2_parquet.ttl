@@ -1,0 +1,83 @@
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix ldes: <https://w3id.org/ldes#> .
+@prefix csvw: <http://www.w3.org/ns/csvw#> .
+@prefix wdrs: <http://www.w3.org/2007/05/powder-s#> .
+@prefix td: <https://www.w3.org/2019/wot/td#> .
+@prefix hctl: <https://www.w3.org/2019/wot/hypermedia#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix filetype: <http://publications.europa.eu/resource/authority/file-type/> .
+
+# One group = one data file: every snippet in this group reads its values from tss:dataFile.
+ex:rodenhuizedok-snippets a tss:SnippetGroup ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
+    tss:embedded false; # Indicates whether actual time series data reside in the snippets of this group or not.
+    tss:dataFile <../data/waterinfo_289429042.parquet> ;
+    dcterms:format filetype:PARQUET ; # the file type of tss:dataFile
+    tss:mutable false ;
+    tss:producedBy ex:station-rodenhuizedok ;
+    tss:snippetTemplate [
+        a tss:SnippetTemplate ; #defaults each member snippet inherits.
+        tss:timeColumn "Timestamp" ;
+        tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+        tss:pointType sosa:Observation ;
+        tss:timePath sosa:resultTime ;
+        tss:valuePath sosa:hasSimpleResult ] ;
+
+    tss:hasSnippet ex:snippet-rodenhuizedok-ec20 .
+
+# One snippet per time series; this file holds a single series (waterinfo ts_id 289429042).
+# The interpolation and quality columns vary per row and are mapped by tss:context.
+
+ex:snippet-rodenhuizedok-ec20 a tss:Snippet ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
+    tss:valueColumn "value" ;
+    tss:context """{
+        "@context": {
+            "ts_id": {
+                "@id": "https://example.org/ex#ts_id",
+                "@type": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "Timestamp": {
+                "@id": "http://www.w3.org/ns/sosa/resultTime",
+                "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "Value": {
+                "@id": "http://www.w3.org/ns/sosa/hasSimpleResult",
+                "@type": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "Interpolation Type": {
+                "@id": "https://example.org/ex#interpolation_type",
+                "@type": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "Quality Code": {
+                "@id": "https://example.org/ex#quality_code",
+                "@type": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "Quality Code Name": {
+                "@id": "https://example.org/ex#quality_code_name",
+                "@type": "http://www.w3.org/2001/XMLSchema#string"
+            },
+            "Quality Code Description": {
+                "@id": "https://example.org/ex#quality_code_description",
+                "@language": "en"
+            },
+            "Quality Code Color": {
+                "@id": "https://example.org/ex#quality_code_color",
+                "@type": "http://www.w3.org/2001/XMLSchema#string"
+            }
+        }
+    }"""^^rdf:JSON ;
+    tss:about [
+        sosa:madeBySensor ex:sensor-rodenhuizedok-ec20 ;
+        sosa:observedProperty quantitykind:ElectricConductivity ;
+        sosa:hasFeatureOfInterest ex:water-rodenhuizedok ;
+        qudt:hasUnit unit:MicroS-PER-CentiM ] .

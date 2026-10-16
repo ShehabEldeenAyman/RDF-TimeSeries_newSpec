@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
 
 export function RdfGeneration({ info }) {
+  const parquet = info.dataFormat === 'http://publications.europa.eu/resource/authority/file-type/PARQUET'
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [running, setRunning] = useState(false)
@@ -42,7 +43,7 @@ export function RdfGeneration({ info }) {
   return <section className="card">
     <h3>RDF generation</h3>
     {typeof info.embedded !== 'boolean' ? <p>Cannot generate RDF until the endpoint declares its storage profile.</p> : <>
-      <p>Expand {info.embedded ? 'embedded readings' : 'external CSV readings using their CSVW mappings'} into an RDF graph, then view or download it as Turtle.</p>
+      <p>Expand {info.embedded ? 'embedded readings' : parquet ? 'external Parquet readings using their TSS context mappings' : 'external CSV readings using their CSVW mappings'} into an RDF graph, then view or download it as Turtle.</p>
       <p className="muted small">Each reading is a standalone RDF node with its type, time, value and shared domain metadata. Points without identifiers become blank nodes. Source containers, TSS vocabulary and references to source snippets are omitted.</p>
       <button disabled={running} onClick={generate}>{running ? 'Generating…' : 'Generate RDF'}</button>
     </>}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert embedded or CSV-backed RDFTSS files into domain Turtle observations.
+"""Convert embedded, CSV-backed or Parquet-backed RDFTSS into domain Turtle.
 
 This file runs independently of the dashboard. The dashboard imports its
 conversion functions to keep both entry points' RDF semantics identical.
@@ -17,7 +17,7 @@ from uuid import uuid4
 from csvw.metadata import Datatype, NAMESPACES, Table
 from rdflib import BNode, Graph, Literal, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import XSD
-from rdflib.plugins.shared.jsonld.context import Context
+from rdflib.plugins.shared.jsonld.context import Context, UNDEF
 
 TSS = Namespace("https://w3id.org/tss#")
 
@@ -95,7 +95,266 @@ def parquet_column(names, wanted):
 
 def generate_parquet(source, load_files, target, preview_limit=200):
     """load_files(group) returns (local Parquet path, original data file IRI)."""
-    raise NotImplementedError("Parquet RDF generation is not implemented yet.")
+    import base64
+    from datetime import date, time
+    from decimal import Decimal
+    import duckdb
+
+    groups = sorted(set(source.subjects(RDF.type, TSS.SnippetGroup)), key=str)
+    if not groups:
+        raise ValueError("No snippet group found.")
+    controls = (set(groups) | set(source.objects(None, TSS.snippetTemplate))
+                | set(source.subjects(RDF.type, TSS.Snippet)) | set(source.objects(None, TSS.about)))
+
+    def allowed(*terms):
+        return not any(term in controls or isinstance(term, URIRef) and str(term).startswith(str(TSS))
+                       or isinstance(term, Literal) and term.datatype is not None
+                       and str(term.datatype).startswith(str(TSS)) for term in terms)
+
+    def domain_graph():
+        graph = Graph(bind_namespaces="none")
+        for prefix, namespace in source.namespaces():
+            if prefix != "tss" and not str(namespace).startswith(str(TSS)):
+                graph.bind(prefix, namespace)
+        return graph
+
+    def moment(value, what):
+        if value is None:
+            return None
+        if isinstance(value, Literal):
+            value = value.toPython()
+        if isinstance(value, str):
+            try:
+                value = datetime.fromisoformat(value)
+            except ValueError as error:
+                raise ValueError(f"{what} must contain dateTime values.") from error
+        if not isinstance(value, datetime):
+            raise ValueError(f"{what} must contain dateTime values.")
+        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+    def json_value(value):
+        if isinstance(value, (datetime, date, time)):
+            return value.isoformat()
+        if isinstance(value, Decimal):
+            return str(value)
+        if isinstance(value, (bytes, bytearray)):
+            return base64.b64encode(value).decode("ascii")
+        raise TypeError(f"Unsupported Parquet value type: {type(value).__name__}.")
+
+    preview, series, referenced = [], [], set()
+    point_count = triple_count = preview_points = 0
+    about_nodes = set(source.objects(None, TSS.about))
+    mapped_terms = [str(term) for subject, predicate, obj in source
+                    if not str(predicate).startswith(str(TSS))
+                    and (subject not in controls or subject in about_nodes and predicate != RDF.type)
+                    for term in (predicate, obj) if isinstance(term, URIRef) and allowed(term)]
+    mapped_terms.extend(str(value) for value in source.objects(None, TSS.pointType))
+    context_text = "\n".join(str(value) for value in source.objects(None, TSS.context))
+    namespace_graph = Graph(bind_namespaces="none")
+    for prefix, namespace in source.namespaces():
+        if (prefix != "tss" and not str(namespace).startswith(str(TSS))
+                and (any(term.startswith(str(namespace)) for term in mapped_terms)
+                     or str(namespace) in context_text or prefix + ":" in context_text)):
+            namespace_graph.bind(prefix, namespace)
+    namespace_graph.bind("rdf", RDF)
+    namespace_graph.bind("xsd", XSD)
+    manager = namespace_graph.namespace_manager
+    header = "".join(f"@prefix {prefix}: <{namespace}> .\n" for prefix, namespace in manager.namespaces()) + "\n"
+    with open(target, "w", encoding="utf-8", newline="\n") as output:
+        for group in groups:
+            flag = single(source, group, TSS.embedded, required=True)
+            if not isinstance(flag, Literal) or flag.toPython() is not False or data_format(source, group) != "parquet":
+                raise ValueError("Parquet RDF generation requires tss:embedded false and a Parquet dcterms:format.")
+            template = single(source, group, TSS.snippetTemplate, required=True)
+            parquet_path, data_iri = load_files(group)
+            try:
+                with duckdb.connect() as connection:
+                    cursor = connection.execute("SELECT * FROM read_parquet(?, hive_partitioning = false)", [str(parquet_path)])
+                    names = [column[0] for column in cursor.description]
+                    bindings = []
+                    for snippet in sorted(set(source.objects(group, TSS.hasSnippet)), key=str):
+                        if (snippet, RDF.type, TSS.Snippet) not in source or len(set(source.subjects(TSS.hasSnippet, snippet))) != 1:
+                            raise ValueError(f"{snippet} must be a described snippet in exactly one group.")
+                        time_name = parquet_column(names, effective(source, snippet, template, TSS.timeColumn))
+                        value_name = parquet_column(names, effective(source, snippet, template, TSS.valueColumn))
+                        if time_name is None or value_name is None or time_name == value_name:
+                            raise ValueError(f"{snippet} needs distinct timeColumn and valueColumn bindings matching Parquet fields.")
+                        context = read_json(effective(source, snippet, template, TSS.context), f"tss:context on {snippet}")
+                        if isinstance(context, dict) and "@context" in context:
+                            context = context["@context"]
+                        try:
+                            active = Context(context, base=str(data_iri))
+                            for name in (time_name, value_name):
+                                predicate = active.expand(name)
+                                if not predicate or predicate.startswith("@") or ":" not in predicate or predicate.startswith(str(TSS)):
+                                    raise ValueError(f"tss:context on {snippet} must map Parquet field {name!r} to a domain RDF property.")
+                        except Exception as error:
+                            raise ValueError(f"Could not read tss:context on {snippet}: {error}") from error
+                        point_type = effective(source, snippet, template, TSS.pointType)
+                        about = effective(source, snippet, template, TSS.about)
+                        if not isinstance(point_type, URIRef) or not allowed(point_type):
+                            raise ValueError(f"{snippet} needs a domain pointType class IRI.")
+                        if not isinstance(about, (BNode, URIRef)):
+                            raise ValueError(f"{snippet} needs an about metadata node.")
+                        start = moment(effective(source, snippet, template, TSS["from"]), "tss:from")
+                        end = moment(effective(source, snippet, template, TSS.until), "tss:until")
+                        if start and end and start >= end:
+                            raise ValueError(f"{snippet} has an empty time window.")
+                        entry = {"label": str(source.value(snippet, RDFS.label) or "Series"), "points": 0}
+                        series.append(entry)
+                        bindings.append((snippet, time_name, value_name, context, point_type, about, start, end, entry, active))
+                    if not bindings:
+                        raise ValueError(f"{group} has no member snippets.")
+                    value_columns = {binding[2] for binding in bindings}
+                    row_offset = 0
+                    while rows := cursor.fetchmany(1000):
+                        for snippet, time_name, value_name, context, point_type, about, start, end, entry, active in bindings:
+                            points = []
+                            marker = URIRef(f"urn:rdftss-generation:{uuid4()}:row")
+                            selected = [name for name in names if name not in value_columns or name == value_name]
+                            for index, values in enumerate(rows, row_offset + 1):
+                                row = dict(zip(names, values))
+                                timestamp = moment(row[time_name], f"Parquet row {index}, field {time_name!r}")
+                                if timestamp is None:
+                                    raise ValueError(f"Parquet row {index}: missing timestamp.")
+                                if start and timestamp < start or end and timestamp >= end or row[value_name] is None:
+                                    continue
+                                points.append({**{name: row[name] for name in selected},
+                                               str(marker): {"@value": len(points), "@type": str(XSD.integer)}})
+                            if not points:
+                                continue
+                            # Scalar mappings need no intermediate RDF graph. Keep the
+                            # JSON-LD parser for containers, scoped contexts and nested data.
+                            mappings = []
+                            simple = True
+                            for name in selected:
+                                predicate = active.expand(name)
+                                term = active.terms.get(name)
+                                if (predicate and predicate.startswith("@") or term
+                                        and (term.reverse or term.context or term.container or term.type == "@json")):
+                                    simple = False
+                                    break
+                                if predicate:
+                                    mappings.append((name, URIRef(predicate), term))
+                            simple = simple and all(not isinstance(point[name], (dict, list, tuple))
+                                                    for point in points for name in selected)
+                            if simple:
+                                output.write(header)
+                                if preview_points < preview_limit:
+                                    preview.append(header)
+                                for point in points:
+                                    pairs = {(RDF.type, point_type)}
+                                    for name, predicate, term in mappings:
+                                        value = point[name]
+                                        if value is None:
+                                            continue
+                                        if isinstance(value, (datetime, date, time, Decimal, bytes, bytearray)):
+                                            value = json_value(value)
+                                        datatype = term.type if term else None
+                                        if datatype in ("@id", "@vocab"):
+                                            if not isinstance(value, str):
+                                                raise ValueError(f"Parquet field {name!r} needs text values for its IRI mapping.")
+                                            iri = active.resolve(value) if datatype == "@id" else active.expand(value) or active.resolve_iri(value)
+                                            obj = URIRef(iri)
+                                        elif datatype:
+                                            obj = Literal(value, datatype=active.expand(datatype))
+                                        elif isinstance(value, float):
+                                            obj = Literal(value, datatype=XSD.double)
+                                        else:
+                                            lang = term.language if term and term.language is not UNDEF else active.language
+                                            obj = Literal(value, lang=lang)
+                                        if not allowed(predicate, obj):
+                                            raise ValueError(f"The Parquet RDF mapping on {snippet} uses TSS vocabulary or a source container.")
+                                        if isinstance(obj, Literal) and (obj.ill_typed or obj.datatype
+                                                and Literal(str(obj), datatype=obj.datatype, normalize=False).ill_typed):
+                                            raise ValueError(f"Parquet field {name!r} produced an invalid {obj.datatype} literal: {obj}.")
+                                        pairs.add((predicate, obj))
+                                        if isinstance(obj, (BNode, URIRef)) and (obj, None, None) in source:
+                                            referenced.add(obj)
+                                    for predicate, obj in source.predicate_objects(about):
+                                        if predicate != RDF.type and allowed(predicate, obj):
+                                            pairs.add((predicate, obj))
+                                            if isinstance(obj, (BNode, URIRef)):
+                                                referenced.add(obj)
+                                    ordered = sorted(pairs, key=lambda pair: (pair[0] != RDF.type, str(pair[0]), str(pair[1])))
+                                    text = "[] " + " ;\n    ".join(f"{predicate.n3(manager)} {obj.n3(manager)}" for predicate, obj in ordered) + " .\n\n"
+                                    output.write(text)
+                                    point_count += 1
+                                    entry["points"] += 1
+                                    triple_count += len(pairs)
+                                    if preview_points < preview_limit:
+                                        preview.append(text)
+                                        preview_points += 1
+                                continue
+                            expanded = Graph()
+                            try:
+                                document = json.dumps({"@context": context, "@graph": points}, default=json_value, allow_nan=False)
+                                expanded.parse(data=document, format="json-ld", publicID=str(data_iri))
+                            except Exception as error:
+                                raise ValueError(f"Could not expand Parquet rows {row_offset + 1}-{row_offset + len(rows)} of {snippet}: {error}") from error
+                            roots = []
+                            for index in range(len(points)):
+                                nodes = list(expanded.subjects(marker, Literal(index)))
+                                if len(nodes) != 1 or not isinstance(nodes[0], (BNode, URIRef)) or not allowed(nodes[0]):
+                                    raise ValueError(f"A Parquet reading of {snippet} did not expand into one domain RDF node.")
+                                roots.append(nodes[0])
+                            expanded.remove((None, marker, None))
+                            domain = domain_graph()
+                            for subject, predicate, obj in expanded:
+                                if not allowed(subject, predicate, obj):
+                                    raise ValueError(f"The Parquet RDF mapping on {snippet} uses TSS vocabulary or a source container.")
+                                if isinstance(obj, Literal) and (obj.ill_typed or obj.datatype
+                                        and Literal(str(obj), datatype=obj.datatype, normalize=False).ill_typed):
+                                    raise ValueError(f"Parquet field mapping on {snippet} produced an invalid {obj.datatype} literal: {obj}.")
+                                domain.add((subject, predicate, obj))
+                                if isinstance(obj, (BNode, URIRef)) and (obj, None, None) in source:
+                                    referenced.add(obj)
+                            for root in roots:
+                                domain.add((root, RDF.type, point_type))
+                                for predicate, obj in source.predicate_objects(about):
+                                    if predicate != RDF.type and allowed(root, predicate, obj):
+                                        domain.add((root, predicate, obj))
+                                        if isinstance(obj, (BNode, URIRef)):
+                                            referenced.add(obj)
+                            output.write(domain.serialize(format="turtle"))
+                            point_count += len(points)
+                            entry["points"] += len(points)
+                            triple_count += len(domain)
+                            remaining = min(len(points), max(0, preview_limit - preview_points))
+                            if remaining:
+                                sample = domain_graph()
+                                chosen, other_roots = set(roots[:remaining]), set(roots[remaining:])
+                                pending, visited = set(chosen), set()
+                                while pending - visited:
+                                    node = next(iter(pending - visited))
+                                    visited.add(node)
+                                    for predicate, obj in domain.predicate_objects(node):
+                                        sample.add((node, predicate, obj))
+                                        if isinstance(obj, (BNode, URIRef)) and obj not in other_roots:
+                                            pending.add(obj)
+                                preview.append(sample.serialize(format="turtle"))
+                                preview_points += remaining
+                        row_offset += len(rows)
+            except duckdb.Error as error:
+                raise ValueError(f"Could not read Parquet file {parquet_path}: {error}") from error
+        descriptions = domain_graph()
+        visited = set()
+        while referenced - visited:
+            resource = next(iter(referenced - visited))
+            visited.add(resource)
+            for predicate, obj in source.predicate_objects(resource):
+                if allowed(resource, predicate, obj):
+                    descriptions.add((resource, predicate, obj))
+                    if isinstance(obj, (BNode, URIRef)):
+                        referenced.add(obj)
+        if descriptions:
+            text = descriptions.serialize(format="turtle")
+            output.write(text)
+            preview.append(text)
+            triple_count += len(descriptions)
+    return {"turtle": "".join(preview), "triples": triple_count, "points": point_count,
+            "series": series, "previewPoints": preview_points,
+            "previewTruncated": preview_points < point_count, "bytes": Path(target).stat().st_size}
 
 
 def generate_embedded(graph, base):

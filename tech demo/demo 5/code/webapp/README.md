@@ -4,7 +4,7 @@ The dashboard loads local Turtle files from `demo 5/metadata endpoint/`, or onli
 
 ## Storage profiles
 
-- `tss:embedded false`: groups link to external CSV data (`tss:dataFile`) and CSVW descriptions (`tss:describedby`). Snippets select CSVW time/value column names.
+- `tss:embedded false`: groups link to external data with `tss:dataFile`. CSV sources use CSVW descriptions (`tss:describedby`); Parquet sources use the snippet's effective JSON-LD `tss:context` for RDF generation.
 - `tss:embedded true`: each snippet stores a JSON point array in `tss:points`. Its effective JSON-LD `tss:context` identifies numeric or text values.
 
 Every dashboard CSV-reading path uses the corresponding CSVW file's `dialect.delimiter`. If `delimiter` or the entire `dialect` is omitted, it uses the CSVW default comma (`","`). An explicitly supplied delimiter must be a single character; invalid values stop parsing with an error. There is no delimiter guessing. This applies to the inspector preview, query/filter forms, SQL, CSVW validation and RDF generation. Raw file previews and downloads do not parse CSV cells.
@@ -16,7 +16,7 @@ Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they 
 | Overview | Group, template, series and raw Turtle |
 | Series inspector | Metadata provenance and source files, including embedded points |
 | SHACL | Automatic profile detection or uploaded custom Turtle shapes, conformance test and full text report |
-| RDF generation | Expand embedded points or CSVW-mapped external readings, preview Turtle, and download the generated graph |
+| RDF generation | Expand embedded points, CSVW-mapped CSV readings, or context-mapped Parquet readings; preview Turtle and download the generated graph |
 | Files | CSV previews, Parquet data previewed as CSV, applicable CSVW metadata, and original-file downloads; embedded points have a series picker |
 | CSVW validation | Validate sources explicitly declared as CSV; other formats show Not applicable |
 | Query | Filtering, summaries, gaps and hourly/daily aggregation; text series support time filtering |
@@ -52,7 +52,13 @@ For either storage profile, open **RDF generation** and click **Generate RDF**. 
 
 Embedded generation requires valid JSON points with time/value keys, a context mapping those keys to RDF properties, and an effective point type/about node. The context determines how RDF is constructed; timePath/valuePath and the declared time window are input metadata only and are not used to invent or filter embedded readings.
 
-`backend/csv_rdf_generation.py` follows each external group's `tss:describedby` to its CSVW file and `tss:dataFile` to its CSV, resolving local or online relative links against the endpoint. It parses with the CSVW delimiter (defaulting to comma when omitted) and applies its header, encoding, quoting, null/default and datatype settings. Headers are matched to column titles in schema order; `header: false` or `headerRowCount: 0` supports headerless CSVs. Column names must be distinct because TSS time/value bindings select those names.
+For external sources, RDF generation selects CSV or Parquet using the group's `dcterms:format`. Unsupported formats and mixed CSV/Parquet groups return a clear error. An absent format retains the original CSV conversion behavior.
+
+`backend/parquet_rdf_generation.py` reads the Parquet file linked by `tss:dataFile` directly, without CSVW or an intermediate CSV. It expands each snippet's selected rows using its effective JSON-LD `tss:context`, including predicate and datatype mappings, language tags, IRI values and nested results. Column bindings match exact Parquet field names first, then an unambiguous case-insensitive match (so the sample's `value` binding finds `Value`). The context itself maps actual field names. Decimal values with context datatype mappings retain their precision.
+
+Parquet observations receive the effective point type and about metadata, including descriptions of referenced domain resources. Each series includes its own measured column, the shared time column and mapped auxiliary columns; measured columns belonging to other series are excluded. Null measured values are skipped, and each snippet's inclusive `from` and exclusive `until` bounds apply. Missing timestamps, missing time/value mappings and invalid typed literals stop conversion. Rows are read in batches of at most 1,000: simple scalar contexts are written directly as RDF, while complex contexts and nested results use JSON-LD expansion. The complete graph is written to disk, with a preview of at most 200 readings. The output has no TSS vocabulary, source containers, producer attributes or synthesized observation collections.
+
+`backend/csv_rdf_generation.py` follows each CSV group's `tss:describedby` to its CSVW file and `tss:dataFile` to its CSV, resolving local or online relative links against the endpoint. It parses with the CSVW delimiter (defaulting to comma when omitted) and applies its header, encoding, quoting, null/default and datatype settings. Headers are matched to column titles in schema order; `header: false` or `headerRowCount: 0` supports headerless CSVs. Column names must be distinct because TSS time/value bindings select those names.
 
 CSVW `propertyUrl` supplies the predicate and `datatype` (a string, or an object with `base`) supplies the literal type. `valueUrl` supplies IRI objects, including the virtual `row_type` column's `rdf:type` mapping. URI templates may use row values and CSVW row/column variables. The generator preserves these mappings rather than replacing value predicates with `tss:valuePath`. Each snippet produces anonymous readings in its half-open time window, using its own value column, the shared timestamp, mapped auxiliary columns and effective about metadata. Values belonging to other snippets in the same CSV are excluded from that snippet's reading. Null measured values produce no reading; other null cells produce no triple. Referenced domain resources keep their descriptions.
 
@@ -60,7 +66,7 @@ External generation streams the complete Turtle export to a temporary file inste
 
 The original CLI script in `code/expand_snippets` is separate; the new dashboard uses `backend/rdf_generation.py`.
 
-The standalone converter in `code/TSS2RDF/tss2rdf.py` supports both profiles with `--mode embedded` or `--mode external`, a TSS path, and explicit CSV/CSVW paths for external data. See `code/TSS2RDF/README.md` for commands. The dashboard's `backend/rdf_generation.py` and `backend/csv_rdf_generation.py` import its conversion functions, so the dashboard and command line share the same RDF generation rules.
+The standalone converter in `code/TSS2RDF/tss2rdf.py` supports embedded and CSV conversions through its CLI with `--mode embedded` or `--mode external`, a TSS path, and explicit CSV/CSVW paths for external data. See `code/TSS2RDF/README.md` for commands. The dashboard imports all three conversion functions from that module, including `generate_parquet`; the Parquet dashboard path additionally uses DuckDB from the backend dependencies.
 
 ## Running
 
@@ -100,7 +106,7 @@ Online endpoint URLs are saved in backend/online_endpoints.json. Relative file l
 
 ```powershell
 # From backend/
-python -B -m unittest -v test_storage_profiles test_external_shacl test_file_previews test_csvw_delimiter test_rdf_generation test_csv_rdf_generation
+python -B -m unittest -v test_storage_profiles test_external_shacl test_file_previews test_csvw_delimiter test_rdf_generation test_csv_rdf_generation test_parquet_rdf_generation
 # From frontend/
 npm run lint
 npm run build

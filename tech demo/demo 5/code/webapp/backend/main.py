@@ -29,6 +29,7 @@ from tss2 import value_of, find_group, resolve, resolve_with_source
 import sql_box
 import rdf_generation
 import csv_rdf_generation
+import parquet_rdf_generation
 
 
 # This file lives in demo 3/code/webapp/backend/, so demo 3/ is three folders up
@@ -611,7 +612,7 @@ def get_points_file(endpoint_id, snippet):
 
 @api.post("/endpoints/{endpoint_id}/rdf")
 def generate_rdf(endpoint_id):
-    """Generate standalone Turtle readings from either storage profile."""
+    """Generate standalone Turtle readings from embedded points, CSV or Parquet."""
     graph = load_graph(endpoint_id)
     try:
         groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
@@ -621,23 +622,32 @@ def generate_rdf(endpoint_id):
         if modes == {True}:
             result = rdf_generation.generate(graph, endpoint_base(endpoint_id))
         else:
+            formats = {parquet_rdf_generation.data_format(graph, group) for group in groups}
+            if len(formats) != 1 or None in formats:
+                raise ValueError("RDF generation requires all external groups to use CSV or all to use Parquet, with a supported dcterms:format.")
+            parquet = formats == {"parquet"}
             token = uuid4().hex
             target = Path(RDF_EXPORT_DIRECTORY.name) / f"{token}.ttl"
 
             def load_files(group):
-                csv_iri = rdf_generation.single(graph, group, TSS.dataFile, required=True)
+                data_iri = rdf_generation.single(graph, group, TSS.dataFile, required=True)
+                if not isinstance(data_iri, URIRef):
+                    raise ValueError("tss:dataFile must be a file IRI.")
+                data_location = iri_to_location(data_iri)
+                if not file_exists(data_location):
+                    raise ValueError(f"Data file not found: {data_location}")
+                if parquet:
+                    return local_copy(data_location), data_iri
                 csvw_iri = rdf_generation.single(graph, group, TSS.describedby, required=True)
-                if not isinstance(csv_iri, URIRef) or not isinstance(csvw_iri, URIRef):
-                    raise ValueError("dataFile and describedby must be file IRIs.")
-                csv_location = iri_to_location(csv_iri)
+                if not isinstance(csvw_iri, URIRef):
+                    raise ValueError("tss:describedby must be a file IRI.")
                 csvw_location = iri_to_location(csvw_iri)
                 metadata = load_csvw_json(csvw_location)
-                if not file_exists(csv_location):
-                    raise ValueError(f"CSV file not found: {csv_location}")
-                return metadata, local_copy(csv_location), csv_iri
+                return metadata, local_copy(data_location), data_iri
 
             try:
-                result = csv_rdf_generation.generate(graph, load_files, target)
+                generator = parquet_rdf_generation.generate if parquet else csv_rdf_generation.generate
+                result = generator(graph, load_files, target)
             except Exception:
                 target.unlink(missing_ok=True)
                 raise
