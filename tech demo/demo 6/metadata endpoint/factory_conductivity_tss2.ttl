@@ -84,7 +84,6 @@ ex:factory-time-field
     tss:columnName "datetime" ;
     tss:columnIndex 0 ;
     rdfs:label "datetime"@en ;
-    tss:role tss:Time ;
     tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC), 15-minute resolution"@en ;
     tss:required true .
@@ -94,7 +93,6 @@ ex:factory-ro1_a_permeate_conductivity-field
     tss:columnName "ro1_a_permeate_conductivity" ;
     tss:columnIndex 1 ;
     rdfs:label "ro1_a_permeate_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO1 train A"@en ;
     tss:minimum 0 ;
@@ -106,7 +104,6 @@ ex:factory-ro1_b_permeate_conductivity-field
     tss:columnName "ro1_b_permeate_conductivity" ;
     tss:columnIndex 2 ;
     rdfs:label "ro1_b_permeate_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO1 train B"@en ;
     tss:minimum 0 ;
@@ -118,7 +115,6 @@ ex:factory-ro1_c_permeate_conductivity-field
     tss:columnName "ro1_c_permeate_conductivity" ;
     tss:columnIndex 3 ;
     rdfs:label "ro1_c_permeate_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO1 train C"@en ;
     tss:minimum 0 ;
@@ -130,7 +126,6 @@ ex:factory-ro2_a_permeate_conductivity-field
     tss:columnName "ro2_a_permeate_conductivity" ;
     tss:columnIndex 4 ;
     rdfs:label "ro2_a_permeate_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO2 train A"@en ;
     tss:minimum 0 ;
@@ -142,7 +137,6 @@ ex:factory-ro2_b_permeate_conductivity-field
     tss:columnName "ro2_b_permeate_conductivity" ;
     tss:columnIndex 5 ;
     rdfs:label "ro2_b_permeate_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO2 train B"@en ;
     tss:minimum 0 ;
@@ -154,7 +148,6 @@ ex:factory-cooling_water_conductivity-field
     tss:columnName "cooling_water_conductivity" ;
     tss:columnIndex 6 ;
     rdfs:label "cooling_water_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of the cooling water supply (including drinking-water blend)"@en ;
     tss:minimum 0 ;
@@ -166,7 +159,6 @@ ex:factory-boiler_feed_conductivity-field
     tss:columnName "boiler_feed_conductivity" ;
     tss:columnIndex 7 ;
     rdfs:label "boiler_feed_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of the boiler feed water"@en ;
     tss:minimum 0 ;
@@ -178,7 +170,6 @@ ex:factory-boiler_water_delivery_conductivity-field
     tss:columnName "boiler_water_delivery_conductivity" ;
     tss:columnIndex 8 ;
     rdfs:label "boiler_water_delivery_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of the boiler water delivered to the customer"@en ;
     tss:minimum 0 ;
@@ -190,7 +181,6 @@ ex:factory-dockwater_blowdown_conductivity-field
     tss:columnName "dockwater_blowdown_conductivity" ;
     tss:columnIndex 9 ;
     rdfs:label "dockwater_blowdown_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of combined dock water and blowdown"@en ;
     tss:minimum 0 ;
@@ -202,7 +192,6 @@ ex:factory-venturi_reject_conductivity-field
     tss:columnName "venturi_reject_conductivity" ;
     tss:columnIndex 10 ;
     rdfs:label "venturi_reject_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of the venturi drain reject stream"@en ;
     tss:minimum 0 ;
@@ -214,7 +203,6 @@ ex:factory-ro1de_feed_conductivity-field
     tss:columnName "ro1de_feed_conductivity" ;
     tss:columnIndex 11 ;
     rdfs:label "ro1de_feed_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Feed conductivity to RO1D and RO1E combined"@en ;
     tss:minimum 0 ;
@@ -226,7 +214,6 @@ ex:factory-ro1d_feed_conductivity-field
     tss:columnName "ro1d_feed_conductivity" ;
     tss:columnIndex 12 ;
     rdfs:label "ro1d_feed_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Feed conductivity to RO1D (after chemical injection)"@en ;
     tss:minimum 0 ;
@@ -238,7 +225,6 @@ ex:factory-ro1e_feed_conductivity-field
     tss:columnName "ro1e_feed_conductivity" ;
     tss:columnIndex 13 ;
     rdfs:label "ro1e_feed_conductivity"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Feed conductivity to RO1E"@en ;
     tss:minimum 0 ;

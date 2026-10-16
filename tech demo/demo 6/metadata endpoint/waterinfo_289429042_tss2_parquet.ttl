@@ -48,7 +48,6 @@ ex:rodenhuizedok-ts_id-field
     a tss:Field ;
     tss:columnName "ts_id" ;
     rdfs:label "ts_id"@en ;
-    tss:role tss:Identifier ;
     tss:datatype xsd:integer ;
     rdfs:comment "Waterinfo time series identifier (the same on every row)."@en .
 
@@ -56,7 +55,6 @@ ex:rodenhuizedok-time-field
     a tss:Field ;
     tss:columnName "Timestamp" ;
     rdfs:label "Timestamp"@en ;
-    tss:role tss:Time ;
     tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC)."@en .
 
@@ -64,7 +62,6 @@ ex:rodenhuizedok-ec20-field
     a tss:Field ;
     tss:columnName "Value" ;
     rdfs:label "Value"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Electrical conductivity corrected to 20 degrees Celsius."@en ;
     tss:observedProperty quantitykind:ElectricConductivity ;
@@ -74,7 +71,6 @@ ex:rodenhuizedok-interpolation-type-field
     a tss:Field ;
     tss:columnName "Interpolation Type" ;
     rdfs:label "Interpolation Type"@en ;
-    tss:role tss:Interpolation ;
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS interpolation type code of the value."@en ;
     tss:describesField ex:rodenhuizedok-ec20-field .
@@ -83,7 +79,6 @@ ex:rodenhuizedok-quality-code-field
     a tss:Field ;
     tss:columnName "Quality Code" ;
     rdfs:label "Quality Code"@en ;
-    tss:role tss:Quality ;
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS quality code of the value."@en ;
     tss:describesField ex:rodenhuizedok-ec20-field .
@@ -92,7 +87,6 @@ ex:rodenhuizedok-quality-code-name-field
     a tss:Field ;
     tss:columnName "Quality Code Name" ;
     rdfs:label "Quality Code Name"@en ;
-    tss:role tss:Quality ;
     tss:datatype xsd:string ;
     rdfs:comment "Short name of the quality code."@en ;
     tss:describesField ex:rodenhuizedok-ec20-field .
@@ -101,7 +95,6 @@ ex:rodenhuizedok-quality-code-description-field
     a tss:Field ;
     tss:columnName "Quality Code Description" ;
     rdfs:label "Quality Code Description"@en ;
-    tss:role tss:Quality ;
     tss:datatype rdf:langString ;
     rdfs:comment "Description of the quality code."@en ;
     tss:language "en" ;
@@ -111,7 +104,6 @@ ex:rodenhuizedok-quality-code-color-field
     a tss:Field ;
     tss:columnName "Quality Code Color" ;
     rdfs:label "Quality Code Color"@en ;
-    tss:role tss:Quality ;
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)."@en ;
     tss:describesField ex:rodenhuizedok-ec20-field .

@@ -48,7 +48,6 @@ ex:zevenaarshaven-ec20-time-field
     a tss:Field ;
     tss:key "time" ;
     rdfs:label "Observation time"@en ;
-    tss:role tss:Time ;
     tss:datatype xsd:dateTime ;
     tss:required true .
 
@@ -56,7 +55,6 @@ ex:zevenaarshaven-ec20-value-field
     a tss:Field ;
     tss:key "value" ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
@@ -97,7 +95,6 @@ ex:zevenaarshaven-quality-color-time-field
     a tss:Field ;
     tss:key "time" ;
     rdfs:label "Observation time"@en ;
-    tss:role tss:Time ;
     tss:datatype xsd:dateTime ;
     tss:required true .
 
@@ -105,7 +102,6 @@ ex:zevenaarshaven-quality-color-value-field
     a tss:Field ;
     tss:key "value" ;
     rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
-    tss:role tss:Quality ;
     tss:datatype xsd:string ;
     tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:zevenaarshaven-ec20-value-field .

@@ -56,7 +56,6 @@ ex:autrichehaven-ts_id-field
     tss:columnName "ts_id" ;
     tss:columnIndex 0 ;
     rdfs:label "ts_id"@en ;
-    tss:role tss:Identifier ;
     tss:datatype xsd:integer ;
     rdfs:comment "waterinfo.be time series identifier (the same on every row)"@en ;
     tss:required true .
@@ -66,7 +65,6 @@ ex:autrichehaven-time-field
     tss:columnName "Timestamp" ;
     tss:columnIndex 1 ;
     rdfs:label "Timestamp"@en ;
-    tss:role tss:Time ;
     tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC)"@en ;
     tss:required true .
@@ -76,7 +74,6 @@ ex:autrichehaven-ec20-field
     tss:columnName "Value" ;
     tss:columnIndex 2 ;
     rdfs:label "Value"@en ;
-    tss:role tss:Measurement ;
     tss:datatype xsd:double ;
     rdfs:comment "Electrical conductivity at 20 °C"@en ;
     tss:required true ;
@@ -89,7 +86,6 @@ ex:autrichehaven-interpolation-type-field
     tss:columnName "Interpolation Type" ;
     tss:columnIndex 3 ;
     rdfs:label "Interpolation Type"@en ;
-    tss:role tss:Interpolation ;
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS interpolation type code of the value"@en ;
     tss:describesField ex:autrichehaven-ec20-field .
@@ -99,7 +95,6 @@ ex:autrichehaven-quality-code-field
     tss:columnName "Quality Code" ;
     tss:columnIndex 4 ;
     rdfs:label "Quality Code"@en ;
-    tss:role tss:Quality ;
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS quality code of the value"@en ;
     tss:describesField ex:autrichehaven-ec20-field .
@@ -109,7 +104,6 @@ ex:autrichehaven-quality-code-name-field
     tss:columnName "Quality Code Name" ;
     tss:columnIndex 5 ;
     rdfs:label "Quality Code Name"@en ;
-    tss:role tss:Quality ;
     tss:datatype xsd:string ;
     rdfs:comment "Short name of the quality code"@en ;
     tss:describesField ex:autrichehaven-ec20-field .
@@ -119,7 +113,6 @@ ex:autrichehaven-quality-code-description-field
     tss:columnName "Quality Code Description" ;
     tss:columnIndex 6 ;
     rdfs:label "Quality Code Description"@en ;
-    tss:role tss:Quality ;
     tss:datatype xsd:string ;
     rdfs:comment "Description of the quality code"@en ;
     tss:describesField ex:autrichehaven-ec20-field .
@@ -129,7 +122,6 @@ ex:autrichehaven-quality-code-color-field
     tss:columnName "Quality Code Color" ;
     tss:columnIndex 7 ;
     rdfs:label "Quality Code Color"@en ;
-    tss:role tss:Quality ;
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)"@en ;
     tss:describesField ex:autrichehaven-ec20-field .
