@@ -29,7 +29,11 @@ ex:zevenaarshaven-ec20-source
     a tss:Source ;
     tss:embedded true ;
     tss:format tss:JSON ;
-    tss:schema ex:zevenaarshaven-ec20-schema ;
+    tss:schema [
+        a tss:Schema ;
+        tss:hasField ex:zevenaarshaven-ec20-time-field,
+            ex:zevenaarshaven-ec20-value-field
+    ] ;
     tss:pointLayout tss:Object ;
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "value": "4797.72"},
@@ -38,11 +42,6 @@ ex:zevenaarshaven-ec20-source
         { "time": "2021-03-04T00:30:00Z", "value": "4716.1"},
         { "time": "2021-03-04T01:00:00Z", "value": "4775.96"}
       ]"""^^rdf:JSON .
-
-ex:zevenaarshaven-ec20-schema
-    a tss:Schema ;
-    tss:hasField ex:zevenaarshaven-ec20-time-field,
-        ex:zevenaarshaven-ec20-value-field .
 
 ex:zevenaarshaven-ec20-time-field
     a tss:Field ;
@@ -76,7 +75,11 @@ ex:zevenaarshaven-quality-color-source
     a tss:Source ;
     tss:embedded true ;
     tss:format tss:JSON ;
-    tss:schema ex:zevenaarshaven-quality-color-schema ;
+    tss:schema [
+        a tss:Schema ;
+        tss:hasField ex:zevenaarshaven-quality-color-time-field,
+            ex:zevenaarshaven-quality-color-value-field
+    ] ;
     tss:pointLayout tss:Object ;
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "value": "rgba(0, 128, 0, 1.0)"},
@@ -85,11 +88,6 @@ ex:zevenaarshaven-quality-color-source
         { "time": "2021-03-04T00:30:00Z", "value": "rgba(0, 128, 0, 1.0)"},
         { "time": "2021-03-04T01:00:00Z", "value": "rgba(0, 128, 0, 1.0)"}
       ]"""^^rdf:JSON .
-
-ex:zevenaarshaven-quality-color-schema
-    a tss:Schema ;
-    tss:hasField ex:zevenaarshaven-quality-color-time-field,
-        ex:zevenaarshaven-quality-color-value-field .
 
 ex:zevenaarshaven-quality-color-time-field
     a tss:Field ;

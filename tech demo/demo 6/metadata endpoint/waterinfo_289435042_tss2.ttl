@@ -29,7 +29,18 @@ ex:autrichehaven-source
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289435042.csv> ;
     tss:format tss:CSV ;
-    tss:schema ex:autrichehaven-schema ;
+    tss:schema [
+        a tss:Schema ;
+        tss:hasField ex:autrichehaven-ts_id-field,
+            ex:autrichehaven-time-field,
+            ex:autrichehaven-ec20-field,
+            ex:autrichehaven-interpolation-type-field,
+            ex:autrichehaven-quality-code-field,
+            ex:autrichehaven-quality-code-name-field,
+            ex:autrichehaven-quality-code-description-field,
+            ex:autrichehaven-quality-code-color-field ;
+        tss:primaryKey ex:autrichehaven-time-field
+    ] ;
     tss:delimiter "," ;
     tss:header true ;
     tss:encoding "utf-8" ;
@@ -37,19 +48,7 @@ ex:autrichehaven-source
     dcterms:description "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289435042 (station HIS_BWO_VITO_IOW50), 2021-03-03 to 2025-10-07." ;
     dcterms:source <https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289435042> .
 
-# Logical field schema; units and measurement meaning belong to fields.
-
-ex:autrichehaven-schema
-    a tss:Schema ;
-    tss:hasField ex:autrichehaven-ts_id-field,
-        ex:autrichehaven-time-field,
-        ex:autrichehaven-ec20-field,
-        ex:autrichehaven-interpolation-type-field,
-        ex:autrichehaven-quality-code-field,
-        ex:autrichehaven-quality-code-name-field,
-        ex:autrichehaven-quality-code-description-field,
-        ex:autrichehaven-quality-code-color-field ;
-    tss:primaryKey ex:autrichehaven-time-field .
+# Field definitions; units and measurement meaning belong to fields.
 
 ex:autrichehaven-ts_id-field
     a tss:Field ;

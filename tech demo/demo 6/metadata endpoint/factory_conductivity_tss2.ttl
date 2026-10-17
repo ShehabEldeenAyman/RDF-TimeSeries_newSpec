@@ -44,7 +44,24 @@ ex:factory-source
     tss:embedded false ;
     tss:dataFile <../data/factory_conductivity.csv> ;
     tss:format tss:CSV ;
-    tss:schema ex:factory-schema ;
+    tss:schema [
+        a tss:Schema ;
+        tss:hasField ex:factory-time-field,
+            ex:factory-ro1_a_permeate_conductivity-field,
+            ex:factory-ro1_b_permeate_conductivity-field,
+            ex:factory-ro1_c_permeate_conductivity-field,
+            ex:factory-ro2_a_permeate_conductivity-field,
+            ex:factory-ro2_b_permeate_conductivity-field,
+            ex:factory-cooling_water_conductivity-field,
+            ex:factory-boiler_feed_conductivity-field,
+            ex:factory-boiler_water_delivery_conductivity-field,
+            ex:factory-dockwater_blowdown_conductivity-field,
+            ex:factory-venturi_reject_conductivity-field,
+            ex:factory-ro1de_feed_conductivity-field,
+            ex:factory-ro1d_feed_conductivity-field,
+            ex:factory-ro1e_feed_conductivity-field ;
+        tss:primaryKey ex:factory-time-field
+    ] ;
     tss:delimiter ";" ;
     tss:header true ;
     tss:encoding "utf-8" ;
@@ -59,25 +76,7 @@ ex:factory-source
 
 <https://www.ugent.be/> foaf:name "Ghent University" .
 
-# Logical field schema; units and measurement meaning belong to fields.
-
-ex:factory-schema
-    a tss:Schema ;
-    tss:hasField ex:factory-time-field,
-        ex:factory-ro1_a_permeate_conductivity-field,
-        ex:factory-ro1_b_permeate_conductivity-field,
-        ex:factory-ro1_c_permeate_conductivity-field,
-        ex:factory-ro2_a_permeate_conductivity-field,
-        ex:factory-ro2_b_permeate_conductivity-field,
-        ex:factory-cooling_water_conductivity-field,
-        ex:factory-boiler_feed_conductivity-field,
-        ex:factory-boiler_water_delivery_conductivity-field,
-        ex:factory-dockwater_blowdown_conductivity-field,
-        ex:factory-venturi_reject_conductivity-field,
-        ex:factory-ro1de_feed_conductivity-field,
-        ex:factory-ro1d_feed_conductivity-field,
-        ex:factory-ro1e_feed_conductivity-field ;
-    tss:primaryKey ex:factory-time-field .
+# Field definitions; units and measurement meaning belong to fields.
 
 ex:factory-time-field
     a tss:Field ;

@@ -29,20 +29,19 @@ ex:rodenhuizedok-source
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289429042.parquet> ;
     tss:format tss:Parquet ;
-    tss:schema ex:rodenhuizedok-schema .
+    tss:schema [
+        a tss:Schema ;
+        tss:hasField ex:rodenhuizedok-ts_id-field,
+            ex:rodenhuizedok-time-field,
+            ex:rodenhuizedok-ec20-field,
+            ex:rodenhuizedok-interpolation-type-field,
+            ex:rodenhuizedok-quality-code-field,
+            ex:rodenhuizedok-quality-code-name-field,
+            ex:rodenhuizedok-quality-code-description-field,
+            ex:rodenhuizedok-quality-code-color-field
+    ] .
 
-# Logical field schema; units and measurement meaning belong to fields.
-
-ex:rodenhuizedok-schema
-    a tss:Schema ;
-    tss:hasField ex:rodenhuizedok-ts_id-field,
-        ex:rodenhuizedok-time-field,
-        ex:rodenhuizedok-ec20-field,
-        ex:rodenhuizedok-interpolation-type-field,
-        ex:rodenhuizedok-quality-code-field,
-        ex:rodenhuizedok-quality-code-name-field,
-        ex:rodenhuizedok-quality-code-description-field,
-        ex:rodenhuizedok-quality-code-color-field .
+# Field definitions; units and measurement meaning belong to fields.
 
 ex:rodenhuizedok-ts_id-field
     a tss:Field ;

@@ -29,7 +29,18 @@ ex:grootdok-source
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289423042.csv> ;
     tss:format tss:CSV ;
-    tss:schema ex:grootdok-schema ;
+    tss:schema [
+        a tss:Schema ;
+        tss:hasField ex:grootdok-ts_id-field,
+            ex:grootdok-time-field,
+            ex:grootdok-ec20-field,
+            ex:grootdok-interpolation-type-field,
+            ex:grootdok-quality-code-field,
+            ex:grootdok-quality-code-name-field,
+            ex:grootdok-quality-code-description-field,
+            ex:grootdok-quality-code-color-field ;
+        tss:primaryKey ex:grootdok-time-field
+    ] ;
     tss:delimiter "," ;
     tss:header true ;
     tss:encoding "utf-8" ;
@@ -37,19 +48,7 @@ ex:grootdok-source
     dcterms:description "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289423042 (station HIS_BWO_VITO_IOW48), 2021-03-03 to 2025-12-18." ;
     dcterms:source <https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289423042> .
 
-# Logical field schema; units and measurement meaning belong to fields.
-
-ex:grootdok-schema
-    a tss:Schema ;
-    tss:hasField ex:grootdok-ts_id-field,
-        ex:grootdok-time-field,
-        ex:grootdok-ec20-field,
-        ex:grootdok-interpolation-type-field,
-        ex:grootdok-quality-code-field,
-        ex:grootdok-quality-code-name-field,
-        ex:grootdok-quality-code-description-field,
-        ex:grootdok-quality-code-color-field ;
-    tss:primaryKey ex:grootdok-time-field .
+# Field definitions; units and measurement meaning belong to fields.
 
 ex:grootdok-ts_id-field
     a tss:Field ;
