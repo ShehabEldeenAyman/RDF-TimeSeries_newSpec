@@ -76,6 +76,8 @@ ex:grootdok-ec20-field
     rdfs:comment "Electrical conductivity at 20 °C"@en ;
     tss:required true ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 

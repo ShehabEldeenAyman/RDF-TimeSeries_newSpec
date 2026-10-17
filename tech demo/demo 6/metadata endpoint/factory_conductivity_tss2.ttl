@@ -95,6 +95,8 @@ ex:factory-ro1_a_permeate_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO1 train A"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -106,6 +108,8 @@ ex:factory-ro1_b_permeate_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO1 train B"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -117,6 +121,8 @@ ex:factory-ro1_c_permeate_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO1 train C"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -128,6 +134,8 @@ ex:factory-ro2_a_permeate_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO2 train A"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -139,6 +147,8 @@ ex:factory-ro2_b_permeate_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Permeate conductivity of reverse-osmosis unit RO2 train B"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -150,6 +160,8 @@ ex:factory-cooling_water_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of the cooling water supply (including drinking-water blend)"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -161,6 +173,8 @@ ex:factory-boiler_feed_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of the boiler feed water"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -172,6 +186,8 @@ ex:factory-boiler_water_delivery_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of the boiler water delivered to the customer"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -183,6 +199,8 @@ ex:factory-dockwater_blowdown_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of combined dock water and blowdown"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
@@ -194,6 +212,8 @@ ex:factory-venturi_reject_conductivity-field
     tss:datatype xsd:double ;
     rdfs:comment "Conductivity of the venturi drain reject stream"@en ;
     tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
