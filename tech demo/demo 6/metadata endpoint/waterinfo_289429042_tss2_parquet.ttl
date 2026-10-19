@@ -12,20 +12,16 @@
 # Snippet windows are [from, until). CSV column indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
-# Group identity and provenance; each snippet explicitly identifies its source.
-
-ex:rodenhuizedok-snippets
-    a tss:SnippetGroup ;
-    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
-    tss:embedded false ;
-    tss:mutable false ;
-    tss:producedBy ex:station-rodenhuizedok ;
-    tss:hasSnippet ex:snippet-rodenhuizedok-ec20 .
-
-# Physical source; its schema fields specify their physical locations.
+# Shared source: provenance, time window, schema and member snippets.
 
 ex:rodenhuizedok-source
     a tss:Source ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
+    tss:mutable false ;
+    tss:producedBy ex:station-rodenhuizedok ;
+    tss:hasSnippet ex:snippet-rodenhuizedok-ec20 ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289429042.parquet> ;
     tss:format tss:Parquet ;
@@ -110,7 +106,7 @@ ex:rodenhuizedok-quality-code-color-field
     rdfs:comment "Display colour of the quality code (RGBA)."@en ;
     tss:describesField ex:rodenhuizedok-ec20-field .
 
-# Snippets select fields and retain their original identities and time windows.
+# Snippets select series fields within the shared source time window.
 
 ex:snippet-rodenhuizedok-ec20
     a tss:Snippet ;
@@ -118,7 +114,5 @@ ex:snippet-rodenhuizedok-ec20
     tss:source ex:rodenhuizedok-source ;
     tss:timeField ex:rodenhuizedok-time-field ;
     tss:valueField ex:rodenhuizedok-ec20-field ;
-    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:sensor ex:sensor-rodenhuizedok-ec20 ;
     tss:featureOfInterest ex:water-rodenhuizedok .
