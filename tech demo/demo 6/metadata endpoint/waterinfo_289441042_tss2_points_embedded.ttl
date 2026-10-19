@@ -9,11 +9,11 @@
 # Demo 6: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
-# Snippet windows are [from, until). CSV column indices are zero-based.
+# Source windows are [from, until). CSV column indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # One embedded source contains both series, with one shared time field.
-# The source window applies to both member snippets; the points are five-reading samples.
+# The source window applies to all fields; the points are five-reading samples.
 # Embedded object keys are declared on fields; object ordering has no meaning.
 
 ex:zevenaarshaven-source
@@ -21,10 +21,9 @@ ex:zevenaarshaven-source
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:mutable false ;
     tss:producedBy ex:289441042 ;
-    tss:hasSnippet ex:snippet-zevenaarshaven-ec20,
-        ex:snippet-zevenaarshaven-quality-code-color ;
     tss:embedded true ;
     tss:format tss:JSON ;
+    tss:timeField ex:zevenaarshaven-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:schema [
@@ -58,14 +57,7 @@ ex:zevenaarshaven-ec20-value-field
     # Example only: 10000 is a placeholder, not a real validated upper limit.
     tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    tss:unit unit:MicroS-PER-CentiM .
-
-ex:snippet-zevenaarshaven-ec20
-    a tss:Snippet ;
-    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
-    tss:source ex:zevenaarshaven-source ;
-    tss:timeField ex:zevenaarshaven-time-field ;
-    tss:valueField ex:zevenaarshaven-ec20-value-field ;
+    tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-zevenaarshaven-ec20 ;
     tss:featureOfInterest ex:water-zevenaarshaven .
 
@@ -76,11 +68,3 @@ ex:zevenaarshaven-quality-color-value-field
     tss:datatype xsd:string ;
     tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:zevenaarshaven-ec20-value-field .
-
-ex:snippet-zevenaarshaven-quality-code-color
-    a tss:Snippet ;
-    rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
-    tss:source ex:zevenaarshaven-source ;
-    tss:timeField ex:zevenaarshaven-time-field ;
-    tss:valueField ex:zevenaarshaven-quality-color-value-field ;
-    tss:featureOfInterest ex:snippet-zevenaarshaven-ec20 .
