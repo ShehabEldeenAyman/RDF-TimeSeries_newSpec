@@ -9,12 +9,14 @@
 # Demo 6: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
-# Source windows are [from, until). CSV column indices are zero-based.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # One embedded source contains both series, with one shared time field.
 # The source window applies to all fields; the points are five-reading samples.
-# Embedded object keys are declared on fields; object ordering has no meaning.
+# Embedded object keys use tss:columnName on fields; object ordering has no meaning.
 
 ex:zevenaarshaven-source
     a tss:Source ;
@@ -24,14 +26,12 @@ ex:zevenaarshaven-source
     tss:embedded true ;
     tss:format tss:JSON ;
     tss:timeField ex:zevenaarshaven-time-field ;
+    tss:key ex:zevenaarshaven-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    tss:schema [
-        a tss:Schema ;
-        tss:hasField ex:zevenaarshaven-time-field,
-            ex:zevenaarshaven-ec20-value-field,
-            ex:zevenaarshaven-quality-color-value-field
-    ] ;
+    tss:hasField ex:zevenaarshaven-time-field,
+        ex:zevenaarshaven-ec20-value-field,
+        ex:zevenaarshaven-quality-color-value-field ;
     tss:pointLayout tss:Object ;
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "ec20": "4797.72", "qualityColor": "rgba(0, 128, 0, 1.0)"},
@@ -43,14 +43,14 @@ ex:zevenaarshaven-source
 
 ex:zevenaarshaven-time-field
     a tss:Field ;
-    tss:key "time" ;
+    tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
     tss:required true .
 
 ex:zevenaarshaven-ec20-value-field
     a tss:Field ;
-    tss:key "ec20" ;
+    tss:columnName "ec20" ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;
@@ -63,7 +63,7 @@ ex:zevenaarshaven-ec20-value-field
 
 ex:zevenaarshaven-quality-color-value-field
     a tss:Field ;
-    tss:key "qualityColor" ;
+    tss:columnName "qualityColor" ;
     rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:string ;
     tss:observedProperty ex:qualityCodeColor ;

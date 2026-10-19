@@ -4,12 +4,13 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
-@prefix dcterms: <http://purl.org/dc/terms/> .
 
 # Demo 6: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
-# Source windows are [from, until). CSV column indices are zero-based.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # Shared source: provenance, time window, time field and column schema.
@@ -25,23 +26,18 @@ ex:autrichehaven-source
     tss:dataFile <../data/waterinfo_289435042.csv> ;
     tss:format tss:CSV ;
     tss:timeField ex:autrichehaven-time-field ;
-    tss:schema [
-        a tss:Schema ;
-        tss:hasField ex:autrichehaven-ts_id-field,
-            ex:autrichehaven-time-field,
-            ex:autrichehaven-ec20-field,
-            ex:autrichehaven-interpolation-type-field,
-            ex:autrichehaven-quality-code-field,
-            ex:autrichehaven-quality-code-name-field,
-            ex:autrichehaven-quality-code-description-field,
-            ex:autrichehaven-quality-code-color-field ;
-        tss:primaryKey ex:autrichehaven-time-field
-    ] ;
+    tss:key ex:autrichehaven-time-field ;
+    tss:hasField ex:autrichehaven-ts_id-field,
+        ex:autrichehaven-time-field,
+        ex:autrichehaven-ec20-field,
+        ex:autrichehaven-interpolation-type-field,
+        ex:autrichehaven-quality-code-field,
+        ex:autrichehaven-quality-code-name-field,
+        ex:autrichehaven-quality-code-description-field,
+        ex:autrichehaven-quality-code-color-field ;
     tss:delimiter "," ;
     tss:header true ;
-    tss:encoding "utf-8" ;
-    dcterms:title "Waterinfo EC20, Kanaal Gent-Terneuzen Autrichehaven (NL)" ;
-    dcterms:description "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289435042 (station HIS_BWO_VITO_IOW50), 2021-03-03 to 2025-10-07." .
+    tss:encoding "utf-8" .
 
 # Field definitions include measurement meaning, units, sensor and feature.
 
@@ -122,4 +118,5 @@ ex:autrichehaven-quality-code-color-field
     rdfs:label "Quality Code Color"@en ;
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)"@en ;
+    tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:autrichehaven-ec20-field .

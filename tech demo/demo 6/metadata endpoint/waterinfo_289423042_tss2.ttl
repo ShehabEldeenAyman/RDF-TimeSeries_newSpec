@@ -4,12 +4,13 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
-@prefix dcterms: <http://purl.org/dc/terms/> .
 
 # Demo 6: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
-# Source windows are [from, until). CSV column indices are zero-based.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # Shared source: provenance, time window, time field and column schema.
@@ -25,23 +26,18 @@ ex:grootdok-source
     tss:dataFile <../data/waterinfo_289423042.csv> ;
     tss:format tss:CSV ;
     tss:timeField ex:grootdok-time-field ;
-    tss:schema [
-        a tss:Schema ;
-        tss:hasField ex:grootdok-ts_id-field,
-            ex:grootdok-time-field,
-            ex:grootdok-ec20-field,
-            ex:grootdok-interpolation-type-field,
-            ex:grootdok-quality-code-field,
-            ex:grootdok-quality-code-name-field,
-            ex:grootdok-quality-code-description-field,
-            ex:grootdok-quality-code-color-field ;
-        tss:primaryKey ex:grootdok-time-field
-    ] ;
+    tss:key ex:grootdok-time-field ;
+    tss:hasField ex:grootdok-ts_id-field,
+        ex:grootdok-time-field,
+        ex:grootdok-ec20-field,
+        ex:grootdok-interpolation-type-field,
+        ex:grootdok-quality-code-field,
+        ex:grootdok-quality-code-name-field,
+        ex:grootdok-quality-code-description-field,
+        ex:grootdok-quality-code-color-field ;
     tss:delimiter "," ;
     tss:header true ;
-    tss:encoding "utf-8" ;
-    dcterms:title "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)" ;
-    dcterms:description "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289423042 (station HIS_BWO_VITO_IOW48), 2021-03-03 to 2025-12-18." .
+    tss:encoding "utf-8" .
 
 # Field definitions include measurement meaning, units, sensor and feature.
 
@@ -122,4 +118,5 @@ ex:grootdok-quality-code-color-field
     rdfs:label "Quality Code Color"@en ;
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)"@en ;
+    tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:grootdok-ec20-field .

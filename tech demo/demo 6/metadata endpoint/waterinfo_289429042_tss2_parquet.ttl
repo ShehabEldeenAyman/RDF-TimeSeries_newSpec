@@ -9,7 +9,9 @@
 # Demo 6: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
-# Source windows are [from, until). CSV column indices are zero-based.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # Shared source: provenance, time window, time field and column schema.
@@ -25,17 +27,15 @@ ex:rodenhuizedok-source
     tss:dataFile <../data/waterinfo_289429042.parquet> ;
     tss:format tss:Parquet ;
     tss:timeField ex:rodenhuizedok-time-field ;
-    tss:schema [
-        a tss:Schema ;
-        tss:hasField ex:rodenhuizedok-ts_id-field,
-            ex:rodenhuizedok-time-field,
-            ex:rodenhuizedok-ec20-field,
-            ex:rodenhuizedok-interpolation-type-field,
-            ex:rodenhuizedok-quality-code-field,
-            ex:rodenhuizedok-quality-code-name-field,
-            ex:rodenhuizedok-quality-code-description-field,
-            ex:rodenhuizedok-quality-code-color-field
-    ] .
+    tss:key ex:rodenhuizedok-time-field ;
+    tss:hasField ex:rodenhuizedok-ts_id-field,
+        ex:rodenhuizedok-time-field,
+        ex:rodenhuizedok-ec20-field,
+        ex:rodenhuizedok-interpolation-type-field,
+        ex:rodenhuizedok-quality-code-field,
+        ex:rodenhuizedok-quality-code-name-field,
+        ex:rodenhuizedok-quality-code-description-field,
+        ex:rodenhuizedok-quality-code-color-field .
 
 # Field definitions include measurement meaning, units, sensor and feature.
 
@@ -106,4 +106,5 @@ ex:rodenhuizedok-quality-code-color-field
     rdfs:label "Quality Code Color"@en ;
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)."@en ;
+    tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:rodenhuizedok-ec20-field .

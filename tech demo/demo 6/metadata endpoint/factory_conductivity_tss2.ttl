@@ -12,7 +12,9 @@
 # Demo 6: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
-# Source windows are [from, until). CSV column indices are zero-based.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # Shared source: provenance, time window, time field and column schema.
@@ -28,35 +30,30 @@ ex:factory-source
     tss:dataFile <../data/factory_conductivity.csv> ;
     tss:format tss:CSV ;
     tss:timeField ex:factory-time-field ;
-    tss:schema [
-        a tss:Schema ;
-        tss:hasField ex:factory-time-field,
-            ex:factory-ro1_a_permeate_conductivity-field,
-            ex:factory-ro1_b_permeate_conductivity-field,
-            ex:factory-ro1_c_permeate_conductivity-field,
-            ex:factory-ro2_a_permeate_conductivity-field,
-            ex:factory-ro2_b_permeate_conductivity-field,
-            ex:factory-cooling_water_conductivity-field,
-            ex:factory-boiler_feed_conductivity-field,
-            ex:factory-boiler_water_delivery_conductivity-field,
-            ex:factory-dockwater_blowdown_conductivity-field,
-            ex:factory-venturi_reject_conductivity-field,
-            ex:factory-ro1de_feed_conductivity-field,
-            ex:factory-ro1d_feed_conductivity-field,
-            ex:factory-ro1e_feed_conductivity-field ;
-        tss:primaryKey ex:factory-time-field
-    ] ;
+    tss:key ex:factory-time-field ;
+    tss:hasField ex:factory-time-field,
+        ex:factory-ro1_a_permeate_conductivity-field,
+        ex:factory-ro1_b_permeate_conductivity-field,
+        ex:factory-ro1_c_permeate_conductivity-field,
+        ex:factory-ro2_a_permeate_conductivity-field,
+        ex:factory-ro2_b_permeate_conductivity-field,
+        ex:factory-cooling_water_conductivity-field,
+        ex:factory-boiler_feed_conductivity-field,
+        ex:factory-boiler_water_delivery_conductivity-field,
+        ex:factory-dockwater_blowdown_conductivity-field,
+        ex:factory-venturi_reject_conductivity-field,
+        ex:factory-ro1de_feed_conductivity-field,
+        ex:factory-ro1d_feed_conductivity-field,
+        ex:factory-ro1e_feed_conductivity-field ;
     tss:delimiter ";" ;
     tss:header true ;
     tss:encoding "utf-8" ;
-    dcterms:title "Factory water conductivity" ;
     dcterms:publisher <https://www.ugent.be/> ;
     dcterms:license <https://example.org/license-to-be-decided> ;
-    dcterms:description "Conductivity measurements from an industrial water treatment plant, 2025, 15-minute resolution. Values are perturbed with ~2% multiplicative noise." ;
     dcterms:issued "2026-09-25"^^xsd:date ;
     dcterms:modified "2026-09-28"^^xsd:date ;
-    prov:wasDerivedFrom [ dcterms:description "Confidential industrial water-treatment sensor export (not published)" ; dcterms:temporal "2025-01-01/2025-12-31"^^xsd:string ] ;
-    prov:wasGeneratedBy [ rdf:type prov:Activity ; dcterms:description "Selected conductivity columns, renamed them, and multiplied each value by an independent random factor 1 + N(0, 0.02), clipped at 0. The noise is unseeded and cannot be reproduced." ; prov:endedAtTime "2026-09-25T00:00:00Z"^^xsd:dateTime ] .
+    prov:wasDerivedFrom [ rdfs:label "Confidential industrial water-treatment sensor export (not published)" ; dcterms:temporal "2025-01-01/2025-12-31"^^xsd:string ] ;
+    prov:wasGeneratedBy [ rdf:type prov:Activity ; rdfs:label "Selected conductivity columns, renamed them, and multiplied each value by an independent random factor 1 + N(0, 0.02), clipped at 0. The noise is unseeded and cannot be reproduced." ; prov:endedAtTime "2026-09-25T00:00:00Z"^^xsd:dateTime ] .
 
 
 
