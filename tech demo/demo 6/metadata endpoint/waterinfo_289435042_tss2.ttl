@@ -9,22 +9,22 @@
 # Demo 6: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
-# Snippet windows are [from, until). CSV column indices are zero-based.
+# Source windows are [from, until). CSV column indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
-# Shared source: provenance, time window, schema and member snippets.
+# Shared source: provenance, time window, time field and column schema.
 
 ex:autrichehaven-source
     a tss:Source ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
     tss:mutable false ;
     tss:producedBy ex:station-autrichehaven ;
-    tss:hasSnippet ex:snippet-autrichehaven-ec20 ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2025-10-07T07:45:00Z"^^xsd:dateTime ;
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289435042.csv> ;
     tss:format tss:CSV ;
+    tss:timeField ex:autrichehaven-time-field ;
     tss:schema [
         a tss:Schema ;
         tss:hasField ex:autrichehaven-ts_id-field,
@@ -43,7 +43,7 @@ ex:autrichehaven-source
     dcterms:title "Waterinfo EC20, Kanaal Gent-Terneuzen Autrichehaven (NL)" ;
     dcterms:description "Electrical conductivity at 20 °C in µS/cm, 15-minute values, from waterinfo.be time series 289435042 (station HIS_BWO_VITO_IOW50), 2021-03-03 to 2025-10-07." .
 
-# Field definitions; units and measurement meaning belong to fields.
+# Field definitions include measurement meaning, units, sensor and feature.
 
 ex:autrichehaven-ts_id-field
     a tss:Field ;
@@ -67,7 +67,7 @@ ex:autrichehaven-ec20-field
     a tss:Field ;
     tss:columnName "Value" ;
     tss:columnIndex 2 ;
-    rdfs:label "Value"@en ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
     tss:datatype xsd:double ;
     rdfs:comment "Electrical conductivity at 20 °C"@en ;
     tss:required true ;
@@ -75,7 +75,9 @@ ex:autrichehaven-ec20-field
     # Example only: 10000 is a placeholder, not a real validated upper limit.
     tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    tss:unit unit:MicroS-PER-CentiM .
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-autrichehaven-ec20 ;
+    tss:featureOfInterest ex:water-autrichehaven .
 
 ex:autrichehaven-interpolation-type-field
     a tss:Field ;
@@ -121,14 +123,3 @@ ex:autrichehaven-quality-code-color-field
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)"@en ;
     tss:describesField ex:autrichehaven-ec20-field .
-
-# Snippets select series fields within the shared source time window.
-
-ex:snippet-autrichehaven-ec20
-    a tss:Snippet ;
-    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
-    tss:source ex:autrichehaven-source ;
-    tss:timeField ex:autrichehaven-time-field ;
-    tss:valueField ex:autrichehaven-ec20-field ;
-    tss:sensor ex:sensor-autrichehaven-ec20 ;
-    tss:featureOfInterest ex:water-autrichehaven .
