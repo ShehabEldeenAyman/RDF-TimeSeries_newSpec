@@ -16,9 +16,9 @@ function DownloadLink({ url, label }) {
   )
 }
 
-// Shows one file that a metadata endpoint points to.
-// Data previews may be CSV text converted from Parquet; CSVW can be inapplicable.
-// downloadUrl is optional: when App gives one, the card shows a download icon.
+// Shows one file that a metadata endpoint points to, or the points embedded in it.
+// Data previews may be CSV text converted from Parquet.
+// downloadUrl is optional: when it is given, the card shows a download icon.
 export function FileViewer({ title, url, downloadUrl, downloadLabel = 'Download the whole file' }) {
   const [file, setFile] = useState(null)
   const [error, setError] = useState(null)
@@ -43,8 +43,6 @@ export function FileViewer({ title, url, downloadUrl, downloadLabel = 'Download 
     content = <p className="error">Error: {error}</p>
   } else if (file === null) {
     content = <p>Loading…</p>
-  } else if (file.applicable === false) {
-    content = <p className="muted">{file.note}</p>
   } else if (!file.found) {
     content = <p className="error long-text">File not found: <code>{file.path}</code></p>
   } else {

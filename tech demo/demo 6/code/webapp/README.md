@@ -17,13 +17,11 @@ Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they 
 | Series inspector | Metadata provenance and source files, including embedded points |
 | SHACL | Automatic profile detection or uploaded custom Turtle shapes, conformance test and full text report |
 | RDF generation | Expand embedded points, CSVW-mapped CSV readings, or context-mapped Parquet readings; preview Turtle and download the generated graph |
-| Files | CSV previews, Parquet data previewed as CSV, applicable CSVW metadata, and original-file downloads; embedded points have a series picker |
+| Files | External sources: preview of `tss:dataFile` (CSV as is, Parquet converted to CSV) and a download of the original file. Embedded sources: the source's `tss:points`, one point per line. Both: the metadata Turtle file |
 | Query | Pick a field: filtering, summaries, gaps and hourly/daily aggregation over CSV, Parquet or embedded data, read with the source's tss:timeField, tss:from/until and CSV settings; text fields support time and column filtering |
 | SQL (DuckDB) | One table per external CSV or embedded snippet, plus a snippets metadata table |
 
-In Demo 5's Files tab, a source declared as `dcterms:format filetype:PARQUET` is previewed as CSV text with a header and the first 19 data rows. Only that sample is converted; the original Parquet file is unchanged, and the download icon saves the original `.parquet` file. CSV previews retain their original text and delimiter.
-
-The CSVW metadata card shows **Not applicable** unless the external group's TSS explicitly declares `dcterms:format filetype:CSV`, using the EU file-type vocabulary IRI. This also applies when the format is missing or names another file type. For these sources, the API skips CSVW loading. A declared CSV source with a missing CSVW file still reports the missing file. Other Parquet dashboard operations are being implemented separately.
+In the Files tab, a source declared as `tss:format tss:Parquet` is previewed as CSV text with a header and the first 19 data rows. Only that sample is converted; the original Parquet file is unchanged, and the download icon saves the original `.parquet` file. CSV previews retain their original text and delimiter.
 
 SHACL automatically selects one of three files in `demo 5/SHACL/` using the original TSS graph:
 
@@ -97,7 +95,8 @@ All routes use `/api`; API documentation is at <http://localhost:8001/docs>. New
 - `POST /api/endpoints/{id}/shacl`: custom validation with a JSON body containing `filename` and `turtle`; returns the same report fields plus `custom: true`.
 - `POST /api/endpoints/{id}/rdf`: generate embedded or external RDF; returns `turtle`, `filename`, `triples`, `points` and per-series counts. External results also include `downloadUrl`, `previewPoints`, `previewTruncated` and full export `bytes`. Embedded downloads use the complete generated response in the browser.
 - `GET /api/endpoints/{id}/rdf/download/{token}`: download a completed external export as `observations.ttl` without repeating conversion.
-- `GET /api/endpoints/{id}/points?snippet=...`: embedded JSON preview.
+- `GET /api/endpoints/{id}/data` and `GET /api/endpoints/{id}/data/download`: preview and download of an external source's `tss:dataFile`.
+- `GET /api/endpoints/{id}/points`: the embedded source's `tss:points`, one point per line.
 
 Online endpoint URLs are saved in backend/online_endpoints.json. Relative file links resolve against the endpoint URL. Embedded endpoints need no external data file. Each endpoint is expected to describe one group; SHACL rejects missing, invalid or conflicting storage flags rather than guessing.
 

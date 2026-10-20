@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
 import { Overview } from './Overview'
 import { Inspector } from './Inspector'
-import { FileViewer } from './FileViewer'
+import { Files } from './Files'
 import { QueryForm } from './QueryForm'
 import { OnlineEndpointForm } from './OnlineEndpointForm'
 import { SqlBox } from './SqlBox'
 import { Shacl } from './Shacl'
-import { EmbeddedFiles } from './EmbeddedFiles'
 import { RdfGeneration } from './RdfGeneration'
 
 // The tabs of the dashboard: an id we use in the code, and the text on the button.
@@ -18,7 +17,7 @@ const tabs = [
   { id: 'inspector', label: 'Series inspector', updated: true },
   { id: 'shacl', label: 'SHACL', updated: false },
   { id: 'rdf', label: 'RDF generation', updated: false },
-  { id: 'files', label: 'Files', updated: false },
+  { id: 'files', label: 'Files', updated: true },
   { id: 'query', label: 'Query', updated: true },
   { id: 'sql', label: 'SQL (DuckDB)', updated: false },
 ]
@@ -119,7 +118,6 @@ function App() {
 
   // The endpoint that is picked in the drop down (undefined when none is picked)
   const selected = endpoints.find((endpoint) => endpoint.id === selectedId)
-  const parquet = info?.dataFormat === 'http://publications.europa.eu/resource/authority/file-type/PARQUET'
 
   return (
     <div className="page">
@@ -193,24 +191,7 @@ function App() {
             </div>
           )}
 
-          {tab === 'files' && isUpdated('files') && info.embedded && <EmbeddedFiles info={info} />}
-          {tab === 'files' && isUpdated('files') && !info.embedded && (
-            <>
-              <FileViewer
-                key={`${info.id}-data`}
-                title={parquet ? 'Data file (Parquet, previewed as CSV)' : 'Data file (tss:dataFile)'}
-                url={`${API_URL}/endpoints/${info.id}/csv`}
-                downloadUrl={`${API_URL}/endpoints/${info.id}/csv/download`}
-                downloadLabel={parquet ? 'Download the original Parquet file' : 'Download the whole file'}
-              />
-              <FileViewer
-                key={`${info.id}-csvw`}
-                title="CSVW metadata file (tss:describedby)"
-                url={`${API_URL}/endpoints/${info.id}/csvw`}
-                downloadUrl={`${API_URL}/endpoints/${info.id}/csvw/download`}
-              />
-            </>
-          )}
+          {tab === 'files' && <Files info={info} />}
 
           {tab === 'query' && isUpdated('query') && <QueryForm info={info} />}
 

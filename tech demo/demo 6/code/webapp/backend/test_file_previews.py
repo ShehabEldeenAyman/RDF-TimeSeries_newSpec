@@ -1,7 +1,8 @@
-"""Files-tab previews and CSVW applicability: python -B -m unittest -v test_file_previews."""
+"""Files-tab previews and downloads: python -B -m unittest -v test_file_previews."""
 import csv
 import hashlib
 import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,10 +10,12 @@ from unittest.mock import patch
 
 import duckdb
 from fastapi import HTTPException
-from rdflib import Literal, RDF, URIRef
-from rdflib.namespace import DCTERMS
 
 import main
+
+EMBEDDED = "waterinfo_289441042_tss2_points_embedded"
+EXTERNAL_CSV = "waterinfo_289423042_tss2"
+EXTERNAL_PARQUET = "waterinfo_289429042_tss2_parquet"
 
 
 class FilePreviews(unittest.TestCase):
@@ -29,12 +32,10 @@ class FilePreviews(unittest.TestCase):
                 ("2025-01-01T00:30:00Z", 3.5, "last row"),
             ])
             connection.sql("SELECT * FROM readings").write_parquet(str(self.parquet))
-        (self.root / "schema.json").write_text('{"tableSchema": {"columns": []}}', encoding="utf-8")
         self.info = {
-            "csvUrl": self.parquet.name,
-            "dataFormat": str(main.PARQUET_FILE_TYPE),
-            "csvwApplicable": False,
-            "describedBy": "schema.json",
+            "embedded": False,
+            "dataFile": self.parquet.name,
+            "format": "tss:Parquet",
         }
         patcher = patch.object(main, "DEMO_DIR", self.root)
         patcher.start()
@@ -43,7 +44,7 @@ class FilePreviews(unittest.TestCase):
     def test_parquet_preview_preserves_values_and_csv_escaping_without_changing_source(self):
         original = hashlib.sha256(self.parquet.read_bytes()).digest()
         with patch.object(main, "get_endpoint_info", return_value=self.info):
-            preview = main.get_csv_file("fixture", lines=4)
+            preview = main.get_data_file("fixture", lines=4)
         rows = list(csv.reader(io.StringIO(preview["text"])))
         self.assertTrue(preview["found"])
         self.assertEqual(rows, [
@@ -59,7 +60,7 @@ class FilePreviews(unittest.TestCase):
         with patch.object(main, "get_endpoint_info", return_value=self.info):
             for requested, expected in [(0, 1), (1, 1), (2, 2)]:
                 with self.subTest(lines=requested):
-                    preview = main.get_csv_file("fixture", lines=requested)
+                    preview = main.get_data_file("fixture", lines=requested)
                     self.assertEqual(len(list(csv.reader(io.StringIO(preview["text"])))), expected)
 
     def test_parquet_decimal_preview_retains_full_precision(self):
@@ -68,76 +69,94 @@ class FilePreviews(unittest.TestCase):
             connection.execute("CREATE TABLE decimals AS SELECT CAST(? AS DECIMAL(38, 10)) AS amount", [value])
             connection.sql("SELECT * FROM decimals").write_parquet(str(self.parquet))
         with patch.object(main, "get_endpoint_info", return_value=self.info):
-            preview = main.get_csv_file("fixture")
+            preview = main.get_data_file("fixture")
         self.assertEqual(list(csv.reader(io.StringIO(preview["text"]))), [["amount"], [value]])
 
     def test_invalid_parquet_returns_readable_error(self):
         self.parquet.write_text("not a Parquet file", encoding="utf-8")
         with patch.object(main, "get_endpoint_info", return_value=self.info):
             with self.assertRaises(HTTPException) as caught:
-                main.get_csv_file("fixture")
+                main.get_data_file("fixture")
         self.assertEqual(caught.exception.status_code, 400)
         self.assertIn("Could not preview Parquet", caught.exception.detail)
 
     def test_parquet_download_keeps_original_file_and_media_type(self):
         with patch.object(main, "get_endpoint_info", return_value=self.info):
-            response = main.download_csv_file("fixture")
+            response = main.download_data_file("fixture")
         self.assertEqual(response.path, self.parquet)
         self.assertEqual(response.filename, self.parquet.name)
         self.assertEqual(response.media_type, "application/vnd.apache.parquet")
 
-    def test_csv_preview_and_csvw_remain_available_for_declared_csv(self):
+    def test_csv_preview_keeps_the_original_text(self):
         text = "time;value\n2025-01-01T00:00:00Z;1.25\n"
         (self.root / "readings.csv").write_text(text, encoding="utf-8")
-        info = dict(self.info, csvUrl="readings.csv", dataFormat=str(main.CSV_FILE_TYPE), csvwApplicable=True)
+        info = dict(self.info, dataFile="readings.csv", format="tss:CSV")
         with patch.object(main, "get_endpoint_info", return_value=info):
-            preview = main.get_csv_file("fixture")
-            metadata = main.get_csvw_file("fixture")
-            response = main.download_csv_file("fixture")
-            csvw_response = main.download_csvw_file("fixture")
+            preview = main.get_data_file("fixture")
+            response = main.download_data_file("fixture")
         self.assertEqual(preview["text"], text.rstrip("\n"))
-        self.assertTrue(metadata["found"])
-        self.assertIn("tableSchema", metadata["text"])
         self.assertEqual(response.media_type, "text/csv")
-        self.assertEqual(csvw_response.media_type, "application/json")
 
-    def test_csvw_is_inapplicable_for_non_csv_even_if_metadata_exists(self):
-        with patch.object(main, "get_endpoint_info", return_value=self.info):
-            metadata = main.get_csvw_file("fixture")
+    def test_missing_data_file_is_reported(self):
+        info = dict(self.info, dataFile="missing.csv", format="tss:CSV")
+        with patch.object(main, "get_endpoint_info", return_value=info):
+            preview = main.get_data_file("fixture")
+        self.assertFalse(preview["found"])
+        self.assertEqual(preview["path"], "missing.csv")
+
+    def test_other_formats_have_no_preview(self):
+        info = dict(self.info, format="tss:JSON")
+        with patch.object(main, "get_endpoint_info", return_value=info):
             with self.assertRaises(HTTPException) as caught:
-                main.download_csvw_file("fixture")
-        self.assertFalse(metadata["applicable"])
-        self.assertIn("Not applicable", metadata["note"])
-        self.assertNotIn("text", metadata)
+                main.get_data_file("fixture")
         self.assertEqual(caught.exception.status_code, 400)
 
-    def test_missing_csvw_is_still_missing_for_declared_csv(self):
-        info = dict(self.info, describedBy="missing.json", dataFormat=str(main.CSV_FILE_TYPE), csvwApplicable=True)
-        with patch.object(main, "get_endpoint_info", return_value=info):
-            metadata = main.get_csvw_file("fixture")
-        self.assertFalse(metadata["found"])
-        self.assertIsNot(metadata.get("applicable"), False)
 
+class RealEndpoints(unittest.TestCase):
+    """The Files tab on the demo's own metadata files: one embedded, two external"""
 
-class DeclaredFormat(unittest.TestCase):
-    def test_csvw_requires_the_exact_csv_format_iri(self):
-        endpoint = "waterinfo_289423042_tss2"
-        graph = main.load_graph(endpoint)
-        group = next(graph.subjects(RDF.type, main.TSS.SnippetGroup))
-        for value, applicable in [
-            (main.CSV_FILE_TYPE, True),
-            (main.PARQUET_FILE_TYPE, False),
-            (URIRef("https://example.org/OTHER"), False),
-            (None, False),
-            (Literal(str(main.CSV_FILE_TYPE)), False),
-        ]:
-            with self.subTest(format=value):
-                graph.remove((group, DCTERMS.format, None))
-                if value is not None:
-                    graph.add((group, DCTERMS.format, value))
-                with patch.object(main, "load_graph", return_value=graph):
-                    info = main.get_endpoint_info(endpoint)
-                self.assertIs(info["csvwApplicable"], applicable)
+    def test_embedded_source_shows_its_points(self):
+        result = main.get_points_file(EMBEDDED)
+        points = json.loads(result["text"])
+        self.assertTrue(result["found"])
+        self.assertEqual(len(points), 5)
+        self.assertEqual(points[0], {"time": "2021-03-03T23:15:00Z", "ec20": "4797.72", "qualityColor": "rgba(0, 128, 0, 1.0)"})
+        self.assertEqual(len(result["text"].splitlines()), 7)  # "[", one line per point, "]"
+        self.assertIn("5 points", result["note"])
+
+    def test_embedded_source_has_no_data_file(self):
+        for route in (main.get_data_file, main.download_data_file):
+            with self.subTest(route=route.__name__):
+                with self.assertRaises(HTTPException) as caught:
+                    route(EMBEDDED)
+                self.assertEqual(caught.exception.status_code, 400)
+
+    def test_external_csv_source_shows_and_downloads_its_data_file(self):
+        preview = main.get_data_file(EXTERNAL_CSV, lines=3)
+        self.assertTrue(preview["found"])
+        self.assertEqual(preview["path"], "data/waterinfo_289423042.csv")
+        lines = preview["text"].splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertTrue(lines[0].startswith("ts_id,Timestamp,Value"))
+        response = main.download_data_file(EXTERNAL_CSV)
+        self.assertEqual(response.media_type, "text/csv")
+        self.assertEqual(response.filename, "waterinfo_289423042.csv")
+
+    def test_external_parquet_source_shows_and_downloads_its_data_file(self):
+        preview = main.get_data_file(EXTERNAL_PARQUET, lines=3)
+        rows = list(csv.reader(io.StringIO(preview["text"])))
+        self.assertEqual(rows[0][:3], ["ts_id", "Timestamp", "Value"])
+        self.assertEqual(rows[1][1:3], ["2021-03-03T23:15:00Z", "1605.77"])
+        response = main.download_data_file(EXTERNAL_PARQUET)
+        self.assertEqual(response.media_type, "application/vnd.apache.parquet")
+        self.assertEqual(response.filename, "waterinfo_289429042.parquet")
+
+    def test_external_sources_have_no_embedded_points(self):
+        for endpoint in (EXTERNAL_CSV, EXTERNAL_PARQUET):
+            with self.subTest(endpoint=endpoint):
+                with self.assertRaises(HTTPException) as caught:
+                    main.get_points_file(endpoint)
+                self.assertEqual(caught.exception.status_code, 400)
 
 
 if __name__ == "__main__":

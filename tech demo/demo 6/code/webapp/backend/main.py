@@ -654,17 +654,6 @@ def numeric_points(graph, snippet, points):
                and not isinstance(point["value"], bool) for point in points)
 
 
-@api.get("/endpoints/{endpoint_id}/points")
-def get_points_file(endpoint_id, snippet):
-    graph = load_graph(endpoint_id)
-    chosen = find_snippet(get_endpoint_info(endpoint_id), snippet)
-    if chosen["embedded"] is not True:
-        raise HTTPException(status_code=400, detail="This series uses external CSV data.")
-    points = embedded_points(graph, URIRef(snippet))
-    return {"path": "tss:points", "found": True, "note": f"{len(points)} embedded readings",
-            "text": json.dumps(points, indent=2, ensure_ascii=False)}
-
-
 @api.post("/endpoints/{endpoint_id}/rdf")
 def generate_rdf(endpoint_id):
     """Generate standalone Turtle readings from embedded points, CSV or Parquet."""
@@ -1220,16 +1209,21 @@ def get_endpoint(endpoint_id):
     return info
 
 
-@api.get("/endpoints/{endpoint_id}/csv")
-def get_csv_file(endpoint_id, lines: int = 20):
-    """Preview tss:dataFile as CSV text, converting a bounded Parquet sample."""
+@api.get("/endpoints/{endpoint_id}/data")
+def get_data_file(endpoint_id, lines: int = 20):
+    """Preview the source's data file (tss:dataFile): the first lines of a CSV file,
+    or the first rows of a Parquet file converted to CSV text."""
     info = get_endpoint_info(endpoint_id)
+    if info["embedded"] is True:
+        raise HTTPException(status_code=400, detail="This source has no data file: its points are embedded in the Turtle file (tss:points).")
     lines = max(1, min(lines, 1000))
-    location = info["csvUrl"]
+    location = info["dataFile"]
+    if location is None:
+        raise HTTPException(status_code=400, detail="The source has no tss:dataFile.")
     if not file_exists(location):
         return {"path": location, "found": False}
 
-    if info["dataFormat"] == str(PARQUET_FILE_TYPE):
+    if info["format"] == "tss:Parquet":
         try:
             with duckdb.connect() as connection:
                 result = connection.execute(
@@ -1253,8 +1247,8 @@ def get_csv_file(endpoint_id, lines: int = 20):
             "note": f"CSV preview of the first {len(rows)} Parquet rows; download contains the original Parquet file",
             "text": text.getvalue(),
         }
-    if info["dataFormat"] not in (None, str(CSV_FILE_TYPE)):
-        raise HTTPException(status_code=400, detail="A data preview is available for CSV and Parquet sources only.")
+    if info["format"] != "tss:CSV":
+        raise HTTPException(status_code=400, detail=f"A data preview is available for tss:CSV and tss:Parquet sources only, not {info['format']}.")
 
     first_lines = []
     for line in read_lines(location):
@@ -1275,52 +1269,38 @@ def get_csv_file(endpoint_id, lines: int = 20):
     }
 
 
-@api.get("/endpoints/{endpoint_id}/csv/download")
-def download_csv_file(endpoint_id):
-    """Download the original data file, including Parquet sources."""
+@api.get("/endpoints/{endpoint_id}/data/download")
+def download_data_file(endpoint_id):
+    """Download the original data file (tss:dataFile), CSV or Parquet"""
     info = get_endpoint_info(endpoint_id)
-    media_type = "application/vnd.apache.parquet" if info["dataFormat"] == str(PARQUET_FILE_TYPE) else "text/csv"
-    return send_as_download(info["csvUrl"], media_type)
+    if info["embedded"] is True or info["dataFile"] is None:
+        raise HTTPException(status_code=400, detail="This source has no data file to download.")
+    media_type = "application/vnd.apache.parquet" if info["format"] == "tss:Parquet" else "text/csv"
+    return send_as_download(info["dataFile"], media_type)
 
 
-@api.get("/endpoints/{endpoint_id}/csvw")
-def get_csvw_file(endpoint_id):
-    """The CSVW metadata file the endpoint points to with tss:describedby"""
+@api.get("/endpoints/{endpoint_id}/points")
+def get_points_file(endpoint_id):
+    """The JSON points embedded in the source (tss:points), one point per line"""
     info = get_endpoint_info(endpoint_id)
-    location = info["describedBy"]
-    if not info["csvwApplicable"]:
-        return {
-            "path": location,
-            "found": False,
-            "applicable": False,
-            "note": "Not applicable. CSVW metadata is only used when the TSS declares dcterms:format filetype:CSV.",
-        }
-    if not file_exists(location):
-        return {"path": location, "found": False}
+    if info["embedded"] is not True:
+        raise HTTPException(status_code=400, detail="This source has no embedded points: its data is in an external file (tss:dataFile).")
+    graph = load_graph(endpoint_id)
+    source = graph.value(predicate=RDF.type, object=TSS.Source)
+    try:
+        points = read_points(graph, source)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
+    lines = []
+    for point in points:
+        lines.append("  " + json.dumps(point, ensure_ascii=False))
     return {
-        "path": location,
+        "path": "tss:points",
         "found": True,
-        "note": "",
-        "text": read_text(location),
+        "note": f"{len(points)} points, embedded in {info['file']}",
+        "text": "[\n" + ",\n".join(lines) + "\n]",
     }
-
-
-@api.get("/endpoints/{endpoint_id}/csvw/download")
-def download_csvw_file(endpoint_id):
-    """The CSVW metadata file (tss:describedby), sent as a download"""
-    info = get_endpoint_info(endpoint_id)
-    if not info["csvwApplicable"]:
-        raise HTTPException(status_code=400, detail="CSVW metadata is not applicable: the TSS must declare dcterms:format filetype:CSV.")
-    return send_as_download(info["describedBy"], "application/json")
-
-
-def find_snippet(info, snippet):
-    """The snippet (one time series) with this IRI, from get_endpoint_info"""
-    for s in info["snippets"]:
-        if s["id"] == snippet:
-            return s
-    raise HTTPException(status_code=404, detail=f"Unknown snippet: {snippet}")
 
 
 def query_field(endpoint_id, field):
