@@ -180,7 +180,7 @@ def read_rows(graph, source, data_path):
         except ValueError as error:
             raise ValueError(f"tss:points is not valid JSON: {error}")
         if not isinstance(points, list):
-            raise ValueError("tss:points must be a JSON array of objects (tss:pointLayout tss:Object).")
+            raise ValueError("tss:points must be a JSON array of objects, keyed by the fields' tss:columnName.")
         for number, point in enumerate(points, start=1):
             if not isinstance(point, dict):
                 raise ValueError(f"Point {number} in tss:points is not a JSON object.")

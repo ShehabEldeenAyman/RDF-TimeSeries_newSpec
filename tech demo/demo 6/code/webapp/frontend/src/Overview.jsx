@@ -43,7 +43,7 @@ export function Overview({ info }) {
             <tbody>
               <Fact name="IRI" value={info.source} />
               <Fact name="tss:embedded" value={info.embedded === null ? 'not stated' : String(info.embedded)} />
-              <Fact name="tss:format" value={info.format} />
+              {!info.embedded && <Fact name="tss:format" value={info.format} />}
               {!info.embedded && <Fact name="tss:dataFile" value={info.dataFile} />}
               <Fact name="tss:mutable" value={info.mutable} />
               <Fact name="tss:producedBy" value={info.producedBy} />
@@ -58,14 +58,10 @@ export function Overview({ info }) {
         <section className="card">
           <h3>Reading the data</h3>
           {info.embedded && (
-            <>
-              <p className="muted small">How the points in tss:points are written.</p>
-              <table className="facts">
-                <tbody>
-                  <Fact name="tss:pointLayout" value={info.pointLayout} />
-                </tbody>
-              </table>
-            </>
+            <p className="muted small">
+              tss:points holds a JSON array with one object per row. The keys of each object are the fields' column
+              names (tss:columnName), so their order does not matter.
+            </p>
           )}
           {!info.embedded && info.format === 'tss:CSV' && (
             <>

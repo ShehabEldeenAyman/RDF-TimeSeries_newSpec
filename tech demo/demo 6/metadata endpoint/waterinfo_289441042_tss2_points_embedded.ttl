@@ -24,7 +24,6 @@ ex:zevenaarshaven-source
     tss:mutable false ;
     tss:producedBy ex:289441042 ;
     tss:embedded true ;
-    tss:format tss:JSON ;
     tss:timeField ex:zevenaarshaven-time-field ;
     tss:key ex:zevenaarshaven-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
@@ -32,7 +31,6 @@ ex:zevenaarshaven-source
     tss:hasField ex:zevenaarshaven-time-field,
         ex:zevenaarshaven-ec20-value-field,
         ex:zevenaarshaven-quality-color-value-field ;
-    tss:pointLayout tss:Object ;
     tss:points """[
         { "time": "2021-03-03T23:15:00Z", "ec20": "4797.72", "qualityColor": "rgba(0, 128, 0, 1.0)"},
         { "time": "2021-03-03T23:30:00Z", "ec20": "4717.8", "qualityColor": "rgba(0, 128, 0, 1.0)"},

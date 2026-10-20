@@ -123,7 +123,7 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX tss:  <https://w3id.org/tss#>
 
 SELECT ?source ?label ?embedded ?format ?dataFile ?mutable ?producedBy
-       ?fromTime ?untilTime ?timeField ?pointLayout ?delimiter ?header ?encoding
+       ?fromTime ?untilTime ?timeField ?delimiter ?header ?encoding
 WHERE {
   ?source a tss:Source .
   OPTIONAL { ?source rdfs:label ?label }
@@ -135,7 +135,6 @@ WHERE {
   OPTIONAL { ?source tss:from ?fromTime }
   OPTIONAL { ?source tss:until ?untilTime }
   OPTIONAL { ?source tss:timeField ?timeField }
-  OPTIONAL { ?source tss:pointLayout ?pointLayout }
   OPTIONAL { ?source tss:delimiter ?delimiter }
   OPTIONAL { ?source tss:header ?header }
   OPTIONAL { ?source tss:encoding ?encoding }
@@ -149,7 +148,7 @@ WHERE {
 SOURCE_PROPERTIES = [
     RDF.type, RDFS.label, TSS.embedded, TSS["format"], TSS.dataFile, TSS.mutable, TSS.producedBy,
     TSS["from"], TSS.until, TSS.timeField, TSS.key, TSS.hasField,
-    TSS.pointLayout, TSS.points, TSS.delimiter, TSS.header, TSS.encoding,
+    TSS.points, TSS.delimiter, TSS.header, TSS.encoding,
 ]
 
 
@@ -456,11 +455,10 @@ def get_endpoint_info(endpoint_id):
         "until": show(graph, row.untilTime),
         "timeField": column_name(graph, row.timeField) if row.timeField is not None else None,
         "key": key_names,
-        # how to read the data: CSV settings, or the layout of embedded points
+        # how to read a CSV data file
         "delimiter": show(graph, row.delimiter),
         "header": show(graph, row.header),
         "encoding": show(graph, row.encoding),
-        "pointLayout": show(graph, row.pointLayout),
         # filled in below
         "fields": [],
         "otherProperties": [],
@@ -673,7 +671,7 @@ def mark_turtle(text, marks):
 
 def read_points(graph, source):
     """The JSON points embedded in a source (tss:points), as a list of objects.
-    Each object is one row; its keys are the column names of the fields (tss:pointLayout tss:Object).
+    Each object is one row; its keys are the column names of the fields (tss:columnName).
     Raises ValueError with the reason when they can't be used."""
     try:
         points = json.loads(str(graph.value(source, TSS.points)))
@@ -683,7 +681,7 @@ def read_points(graph, source):
         raise ValueError("tss:points must be a JSON array")
     for point in points:
         if not isinstance(point, dict):
-            raise ValueError("Every point in tss:points must be a JSON object (tss:pointLayout tss:Object)")
+            raise ValueError("Every point in tss:points must be a JSON object, keyed by the fields' tss:columnName")
     return points
 
 
