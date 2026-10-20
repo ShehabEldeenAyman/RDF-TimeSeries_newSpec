@@ -16,7 +16,7 @@ const tabs = [
   { id: 'overview', label: 'Overview', updated: true },
   { id: 'inspector', label: 'Series inspector', updated: true },
   { id: 'shacl', label: 'SHACL', updated: false },
-  { id: 'rdf', label: 'RDF generation', updated: false },
+  { id: 'rdf', label: 'RDF generation', updated: true },
   { id: 'files', label: 'Files', updated: true },
   { id: 'query', label: 'Query', updated: true },
   { id: 'sql', label: 'SQL (DuckDB)', updated: true },

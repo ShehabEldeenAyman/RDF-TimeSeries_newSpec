@@ -1,56 +1,61 @@
 # TSS2RDF
 
-`tss2rdf.py` converts RDFTSS Turtle files into the same domain RDF as the Demo 4 dashboard. It is a self-contained script: you can copy it elsewhere and run it with `rdflib` and `csvw` installed. It does not require the dashboard, a web server, or FastAPI. The dashboard imports this script's conversion functions so the two entry points share the same rules.
+`tss2rdf.py` turns a TSS metadata file (one `tss:Source` with its `tss:Field` nodes) and its data into SOSA observations in Turtle. It runs on its own: you can copy it elsewhere and run it with `rdflib` (and `duckdb` for Parquet data). The dashboard's **RDF generation** tab imports its `generate()` function, so both make the same RDF.
 
 ## Install and run
 
 From the repository root, in PowerShell:
 
 ```powershell
-cd "tech demo/demo 4/code/TSS2RDF"
+cd "tech demo/demo 6/code/TSS2RDF"
 python -m pip install -r requirements.txt
 ```
 
-Embedded example:
+Embedded points:
 
 ```powershell
-python .\tss2rdf.py --mode embedded --tss "..\..\metadata endpoint\waterinfo_289441042_tss2_points_embedded.ttl" --output ".\output\embedded.ttl"
+python .\tss2rdf.py --tss "..\..\metadata endpoint\waterinfo_289441042_tss2_points_embedded.ttl" --output ".\output\embedded.ttl"
 ```
 
-External CSV example:
+A CSV or Parquet source (the data file is the source's `tss:dataFile`, read relative to the TSS file):
 
 ```powershell
-python .\tss2rdf.py --mode external --tss "..\..\metadata endpoint\waterinfo_289423042_tss2.ttl" --csv "..\..\data\waterinfo_289423042.csv" --csvw "..\..\csvw\waterinfo_289423042_csvw.json" --output ".\output\external.ttl"
+python .\tss2rdf.py --tss "..\..\metadata endpoint\waterinfo_289423042_tss2.ttl" --output ".\output\external.ttl"
 ```
 
-The output directory is created automatically. Each successful run prints JSON statistics including the output path, reading count, triple count, per-series counts, and file size. `output/` is ignored by Git so full generated datasets stay local.
+The output folder is created when needed. A successful run prints JSON statistics: the output path, the data that was read, the number of observations and triples, the observations per field, and the file size. `output/` is ignored by Git, so full generated datasets stay local.
 
 ## Arguments
 
 | Argument | Meaning |
 |---|---|
-| `--mode embedded` or `--mode external` | Required storage profile; must agree with the file's boolean `tss:embedded`. |
-| `--tss PATH` | Required input Turtle file. |
-| `--csv PATH` | Required in external mode: the actual CSV file to read. |
-| `--csvw PATH` | Required in external mode: the CSVW JSON description to use. |
-| `--output PATH`, `-o PATH` | Complete output graph in Turtle; defaults to `observations.ttl` in the current working directory. |
-| `--help` | Show command-line help. |
+| `--tss PATH` | Required: the TSS Turtle file, with exactly one `tss:Source`. |
+| `--output PATH`, `-o PATH` | The Turtle file to write; `observations.ttl` in the current folder by default. |
+| `--help` | Show the command-line help. |
 
-All input arguments are local file paths, absolute or relative to the working directory. Embedded mode rejects CSV/CSVW arguments. In external mode, the explicit paths locate the physical inputs; the group's `tss:dataFile` IRI remains the base for relative CSVW URL mappings, matching dashboard behavior. The TSS must still declare `tss:dataFile` and `tss:describedby` IRIs. One external CSV/CSVW pair is supported per invocation; groups referring to different pairs require separate conversions.
+## What it makes
 
-## Conversion behavior
+Every row of the data gives one `sosa:Observation` for each field that has a `tss:observedProperty`, except the time field:
 
-- Each reading becomes a standalone domain RDF node. Embedded point identifiers are preserved when present; other readings are anonymous nodes.
-- Effective point types and `tss:about` metadata follow the same snippet overrides and template inheritance as the dashboard. Referenced domain resources retain their descriptions.
-- TSS vocabulary, source snippet/group nodes, group attributes such as `tss:producedBy`, and synthesized collections are excluded.
-- Embedded values are expanded using the effective JSON-LD context. Their original time/value mappings and nested result structure are preserved.
-- External values use CSVW `propertyUrl`, `datatype` strings or `datatype.base`, and `valueUrl` mappings, including virtual columns. Each series receives its own measured value, shared timestamp, mapped auxiliary columns, and its domain metadata.
-- External readings respect each snippet's inclusive `from` and exclusive `until` bounds. Null measured values produce no reading. As in the dashboard, embedded expansion materializes the supplied point arrays without window filtering.
-- CSV parsing uses the CSVW's single-character `dialect.delimiter`, defaulting to comma (`","`) when `delimiter` or the entire `dialect` is omitted. Invalid explicit delimiters still produce an error; there is no guessing. It supports headers or headerless CSVs, column names, encoding, quoting, null/default settings, and datatype constraints. The same dashboard restrictions apply: zero or one header row, no skipped columns, no `aboutUrl` subject mappings, and no ordered separator lists.
-- External output streams to disk and contains **all** generated readings; it is not restricted to the dashboard's 200-reading preview.
-- Existing output is replaced only after successful conversion. Errors preserve the previous output and source files. The output cannot be an input file.
+```turtle
+[] a sosa:Observation ;
+    sosa:observedProperty quantitykind:ElectricConductivity ;   # tss:observedProperty
+    sosa:madeBySensor ex:sensor-grootdok-ec20 ;                 # tss:sensor (when stated)
+    sosa:hasFeatureOfInterest ex:water-grootdok ;               # tss:featureOfInterest (when stated)
+    qudt:hasUnit unit:MicroS-PER-CentiM ;                       # tss:unit (when stated)
+    sosa:resultTime "2021-03-03T23:45:00Z"^^xsd:dateTime ;      # the row's tss:timeField column
+    sosa:hasSimpleResult "902.27"^^xsd:double .                 # the cell, with the field's tss:datatype
+```
 
-Exit codes: `0` for success, `1` for conversion/input errors, and `2` for incorrect command-line arguments. SHACL validation remains a separate operation.
+- A field that describes another one (`tss:describesField`) but has its own `tss:observedProperty`, such as the quality code colour, becomes its own observation at the same time. Fields without `tss:observedProperty` (an id column, a quality code number, ...) are not in the RDF.
+- Only rows inside the source's time window are used: `tss:from` included, `tss:until` not.
+- An empty cell (or a missing key in an embedded point) gives no observation.
+- Values keep their text from the data (`"3.0E1"` stays `"3.0E1"`). A value that does not fit its field's `tss:datatype` (XSD numbers, booleans, dates and date-times) stops the conversion and names the row. `rdf:langString` fields use `tss:language`.
+- Observations are blank nodes. The TSS vocabulary and the source and field nodes are not in the output. What the metadata says about the IRIs the observations use (a sensor, a feature, ...) is copied along, without TSS terms.
+- The data is read as `tss:format` says: `tss:CSV` with `tss:delimiter` (default `,`), `tss:header` (default `true`; without a header line, columns are matched by `tss:columnIndex`) and `tss:encoding` (default `utf-8`); `tss:Parquet` with its own column types; or, with `tss:embedded true`, the JSON objects in `tss:points`, keyed by `tss:columnName`.
+- The output is written to a temporary file and only replaces the output file when the whole conversion worked, so errors never leave half a graph or overwrite an earlier result. The output cannot be the TSS file or the data file.
+
+Exit codes: `0` for success, `1` for conversion or input errors, `2` for wrong command-line arguments. No SHACL validation is done before converting.
 
 ## Tests
 
@@ -58,13 +63,14 @@ Exit codes: `0` for success, `1` for conversion/input errors, and `2` for incorr
 python -B -m unittest -v test_tss2rdf
 ```
 
-The tests run a copy of the script outside the repository to check that it works independently. They cover the real embedded example, an external CSV with multiple series and CSVW mappings, argument/profile errors, and preservation of existing output after a failed conversion. The two example commands above run against the full embedded and external demo datasets.
+The tests cover a CSV source (time window, empty cells, the describing field with its own observed property, a field without one, kept value text, copied sensor description), a headerless CSV, a Parquet file, a bad value and a bad time (the old output stays), the command line, and the demo's embedded and CSV files.
 
-Verified demo conversions:
+Demo conversions:
 
-| Input | Readings | RDF triples | Output |
-|---|---:|---:|---|
-| `waterinfo_289441042_tss2_points_embedded.ttl` | 10 | 55 | `output/embedded.ttl` |
-| `waterinfo_289423042_tss2.ttl` and its CSV/CSVW | 94,853 | 1,233,089 | `output/external.ttl` |
-
-The generated files and verification report are available locally in `output/`. The standalone CLI and dashboard regression tests also cover omitted delimiters/dialects defaulting to comma and explicit semicolon delimiters remaining in effect.
+| Input | Observations | RDF triples | Output size |
+|---|---:|---:|---:|
+| `waterinfo_289441042_tss2_points_embedded.ttl` | 10 | 55 | 3 kB |
+| `waterinfo_289423042_tss2.ttl` (CSV) | 189,706 | 1,043,383 | 50 MB |
+| `waterinfo_289429042_tss2_parquet.ttl` (Parquet) | 316,044 | 1,738,242 | 85 MB |
+| `waterinfo_289435042_tss2.ttl` (CSV) | 279,856 | 1,539,208 | 75 MB |
+| `factory_conductivity_tss2.ttl` (CSV) | 441,923 | 2,991,483 | 147 MB |

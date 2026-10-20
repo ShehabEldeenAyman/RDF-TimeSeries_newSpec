@@ -1,808 +1,431 @@
 #!/usr/bin/env python3
-"""Convert embedded, CSV-backed or Parquet-backed RDFTSS into domain Turtle.
+"""Turn a TSS source (a tss:Source with tss:Field nodes) and its data into SOSA observations in Turtle.
 
-This file runs independently of the dashboard. The dashboard imports its
-conversion functions to keep both entry points' RDF semantics identical.
+Every row of the data gives one sosa:Observation for each field that has a
+tss:observedProperty (except the time field). An observation says:
+
+    [] a sosa:Observation ;
+        sosa:observedProperty     <the field's tss:observedProperty> ;
+        sosa:madeBySensor         <the field's tss:sensor> ;             (when stated)
+        sosa:hasFeatureOfInterest <the field's tss:featureOfInterest> ;  (when stated)
+        qudt:hasUnit              <the field's tss:unit> ;               (when stated)
+        sosa:resultTime           "<the row's time (tss:timeField)>"^^xsd:dateTime ;
+        sosa:hasSimpleResult      "<the cell>"^^<the field's tss:datatype> .
+
+- Only rows inside the source's time window are used: tss:from included, tss:until not.
+- An empty cell gives no observation.
+- A cell that does not fit its field's tss:datatype stops the conversion, with the row number.
+- Values keep their text exactly as it is in the data.
+- Fields without tss:observedProperty (an id column, a quality code, ...) are not in the RDF.
+- What the metadata says about the IRIs the observations use (a sensor, a feature, ...)
+  is copied along, without the TSS vocabulary.
+
+The data is a CSV file or a Parquet file (tss:dataFile, read as tss:format says), or the
+JSON points embedded in the Turtle (tss:points). This file runs on its own: it needs rdflib,
+and duckdb for Parquet. The dashboard imports generate(), so both give the same RDF.
 """
 import argparse
 import csv
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
-from urllib.parse import urljoin, urlparse
-from uuid import uuid4
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
-from csvw.metadata import Datatype, NAMESPACES, Table
-from rdflib import BNode, Graph, Literal, Namespace, RDF, RDFS, URIRef
+from rdflib import Graph, Literal, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import XSD
-from rdflib.plugins.shared.jsonld.context import Context, UNDEF
 
 TSS = Namespace("https://w3id.org/tss#")
+SOSA = Namespace("http://www.w3.org/ns/sosa/")
+QUDT = Namespace("http://qudt.org/schema/qudt/")
 
-
-def csvw_delimiter(metadata, described_by=None):
-    """Use the CSVW delimiter, or comma when the dialect/field is omitted."""
-    label = f"The CSVW file {described_by}" if described_by is not None else "The CSVW"
-    dialect = metadata.get("dialect", {})
-    if not isinstance(dialect, dict):
-        raise ValueError(f"{label} must define dialect as an object.")
-    delimiter = dialect.get("delimiter", ",")
-    if not isinstance(delimiter, str) or len(delimiter) != 1 or delimiter in "\r\n\0":
-        raise ValueError(f"{label} must define dialect.delimiter as one character (for example ';', ',' or a tab).")
-    return delimiter
-
-
-def single(graph, node, prop, required=False):
-    values = list(graph.objects(node, prop))
-    if len(values) > 1 or required and not values:
-        raise ValueError(f"{node} must state {'exactly' if required else 'at most'} one {prop}.")
-    return values[0] if values else None
-
-
-def effective(graph, snippet, template, prop):
-    own = single(graph, snippet, prop)
-    return own if own is not None else single(graph, template, prop)
-
-
-def read_json(literal, name):
-    if not isinstance(literal, Literal):
-        raise ValueError(f"{name} must be a JSON literal.")
-    try:
-        return json.loads(str(literal))
-    except (ValueError, TypeError) as error:
-        raise ValueError(f"Invalid JSON in {name}: {error}") from error
-
-
-# The type of a group's data file: dcterms:format on the group, from the EU file-type
-# vocabulary or as an IANA media type. A group without dcterms:format keeps the original
-# behaviour: its data file is a CSV described by CSVW.
-DCTERMS_FORMAT = URIRef("http://purl.org/dc/terms/format")
-FILE_TYPES = {
-    "http://publications.europa.eu/resource/authority/file-type/CSV": "csv",
-    "http://publications.europa.eu/resource/authority/file-type/PARQUET": "parquet",
-    "http://www.iana.org/assignments/media-types/text/csv": "csv",
-    "https://www.iana.org/assignments/media-types/text/csv": "csv",
-    "http://www.iana.org/assignments/media-types/application/vnd.apache.parquet": "parquet",
-    "https://www.iana.org/assignments/media-types/application/vnd.apache.parquet": "parquet",
+# How a cell must look for each datatype (XSD lexical forms). A datatype that is not
+# in here (xsd:string, xsd:anyURI, ...) accepts any text.
+INTEGER = r"[+-]?[0-9]+"
+DECIMAL = r"[+-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)"
+DOUBLE = r"[+-]?(([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?|INF)|NaN"
+TIMEZONE = r"(Z|[+-][0-9]{2}:[0-9]{2})?"
+LEXICAL_FORMS = {
+    XSD.integer: INTEGER, XSD.int: INTEGER, XSD.long: INTEGER, XSD.short: INTEGER, XSD.byte: INTEGER,
+    XSD.nonNegativeInteger: r"\+?[0-9]+", XSD.positiveInteger: r"\+?[0-9]*[1-9][0-9]*",
+    XSD.nonPositiveInteger: r"(-[0-9]+|\+?0+)", XSD.negativeInteger: r"-[0-9]*[1-9][0-9]*",
+    XSD.unsignedLong: r"\+?[0-9]+", XSD.unsignedInt: r"\+?[0-9]+",
+    XSD.unsignedShort: r"\+?[0-9]+", XSD.unsignedByte: r"\+?[0-9]+",
+    XSD.decimal: DECIMAL, XSD.double: DOUBLE, XSD.float: DOUBLE,
+    XSD.boolean: r"true|false|1|0",
+    XSD.dateTime: r"-?[0-9]{4,}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?" + TIMEZONE,
+    XSD.date: r"-?[0-9]{4,}-[0-9]{2}-[0-9]{2}" + TIMEZONE,
 }
 
 
-def data_format(graph, group):
-    """'csv' or 'parquet' for the group's data file, or None when its dcterms:format
-    names another file type or several. Without dcterms:format the file is CSV."""
-    values = list(graph.objects(group, DCTERMS_FORMAT))
-    if not values:
-        return "csv"
+# ---------------------------------------------------------------------------
+# Reading the metadata
+# ---------------------------------------------------------------------------
+
+def single(graph, node, prop):
+    """The one value of a property, or None. More than one value is an error."""
+    values = list(graph.objects(node, prop))
     if len(values) > 1:
-        return None
-    return FILE_TYPES.get(str(values[0]))
+        raise ValueError(f"{node} states {len(values)} values for {prop}; only one is allowed.")
+    return values[0] if values else None
 
 
-def parquet_column(names, wanted):
-    """The Parquet column that a TSS column binding (tss:timeColumn, tss:valueColumn) means.
-    An exact match wins. Otherwise one column whose name differs only in upper/lower case
-    is accepted, as SQL engines such as DuckDB do. None when no column (or several) match."""
-    if wanted is None:
-        return None
-    wanted = str(wanted)
-    if wanted in names:
-        return wanted
-    matches = [name for name in names if name.lower() == wanted.lower()]
-    return matches[0] if len(matches) == 1 else None
+def moment(text, what):
+    """A date-time text as a datetime in UTC (a time without a timezone is taken as UTC)"""
+    if re.fullmatch(LEXICAL_FORMS[XSD.dateTime], text) is None:
+        raise ValueError(f"{what}: {text!r} is not an xsd:dateTime like 2021-03-03T23:45:00Z")
+    try:
+        value = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        raise ValueError(f"{what}: {text!r} is not a valid date-time")
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value
 
 
-def generate_parquet(source, load_files, target, preview_limit=200):
-    """load_files(group) returns (local Parquet path, original data file IRI)."""
-    import base64
-    from datetime import date, time
-    from decimal import Decimal
-    import duckdb
+def read_source(graph):
+    """The source, and everything the conversion needs from it and its fields"""
+    sources = list(graph.subjects(RDF.type, TSS.Source))
+    if len(sources) != 1:
+        raise ValueError(f"The metadata must describe exactly one tss:Source (found {len(sources)}).")
+    node = sources[0]
 
-    groups = sorted(set(source.subjects(RDF.type, TSS.SnippetGroup)), key=str)
-    if not groups:
-        raise ValueError("No snippet group found.")
-    controls = (set(groups) | set(source.objects(None, TSS.snippetTemplate))
-                | set(source.subjects(RDF.type, TSS.Snippet)) | set(source.objects(None, TSS.about)))
+    embedded = single(graph, node, TSS.embedded)
+    if not isinstance(embedded, Literal) or not isinstance(embedded.toPython(), bool):
+        raise ValueError("The source must state tss:embedded true or false.")
+    time_field = single(graph, node, TSS.timeField)
+    if time_field is None:
+        raise ValueError("The source has no tss:timeField, so the observations would have no time.")
 
-    def allowed(*terms):
-        return not any(term in controls or isinstance(term, URIRef) and str(term).startswith(str(TSS))
-                       or isinstance(term, Literal) and term.datatype is not None
-                       and str(term.datatype).startswith(str(TSS)) for term in terms)
+    fields = []
+    for field in graph.objects(node, TSS.hasField):
+        column = single(graph, field, TSS.columnName)
+        index = single(graph, field, TSS.columnIndex)
+        label = single(graph, field, RDFS.label)
+        fields.append({
+            "node": field,
+            "column": str(column) if column is not None else None,
+            "index": int(index) if index is not None and str(index).isdigit() else None,
+            "label": str(label) if label is not None else str(column),
+            "datatype": single(graph, field, TSS.datatype),
+            "language": single(graph, field, TSS.language),
+            "observedProperty": single(graph, field, TSS.observedProperty),
+            "sensor": single(graph, field, TSS.sensor),
+            "featureOfInterest": single(graph, field, TSS.featureOfInterest),
+            "unit": single(graph, field, TSS.unit),
+        })
+    # Always the same order: by tss:columnIndex, then by column name
+    fields.sort(key=lambda field: (field["index"] is None, field["index"] or 0, field["column"] or ""))
 
-    def domain_graph():
-        graph = Graph(bind_namespaces="none")
-        for prefix, namespace in source.namespaces():
-            if prefix != "tss" and not str(namespace).startswith(str(TSS)):
-                graph.bind(prefix, namespace)
-        return graph
+    time_column = None
+    for field in fields:
+        if field["node"] == time_field:
+            time_column = field["column"]
+    if time_column is None:
+        raise ValueError("The tss:timeField must be one of the source's fields, with a tss:columnName.")
 
-    def moment(value, what):
-        if value is None:
-            return None
-        if isinstance(value, Literal):
-            value = value.toPython()
-        if isinstance(value, str):
-            try:
-                value = datetime.fromisoformat(value)
-            except ValueError as error:
-                raise ValueError(f"{what} must contain dateTime values.") from error
-        if not isinstance(value, datetime):
-            raise ValueError(f"{what} must contain dateTime values.")
-        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    window = {}
+    for name in ("from", "until"):
+        value = single(graph, node, TSS[name])
+        window[name] = moment(str(value), f"tss:{name}") if value is not None else None
 
-    def json_value(value):
-        if isinstance(value, (datetime, date, time)):
-            return value.isoformat()
-        if isinstance(value, Decimal):
-            return str(value)
-        if isinstance(value, (bytes, bytearray)):
-            return base64.b64encode(value).decode("ascii")
-        raise TypeError(f"Unsupported Parquet value type: {type(value).__name__}.")
-
-    preview, series, referenced = [], [], set()
-    point_count = triple_count = preview_points = 0
-    about_nodes = set(source.objects(None, TSS.about))
-    mapped_terms = [str(term) for subject, predicate, obj in source
-                    if not str(predicate).startswith(str(TSS))
-                    and (subject not in controls or subject in about_nodes and predicate != RDF.type)
-                    for term in (predicate, obj) if isinstance(term, URIRef) and allowed(term)]
-    mapped_terms.extend(str(value) for value in source.objects(None, TSS.pointType))
-    context_text = "\n".join(str(value) for value in source.objects(None, TSS.context))
-    namespace_graph = Graph(bind_namespaces="none")
-    for prefix, namespace in source.namespaces():
-        if (prefix != "tss" and not str(namespace).startswith(str(TSS))
-                and (any(term.startswith(str(namespace)) for term in mapped_terms)
-                     or str(namespace) in context_text or prefix + ":" in context_text)):
-            namespace_graph.bind(prefix, namespace)
-    namespace_graph.bind("rdf", RDF)
-    namespace_graph.bind("xsd", XSD)
-    manager = namespace_graph.namespace_manager
-    header = "".join(f"@prefix {prefix}: <{namespace}> .\n" for prefix, namespace in manager.namespaces()) + "\n"
-    with open(target, "w", encoding="utf-8", newline="\n") as output:
-        for group in groups:
-            flag = single(source, group, TSS.embedded, required=True)
-            if not isinstance(flag, Literal) or flag.toPython() is not False or data_format(source, group) != "parquet":
-                raise ValueError("Parquet RDF generation requires tss:embedded false and a Parquet dcterms:format.")
-            template = single(source, group, TSS.snippetTemplate, required=True)
-            parquet_path, data_iri = load_files(group)
-            try:
-                with duckdb.connect() as connection:
-                    cursor = connection.execute("SELECT * FROM read_parquet(?, hive_partitioning = false)", [str(parquet_path)])
-                    names = [column[0] for column in cursor.description]
-                    bindings = []
-                    for snippet in sorted(set(source.objects(group, TSS.hasSnippet)), key=str):
-                        if (snippet, RDF.type, TSS.Snippet) not in source or len(set(source.subjects(TSS.hasSnippet, snippet))) != 1:
-                            raise ValueError(f"{snippet} must be a described snippet in exactly one group.")
-                        time_name = parquet_column(names, effective(source, snippet, template, TSS.timeColumn))
-                        value_name = parquet_column(names, effective(source, snippet, template, TSS.valueColumn))
-                        if time_name is None or value_name is None or time_name == value_name:
-                            raise ValueError(f"{snippet} needs distinct timeColumn and valueColumn bindings matching Parquet fields.")
-                        context = read_json(effective(source, snippet, template, TSS.context), f"tss:context on {snippet}")
-                        if isinstance(context, dict) and "@context" in context:
-                            context = context["@context"]
-                        try:
-                            active = Context(context, base=str(data_iri))
-                            for name in (time_name, value_name):
-                                predicate = active.expand(name)
-                                if not predicate or predicate.startswith("@") or ":" not in predicate or predicate.startswith(str(TSS)):
-                                    raise ValueError(f"tss:context on {snippet} must map Parquet field {name!r} to a domain RDF property.")
-                        except Exception as error:
-                            raise ValueError(f"Could not read tss:context on {snippet}: {error}") from error
-                        point_type = effective(source, snippet, template, TSS.pointType)
-                        about = effective(source, snippet, template, TSS.about)
-                        if not isinstance(point_type, URIRef) or not allowed(point_type):
-                            raise ValueError(f"{snippet} needs a domain pointType class IRI.")
-                        if not isinstance(about, (BNode, URIRef)):
-                            raise ValueError(f"{snippet} needs an about metadata node.")
-                        start = moment(effective(source, snippet, template, TSS["from"]), "tss:from")
-                        end = moment(effective(source, snippet, template, TSS.until), "tss:until")
-                        if start and end and start >= end:
-                            raise ValueError(f"{snippet} has an empty time window.")
-                        entry = {"label": str(source.value(snippet, RDFS.label) or "Series"), "points": 0}
-                        series.append(entry)
-                        bindings.append((snippet, time_name, value_name, context, point_type, about, start, end, entry, active))
-                    if not bindings:
-                        raise ValueError(f"{group} has no member snippets.")
-                    value_columns = {binding[2] for binding in bindings}
-                    row_offset = 0
-                    while rows := cursor.fetchmany(1000):
-                        for snippet, time_name, value_name, context, point_type, about, start, end, entry, active in bindings:
-                            points = []
-                            marker = URIRef(f"urn:rdftss-generation:{uuid4()}:row")
-                            selected = [name for name in names if name not in value_columns or name == value_name]
-                            for index, values in enumerate(rows, row_offset + 1):
-                                row = dict(zip(names, values))
-                                timestamp = moment(row[time_name], f"Parquet row {index}, field {time_name!r}")
-                                if timestamp is None:
-                                    raise ValueError(f"Parquet row {index}: missing timestamp.")
-                                if start and timestamp < start or end and timestamp >= end or row[value_name] is None:
-                                    continue
-                                points.append({**{name: row[name] for name in selected},
-                                               str(marker): {"@value": len(points), "@type": str(XSD.integer)}})
-                            if not points:
-                                continue
-                            # Scalar mappings need no intermediate RDF graph. Keep the
-                            # JSON-LD parser for containers, scoped contexts and nested data.
-                            mappings = []
-                            simple = True
-                            for name in selected:
-                                predicate = active.expand(name)
-                                term = active.terms.get(name)
-                                if (predicate and predicate.startswith("@") or term
-                                        and (term.reverse or term.context or term.container or term.type == "@json")):
-                                    simple = False
-                                    break
-                                if predicate:
-                                    mappings.append((name, URIRef(predicate), term))
-                            simple = simple and all(not isinstance(point[name], (dict, list, tuple))
-                                                    for point in points for name in selected)
-                            if simple:
-                                output.write(header)
-                                if preview_points < preview_limit:
-                                    preview.append(header)
-                                for point in points:
-                                    pairs = {(RDF.type, point_type)}
-                                    for name, predicate, term in mappings:
-                                        value = point[name]
-                                        if value is None:
-                                            continue
-                                        if isinstance(value, (datetime, date, time, Decimal, bytes, bytearray)):
-                                            value = json_value(value)
-                                        datatype = term.type if term else None
-                                        if datatype in ("@id", "@vocab"):
-                                            if not isinstance(value, str):
-                                                raise ValueError(f"Parquet field {name!r} needs text values for its IRI mapping.")
-                                            iri = active.resolve(value) if datatype == "@id" else active.expand(value) or active.resolve_iri(value)
-                                            obj = URIRef(iri)
-                                        elif datatype:
-                                            obj = Literal(value, datatype=active.expand(datatype))
-                                        elif isinstance(value, float):
-                                            obj = Literal(value, datatype=XSD.double)
-                                        else:
-                                            lang = term.language if term and term.language is not UNDEF else active.language
-                                            obj = Literal(value, lang=lang)
-                                        if not allowed(predicate, obj):
-                                            raise ValueError(f"The Parquet RDF mapping on {snippet} uses TSS vocabulary or a source container.")
-                                        if isinstance(obj, Literal) and (obj.ill_typed or obj.datatype
-                                                and Literal(str(obj), datatype=obj.datatype, normalize=False).ill_typed):
-                                            raise ValueError(f"Parquet field {name!r} produced an invalid {obj.datatype} literal: {obj}.")
-                                        pairs.add((predicate, obj))
-                                        if isinstance(obj, (BNode, URIRef)) and (obj, None, None) in source:
-                                            referenced.add(obj)
-                                    for predicate, obj in source.predicate_objects(about):
-                                        if predicate != RDF.type and allowed(predicate, obj):
-                                            pairs.add((predicate, obj))
-                                            if isinstance(obj, (BNode, URIRef)):
-                                                referenced.add(obj)
-                                    ordered = sorted(pairs, key=lambda pair: (pair[0] != RDF.type, str(pair[0]), str(pair[1])))
-                                    text = "[] " + " ;\n    ".join(f"{predicate.n3(manager)} {obj.n3(manager)}" for predicate, obj in ordered) + " .\n\n"
-                                    output.write(text)
-                                    point_count += 1
-                                    entry["points"] += 1
-                                    triple_count += len(pairs)
-                                    if preview_points < preview_limit:
-                                        preview.append(text)
-                                        preview_points += 1
-                                continue
-                            expanded = Graph()
-                            try:
-                                document = json.dumps({"@context": context, "@graph": points}, default=json_value, allow_nan=False)
-                                expanded.parse(data=document, format="json-ld", publicID=str(data_iri))
-                            except Exception as error:
-                                raise ValueError(f"Could not expand Parquet rows {row_offset + 1}-{row_offset + len(rows)} of {snippet}: {error}") from error
-                            roots = []
-                            for index in range(len(points)):
-                                nodes = list(expanded.subjects(marker, Literal(index)))
-                                if len(nodes) != 1 or not isinstance(nodes[0], (BNode, URIRef)) or not allowed(nodes[0]):
-                                    raise ValueError(f"A Parquet reading of {snippet} did not expand into one domain RDF node.")
-                                roots.append(nodes[0])
-                            expanded.remove((None, marker, None))
-                            domain = domain_graph()
-                            for subject, predicate, obj in expanded:
-                                if not allowed(subject, predicate, obj):
-                                    raise ValueError(f"The Parquet RDF mapping on {snippet} uses TSS vocabulary or a source container.")
-                                if isinstance(obj, Literal) and (obj.ill_typed or obj.datatype
-                                        and Literal(str(obj), datatype=obj.datatype, normalize=False).ill_typed):
-                                    raise ValueError(f"Parquet field mapping on {snippet} produced an invalid {obj.datatype} literal: {obj}.")
-                                domain.add((subject, predicate, obj))
-                                if isinstance(obj, (BNode, URIRef)) and (obj, None, None) in source:
-                                    referenced.add(obj)
-                            for root in roots:
-                                domain.add((root, RDF.type, point_type))
-                                for predicate, obj in source.predicate_objects(about):
-                                    if predicate != RDF.type and allowed(root, predicate, obj):
-                                        domain.add((root, predicate, obj))
-                                        if isinstance(obj, (BNode, URIRef)):
-                                            referenced.add(obj)
-                            output.write(domain.serialize(format="turtle"))
-                            point_count += len(points)
-                            entry["points"] += len(points)
-                            triple_count += len(domain)
-                            remaining = min(len(points), max(0, preview_limit - preview_points))
-                            if remaining:
-                                sample = domain_graph()
-                                chosen, other_roots = set(roots[:remaining]), set(roots[remaining:])
-                                pending, visited = set(chosen), set()
-                                while pending - visited:
-                                    node = next(iter(pending - visited))
-                                    visited.add(node)
-                                    for predicate, obj in domain.predicate_objects(node):
-                                        sample.add((node, predicate, obj))
-                                        if isinstance(obj, (BNode, URIRef)) and obj not in other_roots:
-                                            pending.add(obj)
-                                preview.append(sample.serialize(format="turtle"))
-                                preview_points += remaining
-                        row_offset += len(rows)
-            except duckdb.Error as error:
-                raise ValueError(f"Could not read Parquet file {parquet_path}: {error}") from error
-        descriptions = domain_graph()
-        visited = set()
-        while referenced - visited:
-            resource = next(iter(referenced - visited))
-            visited.add(resource)
-            for predicate, obj in source.predicate_objects(resource):
-                if allowed(resource, predicate, obj):
-                    descriptions.add((resource, predicate, obj))
-                    if isinstance(obj, (BNode, URIRef)):
-                        referenced.add(obj)
-        if descriptions:
-            text = descriptions.serialize(format="turtle")
-            output.write(text)
-            preview.append(text)
-            triple_count += len(descriptions)
-    return {"turtle": "".join(preview), "triples": triple_count, "points": point_count,
-            "series": series, "previewPoints": preview_points,
-            "previewTruncated": preview_points < point_count, "bytes": Path(target).stat().st_size}
+    delimiter = single(graph, node, TSS.delimiter)
+    header = single(graph, node, TSS.header)
+    encoding = single(graph, node, TSS.encoding)
+    return {
+        "node": node,
+        "embedded": embedded.toPython(),
+        "format": single(graph, node, TSS["format"]),  # TSS["format"]: TSS.format is Python's str.format
+        "dataFile": single(graph, node, TSS.dataFile),
+        "delimiter": str(delimiter) if delimiter is not None else ",",
+        "header": header.toPython() is not False if header is not None else True,
+        "encoding": str(encoding) if encoding is not None else "utf-8",
+        "timeField": time_field,
+        "timeColumn": time_column,
+        "from": window["from"],
+        "until": window["until"],
+        "fields": fields,
+    }
 
 
-def generate_embedded(graph, base):
-    groups = sorted(set(graph.subjects(RDF.type, TSS.SnippetGroup)), key=str)
-    if not groups:
-        raise ValueError("No tss:SnippetGroup found.")
-    members = []
-    for group in groups:
-        flag = single(graph, group, TSS.embedded, required=True)
-        if not isinstance(flag, Literal) or flag.toPython() is not True:
-            raise ValueError("RDF generation currently supports only groups with tss:embedded true.")
-        template = single(graph, group, TSS.snippetTemplate, required=True)
-        snippets = sorted(set(graph.objects(group, TSS.hasSnippet)), key=str)
-        if not snippets:
-            raise ValueError(f"{group} has no member snippets.")
-        for snippet in snippets:
-            if (snippet, RDF.type, TSS.Snippet) not in graph:
-                raise ValueError(f"{snippet} is not described as a tss:Snippet.")
-            if len(set(graph.subjects(TSS.hasSnippet, snippet))) != 1:
-                raise ValueError(f"{snippet} must belong to exactly one group.")
-            members.append((snippet, template))
+# ---------------------------------------------------------------------------
+# Reading the data
+# ---------------------------------------------------------------------------
 
-    output = Graph(bind_namespaces="none")
-    for prefix, namespace in graph.namespaces():
-        if not str(namespace).startswith(str(TSS)) and prefix != "tss":
-            output.bind(prefix, namespace)
-    controls = (set(groups) | {template for _, template in members}
-                | set(graph.subjects(RDF.type, TSS.Snippet)) | set(graph.objects(None, TSS.about)))
-    referenced_resources = set()
+def cell_text(value):
+    """A value from a Parquet file or a JSON point as text, like it would be in a CSV file"""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return json.dumps(value)  # numbers and booleans as JSON writes them: 4797.72, true
 
-    def is_tss(term):
-        return (isinstance(term, URIRef) and str(term).startswith(str(TSS))
-                or isinstance(term, Literal) and term.datatype is not None
-                and str(term.datatype).startswith(str(TSS)))
 
-    def add_domain_triple(subject, predicate, value):
-        if any(is_tss(term) for term in (subject, predicate, value)):
-            return
-        if any(term in controls for term in (subject, predicate, value)):
-            return
-        output.add((subject, predicate, value))
-        if isinstance(value, (BNode, URIRef)):
-            referenced_resources.add(value)
-
-    series = []
-    for snippet, template in members:
-        points = read_json(single(graph, snippet, TSS.points, required=True), f"tss:points on {snippet}")
-        if not isinstance(points, list) or any(
-            not isinstance(point, dict) or "time" not in point or "value" not in point
-            for point in points
-        ):
-            raise ValueError(f"tss:points on {snippet} must be an array of objects with time and value keys.")
-        context = read_json(effective(graph, snippet, template, TSS.context), f"tss:context on {snippet}")
-        if isinstance(context, dict) and "@context" in context:
-            context = context["@context"]
+def read_rows(graph, source, data_path):
+    """Every row of the data, one at a time, as (where, {column name: text}).
+    where says where the row is, for error messages."""
+    if source["embedded"]:
+        literal = single(graph, source["node"], TSS.points)
         try:
-            active = Context(context, base=base)
-            for key in ("time", "value"):
-                predicate = active.expand(key)
-                if not predicate or predicate.startswith("@") or ":" not in predicate:
-                    raise ValueError(f"tss:context on {snippet} does not map the {key!r} key to an RDF property.")
-                if predicate.startswith(str(TSS)):
-                    raise ValueError(f"The {key!r} mapping on {snippet} uses the TSS vocabulary. Map it to a domain RDF property to generate a TSS-free graph.")
-        except ValueError:
-            raise
-        except Exception as error:
-            raise ValueError(f"Could not read the JSON-LD context on {snippet}: {error}") from error
+            points = json.loads(str(literal)) if literal is not None else None
+        except ValueError as error:
+            raise ValueError(f"tss:points is not valid JSON: {error}")
+        if not isinstance(points, list):
+            raise ValueError("tss:points must be a JSON array of objects (tss:pointLayout tss:Object).")
+        for number, point in enumerate(points, start=1):
+            if not isinstance(point, dict):
+                raise ValueError(f"Point {number} in tss:points is not a JSON object.")
+            row = {}
+            for key, value in point.items():
+                row[key] = cell_text(value)
+            yield f"point {number}", row
+        return
 
-        point_type = effective(graph, snippet, template, TSS.pointType)
-        if not isinstance(point_type, URIRef):
-            raise ValueError(f"{snippet} needs a tss:pointType class IRI, own or inherited.")
-        if is_tss(point_type):
-            raise ValueError(f"The point type on {snippet} must be a domain class, not a TSS class.")
-        about = effective(graph, snippet, template, TSS.about)
-        if not isinstance(about, (URIRef, BNode)):
-            raise ValueError(f"{snippet} needs a tss:about node, own or inherited.")
+    if source["format"] == TSS.Parquet:
+        import duckdb  # only needed for Parquet files
+        with duckdb.connect() as connection:
+            result = connection.execute("SELECT * FROM read_parquet(?, hive_partitioning = false)", [str(data_path)])
+            names = [column[0] for column in result.description]
+            number = 0
+            while True:
+                batch = result.fetchmany(10000)
+                if len(batch) == 0:
+                    break
+                for found in batch:
+                    number += 1
+                    row = {}
+                    for index in range(len(names)):
+                        row[names[index]] = cell_text(found[index])
+                    yield f"Parquet row {number}", row
+        return
 
-        # A temporary wrapper identifies only the top-level point. Decorating all
-        # JSON-LD subjects would also decorate nested results and other resources.
-        root_property = URIRef(f"urn:rdftss-generation:{uuid4()}:root")
-        for index, point in enumerate(points, 1):
-            wrapper = URIRef(f"urn:rdftss-generation:{uuid4()}:wrapper")
-            document = {"@context": context, "@id": str(wrapper), str(root_property): point}
-            expanded = Graph()
-            try:
-                expanded.parse(data=json.dumps(document), format="json-ld", publicID=base)
-            except Exception as error:
-                raise ValueError(f"Could not expand point {index} of {snippet}: {error}") from error
-            roots = list(expanded.objects(wrapper, root_property))
-            if len(roots) != 1 or not isinstance(roots[0], (URIRef, BNode)):
-                raise ValueError(f"Point {index} of {snippet} did not expand into one RDF node.")
-            root = roots[0]
-            if is_tss(root) or root in controls:
-                raise ValueError(f"Point {index} of {snippet} uses a TSS container or vocabulary IRI as its identifier.")
-            expanded.remove((wrapper, root_property, root))
-            for subject, predicate, value in expanded:
-                if isinstance(value, Literal) and value.ill_typed:
-                    raise ValueError(f"Point {index} of {snippet} has an invalid {value.datatype} literal: {value}.")
-                add_domain_triple(subject, predicate, value)
-            add_domain_triple(root, RDF.type, point_type)
-            for predicate, value in graph.predicate_objects(about):
-                if predicate != RDF.type:
-                    add_domain_triple(root, predicate, value)
-        series.append({"label": str(graph.value(snippet, RDFS.label) or "Series"),
-                       "points": len(points)})
+    if source["format"] == TSS.CSV:
+        if len(source["delimiter"]) != 1:
+            raise ValueError(f"tss:delimiter must be one character, not {source['delimiter']!r}.")
+        with open(data_path, encoding=source["encoding"], newline="") as f:
+            reader = csv.reader(f, delimiter=source["delimiter"])
+            # The name of each column: from the header line, or, without one (tss:header false),
+            # the column name of the field with that tss:columnIndex
+            names = {}
+            if source["header"]:
+                header = next(reader, [])
+                for index in range(len(header)):
+                    names[index] = header[index]
+            else:
+                for field in source["fields"]:
+                    if field["index"] is not None and field["column"] is not None:
+                        names[field["index"]] = field["column"]
+            for cells in reader:
+                row = {}
+                for index in range(len(cells)):
+                    row[names.get(index, f"column {index}")] = cells[index]
+                yield f"CSV line {reader.line_num}", row
+        return
 
-    # Keep descriptions of referenced sensors/features/nested metadata, rather
-    # than copying the complete source graph and its TSS scaffolding.
-    visited = set()
-    while referenced_resources - visited:
-        resource = next(iter(referenced_resources - visited))
-        visited.add(resource)
-        for predicate, value in graph.predicate_objects(resource):
-            add_domain_triple(resource, predicate, value)
-
-    return {"turtle": output.serialize(format="turtle"), "triples": len(output),
-            "points": sum(entry["points"] for entry in series), "series": series}
+    raise ValueError(f"Can't read data in tss:format {source['format']}; this converter reads tss:CSV, tss:Parquet and embedded points.")
 
 
-def generate_external(source, load_files, target, preview_limit=200):
-    """load_files(group) returns (metadata, local CSV path, original CSV IRI)."""
-    groups = sorted(set(source.subjects(RDF.type, TSS.SnippetGroup)), key=str)
-    if not groups:
-        raise ValueError("No snippet group found.")
-    controls = (set(groups) | set(source.objects(None, TSS.snippetTemplate))
-                | set(source.subjects(RDF.type, TSS.Snippet)) | set(source.objects(None, TSS.about)))
-    file_inputs = {group: load_files(group) for group in groups}
-    mapped_terms = [str(term) for _, predicate, value in source
-                    if not str(predicate).startswith(str(TSS))
-                    for term in (predicate, value) if isinstance(term, URIRef)
-                    and term not in controls and not str(term).startswith(str(TSS))]
-    mapped_terms.extend(str(value) for value in source.objects(None, TSS.pointType))
-    for metadata, _, _ in file_inputs.values():
-        for column in metadata.get("tableSchema", {}).get("columns", []):
-            mapped_terms.extend(column[key] for key in ("propertyUrl", "valueUrl")
-                                if isinstance(column.get(key), str))
-    namespace_graph = Graph(bind_namespaces="none")
-    for prefix, namespace in source.namespaces():
-        if (prefix != "tss" and not str(namespace).startswith(str(TSS))
-                and any(term.startswith(str(namespace)) or term.startswith(prefix + ":") for term in mapped_terms)):
-            namespace_graph.bind(prefix, namespace)
-    namespace_graph.bind("rdf", RDF)
-    namespace_graph.bind("xsd", XSD)
-    manager = namespace_graph.namespace_manager
-    prefixes = dict(NAMESPACES)
-    prefixes.update({prefix: str(namespace) for prefix, namespace in source.namespaces()})
-    header = "".join(f"@prefix {prefix}: <{namespace}> .\n" for prefix, namespace in manager.namespaces()) + "\n"
-    preview = [header]
-    preview_points = 0
-    point_count = 0
-    triple_count = 0
-    series = []
+# ---------------------------------------------------------------------------
+# Writing the observations
+# ---------------------------------------------------------------------------
+
+def value_text(text, field, where, manager):
+    """A cell as an RDF literal in Turtle, with the field's datatype. Stops when the text does not fit."""
+    datatype = field["datatype"]
+    if datatype == RDF.langString:
+        if field["language"] is None:
+            raise ValueError(f"Field {field['column']} is rdf:langString but has no tss:language.")
+        return Literal(text, lang=str(field["language"])).n3()
+    if datatype is None:
+        return Literal(text).n3()
+    form = LEXICAL_FORMS.get(datatype)
+    if form is not None and re.fullmatch(form, text) is None:
+        raise ValueError(f"{where}: column {field['column']} has {text!r}, which is not a valid {datatype.n3(manager)}.")
+    return Literal(text).n3() + "^^" + datatype.n3(manager)
+
+
+def generate(graph, data_path, target, preview_limit=200):
+    """Write the observations of the source as Turtle to target (a file path), and return statistics
+    plus a preview: the prefixes and the first preview_limit observations.
+    data_path: the local data file (CSV or Parquet), or None for embedded points."""
+    source = read_source(graph)
+    measured = []  # the fields that become observations
+    for field in source["fields"]:
+        if field["observedProperty"] is not None and field["node"] != source["timeField"]:
+            if field["column"] is None:
+                raise ValueError(f"Field {field['node']} has a tss:observedProperty but no tss:columnName.")
+            measured.append(field)
+    if len(measured) == 0:
+        raise ValueError("No field has a tss:observedProperty, so there is nothing to turn into observations.")
+    if not source["embedded"] and data_path is None:
+        raise ValueError("The source keeps its data in a file (tss:dataFile), but no data file was given.")
+
+    # The IRIs the observations use: their sensors, features, ... and the datatypes of their values
     referenced = set()
+    for field in measured:
+        for key in ("observedProperty", "sensor", "featureOfInterest", "unit"):
+            if isinstance(field[key], URIRef):
+                referenced.add(field[key])
+    used = set(referenced)
+    for field in measured:
+        if isinstance(field["datatype"], URIRef):
+            used.add(field["datatype"])
 
-    def allowed(subject, predicate, value):
-        return not any(term in controls or isinstance(term, URIRef) and str(term).startswith(str(TSS))
-                       or isinstance(term, Literal) and term.datatype is not None
-                       and str(term.datatype).startswith(str(TSS))
-                       for term in (subject, predicate, value))
+    # The prefixes: sosa, qudt and xsd, plus the metadata's own prefixes that these IRIs use
+    manager = Graph(bind_namespaces="none").namespace_manager
+    manager.bind("sosa", SOSA)
+    manager.bind("qudt", QUDT)
+    manager.bind("xsd", XSD)
+    for prefix, namespace in graph.namespaces():
+        if prefix == "" or str(namespace) == str(TSS):
+            continue
+        for iri in used:
+            if str(iri).startswith(str(namespace)):
+                manager.bind(prefix, namespace)
+                break
 
-    def expand(template, row, row_number, source_row, column, csv_iri):
-        variables = dict(row, _row=row_number, _sourceRow=source_row, _name=column.name,
-                         _column=names.index(column.name) + 1)
-        value = template.expand(**variables)
-        prefix, separator, local = value.partition(":")
-        if separator and prefix in prefixes:
-            value = prefixes[prefix] + local
-        value = urljoin(str(csv_iri), value)
-        if not urlparse(value).scheme:
-            raise ValueError(f"Column {column.name}: URL mapping does not resolve to an absolute IRI.")
-        return URIRef(value)
+    # What every observation of a field says, whatever the row: written once per field
+    fixed_lines = {}
+    for field in measured:
+        lines = ["a sosa:Observation"]
+        for prop, key in [(SOSA.observedProperty, "observedProperty"), (SOSA.madeBySensor, "sensor"),
+                          (SOSA.hasFeatureOfInterest, "featureOfInterest"), (QUDT.hasUnit, "unit")]:
+            if field[key] is not None:
+                lines.append(f"{prop.n3(manager)} {field[key].n3(manager)}")
+        fixed_lines[field["column"]] = lines
 
-    def literal(value, column):
-        datatype = column.inherit("datatype") or Datatype.fromvalue("string")
-        base = {"number": "double", "datetime": "dateTime", "binary": "base64Binary",
-                "any": "anyAtomicType"}.get(datatype.base, datatype.base)
-        rdf_type = {"json": RDF.JSON, "xml": RDF.XMLLiteral, "html": RDF.HTML}.get(base, URIRef(str(XSD) + base))
-        lang = column.inherit("lang")
-        if base == "string" and lang and lang != "und":
-            return Literal(value, lang=lang)
-        result = Literal(value, datatype=rdf_type)
-        if result.ill_typed:
-            raise ValueError(f"Column {column.name}: {value!r} is not a valid {datatype.base} value.")
-        return result
+    series = []
+    for field in measured:
+        series.append({"label": field["label"], "column": field["column"], "observations": 0})
 
-    def moment(value, what):
-        if value is None:
-            return None
-        if isinstance(value, Literal):
-            value = value.toPython()
-        if not isinstance(value, datetime):
-            raise ValueError(f"{what} must contain dateTime values.")
-        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    prefixes = ""
+    for prefix, namespace in manager.namespaces():
+        prefixes += f"@prefix {prefix}: <{namespace}> .\n"
+    prefixes += "\n"
 
+    observations = 0
+    triples = 0
+    preview = []
+    time_column = source["timeColumn"]
     with open(target, "w", encoding="utf-8", newline="\n") as output:
-        output.write(header)
-        for group in groups:
-            flag = single(source, group, TSS.embedded, required=True)
-            if not isinstance(flag, Literal) or flag.toPython() is not False:
-                raise ValueError("External RDF generation requires tss:embedded false.")
-            # Read the producer as source metadata; never export group attributes.
-            single(source, group, TSS.producedBy)
-            template = single(source, group, TSS.snippetTemplate, required=True)
-            metadata, csv_path, csv_iri = file_inputs[group]
-            delimiter = csvw_delimiter(metadata)
-            dialect = metadata.get("dialect", {})
-            table = Table.fromvalue(dict(metadata, url=str(csv_iri), dialect=dialect))
-            columns = table.tableSchema.columns
-            physical = [column for column in columns if not column.virtual]
-            names = [column.name for column in columns]
-            if not physical or len(set(names)) != len(names) or any(not name for name in names):
-                raise ValueError("CSVW columns need distinct names for the TSS column bindings.")
-            if any(column.inherit("aboutUrl") for column in columns):
-                raise ValueError("aboutUrl subject mappings are not supported by this standalone anonymous-reading export.")
-            header_rows = dialect.get("headerRowCount", 1 if dialect.get("header", True) else 0)
-            if header_rows not in (0, 1) or table.dialect.skipColumns:
-                raise ValueError("RDF generation supports zero or one header row and no skipColumns.")
-            if any(column.inherit("separator") and column.inherit("ordered") for column in columns):
-                raise ValueError("Ordered separator lists are not supported by this RDF export.")
-            by_name = {column.name: column for column in columns}
-            bindings = []
-            for snippet in sorted(set(source.objects(group, TSS.hasSnippet)), key=str):
-                if (snippet, RDF.type, TSS.Snippet) not in source or len(set(source.subjects(TSS.hasSnippet, snippet))) != 1:
-                    raise ValueError(f"{snippet} must be a described snippet in exactly one group.")
-                time_name = str(effective(source, snippet, template, TSS.timeColumn) or "")
-                value_name = str(effective(source, snippet, template, TSS.valueColumn) or "")
-                for name in (time_name, value_name):
-                    if name not in by_name or by_name[name].virtual:
-                        raise ValueError(f"{snippet}: column {name!r} is not a physical CSVW column.")
-                    if not by_name[name].inherit("propertyUrl") or by_name[name].suppressOutput:
-                        raise ValueError(f"CSVW column {name!r} needs a propertyUrl mapping for RDF generation.")
-                point_type = effective(source, snippet, template, TSS.pointType)
-                if not isinstance(point_type, URIRef) or str(point_type).startswith(str(TSS)):
-                    raise ValueError(f"{snippet} needs a domain pointType class IRI.")
-                about = effective(source, snippet, template, TSS.about)
-                if not isinstance(about, (BNode, URIRef)):
-                    raise ValueError(f"{snippet} needs an about metadata node.")
-                start = moment(effective(source, snippet, template, TSS["from"]), "tss:from")
-                end = moment(effective(source, snippet, template, TSS.until), "tss:until")
-                if start and end and start >= end:
-                    raise ValueError(f"{snippet} has an empty time window.")
-                entry = {"label": str(source.value(snippet, RDFS.label) or "Series"), "points": 0}
-                series.append(entry)
-                bindings.append((time_name, value_name, point_type, about, start, end, entry))
-            if not bindings:
-                raise ValueError(f"{group} has no member snippets.")
-            value_columns = {binding[1] for binding in bindings}
-            selected_columns = {
-                value_name: [column for column in columns if not column.suppressOutput
-                             and column.inherit("propertyUrl")
-                             and (column.name not in value_columns or column.name == value_name)]
-                for value_name in value_columns
-            }
-            d = table.dialect
-            with open(csv_path, encoding=d.encoding, newline="") as csv_file:
-                reader = csv.reader(csv_file, delimiter=delimiter, quotechar=d.quoteChar or '"',
-                                    quoting=csv.QUOTE_NONE if d.quoteChar is None else csv.QUOTE_MINIMAL,
-                                    doublequote=d.doubleQuote, escapechar=None if d.doubleQuote else "\\",
-                                    skipinitialspace=d.skipInitialSpace)
-                header_pending = bool(header_rows)
-                row_number = 0
-                for index, raw in enumerate(reader):
-                    if index < d.skipRows:
-                        continue
-                    if d.commentPrefix and raw and raw[0].startswith(d.commentPrefix):
-                        continue
-                    if not raw and d.skipBlankRows:
-                        continue
-                    if len(raw) != len(physical):
-                        raise ValueError(f"CSV row at line {reader.line_num} has {len(raw)} columns; CSVW describes {len(physical)}. The effective delimiter is {delimiter!r}.")
-                    if header_pending:
-                        for cell, column in zip(raw, physical):
-                            titles = column.titles
-                            accepted = {title for values in titles.values() for title in values} if titles else {column.name}
-                            if cell.strip() not in accepted:
-                                raise ValueError(f"CSV header {cell!r} does not match CSVW column {column.name!r}; the effective delimiter is {delimiter!r}.")
-                        header_pending = False
-                        continue
-                    row_number += 1
-                    values = {}
-                    canonical = {}
-                    try:
-                        for cell, column in zip(raw, physical):
-                            if d.trim in (True, "true"):
-                                cell = cell.strip()
-                            elif d.trim == "start":
-                                cell = cell.lstrip()
-                            elif d.trim == "end":
-                                cell = cell.rstrip()
-                            values[column.name] = column.read(cell)
-                        for column in columns:
-                            if column.virtual:
-                                values[column.name] = column.read("")
-                            value = values[column.name]
-                            dt = column.inherit("datatype")
-                            canonical[column.name] = dt.basetype.to_string(value) if dt and value is not None and not isinstance(value, list) else value
-                    except (ValueError, TypeError) as error:
-                        raise ValueError(f"CSV line {reader.line_num}: {error}") from error
-                    for time_name, value_name, point_type, about, start, end, entry in bindings:
-                        time_value = moment(values[time_name], f"CSV column {time_name}")
-                        if time_value is None:
-                            raise ValueError(f"CSV line {reader.line_num}: missing timestamp.")
-                        if start and time_value < start or end and time_value >= end:
-                            continue
-                        if values[value_name] is None:
-                            continue
-                        root = BNode()
-                        pairs = {(RDF.type, point_type)}
-                        for column in selected_columns[value_name]:
-                            predicate = expand(column.inherit("propertyUrl"), canonical, row_number, reader.line_num, column, csv_iri)
-                            value_url = column.inherit("valueUrl")
-                            value = values[column.name]
-                            if value_url:
-                                objects = [expand(value_url, canonical, row_number, reader.line_num, column, csv_iri)] if column.virtual or value is not None else []
-                            else:
-                                objects = [literal(v, column) for v in (value if isinstance(value, list) else [value]) if v is not None]
-                            for obj in objects:
-                                if not allowed(root, predicate, obj):
-                                    raise ValueError(f"Column {column.name}: the RDF mapping uses TSS vocabulary or a source container.")
-                                pairs.add((predicate, obj))
-                        for predicate, obj in source.predicate_objects(about):
-                            if predicate != RDF.type and allowed(root, predicate, obj):
-                                pairs.add((predicate, obj))
-                                if isinstance(obj, (BNode, URIRef)):
-                                    referenced.add(obj)
-                        ordered = sorted(pairs, key=lambda pair: (pair[0] != RDF.type, str(pair[0]), str(pair[1])))
-                        text = "[] " + " ;\n    ".join(f"{predicate.n3(manager)} {obj.n3(manager)}" for predicate, obj in ordered) + " .\n\n"
-                        output.write(text)
-                        point_count += 1
-                        triple_count += len(pairs)
-                        entry["points"] += 1
-                        if preview_points < preview_limit:
-                            preview.append(text)
-                            preview_points += 1
-        descriptions = Graph(bind_namespaces="none")
-        visited = set()
-        while referenced - visited:
-            resource = next(iter(referenced - visited))
-            visited.add(resource)
-            for predicate, obj in source.predicate_objects(resource):
-                if allowed(resource, predicate, obj):
-                    descriptions.add((resource, predicate, obj))
-                    if isinstance(obj, (BNode, URIRef)):
-                        referenced.add(obj)
-        if descriptions:
-            text = descriptions.serialize(format="turtle")
+        output.write(prefixes)
+        for where, row in read_rows(graph, source, data_path):
+            time = row.get(time_column, "")
+            if time == "":
+                raise ValueError(f"{where}: no time in column {time_column} (the tss:timeField).")
+            when = moment(time, f"{where}, column {time_column}")
+            if source["from"] is not None and when < source["from"]:
+                continue
+            if source["until"] is not None and when >= source["until"]:
+                continue
+            time_literal = Literal(time).n3() + "^^" + XSD.dateTime.n3(manager)
+
+            for index, field in enumerate(measured):
+                text = row.get(field["column"], "")
+                if text == "":
+                    continue  # an empty cell: no observation
+                lines = fixed_lines[field["column"]] + [
+                    f"{SOSA.resultTime.n3(manager)} {time_literal}",
+                    f"{SOSA.hasSimpleResult.n3(manager)} {value_text(text, field, where, manager)}",
+                ]
+                block = "[] " + " ;\n    ".join(lines) + " .\n\n"
+                output.write(block)
+                observations += 1
+                triples += len(lines)
+                series[index]["observations"] += 1
+                if len(preview) < preview_limit:
+                    preview.append(block)
+
+        # What the metadata says about the sensors, features, ... the observations point to,
+        # one triple per line (an IRI without a prefix is written in full, <like this>)
+        lines = []
+        for resource in sorted(referenced):
+            for prop, value in sorted(graph.predicate_objects(resource)):
+                if str(prop).startswith(str(TSS)) or str(value).startswith(str(TSS)):
+                    continue  # the TSS vocabulary stays in the metadata
+                lines.append(f"{resource.n3(manager)} {prop.n3(manager)} {value.n3(manager)} .\n")
+        if len(lines) > 0:
+            text = "".join(lines) + "\n"
             output.write(text)
             preview.append(text)
-            triple_count += len(descriptions)
-    return {"turtle": "".join(preview), "triples": triple_count, "points": point_count,
-            "series": series, "previewPoints": preview_points,
-            "previewTruncated": preview_points < point_count, "bytes": Path(target).stat().st_size}
+            triples += len(lines)
+
+    return {
+        "turtle": prefixes + "".join(preview),
+        "observations": observations,
+        "triples": triples,
+        "series": series,
+        "previewObservations": min(observations, preview_limit),
+        "previewTruncated": observations > preview_limit,
+        "bytes": Path(target).stat().st_size,
+    }
 
 
-def convert(tss_path, mode, output_path="observations.ttl", csv_path=None, csvw_path=None):
-    """Write a complete Turtle graph and return conversion statistics.
+# ---------------------------------------------------------------------------
+# Command line
+# ---------------------------------------------------------------------------
 
-    Paths are local files, relative to the caller's working directory. Explicit
-    CSV/CSVW paths supply the physical inputs; the TSS dataFile IRI remains the
-    semantic base for relative CSVW URL mappings, as it is in the dashboard.
-    """
-    if mode not in ("embedded", "external"):
-        raise ValueError("Mode must be 'embedded' or 'external'.")
-    if mode == "external" and (csv_path is None or csvw_path is None):
-        raise ValueError("External mode requires both CSV and CSVW file paths.")
-    if mode == "embedded" and (csv_path is not None or csvw_path is not None):
-        raise ValueError("CSV and CSVW file paths apply only to external mode.")
+def convert(tss_path, output_path="observations.ttl"):
+    """Convert one TSS Turtle file and its data into a Turtle file of observations.
+    The data file is the source's tss:dataFile, read relative to the TSS file."""
+    tss = Path(tss_path).expanduser().resolve()
+    if not tss.is_file():
+        raise ValueError(f"TSS file not found: {tss}")
+    graph = Graph().parse(tss, format="turtle", publicID=tss.as_uri())
+    source = read_source(graph)
 
-    inputs = {"TSS": Path(tss_path).expanduser().resolve()}
-    if mode == "external":
-        inputs.update(CSV=Path(csv_path).expanduser().resolve(),
-                      CSVW=Path(csvw_path).expanduser().resolve())
-    for kind, path in inputs.items():
-        if not path.is_file():
-            raise ValueError(f"{kind} file not found: {path}")
+    data_path = None
+    if not source["embedded"]:
+        data_iri = source["dataFile"]
+        if not isinstance(data_iri, URIRef) or not str(data_iri).startswith("file:"):
+            raise ValueError(f"tss:dataFile must point to a local file, not {data_iri}")
+        data_path = Path(url2pathname(urlparse(str(data_iri)).path))
+        if not data_path.is_file():
+            raise ValueError(f"Data file not found: {data_path}")
+
     output = Path(output_path).expanduser().resolve()
-    for path in inputs.values():
-        if output == path or output.exists() and output.samefile(path):
-            raise ValueError("The output must be different from every input file.")
+    if output in (tss, data_path):
+        raise ValueError("The output must be another file than the TSS file and the data file.")
 
-    graph = Graph().parse(inputs["TSS"], format="turtle", publicID=inputs["TSS"].as_uri())
-    groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
-    if not groups:
-        raise ValueError("No tss:SnippetGroup found.")
-    for group in groups:
-        flag = single(graph, group, TSS.embedded, required=True)
-        if not isinstance(flag, Literal) or not isinstance(flag.toPython(), bool):
-            raise ValueError(f"{group} must declare a boolean tss:embedded.")
-        if flag.toPython() != (mode == "embedded"):
-            raise ValueError(f"Requested {mode} mode conflicts with tss:embedded {str(flag.toPython()).lower()} on {group}.")
-
-    if mode == "external":
-        file_pairs = set()
-        for group in groups:
-            csv_iri = single(graph, group, TSS.dataFile, required=True)
-            csvw_iri = single(graph, group, TSS.describedby, required=True)
-            if not isinstance(csv_iri, URIRef) or not isinstance(csvw_iri, URIRef):
-                raise ValueError("tss:dataFile and tss:describedby must be IRIs.")
-            file_pairs.add((csv_iri, csvw_iri))
-        if len(file_pairs) != 1:
-            raise ValueError("This command accepts one CSV/CSVW pair per invocation. Split TSS files that reference multiple file pairs.")
-        metadata = json.loads(inputs["CSVW"].read_text(encoding="utf-8-sig"))
-        schema = metadata.get("tableSchema") if isinstance(metadata, dict) else None
-        if not isinstance(schema, dict) or not isinstance(schema.get("columns"), list):
-            raise ValueError("The CSVW file needs a tableSchema with a list of columns.")
-        if any(not isinstance(column, dict) or "name" not in column for column in schema["columns"]):
-            raise ValueError("Every CSVW column needs a name for the TSS column bindings.")
-        csv_iri, _ = next(iter(file_pairs))
-
-    # Write beside the destination and replace it only after successful conversion.
-    # Invalid data cannot leave a partial graph or overwrite an existing result.
+    # Write next to the output and only replace it when everything worked,
+    # so bad data never leaves half a graph or overwrites an earlier result
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=output.parent, prefix=".tss2rdf-", suffix=".ttl", delete=False) as temporary:
         target = Path(temporary.name)
     try:
-        if mode == "embedded":
-            result = generate_embedded(graph, inputs["TSS"].as_uri())
-            target.write_text(result.pop("turtle"), encoding="utf-8", newline="\n")
-        else:
-            result = generate_external(graph, lambda group: (metadata, inputs["CSV"], csv_iri),
-                                       target, preview_limit=0)
-        stats = {"mode": mode, "output": str(output), "points": result["points"],
-                 "triples": result["triples"], "series": result["series"],
-                 "bytes": target.stat().st_size}
+        result = generate(graph, data_path, target, preview_limit=0)
         target.replace(output)
-        return stats
     finally:
         target.unlink(missing_ok=True)
+    return {
+        "output": str(output),
+        "data": str(data_path) if data_path else "tss:points",
+        "observations": result["observations"],
+        "triples": result["triples"],
+        "series": result["series"],
+        "bytes": output.stat().st_size,
+    }
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Convert RDFTSS to standalone domain RDF readings in Turtle, using the dashboard's conversion rules.",
+        description="Convert a TSS source and its data into SOSA observations in Turtle (the dashboard's rules).",
     )
-    parser.add_argument("--mode", required=True, choices=("embedded", "external"),
-                        help="Must match tss:embedded in the TSS file.")
-    parser.add_argument("--tss", required=True, type=Path, help="Input RDFTSS Turtle file.")
-    parser.add_argument("--csv", type=Path, help="CSV data file; required in external mode.")
-    parser.add_argument("--csvw", type=Path, help="CSVW JSON description; required in external mode.")
+    parser.add_argument("--tss", required=True, type=Path, help="The TSS Turtle file with one tss:Source.")
     parser.add_argument("-o", "--output", type=Path, default=Path("observations.ttl"),
-                        help="Output Turtle file (default: observations.ttl).")
+                        help="The Turtle file to write (default: observations.ttl).")
     args = parser.parse_args(argv)
-    if args.mode == "external" and (args.csv is None or args.csvw is None):
-        parser.error("--mode external requires both --csv and --csvw.")
-    if args.mode == "embedded" and (args.csv is not None or args.csvw is not None):
-        parser.error("--csv and --csvw apply only to --mode external.")
     try:
-        stats = convert(args.tss, args.mode, args.output, args.csv, args.csvw)
+        stats = convert(args.tss, args.output)
     except Exception as error:
         parser.exit(1, f"Conversion failed: {error}\n")
     print(json.dumps(stats, indent=2))

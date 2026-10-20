@@ -1,190 +1,176 @@
-"""Exercise the portable CLI, its RDF semantics, and failed-conversion handling."""
-import csv
-import json
+"""Tests for the converter: python -B -m unittest -v test_tss2rdf (from code/TSS2RDF/)."""
 from pathlib import Path
-import shutil
-import subprocess
-import sys
 import tempfile
 import unittest
 
-from rdflib import BNode, Graph, Namespace, RDF, URIRef
+import duckdb
+from rdflib import Graph, Literal, Namespace, RDF, URIRef
 from rdflib.namespace import XSD
 
-DIRECTORY = Path(__file__).resolve().parent
-DEMO = DIRECTORY.parents[1]
+import tss2rdf
+
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
-EX = Namespace("https://example.org/")
+QUDT = Namespace("http://qudt.org/schema/qudt/")
+EX = Namespace("https://example.org/ex#")
+DEMO = Path(__file__).resolve().parents[2]
 
-
-class StandaloneCli(unittest.TestCase):
-    def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
-        portable = self.root / "portable"
-        portable.mkdir()
-        self.script = portable / "tss2rdf.py"
-        shutil.copy2(DIRECTORY / "tss2rdf.py", self.script)
-        self.working = self.root / "working directory"
-        self.working.mkdir()
-        self.output = self.working / "output" / "observations.ttl"
-        self.tss = self.working / "external.ttl"
-        self.csv = self.working / "readings.csv"
-        self.csvw = self.working / "readings.csv-metadata.json"
-        self.embedded = DEMO / "metadata endpoint" / "waterinfo_289441042_tss2_points_embedded.ttl"
-        self.tss.write_text('''
+# A small source with: a time field, a measured field, a describing field with its own
+# observed property, and a field without one (which must not become observations)
+METADATA = """
 @prefix tss: <https://w3id.org/tss#> .
-@prefix ex: <https://example.org/> .
-@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-ex:group a tss:SnippetGroup ; tss:embedded false ; tss:producedBy ex:logger ;
-    tss:dataFile <https://original.example/readings.csv> ;
-    tss:describedby <https://original.example/metadata.json> ;
-    tss:snippetTemplate [
-        tss:pointType sosa:Observation ; tss:timeColumn "time" ;
-        tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
-        tss:until "2025-01-01T00:30:00Z"^^xsd:dateTime ;
-        tss:about [sosa:madeBySensor ex:sensor-b] ] ;
-    tss:hasSnippet ex:series-a, ex:series-b .
-ex:series-a a tss:Snippet ; tss:valueColumn "a" ;
-    tss:about [sosa:madeBySensor ex:sensor-a] .
-ex:series-b a tss:Snippet ; tss:valueColumn "b" .
-''', encoding="utf-8")
-        self.csv.write_text('Timestamp;A;B;Quality\n2025-01-01T00:00:00Z;1.5;2;"good;review"\n2025-01-01T00:15:00Z;;3;good\n2025-01-01T00:30:00Z;4.5;4;good\n', encoding="utf-8")
-        self.metadata = {
-            "@context": "http://www.w3.org/ns/csvw", "url": "not-the-input.csv",
-            "dialect": {"delimiter": ";", "header": True},
-            "tableSchema": {"columns": [
-                {"name": "time", "titles": "Timestamp", "datatype": "dateTime", "propertyUrl": str(SOSA.resultTime)},
-                {"name": "a", "titles": "A", "datatype": {"base": "double", "minimum": 0}, "propertyUrl": str(EX.a)},
-                {"name": "b", "titles": "B", "datatype": "integer", "propertyUrl": str(EX.b)},
-                {"name": "quality", "titles": "Quality", "datatype": "string", "propertyUrl": str(EX.quality)},
-                {"name": "row_type", "virtual": True, "propertyUrl": "rdf:type", "valueUrl": str(SOSA.Observation)},
-                {"name": "source_row", "virtual": True, "propertyUrl": str(EX.row), "valueUrl": "rows/{_row}/{_sourceRow}"},
-            ]},
-        }
-        self.csvw.write_text(json.dumps(self.metadata), encoding="utf-8")
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
-    def invoke(self, *args):
-        return subprocess.run([sys.executable, "-B", str(self.script), *map(str, args)],
-                              cwd=self.working, capture_output=True, text=True,
-                              encoding="utf-8", timeout=30)
+ex:source a tss:Source ;
+    rdfs:label "Test source" ;
+    tss:embedded false ;
+    tss:dataFile <DATA> ;
+    tss:format FORMAT ;
+    tss:delimiter ";" ;
+    tss:header HEADER ;
+    tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2025-01-01T01:00:00Z"^^xsd:dateTime ;
+    tss:timeField ex:time ;
+    tss:key ex:time ;
+    tss:hasField ex:time, ex:value, ex:flag, ex:code .
 
-    def external_args(self, output=None):
-        return ["--mode", "external", "--tss", self.tss, "--csv", self.csv,
-                "--csvw", self.csvw, "--output", output or self.output]
+ex:time a tss:Field ; tss:columnName "time" ; tss:columnIndex 0 ; tss:datatype xsd:dateTime .
+ex:value a tss:Field ; tss:columnName "value" ; tss:columnIndex 1 ; tss:datatype xsd:double ;
+    tss:observedProperty ex:temperature ; tss:unit ex:degree ; tss:sensor ex:sensor ; tss:featureOfInterest ex:river .
+ex:flag a tss:Field ; tss:columnName "flag" ; tss:columnIndex 2 ; tss:datatype xsd:string ;
+    tss:observedProperty ex:flagColour ; tss:describesField ex:value .
+ex:code a tss:Field ; tss:columnName "code" ; tss:columnIndex 3 ; tss:datatype xsd:integer ;
+    tss:describesField ex:value .
 
-    def assert_success(self, completed):
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        stats = json.loads(completed.stdout)
-        graph = Graph().parse(stats["output"], format="turtle")
-        self.assertEqual(stats["triples"], len(graph))
-        self.assertEqual(stats["bytes"], Path(stats["output"]).stat().st_size)
-        text = Path(stats["output"]).read_text(encoding="utf-8")
-        self.assertNotIn("https://w3id.org/tss", text)
-        self.assertNotIn("@prefix tss:", text)
-        self.assertNotIn("logger", text)
-        self.assertFalse(list(graph.subjects(RDF.type, SOSA.ObservationCollection)))
-        self.assertFalse(list(graph.triples((None, SOSA.hasMember, None))))
-        readings = set(graph.subjects(RDF.type, SOSA.Observation))
-        self.assertEqual(len(readings), stats["points"])
-        self.assertTrue(all(isinstance(node, BNode) for node in readings))
-        return stats, graph
+ex:sensor rdfs:label "Thermometer" ; tss:embedded false .
+"""
 
-    def test_real_embedded_dataset_from_a_standalone_copy(self):
-        stats, graph = self.assert_success(self.invoke("--mode", "embedded", "--tss", self.embedded,
-                                                      "--output", self.output))
-        self.assertEqual(stats["points"], 10)
-        self.assertEqual(stats["triples"], 55)
-        self.assertEqual(len(stats["series"]), 2)
-        values = list(graph.objects(None, SOSA.hasSimpleResult))
-        self.assertEqual(sum(value.datatype == XSD.double for value in values), 5)
-        self.assertEqual(sum(value.datatype == XSD.string for value in values), 5)
+ROWS = [
+    ["2024-12-31T23:45:00Z", "1.5", "green", "100"],   # before tss:from: left out
+    ["2025-01-01T00:00:00Z", "2.25", "green", "100"],  # from is included
+    ["2025-01-01T00:15:00Z", "", "red", "200"],        # empty value: no value observation
+    ["2025-01-01T00:30:00Z", "3.0E1", "", "100"],      # empty flag: no flag observation
+    ["2025-01-01T01:00:00Z", "4", "green", "100"],     # until is not included
+]
 
-    def test_external_mappings_separate_series_inheritance_and_time_windows(self):
-        stats, graph = self.assert_success(self.invoke(*self.external_args()))
-        self.assertEqual(stats["points"], 3)
-        self.assertEqual(stats["triples"], 18)
-        self.assertEqual([series["points"] for series in stats["series"]], [1, 2])
-        for node in graph.subjects(RDF.type, SOSA.Observation):
-            a, b = graph.value(node, EX.a), graph.value(node, EX.b)
-            self.assertNotEqual(a is None, b is None)
-            self.assertEqual(graph.value(node, SOSA.resultTime).datatype, XSD.dateTime)
-            if a is not None:
-                self.assertEqual(a.datatype, XSD.double)
-                self.assertEqual(graph.value(node, SOSA.madeBySensor), EX["sensor-a"])
-            else:
-                self.assertEqual(b.datatype, XSD.integer)
-                self.assertEqual(graph.value(node, SOSA.madeBySensor), EX["sensor-b"])
-        self.assertIn("good;review", {str(value) for value in graph.objects(None, EX.quality)})
-        self.assertEqual(set(graph.objects(None, EX.row)), {
-            URIRef("https://original.example/rows/1/2"), URIRef("https://original.example/rows/2/3"),
-        })
 
-    def test_missing_external_paths_and_irrelevant_embedded_paths_are_usage_errors(self):
-        for args in (["--mode", "external", "--tss", self.tss],
-                     ["--mode", "embedded", "--tss", self.embedded, "--csv", self.csv]):
-            with self.subTest(args=args):
-                result = self.invoke(*args)
-                self.assertEqual(result.returncode, 2)
-                self.assertIn("error:", result.stderr)
-        self.assertFalse(self.output.exists())
+class Converter(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.output = self.root / "observations.ttl"
 
-    def test_mode_must_match_the_tss_storage_flag(self):
-        for args in (["--mode", "embedded", "--tss", self.tss, "--output", self.output],
-                     ["--mode", "external", "--tss", self.embedded, "--csv", self.csv,
-                      "--csvw", self.csvw, "--output", self.output]):
-            with self.subTest(args=args):
-                result = self.invoke(*args)
-                self.assertEqual(result.returncode, 1)
-                self.assertIn("conflicts with tss:embedded", result.stderr)
-                self.assertFalse(self.output.exists())
+    def write_csv(self, rows, header=True):
+        lines = []
+        if header:
+            lines.append("time;value;flag;code")
+        for row in rows:
+            lines.append(";".join(row))
+        data = self.root / "data.csv"
+        data.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return self.write_metadata(data, "tss:CSV", header)
 
-    def test_missing_delimiter_or_dialect_defaults_to_comma(self):
-        with self.csv.open(encoding="utf-8", newline="") as source:
-            rows = list(csv.reader(source, delimiter=";"))
-        with self.csv.open("w", encoding="utf-8", newline="") as target:
-            csv.writer(target, delimiter=",").writerows(rows)
-        for dialect in ({}, {"header": True}, None):
-            with self.subTest(dialect=dialect):
-                metadata = json.loads(json.dumps(self.metadata))
-                if dialect is None:
-                    metadata.pop("dialect")
-                else:
-                    metadata["dialect"] = dialect
-                self.csvw.write_text(json.dumps(metadata), encoding="utf-8")
-                stats, graph = self.assert_success(self.invoke(*self.external_args()))
-                self.assertEqual(stats["points"], 3)
-                self.assertEqual(stats["triples"], 18)
-                self.assertIn("good;review", {str(value) for value in graph.objects(None, EX.quality)})
+    def write_metadata(self, data, file_format, header=True):
+        text = METADATA.replace("<DATA>", f"<{data.as_uri()}>").replace("FORMAT", file_format)
+        text = text.replace("HEADER", "true" if header else "false")
+        path = self.root / "metadata.ttl"
+        path.write_text(text, encoding="utf-8")
+        return path
 
-    def test_bad_delimiter_or_values_preserve_existing_output(self):
-        self.output.parent.mkdir()
-        self.output.write_text("previous graph", encoding="utf-8")
-        for broken in ("invalid delimiter", "wrong delimiter", "bad value"):
-            with self.subTest(broken=broken):
-                metadata = json.loads(json.dumps(self.metadata))
-                if broken == "invalid delimiter":
-                    metadata["dialect"]["delimiter"] = None
-                elif broken == "wrong delimiter":
-                    metadata["dialect"]["delimiter"] = ","
-                else:
-                    metadata["tableSchema"]["columns"][1]["datatype"]["minimum"] = 2
-                self.csvw.write_text(json.dumps(metadata), encoding="utf-8")
-                result = self.invoke(*self.external_args())
-                self.assertEqual(result.returncode, 1)
-                self.assertEqual(self.output.read_text(encoding="utf-8"), "previous graph")
-                self.assertFalse(list(self.output.parent.glob(".tss2rdf-*")))
+    def observations(self):
+        graph = Graph().parse(self.output, format="turtle")
+        found = []
+        for observation in graph.subjects(RDF.type, SOSA.Observation):
+            found.append((
+                graph.value(observation, SOSA.observedProperty),
+                graph.value(observation, SOSA.resultTime),
+                graph.value(observation, SOSA.hasSimpleResult),
+            ))
+        return graph, sorted(found)
 
-    def test_output_cannot_overwrite_an_input(self):
-        for input_path in (self.tss, self.csv, self.csvw):
-            with self.subTest(input=input_path):
-                before = input_path.read_bytes()
-                result = self.invoke(*self.external_args(output=input_path))
-                self.assertEqual(result.returncode, 1)
-                self.assertIn("different from every input", result.stderr)
-                self.assertEqual(input_path.read_bytes(), before)
+    def test_csv_rows_become_observations_inside_the_window(self):
+        stats = tss2rdf.convert(self.write_csv(ROWS), self.output)
+        graph, found = self.observations()
+        self.assertEqual(stats["observations"], 4)
+        self.assertEqual([(s["column"], s["observations"]) for s in stats["series"]], [("value", 2), ("flag", 2)])
+        self.assertEqual(len(found), 4)
+        # the measured field carries its sensor, feature and unit; the flag only its own property
+        for observation in graph.subjects(SOSA.observedProperty, EX.temperature):
+            self.assertEqual(graph.value(observation, SOSA.madeBySensor), EX.sensor)
+            self.assertEqual(graph.value(observation, SOSA.hasFeatureOfInterest), EX.river)
+            self.assertEqual(graph.value(observation, QUDT.hasUnit), EX.degree)
+        for observation in graph.subjects(SOSA.observedProperty, EX.flagColour):
+            self.assertIsNone(graph.value(observation, SOSA.madeBySensor))
+        # the value keeps its text from the CSV ("3.0E1", not 30.0)
+        self.assertIn('"3.0E1"^^xsd:double', self.output.read_text(encoding="utf-8"))
+        # a field without tss:observedProperty (code) is not in the RDF
+        self.assertNotIn('"100"', self.output.read_text(encoding="utf-8"))
+        self.assertEqual(len(graph), stats["triples"])
+
+    def test_window_and_empty_cells(self):
+        tss2rdf.convert(self.write_csv(ROWS), self.output)
+        graph, found = self.observations()
+        # (rdflib reads "...Z" back as "...+00:00", so compare the moments themselves)
+        times = sorted({time.toPython().strftime("%H:%M") for prop, time, value in found})
+        self.assertEqual(times, ["00:00", "00:15", "00:30"])
+        values = sorted(value.toPython() for prop, time, value in found if prop == EX.temperature)
+        self.assertEqual(values, [2.25, 30.0])  # the empty value at 00:15 gave no observation
+        flags = sorted(str(value) for prop, time, value in found if prop == EX.flagColour)
+        self.assertEqual(flags, ["green", "red"])     # the empty flag at 00:30 neither
+
+    def test_sensor_description_is_copied_without_tss_terms(self):
+        tss2rdf.convert(self.write_csv(ROWS), self.output)
+        graph, found = self.observations()
+        self.assertIn((EX.sensor, URIRef("http://www.w3.org/2000/01/rdf-schema#label"), Literal("Thermometer")), graph)
+        for triple in graph:
+            for term in triple:
+                self.assertFalse(str(term).startswith("https://w3id.org/tss#"), triple)
+
+    def test_headerless_csv_uses_column_indexes(self):
+        stats = tss2rdf.convert(self.write_csv(ROWS, header=False), self.output)
+        self.assertEqual(stats["observations"], 4)
+
+    def test_parquet_keeps_its_values(self):
+        data = self.root / "data.parquet"
+        with duckdb.connect() as connection:
+            connection.execute("CREATE TABLE t (time TIMESTAMPTZ, value DOUBLE, flag VARCHAR, code BIGINT)")
+            connection.execute("INSERT INTO t VALUES ('2025-01-01T00:00:00Z', 2.25, 'green', 100), ('2025-01-01T00:15:00Z', NULL, 'red', 200)")
+            connection.sql("SELECT * FROM t").write_parquet(str(data))
+        stats = tss2rdf.convert(self.write_metadata(data, "tss:Parquet"), self.output)
+        graph, found = self.observations()
+        self.assertEqual(stats["observations"], 3)  # 2 flags + 1 value (the other value is NULL)
+        self.assertIn((EX.temperature, Literal("2025-01-01T00:00:00Z", datatype=XSD.dateTime), Literal("2.25", datatype=XSD.double)), found)
+
+    def test_a_value_that_does_not_fit_stops_and_keeps_the_old_output(self):
+        self.output.write_text("earlier result", encoding="utf-8")
+        rows = [["2025-01-01T00:00:00Z", "not a number", "green", "100"]]
+        with self.assertRaises(ValueError) as caught:
+            tss2rdf.convert(self.write_csv(rows), self.output)
+        self.assertIn("CSV line 2", str(caught.exception))
+        self.assertIn("xsd:double", str(caught.exception))
+        self.assertEqual(self.output.read_text(encoding="utf-8"), "earlier result")
+
+    def test_a_bad_time_stops(self):
+        rows = [["2025-01-01 00:00", "1", "green", "100"]]
+        with self.assertRaises(ValueError) as caught:
+            tss2rdf.convert(self.write_csv(rows), self.output)
+        self.assertIn("xsd:dateTime", str(caught.exception))
+
+    def test_the_demo_files(self):
+        """The demo's embedded file, and the external CSV file (only its row count is checked)"""
+        embedded = tss2rdf.convert(DEMO / "metadata endpoint" / "waterinfo_289441042_tss2_points_embedded.ttl", self.output)
+        self.assertEqual(embedded["observations"], 10)
+        self.assertEqual(embedded["data"], "tss:points")
+        external = tss2rdf.convert(DEMO / "metadata endpoint" / "waterinfo_289423042_tss2.ttl", self.output)
+        self.assertEqual([(s["column"], s["observations"]) for s in external["series"]],
+                         [("Value", 94853), ("Quality Code Color", 94853)])
+
+    def test_command_line(self):
+        path = self.write_csv(ROWS)
+        self.assertEqual(tss2rdf.main(["--tss", str(path), "--output", str(self.output)]), 0)
+        self.assertTrue(self.output.is_file())
 
 
 if __name__ == "__main__":

@@ -27,8 +27,6 @@ from tss2 import value_of, find_group, resolve, resolve_with_source
 # The SQL box (DuckDB) lives in sql_box.py
 import sql_box
 import rdf_generation
-import csv_rdf_generation
-import parquet_rdf_generation
 
 
 # This file lives in demo 3/code/webapp/backend/, so demo 3/ is three folders up
@@ -374,27 +372,6 @@ def parse_time(text):
     return value
 
 
-def load_csvw_json(described_by):
-    """The CSVW file as a Python dict. Raises ValueError when it can't be used."""
-    try:
-        metadata = json.loads(read_text(described_by))
-    except json.JSONDecodeError as error:
-        raise ValueError(f"The CSVW file {described_by} is not valid JSON: {error}")
-    schema = metadata.get("tableSchema") if isinstance(metadata, dict) else None
-    if not isinstance(schema, dict) or not isinstance(schema.get("columns"), list):
-        raise ValueError(f"The CSVW file {described_by} has no tableSchema with a list of columns in it")
-    for column in schema["columns"]:
-        if not isinstance(column, dict) or "name" not in column:
-            raise ValueError(f"The CSVW file {described_by} has a column without a name")
-    csvw_delimiter(metadata, described_by)
-    return metadata
-
-
-def csvw_delimiter(metadata, described_by):
-    """Use the declared delimiter, with the CSVW comma default when omitted."""
-    return csv_rdf_generation.csvw_delimiter(metadata, described_by)
-
-
 def column_name(graph, field):
     """The column a field reads, e.g. "Timestamp". A field without tss:columnName shows its IRI."""
     name = graph.value(field, TSS.columnName)
@@ -513,49 +490,32 @@ def embedded_mode(graph, group):
 
 @api.post("/endpoints/{endpoint_id}/rdf")
 def generate_rdf(endpoint_id):
-    """Generate standalone Turtle readings from embedded points, CSV or Parquet."""
+    """Turn the source's data into SOSA observations in Turtle (see code/TSS2RDF/tss2rdf.py).
+    The whole graph is written to a temporary file to download; the answer holds a preview."""
+    info = get_endpoint_info(endpoint_id)
     graph = load_graph(endpoint_id)
+
+    # The data file, as a file on this computer (embedded points are in the graph itself)
+    data_path = None
+    if info["embedded"] is not True:
+        if info["dataFile"] is None:
+            raise HTTPException(status_code=400, detail="The source has no tss:dataFile.")
+        if not file_exists(info["dataFile"]):
+            raise HTTPException(status_code=404, detail=f"Data file not found: {info['dataFile']}")
+        data_path = local_copy(info["dataFile"])
+
+    token = uuid4().hex
+    target = Path(RDF_EXPORT_DIRECTORY.name) / f"{token}.ttl"
     try:
-        groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
-        modes = {embedded_mode(graph, group) for group in groups}
-        if not groups or None in modes or len(modes) != 1:
-            raise ValueError("Every group must state the same boolean tss:embedded storage profile.")
-        if modes == {True}:
-            result = rdf_generation.generate(graph, endpoint_base(endpoint_id))
-        else:
-            formats = {parquet_rdf_generation.data_format(graph, group) for group in groups}
-            if len(formats) != 1 or None in formats:
-                raise ValueError("RDF generation requires all external groups to use CSV or all to use Parquet, with a supported dcterms:format.")
-            parquet = formats == {"parquet"}
-            token = uuid4().hex
-            target = Path(RDF_EXPORT_DIRECTORY.name) / f"{token}.ttl"
-
-            def load_files(group):
-                data_iri = rdf_generation.single(graph, group, TSS.dataFile, required=True)
-                if not isinstance(data_iri, URIRef):
-                    raise ValueError("tss:dataFile must be a file IRI.")
-                data_location = iri_to_location(data_iri)
-                if not file_exists(data_location):
-                    raise ValueError(f"Data file not found: {data_location}")
-                if parquet:
-                    return local_copy(data_location), data_iri
-                csvw_iri = rdf_generation.single(graph, group, TSS.describedby, required=True)
-                if not isinstance(csvw_iri, URIRef):
-                    raise ValueError("tss:describedby must be a file IRI.")
-                csvw_location = iri_to_location(csvw_iri)
-                metadata = load_csvw_json(csvw_location)
-                return metadata, local_copy(data_location), data_iri
-
-            try:
-                generator = parquet_rdf_generation.generate if parquet else csv_rdf_generation.generate
-                result = generator(graph, load_files, target)
-            except Exception:
-                target.unlink(missing_ok=True)
-                raise
-            RDF_EXPORTS[token] = (endpoint_id, target)
-            result["downloadUrl"] = f"/api/endpoints/{endpoint_id}/rdf/download/{token}"
+        result = rdf_generation.generate(graph, data_path, target)
     except ValueError as error:
+        target.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=str(error))
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    RDF_EXPORTS[token] = (endpoint_id, target)
+    result["downloadUrl"] = f"/api/endpoints/{endpoint_id}/rdf/download/{token}"
     result["filename"] = "observations.ttl"
     return result
 
