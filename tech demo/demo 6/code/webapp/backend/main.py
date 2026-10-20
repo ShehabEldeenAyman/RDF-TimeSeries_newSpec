@@ -3,7 +3,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from rdflib import Graph, URIRef, Literal, RDF, RDFS
 from rdflib.namespace import DCTERMS
-from csvw import CSVW
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 from urllib.request import url2pathname
@@ -857,60 +856,6 @@ def mark_turtle(text, marks):
     return lines
 
 
-def mark_csvw(text, column_marks):
-    """Split a CSVW JSON file into lines and mark the column objects of the columns
-    this series reads. column_marks maps a column name to a mark, e.g. {"timestamp": "time"}"""
-    lines = []
-    for line in text.splitlines():
-        lines.append({"text": line, "mark": None})
-
-    for index in range(len(lines)):
-        for name, mark in column_marks.items():
-            if f'"name": "{name}"' in lines[index]["text"]:
-                # walk up to the "{" that opens this column ...
-                start = index
-                while start > 0 and lines[start]["text"].strip() != "{":
-                    start -= 1
-                # ... and down to the "}" that closes it (counting nested { })
-                depth = 0
-                for end in range(start, len(lines)):
-                    depth += lines[end]["text"].count("{") - lines[end]["text"].count("}")
-                    lines[end]["mark"] = mark
-                    if depth == 0:
-                        break
-    return lines
-
-
-def first_csv_rows(csv_url, described_by, time_column, value_column, count=10):
-    """The first rows of the CSV, with the columns this series reads marked"""
-    result = {"file": csv_url, "error": None, "columns": [], "rows": []}
-
-    csvw = read_csvw(described_by)
-    if csvw is None:
-        result["error"] = f"Can't tell which columns this series reads: CSVW file not found: {described_by}"
-        return result
-    if not file_exists(csv_url):
-        result["error"] = f"CSV file not found: {csv_url}"
-        return result
-    delimiter, headers = csvw
-
-    # Which CSV headers belong to the columns this series reads?
-    bound = {}
-    if time_column in headers:
-        bound[headers[time_column]] = "time column"
-    if value_column in headers:
-        bound[headers[value_column]] = "value column"
-
-    reader = csv.reader(read_lines(csv_url), delimiter=delimiter)
-    for header in next(reader):  # the first line holds the headers
-        result["columns"].append({"header": header, "bound": bound.get(header)})
-    for row in reader:
-        result["rows"].append(row)
-        if len(result["rows"]) == count:
-            break
-    return result
-
-
 def read_points(graph, source):
     """The JSON points embedded in a source (tss:points), as a list of objects.
     Each object is one row; its keys are the column names of the fields (tss:pointLayout tss:Object).
@@ -1322,75 +1267,6 @@ def download_csvw_file(endpoint_id):
     if not info["csvwApplicable"]:
         raise HTTPException(status_code=400, detail="CSVW metadata is not applicable: the TSS must declare dcterms:format filetype:CSV.")
     return send_as_download(info["describedBy"], "application/json")
-
-
-@api.get("/endpoints/{endpoint_id}/validate")
-def validate(endpoint_id):
-    """Run the csvw validator: it reads the CSV through its CSVW metadata and
-    checks every row against the table schema (datatypes, required values, headers)."""
-    info = get_endpoint_info(endpoint_id)
-    if not info["csvwApplicable"]:
-        return {
-            "applicable": False,
-            "note": "Not applicable. CSVW validation is only available when the TSS declares dcterms:format filetype:CSV.",
-        }
-    location = info["describedBy"]
-    if not file_exists(location):
-        return {
-            "valid": False,
-            "seconds": 0,
-            "messages": [f"CSVW file not found: {location}"],
-            "messageCount": 1,
-            "columns": [],
-        }
-
-    # The csvw library can open a local file or a web address itself
-    if is_url(location):
-        source = location
-    else:
-        source = str(DEMO_DIR / location)
-
-    started = time.time()
-    try:
-        metadata = load_csvw_json(location)
-        delimiter = csvw_delimiter(metadata, location)
-        data = CSVW(source, validate=True)
-        # Check the library's effective delimiter, including the comma default,
-        # before it reads CSV cells; metadata may have changed between fetches.
-        if any((table.dialect.delimiter if table.dialect is not None else ",") != delimiter
-               for table in data.tables):
-            raise ValueError("The validator's delimiter does not match the corresponding CSVW file. Reload the metadata and try again.")
-        valid = data.is_valid
-    except Exception as error:
-        # For example: the CSV file named in the CSVW "url" does not exist
-        return {
-            "valid": False,
-            "seconds": round(time.time() - started, 1),
-            "messages": [f"{type(error).__name__}: {error}"],
-            "messageCount": 1,
-            "columns": [],
-        }
-
-    # A broken file can give thousands of warnings, so only send the first 50
-    messages = []
-    for warning in data.warnings[:50]:
-        messages.append(str(warning.message))
-
-    columns = []
-    for column in data.tables[0].tableSchema.columns:
-        columns.append({
-            "name": column.name,
-            "title": column.titles.getfirst() if column.titles else None,
-            "datatype": column.datatype.base if column.datatype else "string",
-        })
-
-    return {
-        "valid": valid,
-        "seconds": round(time.time() - started, 1),
-        "messages": messages,
-        "messageCount": len(data.warnings),
-        "columns": columns,
-    }
 
 
 def find_snippet(info, snippet):
