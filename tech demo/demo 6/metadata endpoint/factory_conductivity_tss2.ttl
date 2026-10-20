@@ -1,13 +1,9 @@
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
-@prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
-@prefix foaf: <http://xmlns.com/foaf/0.1/> .
 
 # Demo 6: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
@@ -47,15 +43,7 @@ ex:factory-source
         ex:factory-ro1e_feed_conductivity-field ;
     tss:delimiter ";" ;
     tss:header true ;
-    tss:encoding "utf-8" ;
-    dcterms:publisher <https://www.ugent.be/> ;
-    dcterms:license <https://example.org/license-to-be-decided> ;
-    dcterms:issued "2026-09-25"^^xsd:date ;
-    dcterms:modified "2026-09-28"^^xsd:date ;
-    prov:wasDerivedFrom [ rdfs:label "Confidential industrial water-treatment sensor export (not published)" ; dcterms:temporal "2025-01-01/2025-12-31"^^xsd:string ] ;
-    prov:wasGeneratedBy [ rdf:type prov:Activity ; rdfs:label "Selected conductivity columns, renamed them, and multiplied each value by an independent random factor 1 + N(0, 0.02), clipped at 0. The noise is unseeded and cannot be reproduced." ; prov:endedAtTime "2026-09-25T00:00:00Z"^^xsd:dateTime ] .
-
-
+    tss:encoding "utf-8" .
 
 # Field definitions include measurement meaning, units, sensor and feature.
 
