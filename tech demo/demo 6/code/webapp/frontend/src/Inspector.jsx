@@ -1,32 +1,46 @@
 import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
 import { SourceFiles } from './SourceFiles'
+import { roleText } from './fieldRole'
 
-// How each "source" from the backend is shown next to a value
+// How each "where" from the backend is shown next to a value
 const MARKERS = {
-  own: '● own',
-  group: '⬆ from group',
-  override: '◆ overrides group',
+  field: '● on the field',
+  source: '⬆ from the source',
   missing: '○ not stated',
 }
 
-// The series inspector: pick a series and see everything that is known about it,
-// with, for every value, where it comes from (the snippet itself or its group).
-// The backend applies the TSS2 inheritance rule; this component only shows the result.
+// The field the inspector shows first: the first measured series (a field with an
+// observed property that does not describe another field), else the first field
+function firstField(fields) {
+  for (const field of fields) {
+    if (field.observedProperty && !field.describesField) return field.id
+  }
+  return fields.length > 0 ? fields[0].id : ''
+}
+
+// The text for a field in the drop down, e.g. "Value: Electrical conductivity at 20 °C, ..."
+function fieldText(field) {
+  if (field.label && field.label !== field.columnName) return field.columnName + ': ' + field.label
+  return field.columnName
+}
+
+// The series inspector: pick a field (one column of the source) and see everything that is
+// known about it, with, for every value, where it is stated: on the field, or on its source.
 export function Inspector({ info }) {
-  const [snippetId, setSnippetId] = useState(info.snippets.length > 0 ? info.snippets[0].id : '')
+  const [fieldId, setFieldId] = useState(firstField(info.fields))
   const [metadata, setMetadata] = useState(null)
   const [error, setError] = useState(null)
 
-  // Every time another series is picked: ask the backend what is known about it
+  // Every time another field is picked: ask the backend what is known about it
   useEffect(() => {
-    if (snippetId === '') return
+    if (fieldId === '') return
 
-    // Same trick as in App: if another series is picked before this answer
+    // Same trick as in App: if another field is picked before this answer
     // arrives, the late answer is thrown away
     let ignore = false
 
-    const params = new URLSearchParams({ snippet: snippetId })
+    const params = new URLSearchParams({ field: fieldId })
     fetch(`${API_URL}/endpoints/${info.id}/series/metadata?${params}`)
       .then((response) => response.json())
       .then((data) => {
@@ -41,37 +55,36 @@ export function Inspector({ info }) {
     return () => {
       ignore = true
     }
-  }, [info.id, snippetId])
+  }, [info.id, fieldId])
 
-  // Used by the drop down, and by the member list in the group panel
-  function pickSeries(id) {
-    // Picking the series that is already shown: nothing to do. (Without this line
+  // Used by the drop down, and by the field links further down
+  function pickField(id) {
+    // Picking the field that is already shown: nothing to do. (Without this line
     // we would clear the panel, but the useEffect would not run again to refill it.)
-    if (id === snippetId) return
-    setSnippetId(id)
+    if (id === fieldId) return
+    setFieldId(id)
     setMetadata(null)
     setError(null)
   }
 
-  if (info.snippets.length === 0) return <p className="muted">This data source has no snippets.</p>
+  if (info.fields.length === 0) return <p className="muted">This data source has no fields.</p>
 
   return (
     <>
       <section className="card" id="inspector-top">
         <label>
-          Series{' '}
-          <select value={snippetId} onChange={(event) => pickSeries(event.target.value)}>
-            {info.snippets.map((snippet) => (
-              <option key={snippet.id} value={snippet.id}>
-                {snippet.label}
+          Field{' '}
+          <select value={fieldId} onChange={(event) => pickField(event.target.value)}>
+            {info.fields.map((field) => (
+              <option key={field.id} value={field.id}>
+                {fieldText(field)}
               </option>
             ))}
           </select>
         </label>
         <p className="muted small legend">
-          <span className="marker own">{MARKERS.own}</span> stated on the snippet itself ·{' '}
-          <span className="marker group">{MARKERS.group}</span> inherited from its group's template ·{' '}
-          <span className="marker override">{MARKERS.override}</span> the snippet replaces the group's value.
+          <span className="marker field">{MARKERS.field}</span> stated on this field ·{' '}
+          <span className="marker source">{MARKERS.source}</span> stated on the source, so true for every field of it.
           Hover over a value to see the exact RDF.
         </p>
       </section>
@@ -81,48 +94,67 @@ export function Inspector({ info }) {
 
       {metadata !== null && (
         <>
-          <SeriesPanel metadata={metadata} />
+          <FieldPanel metadata={metadata} info={info} fieldId={fieldId} onPick={pickField} />
           <SourceFiles files={metadata.files} />
-          {metadata.group && <GroupPanel group={metadata.group} currentId={snippetId} onPick={pickSeries} />}
+          <SourcePanel info={info} lines={metadata.source.lines} fieldId={fieldId} onPick={pickField} />
         </>
       )}
     </>
   )
 }
 
-function SeriesPanel({ metadata }) {
+function FieldPanel({ metadata, info, fieldId, onPick }) {
   const counts = metadata.counts
-  const groupLabel = metadata.group ? metadata.group.label : ''
+  const chosen = info.fields.find((field) => field.id === fieldId)
+
+  // The field this one says something about, and the fields that say something about this one
+  const describes = chosen.describesField ? info.fields.find((field) => field.columnName === chosen.describesField) : null
+  const describedBy = info.fields.filter((field) => field.describesField === chosen.columnName && field.id !== chosen.id)
 
   return (
     <section className="card">
       <h3>{metadata.label}</h3>
+      {metadata.comments.map((comment) => (
+        <p key={comment} className="muted">{comment}</p>
+      ))}
       <table className="facts">
         <tbody>
           <tr>
-            <th>Snippet</th>
-            <td title={metadata.snippet.iri}>{metadata.snippet.short}</td>
+            <th>Field</th>
+            <td title={metadata.field.iri}>{metadata.field.short}</td>
           </tr>
           <tr>
-            <th>Group</th>
+            <th>Source</th>
             <td>
-              {metadata.group ? (
-                <>
-                  <a href="#group-panel" title={metadata.group.value.hover}>{metadata.group.short}</a>{' '}
-                  ({metadata.group.size} {metadata.group.size === 1 ? 'snippet' : 'snippets'})
-                </>
-              ) : (
-                '— (this snippet is not in a group)'
-              )}
+              <a href="#source-panel">{info.source}</a> ({info.fields.length} fields)
             </td>
           </tr>
+          {describes && (
+            <tr>
+              <th>Describes</th>
+              <td><FieldLink field={describes} onPick={onPick} /></td>
+            </tr>
+          )}
+          {describedBy.length > 0 && (
+            <tr>
+              <th>Described by</th>
+              <td>
+                {describedBy.map((field, index) => (
+                  <span key={field.id}>
+                    {index > 0 && ', '}
+                    <FieldLink field={field} onPick={onPick} />
+                  </span>
+                ))}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
       <p className="summary">
-        This snippet states <strong>{counts.own + counts.override}</strong> of these values itself
-        and inherits <strong>{counts.group}</strong> from its group
-        {counts.override > 0 && <> ({counts.override} of its own values override the group)</>}.
+        This field states <strong>{counts.field}</strong> of these values itself;{' '}
+        <strong>{counts.source}</strong> come from its source
+        {counts.missing > 0 && <>, and {counts.missing} are not stated</>}.
       </p>
 
       {metadata.sections.map((section) => (
@@ -131,8 +163,8 @@ function SeriesPanel({ metadata }) {
           <p className="muted small">{section.explanation}</p>
           <table className="inspector-lines">
             <tbody>
-              {section.lines.map((line) => (
-                <Line key={line.name} line={line} groupLabel={groupLabel} />
+              {section.lines.map((line, index) => (
+                <Line key={index} line={line} sourceLabel={info.label} />
               ))}
             </tbody>
           </table>
@@ -142,19 +174,28 @@ function SeriesPanel({ metadata }) {
   )
 }
 
-// One line: name | value | where the value comes from
-function Line({ line, groupLabel }) {
-  // For inherited and overriding values the marker is a link:
-  // hovering shows the group's name, clicking jumps to the group's panel
+// A link that shows another field in the inspector. href jumps back up to the field picker.
+function FieldLink({ field, onPick }) {
+  return (
+    <a href="#inspector-top" onClick={() => onPick(field.id)}>
+      {field.columnName}
+    </a>
+  )
+}
+
+// One line: name | value | where the value is stated
+function Line({ line, sourceLabel }) {
+  // For values from the source the marker is a link:
+  // hovering shows the source's name, clicking jumps to the source's panel
   let marker
-  if (line.source === 'group' || line.source === 'override') {
+  if (line.where === 'source') {
     marker = (
-      <a href="#group-panel" className={'marker ' + line.source} title={'Group: ' + groupLabel}>
-        {MARKERS[line.source]}
+      <a href="#source-panel" className="marker source" title={'Source: ' + sourceLabel}>
+        {MARKERS.source}
       </a>
     )
   } else {
-    marker = <span className={'marker ' + line.source}>{MARKERS[line.source]}</span>
+    marker = <span className={'marker ' + line.where}>{MARKERS[line.where]}</span>
   }
 
   return (
@@ -162,11 +203,6 @@ function Line({ line, groupLabel }) {
       <th title={line.property}>{line.name}</th>
       <td>
         <Value value={line.value} />
-        {line.groupValue && (
-          <s className="group-value" title="The group's value, replaced by this snippet">
-            <Value value={line.groupValue} />
-          </s>
-        )}
       </td>
       <td className="marker-cell">{marker}</td>
     </tr>
@@ -189,18 +225,17 @@ function Value({ value }) {
   )
 }
 
-// The group's own panel: the defaults in its template, and all its members
-function GroupPanel({ group, currentId, onPick }) {
+// The source's own panel: what it states (true for every field), and all its fields
+function SourcePanel({ info, lines, fieldId, onPick }) {
   return (
-    <section className="card" id="group-panel">
-      <h3>Group: {group.label}</h3>
+    <section className="card" id="source-panel">
+      <h3>Source: {info.label}</h3>
       <p className="muted small">
-        <span title={group.value.hover}>{group.short}</span>. Its snippet template gives these defaults to every
-        member. A member uses them unless it states its own value.
+        {info.source}. What the source states holds for every one of its fields.
       </p>
       <table className="facts">
         <tbody>
-          {group.template.map((line, index) => (
+          {lines.map((line, index) => (
             <tr key={index}>
               <th>{line.property}</th>
               <td>
@@ -211,18 +246,12 @@ function GroupPanel({ group, currentId, onPick }) {
         </tbody>
       </table>
 
-      <h4>Members ({group.members.length})</h4>
+      <h4>Fields ({info.fields.length})</h4>
       <ul className="members">
-        {group.members.map((member) => (
-          <li key={member.id}>
-            {member.id === currentId ? (
-              <strong>{member.label} (shown above)</strong>
-            ) : (
-              // href jumps back up to the series picker, onClick shows this member
-              <a href="#inspector-top" onClick={() => onPick(member.id)}>
-                {member.label}
-              </a>
-            )}
+        {info.fields.map((field) => (
+          <li key={field.id}>
+            {field.id === fieldId ? <strong>{field.columnName} (shown above)</strong> : <FieldLink field={field} onPick={onPick} />}
+            {roleText(field) !== '—' && <span className="muted small"> ({roleText(field)})</span>}
           </li>
         ))}
       </ul>

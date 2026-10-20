@@ -16,7 +16,7 @@ import { RdfGeneration } from './RdfGeneration'
 // nodes). We update the tabs one by one; until then, a tab only shows a short note.
 const tabs = [
   { id: 'overview', label: 'Overview', updated: true },
-  { id: 'inspector', label: 'Series inspector', updated: false },
+  { id: 'inspector', label: 'Series inspector', updated: true },
   { id: 'shacl', label: 'SHACL', updated: false },
   { id: 'rdf', label: 'RDF generation', updated: false },
   { id: 'files', label: 'Files', updated: false },

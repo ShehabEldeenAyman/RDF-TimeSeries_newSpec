@@ -1,3 +1,5 @@
+import { roleText } from './fieldRole'
+
 // One "name | value" row in a small table. Shows a dash when the endpoint has no value.
 function Fact({ name, value }) {
   return (
@@ -6,15 +8,6 @@ function Fact({ name, value }) {
       <td>{value ? value : '—'}</td>
     </tr>
   )
-}
-
-// What a field does in the source, e.g. "time, key" or "describes Value"
-function roleText(field) {
-  const roles = []
-  if (field.isTime) roles.push('time')
-  if (field.isKey) roles.push('key')
-  if (field.describesField) roles.push('describes ' + field.describesField)
-  return roles.length > 0 ? roles.join(', ') : '—'
 }
 
 // The allowed values, e.g. "0 to 10000". "…" when only one side is given.

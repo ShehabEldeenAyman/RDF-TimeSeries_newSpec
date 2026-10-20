@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from rdflib import Graph, URIRef, Literal, BNode, RDF, RDFS
+from rdflib import Graph, URIRef, Literal, RDF, RDFS
 from rdflib.namespace import DCTERMS
 from csvw import CSVW
 from pathlib import Path
@@ -57,32 +57,51 @@ LINKABLE_VOCABULARIES = {
     "http://www.w3.org/ns/sosa/": "SOSA",
 }
 
-# The series inspector groups its lines by meaning, not by RDF structure
-INSPECTOR_SECTIONS = [
+# The series inspector groups the lines about a field by meaning. Each line is
+# (the name the inspector shows, the property, where it is stated):
+# "field" = on the field itself, "source" = on its source, so true for every field of that source.
+# Data binding gets more lines in series_metadata (data file or points, time column, key).
+FIELD_SECTIONS = [
     {
         "title": "Data binding",
-        "explanation": "Where the values are: the data file, and the columns that hold the time and the value of each reading.",
-        "properties": [("time column", TSS.timeColumn), ("value column", TSS.valueColumn)],
+        "explanation": "Where the values are: the data, and the column that holds this field.",
+        "properties": [
+            ("format", TSS["format"], "source"),
+            ("column", TSS.columnName, "field"),
+            ("column index", TSS.columnIndex, "field"),
+        ],
     },
     {
         "title": "Time window",
-        "explanation": "The stretch of time this series covers.",
-        "properties": [("from", TSS["from"]), ("until", TSS["until"])],
+        "explanation": "The stretch of time the source covers: from is included, until is not.",
+        "properties": [("from", TSS["from"], "source"), ("until", TSS["until"], "source")],
     },
     {
-        "title": "Each reading is",
-        "explanation": "The point template: every row of the CSV becomes one reading like this.",
-        "properties": [("type", TSS.pointType), ("time goes in", TSS.timePath), ("value goes in", TSS.valuePath)],
+        "title": "Values",
+        "explanation": "How to read each value of this field, and which values are allowed.",
+        "properties": [
+            ("datatype", TSS.datatype, "field"),
+            ("language", TSS.language, "field"),
+            ("required", TSS.required, "field"),
+            ("minimum", TSS.minimum, "field"),
+            ("maximum", TSS.maximum, "field"),
+        ],
     },
-]
-
-# What every reading shares, stated inside tss:about (the SOSA part of the point template).
-# These lines are added to the "Each reading is" section.
-ABOUT_PROPERTIES = [
-    ("made by", SOSA.madeBySensor),
-    ("observes", SOSA.observedProperty),
-    ("feature", SOSA.hasFeatureOfInterest),
-    ("unit", QUDT.hasUnit),
+    {
+        "title": "What is measured",
+        "explanation": "What each value of this field is an observation of.",
+        "properties": [
+            ("observes", TSS.observedProperty, "field"),
+            ("unit", TSS.unit, "field"),
+            ("made by", TSS.sensor, "field"),
+            ("feature", TSS.featureOfInterest, "field"),
+        ],
+    },
+    {
+        "title": "Provenance",
+        "explanation": "Who produced the data, and whether it can still change.",
+        "properties": [("produced by", TSS.producedBy, "source"), ("mutable", TSS.mutable, "source")],
+    },
 ]
 
 
@@ -566,11 +585,7 @@ def get_endpoint_info(endpoint_id):
     for prop, value in graph.predicate_objects(source):
         if prop in SOURCE_PROPERTIES:
             continue
-        shown = describe(graph, value)
-        label = graph.value(value, RDFS.label)
-        if isinstance(value, BNode) and label is not None:
-            shown["text"] = str(label)  # a blank node with a label, e.g. a prov:Activity
-        info["otherProperties"].append({"property": show(graph, prop), "value": shown})
+        info["otherProperties"].append({"property": show(graph, prop), "value": describe(graph, value)})
     info["otherProperties"].sort(key=lambda line: line["property"])
 
     return info
@@ -800,19 +815,20 @@ def describe(graph, value):
             result["text"] = moment.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     else:
-        result["text"] = "[ ] (a blank node)"
+        # A blank node: show its rdfs:label when it has one, e.g. a prov:Activity
+        label = graph.value(value, RDFS.label)
+        result["text"] = str(label) if label is not None else "[ ] (a blank node)"
 
     return result
 
 
-def make_line(graph, name, property_name, value, source, group_value):
+def make_line(graph, name, property_name, value, where):
     """One line of the series inspector"""
     return {
-        "name": name,                                 # what the inspector calls it, e.g. "time column"
-        "property": property_name,                    # the RDF property, e.g. tss:timeColumn
-        "source": source,                             # "own", "group", "override" or "missing"
+        "name": name,               # what the inspector calls it, e.g. "time column"
+        "property": property_name,  # the RDF property, e.g. tss:timeField
+        "where": where if value is not None else "missing",  # "field", "source" or "missing"
         "value": describe(graph, value),
-        "groupValue": describe(graph, group_value),   # only for an override: the value it replaces
     }
 
 
@@ -893,6 +909,111 @@ def first_csv_rows(csv_url, described_by, time_column, value_column, count=10):
         if len(result["rows"]) == count:
             break
     return result
+
+
+def read_points(graph, source):
+    """The JSON points embedded in a source (tss:points), as a list of objects.
+    Each object is one row; its keys are the column names of the fields (tss:pointLayout tss:Object).
+    Raises ValueError with the reason when they can't be used."""
+    try:
+        points = json.loads(str(graph.value(source, TSS.points)))
+    except (ValueError, TypeError):
+        raise ValueError("tss:points does not hold valid JSON")
+    if not isinstance(points, list):
+        raise ValueError("tss:points must be a JSON array")
+    for point in points:
+        if not isinstance(point, dict):
+            raise ValueError("Every point in tss:points must be a JSON object (tss:pointLayout tss:Object)")
+    return points
+
+
+def first_rows(graph, info, source, count=10):
+    """The first rows of a source's data, whatever the format: a CSV file, a Parquet file,
+    or JSON points embedded in the Turtle. Returns (headers, rows), every cell as text.
+    headers is None when a CSV file has no header line (tss:header false).
+    Raises ValueError with the reason when the data can't be read."""
+    if info["embedded"]:
+        points = read_points(graph, source)
+        # The columns: the fields' column names first, then any other key the points use
+        headers = []
+        for field in info["fields"]:
+            if field["columnName"] is not None:
+                headers.append(field["columnName"])
+        for point in points:
+            for key in point:
+                if key not in headers:
+                    headers.append(key)
+        rows = []
+        for point in points[:count]:
+            row = []
+            for header in headers:
+                value = point.get(header)
+                row.append("" if value is None else str(value))
+            rows.append(row)
+        return headers, rows
+
+    location = info["dataFile"]
+    if location is None:
+        raise ValueError("The source has no tss:dataFile")
+    if not file_exists(location):
+        raise ValueError(f"Data file not found: {location}")
+
+    if info["format"] == "tss:Parquet":
+        try:
+            with duckdb.connect() as connection:
+                result = connection.execute(
+                    "SELECT * FROM read_parquet(?, hive_partitioning = false) LIMIT ?",
+                    [str(local_copy(location)), count],
+                )
+                headers = [column[0] for column in result.description]
+                found = result.fetchall()
+        except duckdb.Error as error:
+            raise ValueError(f"Could not read the Parquet file {location}: {error}")
+        rows = []
+        for found_row in found:
+            row = []
+            for value in found_row:
+                if value is None:
+                    row.append("")
+                elif isinstance(value, datetime):
+                    row.append(sql_box.to_json_value(value))
+                else:
+                    row.append(str(value))
+            rows.append(row)
+        return headers, rows
+
+    if info["format"] == "tss:CSV":
+        delimiter = info["delimiter"] if info["delimiter"] is not None else ","
+        if len(delimiter) != 1:
+            raise ValueError(f"tss:delimiter must be one character, not '{delimiter}'")
+        if info["encoding"] is not None and info["encoding"].lower() not in ("utf-8", "utf8"):
+            raise ValueError(f"This dashboard only reads UTF-8 files, not tss:encoding '{info['encoding']}'")
+        reader = csv.reader(read_lines(location), delimiter=delimiter)
+        headers = None
+        if info["header"] != "false":
+            headers = next(reader, [])  # the first line holds the headers
+        rows = []
+        for row in reader:
+            rows.append(row)
+            if len(rows) == count:
+                break
+        return headers, rows
+
+    raise ValueError(f"The dashboard can't read data in format {info['format']}")
+
+
+def column_positions(fields, headers):
+    """Where each field is in the rows: field id -> column position.
+    With a header line, a field is found by its column name;
+    without one (headers is None), by its tss:columnIndex."""
+    positions = {}
+    for field in fields:
+        if headers is not None:
+            if field["columnName"] in headers:
+                positions[field["id"]] = headers.index(field["columnName"])
+        elif field["columnIndex"] is not None:
+            positions[field["id"]] = field["columnIndex"]
+    return positions
 
 
 # ---------------------------------------------------------------------------
@@ -1452,141 +1573,147 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
 
 
 @api.get("/endpoints/{endpoint_id}/series/metadata")
-def series_metadata(endpoint_id, snippet):
-    """The series inspector: everything known about one snippet, and where each
-    value comes from: stated on the snippet ("own"), inherited from its group's
-    template ("group"), or stated on both with different values ("override")."""
+def series_metadata(endpoint_id, field):
+    """The series inspector: everything known about one field (one column of the source),
+    and for every value where it is stated: on the field itself ("field"), or on its
+    source ("source"), which makes it true for every field of that source."""
     graph = load_graph(endpoint_id)
-    snippet = URIRef(snippet)
-    if (snippet, RDF.type, TSS.Snippet) not in graph:
-        raise HTTPException(status_code=404, detail=f"Unknown snippet: {snippet}")
-    group, template = find_group(graph, snippet)
-    embedded = embedded_mode(graph, group) is True
+    info = get_endpoint_info(endpoint_id)
 
-    # 1. The lines of each section, with the TSS2 rule applied to every property
+    chosen = None
+    for candidate in info["fields"]:
+        if candidate["id"] == field:
+            chosen = candidate
+    if chosen is None:
+        raise HTTPException(status_code=404, detail=f"Unknown field: {field}")
+    field = URIRef(field)
+    source = graph.value(predicate=TSS.hasField, object=field)
+
+    # 1. The lines of each section
     sections = []
-    shown = {RDF.type, RDFS.label, TSS.about}  # properties that never get a line of their own here
-    for section in INSPECTOR_SECTIONS:
+    shown = {RDF.type, RDFS.label, RDFS.comment, TSS.describesField}  # shown elsewhere in the inspector
+    for section in FIELD_SECTIONS:
         lines = []
-        for name, prop in section["properties"]:
-            if embedded and prop in (TSS.timeColumn, TSS.valueColumn):
-                continue
-            value, source, group_value = resolve_with_source(graph, snippet, template, prop)
-            lines.append(make_line(graph, name, show(graph, prop), value, source, group_value))
-            shown.add(prop)
+        for name, prop, where in section["properties"]:
+            node = field if where == "field" else source
+            lines.append(make_line(graph, name, show(graph, prop), graph.value(node, prop), where))
+            if where == "field":
+                shown.add(prop)
         sections.append({"title": section["title"], "explanation": section["explanation"], "lines": lines})
 
-    #    The data file is stated on the group itself, not in its template (one group = one file),
-    #    so every snippet of the group reads from it. It goes first in "Data binding".
-    data_file = value_of(graph, group, TSS.dataFile)
-    source = "group" if data_file is not None else "missing"
-    data_file_line = make_line(graph, "data file", "tss:dataFile (on the group)", data_file, source, None)
-    if data_file is not None:
-        data_file_line["value"]["text"] = iri_to_location(data_file)  # e.g. data/waterinfo_289423042.csv
-    if embedded:
-        points = embedded_points(graph, snippet)
-        shown.add(TSS.points)
-        sections[0]["explanation"] = "The readings are embedded directly in this snippet as JSON points."
-        sections[0]["lines"].append(make_line(graph, "readings", "tss:points", Literal(len(points)), "own", None))
-        sections[2]["explanation"] = "The context maps each JSON point's time and value to RDF properties; the point template supplies its shared metadata."
+    #    Data binding: first where the data is, last the time column and the key of the source
+    binding = sections[0]
+    if info["embedded"]:
+        binding["explanation"] = "The values are embedded in the Turtle file as JSON points; this field is one key in each point."
+        try:
+            count = len(read_points(graph, source))
+        except ValueError:
+            count = None
+        line = make_line(graph, "readings", "tss:points", graph.value(source, TSS.points), "source")
+        if line["value"] is not None:
+            line["value"]["text"] = f"{count} points" if count is not None else "not valid JSON"
+            line["value"]["hover"] = "tss:points (shown in the Turtle tab below)"
+        binding["lines"].insert(0, line)
     else:
-        sections[0]["lines"].insert(0, data_file_line)
+        line = make_line(graph, "data file", "tss:dataFile", graph.value(source, TSS.dataFile), "source")
+        if line["value"] is not None:
+            line["value"]["text"] = info["dataFile"]  # e.g. data/waterinfo_289423042.csv
+        binding["lines"].insert(0, line)
 
-    # 2. The SOSA part ("made by", "observes", ...) sits inside tss:about.
-    #    The rule works on tss:about as a whole: a snippet with its own tss:about
-    #    takes nothing from the template's tss:about.
-    about, about_source, group_about = resolve_with_source(graph, snippet, template, TSS.about)
-    each_reading = sections[2]  # the "Each reading is" section
-    for name, prop in ABOUT_PROPERTIES:
-        value = value_of(graph, about, prop)
-        group_value = value_of(graph, group_about, prop)
-        if value is None:
-            source = "missing"
-        elif about_source == "override" and group_value is not None and value != group_value:
-            source = "override"
-        elif about_source == "group":
-            source = "group"
-        else:
-            source = "own"
-        if source != "override":
-            group_value = None
-        property_name = "tss:about / " + show(graph, prop)
-        each_reading["lines"].append(make_line(graph, name, property_name, value, source, group_value))
+    time_field = graph.value(source, TSS.timeField)
+    line = make_line(graph, "time column", "tss:timeField", time_field, "source")
+    if time_field is not None:
+        line["value"]["text"] = column_name(graph, time_field)
+    binding["lines"].append(line)
 
-    # 3. Anything else stated on the snippet or on its template, so nothing is hidden
-    other_props = set(graph.predicates(snippet))
-    if template is not None:
-        other_props = other_props | set(graph.predicates(template))
+    keys = list(graph.objects(source, TSS.key))
+    line = make_line(graph, "key", "tss:key", keys[0] if len(keys) > 0 else None, "source")
+    if len(keys) > 0:
+        line["value"]["text"] = ", ".join(info["key"])
+    binding["lines"].append(line)
+
+    # 2. Anything else stated on the field, so nothing is hidden
     other_lines = []
-    for prop in sorted(other_props - shown):
-        value, source, group_value = resolve_with_source(graph, snippet, template, prop)
-        other_lines.append(make_line(graph, show(graph, prop), show(graph, prop), value, source, group_value))
+    for prop in sorted(set(graph.predicates(field)) - shown):
+        for value in graph.objects(field, prop):
+            other_lines.append(make_line(graph, show(graph, prop), show(graph, prop), value, "field"))
     if len(other_lines) > 0:
-        sections.append({"title": "Also stated", "explanation": "Everything else the metadata says about this series.", "lines": other_lines})
+        sections.append({"title": "Also stated", "explanation": "Everything else the metadata says about this field.", "lines": other_lines})
 
-    # 4. Count where the values come from (most of them come from the group)
-    counts = {"own": 0, "group": 0, "override": 0, "missing": 0}
+    # 3. Count where the values are stated
+    counts = {"field": 0, "source": 0, "missing": 0}
     for section in sections:
         for line in section["lines"]:
-            counts[line["source"]] += 1
+            counts[line["where"]] += 1
 
-    # 5. The group and its template, for the group's own panel
-    group_info = None
-    if group is not None:
-        template_lines = []
-        if template is not None:
-            for prop, value in graph.predicate_objects(template):
-                if prop != RDF.type:
-                    template_lines.append({"property": show(graph, prop), "value": describe(graph, value)})
+    # 4. What the source states, for the source's own panel
+    source_lines = []
+    for prop, value in graph.predicate_objects(source):
+        if prop in (RDF.type, RDFS.label, TSS.hasField, TSS.points):
+            continue
+        shown_value = describe(graph, value)
+        if prop in (TSS.timeField, TSS.key):
+            shown_value["text"] = column_name(graph, value)
+        source_lines.append({"property": show(graph, prop), "value": shown_value})
+    source_lines.sort(key=lambda line: line["property"])
 
-        member_pairs = []
-        for member in graph.objects(group, TSS.hasSnippet):
-            member_pairs.append((str(graph.value(member, RDFS.label)), str(member)))
-        member_pairs.sort()  # by label, because the label comes first in each pair
-        members = []
-        for label, member_id in member_pairs:
-            members.append({"id": member_id, "label": label})
-
-        group_info = {
-            "short": show(graph, group),
-            "value": describe(graph, group),
-            "label": show(graph, graph.value(group, RDFS.label)),
-            "size": len(members),
-            "template": template_lines,
-            "members": members,
-        }
-
-    # 6. The source files, with the parts this series uses marked
-    time_column = show(graph, resolve(graph, snippet, template, TSS.timeColumn))
-    value_column = show(graph, resolve(graph, snippet, template, TSS.valueColumn))
-    csv_url = iri_to_location(data_file)
-    described_by = iri_to_location(value_of(graph, group, TSS.describedby))
-
+    # 5. The source files, with the parts this field uses marked
     turtle_marks = {}
-    for node, mark in [(snippet, "snippet"), (group, "group")]:
+    for node, mark in [(time_field, "time"), (source, "source"), (field, "field")]:
         if node is not None:
-            turtle_marks[show(graph, node)] = mark  # how our files write it, e.g. ex:snippet-grootdok-ec20
+            turtle_marks[show(graph, node)] = mark  # how our files write it, e.g. ex:grootdok-ec20-field
             turtle_marks[f"<{node}>"] = mark        # in case a file writes the full IRI
     turtle_text = read_text(endpoint_file(endpoint_id))
 
-    csvw_lines = None
-    if file_exists(described_by):
-        csvw_lines = mark_csvw(read_text(described_by), {time_column: "time", value_column: "value"})
+    rows = {
+        "file": "tss:points in the Turtle file" if info["embedded"] else info["dataFile"],
+        "error": None,
+        "columns": [],
+        "rows": [],
+        "notFound": [],
+    }
+    try:
+        headers, data_rows = first_rows(graph, info, source)
+    except ValueError as error:
+        rows["error"] = str(error)
+    else:
+        positions = column_positions(info["fields"], headers)
+        if headers is None:
+            # No header line: name the columns by their position
+            width = 0
+            for row in data_rows:
+                width = max(width, len(row))
+            headers = []
+            for index in range(width):
+                headers.append(f"column {index}")
+
+        # Mark this field, the time field, and the fields that describe this one
+        bound = {}
+        for other in info["fields"]:
+            if other["id"] not in positions:
+                rows["notFound"].append(other["columnName"] or other["iri"])
+                continue
+            if other["id"] == chosen["id"]:
+                bound[positions[other["id"]]] = "field"
+            elif other["isTime"]:
+                bound[positions[other["id"]]] = "time"
+            elif graph.value(URIRef(other["id"]), TSS.describesField) == field:
+                bound[positions[other["id"]]] = "related"
+        for index in range(len(headers)):
+            rows["columns"].append({"header": headers[index], "bound": bound.get(index)})
+        rows["rows"] = data_rows
 
     return {
-        "label": show(graph, graph.value(snippet, RDFS.label)),
-        "snippet": {"short": show(graph, snippet), "iri": str(snippet)},
-        "group": group_info,
+        "label": chosen["label"] if chosen["label"] else chosen["columnName"],
+        "comments": chosen["comments"],
+        "field": {"short": show(graph, field), "iri": str(field)},
         "counts": counts,
         "sections": sections,
+        "source": {"lines": source_lines},
         "files": {
             "turtleFile": endpoint_file(endpoint_id),
             "turtle": mark_turtle(turtle_text, turtle_marks),
-            "csvwFile": described_by,
-            "csvw": csvw_lines,
-            "embedded": embedded,
-            "points": json.dumps(points, indent=2, ensure_ascii=False) if embedded else None,
-            "csv": None if embedded else first_csv_rows(csv_url, described_by, time_column, value_column),
+            "rows": rows,
         },
     }
 
