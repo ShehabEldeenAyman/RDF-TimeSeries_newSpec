@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from rdflib import Graph, URIRef, Literal, RDF, RDFS
+from rdflib import Graph, URIRef, Literal, BNode, RDF, RDFS
 from rdflib.namespace import DCTERMS
 from csvw import CSVW
 from pathlib import Path
@@ -90,56 +90,42 @@ ABOUT_PROPERTIES = [
 # SPARQL queries
 # ---------------------------------------------------------------------------
 
-# The snippet group and its template.
-# One group = one data file: the group itself says which CSV file holds its series
-# (tss:dataFile) and which CSVW file describes it (tss:describedby).
-# In this demo every metadata endpoint holds exactly one group.
-GROUP_QUERY = """
+# The source: one data set (a data file, or points embedded in the Turtle).
+# Its columns are tss:Field nodes, linked with tss:hasField; get_endpoint_info reads those.
+# In this demo every metadata endpoint holds exactly one source.
+SOURCE_QUERY = """
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX tss:  <https://w3id.org/tss#>
 
-SELECT ?group ?label ?embedded ?dataFile ?describedBy ?mutable ?producedBy
-       ?timeColumn ?fromTime ?untilTime ?pointType ?timePath ?valuePath
+SELECT ?source ?label ?embedded ?format ?dataFile ?mutable ?producedBy
+       ?fromTime ?untilTime ?timeField ?pointLayout ?delimiter ?header ?encoding
 WHERE {
-  ?group a tss:SnippetGroup .
-  OPTIONAL { ?group rdfs:label ?label }
-  OPTIONAL {
-    ?group tss:snippetTemplate ?template .
-    OPTIONAL { ?template tss:from ?fromTime }
-    OPTIONAL { ?template tss:until ?untilTime }
-    OPTIONAL { ?template tss:timeColumn ?timeColumn }
-    OPTIONAL { ?template tss:pointType ?pointType }
-    OPTIONAL { ?template tss:timePath ?timePath }
-    OPTIONAL { ?template tss:valuePath ?valuePath }
-  }
-
-  OPTIONAL { ?group tss:dataFile ?dataFile }
-  OPTIONAL { ?group tss:describedby ?describedBy }
-  OPTIONAL { ?group tss:embedded ?embedded }
-  OPTIONAL { ?group tss:mutable ?mutable }
-  OPTIONAL { ?group tss:producedBy ?producedBy }
+  ?source a tss:Source .
+  OPTIONAL { ?source rdfs:label ?label }
+  OPTIONAL { ?source tss:embedded ?embedded }
+  OPTIONAL { ?source tss:format ?format }
+  OPTIONAL { ?source tss:dataFile ?dataFile }
+  OPTIONAL { ?source tss:mutable ?mutable }
+  OPTIONAL { ?source tss:producedBy ?producedBy }
+  OPTIONAL { ?source tss:from ?fromTime }
+  OPTIONAL { ?source tss:until ?untilTime }
+  OPTIONAL { ?source tss:timeField ?timeField }
+  OPTIONAL { ?source tss:pointLayout ?pointLayout }
+  OPTIONAL { ?source tss:delimiter ?delimiter }
+  OPTIONAL { ?source tss:header ?header }
+  OPTIONAL { ?source tss:encoding ?encoding }
 }
 """
 
-# One row per snippet (= one time series = one value column in the CSV).
-# Only what a snippet states itself. The values it can inherit from its group's
-# template (columns, time window, tss:about, ...) are looked up with the TSS2
-# rule in get_endpoint_info.
-SNIPPETS_QUERY = """
-PREFIX rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX dcterms: <http://purl.org/dc/terms/>
-PREFIX tss:     <https://w3id.org/tss#>
-
-SELECT ?snippet ?label ?identifier ?comment
-WHERE {
-  ?snippet a tss:Snippet .
-  OPTIONAL { ?snippet rdfs:label ?label }
-
-  OPTIONAL { ?snippet dcterms:identifier ?identifier }
-  OPTIONAL { ?snippet rdfs:comment ?comment }
-}
-ORDER BY ?label
-"""
+# The source properties the overview shows in their own place.
+# Every other property of the source is listed under "Other statements".
+# (tss:points is left out on purpose: it can be very long.)
+# TSS["format"], not TSS.format: TSS is a text, and text already has a .format
+SOURCE_PROPERTIES = [
+    RDF.type, RDFS.label, TSS.embedded, TSS["format"], TSS.dataFile, TSS.mutable, TSS.producedBy,
+    TSS["from"], TSS.until, TSS.timeField, TSS.key, TSS.hasField,
+    TSS.pointLayout, TSS.points, TSS.delimiter, TSS.header, TSS.encoding,
+]
 
 
 app = FastAPI()
@@ -478,68 +464,114 @@ def csvw_columns(described_by):
     }
 
 
+def column_name(graph, field):
+    """The column a field reads, e.g. "Timestamp". A field without tss:columnName shows its IRI."""
+    name = graph.value(field, TSS.columnName)
+    if name is not None:
+        return str(name)
+    return show(graph, field)
+
+
+def field_info(graph, field, time_fields, key_fields):
+    """What the dashboard shows about one field (one column of the source)"""
+    index = graph.value(field, TSS.columnIndex)
+    unit = graph.value(field, TSS.unit)
+    describes = graph.value(field, TSS.describesField)
+
+    # A field can have more than one rdfs:comment: keep them all
+    comments = []
+    for comment in graph.objects(field, RDFS.comment):
+        comments.append(str(comment))
+
+    return {
+        "id": str(field),
+        "iri": show(graph, field),
+        "columnName": show(graph, graph.value(field, TSS.columnName)),
+        "columnIndex": int(index) if index is not None and str(index).isdigit() else None,
+        "label": show(graph, graph.value(field, RDFS.label)),
+        "comments": comments,
+        "datatype": show(graph, graph.value(field, TSS.datatype)),
+        "language": show(graph, graph.value(field, TSS.language)),
+        "required": show(graph, graph.value(field, TSS.required)),
+        "minimum": show(graph, graph.value(field, TSS.minimum)),
+        "maximum": show(graph, graph.value(field, TSS.maximum)),
+        "observedProperty": show(graph, graph.value(field, TSS.observedProperty)),
+        "unit": READABLE_NAMES.get(str(unit), show(graph, unit)),
+        "sensor": show(graph, graph.value(field, TSS.sensor)),
+        "featureOfInterest": show(graph, graph.value(field, TSS.featureOfInterest)),
+        # The column of the field this one says something about, e.g. "Value"
+        "describesField": column_name(graph, describes) if describes is not None else None,
+        "isTime": field in time_fields,
+        "isKey": field in key_fields,
+    }
+
+
+def field_order(field):
+    """How the fields are sorted: by tss:columnIndex when they have one,
+    otherwise the time field first and then the rest by column name"""
+    if field["columnIndex"] is not None:
+        return (0, field["columnIndex"], "")
+    if field["isTime"]:
+        return (1, 0, "")
+    return (2, 0, field["columnName"] or "")
+
+
 def get_endpoint_info(endpoint_id):
     """Everything the dashboard needs to know about one metadata endpoint"""
     graph = load_graph(endpoint_id)
 
-    rows = list(graph.query(GROUP_QUERY))
+    rows = list(graph.query(SOURCE_QUERY))
     if len(rows) == 0:
-        raise HTTPException(status_code=404, detail=f"No tss:SnippetGroup found in {endpoint_file(endpoint_id)}")
+        raise HTTPException(status_code=404, detail=f"No tss:Source found in {endpoint_file(endpoint_id)}")
     row = rows[0]
-    formats = list(graph.objects(row.group, DCTERMS.format))
-    declared_format = formats[0] if len(formats) == 1 else None
+    source = row.source
+
+    time_fields = list(graph.objects(source, TSS.timeField))
+    key_fields = list(graph.objects(source, TSS.key))
+    key_names = []
+    for field in key_fields:
+        key_names.append(column_name(graph, field))
 
     info = {
         "id": endpoint_id,
         "file": endpoint_file(endpoint_id),
         "online": is_url(endpoint_file(endpoint_id)),
         "label": str(row.label) if row.label is not None else endpoint_id,
-        # the group: its data file and how that file changes
-        "group": show(graph, row.group),
-        "embedded": embedded_mode(graph, row.group),
-        "dataFormat": str(declared_format) if declared_format is not None else None,
-        "csvwApplicable": embedded_mode(graph, row.group) is False and formats == [CSV_FILE_TYPE],
-        "csvUrl": iri_to_location(row.dataFile),
-        "describedBy": iri_to_location(row.describedBy),
+        # the source: where the data is and how it changes
+        "source": show(graph, source),
+        "embedded": embedded_mode(graph, source),
+        "format": show(graph, row.format),
+        "dataFile": iri_to_location(row.dataFile),
         "mutable": show(graph, row.mutable),
         "producedBy": show(graph, row.producedBy),
-        # the snippet template
-        "timeColumn": show(graph, row.timeColumn),
         "from": show(graph, row.fromTime),
         "until": show(graph, row.untilTime),
-        "pointType": show(graph, row.pointType),
-        "timePath": show(graph, row.timePath),
-        "valuePath": show(graph, row.valuePath),
-        # the snippets, filled in below
-        "snippets": [],
+        "timeField": column_name(graph, row.timeField) if row.timeField is not None else None,
+        "key": key_names,
+        # how to read the data: CSV settings, or the layout of embedded points
+        "delimiter": show(graph, row.delimiter),
+        "header": show(graph, row.header),
+        "encoding": show(graph, row.encoding),
+        "pointLayout": show(graph, row.pointLayout),
+        # filled in below
+        "fields": [],
+        "otherProperties": [],
     }
 
-    for row in graph.query(SNIPPETS_QUERY):
-        snippet = row.snippet
-        group, template = find_group(graph, snippet)
-        about = resolve(graph, snippet, template, TSS.about)
-        unit = value_of(graph, about, QUDT.hasUnit)
+    for field in graph.objects(source, TSS.hasField):
+        info["fields"].append(field_info(graph, field, time_fields, key_fields))
+    info["fields"].sort(key=field_order)
 
-        info["snippets"].append({
-            "id": str(snippet),
-            "label": str(row.label) if row.label is not None else show(graph, snippet),
-            "identifier": show(graph, row.identifier),
-            "comment": show(graph, row.comment),
-            # The data file is stated on the group itself (one group = one file)
-            "group": show(graph, group),
-            "embedded": embedded_mode(graph, group),
-            "csvUrl": iri_to_location(value_of(graph, group, TSS.dataFile)),
-            "describedBy": iri_to_location(value_of(graph, group, TSS.describedby)),
-            # Everything below can come from the group's template (the TSS2 rule)
-            "valueColumn": show(graph, resolve(graph, snippet, template, TSS.valueColumn)),
-            "timeColumn": show(graph, resolve(graph, snippet, template, TSS.timeColumn)),
-            "from": show(graph, resolve(graph, snippet, template, TSS["from"])),
-            "until": show(graph, resolve(graph, snippet, template, TSS["until"])),
-            "observedProperty": show(graph, value_of(graph, about, SOSA.observedProperty)),
-            "unit": READABLE_NAMES.get(str(unit), show(graph, unit)),
-            "sensor": show(graph, value_of(graph, about, SOSA.madeBySensor)),
-            "featureOfInterest": show(graph, value_of(graph, about, SOSA.hasFeatureOfInterest)),
-        })
+    # Everything else that is said about the source, e.g. its licence or provenance
+    for prop, value in graph.predicate_objects(source):
+        if prop in SOURCE_PROPERTIES:
+            continue
+        shown = describe(graph, value)
+        label = graph.value(value, RDFS.label)
+        if isinstance(value, BNode) and label is not None:
+            shown["text"] = str(label)  # a blank node with a label, e.g. a prov:Activity
+        info["otherProperties"].append({"property": show(graph, prop), "value": shown})
+    info["otherProperties"].sort(key=lambda line: line["property"])
 
     return info
 

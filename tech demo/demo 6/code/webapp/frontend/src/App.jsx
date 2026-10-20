@@ -11,17 +11,24 @@ import { Shacl } from './Shacl'
 import { EmbeddedFiles } from './EmbeddedFiles'
 import { RdfGeneration } from './RdfGeneration'
 
-// The tabs of the dashboard: an id we use in the code, and the text on the button
+// The tabs of the dashboard: an id we use in the code, and the text on the button.
+// updated: true when the tab already works with the new structure (tss:Source with tss:Field
+// nodes). We update the tabs one by one; until then, a tab only shows a short note.
 const tabs = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'inspector', label: 'Series inspector' },
-  { id: 'shacl', label: 'SHACL' },
-  { id: 'rdf', label: 'RDF generation' },
-  { id: 'files', label: 'Files' },
-  { id: 'validation', label: 'CSVW validation' },
-  { id: 'query', label: 'Query' },
-  { id: 'sql', label: 'SQL (DuckDB)' },
+  { id: 'overview', label: 'Overview', updated: true },
+  { id: 'inspector', label: 'Series inspector', updated: false },
+  { id: 'shacl', label: 'SHACL', updated: false },
+  { id: 'rdf', label: 'RDF generation', updated: false },
+  { id: 'files', label: 'Files', updated: false },
+  { id: 'validation', label: 'CSVW validation', updated: false },
+  { id: 'query', label: 'Query', updated: false },
+  { id: 'sql', label: 'SQL (DuckDB)', updated: false },
 ]
+
+// Is this tab already updated to the new structure?
+function isUpdated(id) {
+  return tabs.find((t) => t.id === id).updated
+}
 
 function App() {
   const [endpoints, setEndpoints] = useState(null) // the list for the drop down
@@ -162,20 +169,34 @@ function App() {
             ))}
           </nav>
 
+          {!isUpdated(tab) && (
+            <section className="card">
+              <h3>{tabs.find((t) => t.id === tab).label}</h3>
+              <p className="muted">
+                This tab does not work with the new structure (<code>tss:Source</code> with <code>tss:Field</code> nodes) yet.
+                We are updating the tabs one by one.
+              </p>
+            </section>
+          )}
+
           {tab === 'overview' && <Overview info={info} />}
 
-          {tab === 'inspector' && <Inspector info={info} />}
+          {tab === 'inspector' && isUpdated('inspector') && <Inspector info={info} />}
 
-          <div style={{ display: tab === 'shacl' ? 'block' : 'none' }}>
-            <Shacl key={info.id} info={info} />
-          </div>
+          {isUpdated('shacl') && (
+            <div style={{ display: tab === 'shacl' ? 'block' : 'none' }}>
+              <Shacl key={info.id} info={info} />
+            </div>
+          )}
 
-          <div style={{ display: tab === 'rdf' ? 'block' : 'none' }}>
-            <RdfGeneration key={info.id} info={info} />
-          </div>
+          {isUpdated('rdf') && (
+            <div style={{ display: tab === 'rdf' ? 'block' : 'none' }}>
+              <RdfGeneration key={info.id} info={info} />
+            </div>
+          )}
 
-          {tab === 'files' && info.embedded && <EmbeddedFiles info={info} />}
-          {tab === 'files' && !info.embedded && (
+          {tab === 'files' && isUpdated('files') && info.embedded && <EmbeddedFiles info={info} />}
+          {tab === 'files' && isUpdated('files') && !info.embedded && (
             <>
               <FileViewer
                 key={`${info.id}-data`}
@@ -195,26 +216,30 @@ function App() {
 
           {/* Validation stays on the page (only hidden), so a running validation and its
               result are not lost when you look at another tab in the meantime */}
-          <div style={{ display: tab === 'validation' ? 'block' : 'none' }}>
-            {info.csvwApplicable ? <Validation key={info.id} endpointId={info.id} /> : (
-              <section className="card">
-                <h3>CSVW validation</h3>
-                <p className="muted">
-                  Not applicable. CSVW validation is only available when the TSS declares{' '}
-                  <code>dcterms:format filetype:CSV</code>.
-                </p>
-                {info.embedded && <p>Use the SHACL tab to check this endpoint's metadata and embedded point structure.</p>}
-              </section>
-            )}
-          </div>
+          {isUpdated('validation') && (
+            <div style={{ display: tab === 'validation' ? 'block' : 'none' }}>
+              {info.csvwApplicable ? <Validation key={info.id} endpointId={info.id} /> : (
+                <section className="card">
+                  <h3>CSVW validation</h3>
+                  <p className="muted">
+                    Not applicable. CSVW validation is only available when the TSS declares{' '}
+                    <code>dcterms:format filetype:CSV</code>.
+                  </p>
+                  {info.embedded && <p>Use the SHACL tab to check this endpoint's metadata and embedded point structure.</p>}
+                </section>
+              )}
+            </div>
+          )}
 
-          {tab === 'query' && <QueryForm info={info} />}
+          {tab === 'query' && isUpdated('query') && <QueryForm info={info} />}
 
           {/* Like Validation: the SQL box stays on the page (only hidden), so your query
               and its result are still there when you come back to the tab */}
-          <div style={{ display: tab === 'sql' ? 'block' : 'none' }}>
-            <SqlBox info={info} />
-          </div>
+          {isUpdated('sql') && (
+            <div style={{ display: tab === 'sql' ? 'block' : 'none' }}>
+              <SqlBox info={info} />
+            </div>
+          )}
         </>
       )}
     </div>
