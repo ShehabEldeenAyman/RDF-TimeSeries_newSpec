@@ -47,8 +47,7 @@ ex:grootdok-ts_id-field
     tss:columnIndex 0 ;
     rdfs:label "ts_id"@en ;
     tss:datatype xsd:integer ;
-    rdfs:comment "waterinfo.be time series identifier (the same on every row)"@en ;
-    tss:required true .
+    rdfs:comment "waterinfo.be time series identifier (the same on every row)"@en .
 
 ex:grootdok-time-field
     a tss:Field ;
@@ -56,8 +55,7 @@ ex:grootdok-time-field
     tss:columnIndex 1 ;
     rdfs:label "Timestamp"@en ;
     tss:datatype xsd:dateTime ;
-    rdfs:comment "Observation time (UTC)"@en ;
-    tss:required true .
+    rdfs:comment "Observation time (UTC)"@en .
 
 ex:grootdok-ec20-field
     a tss:Field ;
@@ -66,7 +64,6 @@ ex:grootdok-ec20-field
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
     tss:datatype xsd:double ;
     rdfs:comment "Electrical conductivity at 20 °C"@en ;
-    tss:required true ;
     tss:minimum 0 ;
     # Example only: 10000 is a placeholder, not a real validated upper limit.
     tss:maximum "10000"^^xsd:double ;

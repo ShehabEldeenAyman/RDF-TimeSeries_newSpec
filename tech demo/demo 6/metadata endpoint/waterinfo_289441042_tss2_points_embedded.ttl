@@ -45,8 +45,7 @@ ex:zevenaarshaven-time-field
     a tss:Field ;
     tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTime ;
-    tss:required true .
+    tss:datatype xsd:dateTime .
 
 ex:zevenaarshaven-ec20-value-field
     a tss:Field ;

@@ -53,8 +53,7 @@ ex:factory-time-field
     tss:columnIndex 0 ;
     rdfs:label "datetime"@en ;
     tss:datatype xsd:dateTime ;
-    rdfs:comment "Observation time (UTC), 15-minute resolution"@en ;
-    tss:required true .
+    rdfs:comment "Observation time (UTC), 15-minute resolution"@en .
 
 ex:factory-ro1_a_permeate_conductivity-field
     a tss:Field ;
