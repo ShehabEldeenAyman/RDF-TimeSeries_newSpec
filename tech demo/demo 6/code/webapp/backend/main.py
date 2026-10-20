@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from rdflib import Graph, URIRef, Literal, RDF, RDFS
-from rdflib.namespace import DCTERMS
+from rdflib.namespace import DCTERMS, XSD
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 from urllib.request import url2pathname
@@ -55,6 +55,15 @@ LINKABLE_VOCABULARIES = {
     "http://qudt.org/": "QUDT",
     "http://www.w3.org/ns/sosa/": "SOSA",
 }
+
+# The tss:datatype values that make a field numeric: only those fields have
+# value ranges and mean/min/max in the query form
+INTEGER_DATATYPES = [
+    XSD.integer, XSD.int, XSD.long, XSD.short, XSD.byte,
+    XSD.nonNegativeInteger, XSD.positiveInteger, XSD.nonPositiveInteger, XSD.negativeInteger,
+    XSD.unsignedLong, XSD.unsignedInt, XSD.unsignedShort, XSD.unsignedByte,
+]
+DECIMAL_DATATYPES = [XSD.decimal, XSD.double, XSD.float]
 
 # The series inspector groups the lines about a field by meaning. Each line is
 # (the name the inspector shows, the property, where it is stated):
@@ -872,30 +881,27 @@ def read_points(graph, source):
     return points
 
 
-def first_rows(graph, info, source, count=10):
-    """The first rows of a source's data, whatever the format: a CSV file, a Parquet file,
-    or JSON points embedded in the Turtle. Returns (headers, rows), every cell as text.
-    headers is None when a CSV file has no header line (tss:header false).
-    Raises ValueError with the reason when the data can't be read."""
+def cell_text(value):
+    """One cell of a Parquet file as text, like it would be in a CSV file ("" when empty)"""
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return sql_box.to_json_value(value)  # e.g. 2021-03-03T23:15:00Z
+    return str(value)
+
+
+def data_rows(graph, info, source):
+    """Every row of a source's data, one at a time, as a dict: column name -> the cell as text.
+    Works for a CSV file, a Parquet file and JSON points embedded in the Turtle.
+    Raises ValueError with the reason when the data can't be read.
+    (A function with "yield" hands out its rows one by one, so a big file never has to fit in memory.)"""
     if info["embedded"]:
-        points = read_points(graph, source)
-        # The columns: the fields' column names first, then any other key the points use
-        headers = []
-        for field in info["fields"]:
-            if field["columnName"] is not None:
-                headers.append(field["columnName"])
-        for point in points:
-            for key in point:
-                if key not in headers:
-                    headers.append(key)
-        rows = []
-        for point in points[:count]:
-            row = []
-            for header in headers:
-                value = point.get(header)
-                row.append("" if value is None else str(value))
-            rows.append(row)
-        return headers, rows
+        for point in read_points(graph, source):
+            row = {}
+            for key, value in point.items():
+                row[key] = "" if value is None else str(value)
+            yield row
+        return
 
     location = info["dataFile"]
     if location is None:
@@ -907,25 +913,21 @@ def first_rows(graph, info, source, count=10):
         try:
             with duckdb.connect() as connection:
                 result = connection.execute(
-                    "SELECT * FROM read_parquet(?, hive_partitioning = false) LIMIT ?",
-                    [str(local_copy(location)), count],
+                    "SELECT * FROM read_parquet(?, hive_partitioning = false)", [str(local_copy(location))]
                 )
-                headers = [column[0] for column in result.description]
-                found = result.fetchall()
+                names = [column[0] for column in result.description]
+                while True:
+                    batch = result.fetchmany(10000)  # 10000 rows at a time
+                    if len(batch) == 0:
+                        break
+                    for found in batch:
+                        row = {}
+                        for index in range(len(names)):
+                            row[names[index]] = cell_text(found[index])
+                        yield row
         except duckdb.Error as error:
             raise ValueError(f"Could not read the Parquet file {location}: {error}")
-        rows = []
-        for found_row in found:
-            row = []
-            for value in found_row:
-                if value is None:
-                    row.append("")
-                elif isinstance(value, datetime):
-                    row.append(sql_box.to_json_value(value))
-                else:
-                    row.append(str(value))
-            rows.append(row)
-        return headers, rows
+        return
 
     if info["format"] == "tss:CSV":
         delimiter = info["delimiter"] if info["delimiter"] is not None else ","
@@ -933,32 +935,76 @@ def first_rows(graph, info, source, count=10):
             raise ValueError(f"tss:delimiter must be one character, not '{delimiter}'")
         if info["encoding"] is not None and info["encoding"].lower() not in ("utf-8", "utf8"):
             raise ValueError(f"This dashboard only reads UTF-8 files, not tss:encoding '{info['encoding']}'")
+
+        # The name of each column: from the header line, or, without one (tss:header false),
+        # the column name of the field with that tss:columnIndex
         reader = csv.reader(read_lines(location), delimiter=delimiter)
-        headers = None
+        names = {}
         if info["header"] != "false":
-            headers = next(reader, [])  # the first line holds the headers
-        rows = []
-        for row in reader:
-            rows.append(row)
-            if len(rows) == count:
-                break
-        return headers, rows
+            header = next(reader, [])
+            for index in range(len(header)):
+                names[index] = header[index]
+        else:
+            for field in info["fields"]:
+                if field["columnIndex"] is not None and field["columnName"] is not None:
+                    names[field["columnIndex"]] = field["columnName"]
+
+        for cells in reader:
+            row = {}
+            for index in range(len(cells)):
+                row[names.get(index, f"column {index}")] = cells[index]
+            yield row
+        return
 
     raise ValueError(f"The dashboard can't read data in format {info['format']}")
 
 
+def first_rows(graph, info, source, count=10):
+    """The first rows of a source's data, as (headers, rows): the column names,
+    and each row as a list of texts in that order.
+    Raises ValueError with the reason when the data can't be read."""
+    found = []
+    for row in data_rows(graph, info, source):
+        found.append(row)
+        if len(found) == count:
+            break
+
+    # The order of the keys in a JSON object means nothing, so embedded points
+    # show the fields' column names first
+    headers = []
+    if info["embedded"]:
+        for field in info["fields"]:
+            if field["columnName"] is not None:
+                headers.append(field["columnName"])
+    for row in found:
+        for name in row:
+            if name not in headers:
+                headers.append(name)
+
+    rows = []
+    for row in found:
+        cells = []
+        for header in headers:
+            cells.append(row.get(header, ""))
+        rows.append(cells)
+    return headers, rows
+
+
 def column_positions(fields, headers):
-    """Where each field is in the rows: field id -> column position.
-    With a header line, a field is found by its column name;
-    without one (headers is None), by its tss:columnIndex."""
+    """Where each field is in the rows: field id -> column position, found by its column name"""
     positions = {}
     for field in fields:
-        if headers is not None:
-            if field["columnName"] in headers:
-                positions[field["id"]] = headers.index(field["columnName"])
-        elif field["columnIndex"] is not None:
-            positions[field["id"]] = field["columnIndex"]
+        if field["columnName"] in headers:
+            positions[field["id"]] = headers.index(field["columnName"])
     return positions
+
+
+def find_field(info, field_id):
+    """The field (one column of the source) with this IRI, from get_endpoint_info"""
+    for field in info["fields"]:
+        if field["id"] == field_id:
+            return field
+    raise HTTPException(status_code=404, detail=f"Unknown field: {field_id}")
 
 
 # ---------------------------------------------------------------------------
@@ -1277,71 +1323,76 @@ def find_snippet(info, snippet):
     raise HTTPException(status_code=404, detail=f"Unknown snippet: {snippet}")
 
 
-def snippet_csv(chosen):
-    """How to read the CSV of a snippet: (delimiter, headers, time header, value header).
-    TSS2 uses CSVW column *names* (e.g. "timestamp"). The CSVW file says which
-    CSV header belongs to each name (e.g. "Timestamp") and which delimiter the CSV uses."""
-    csvw = read_csvw(chosen["describedBy"])
-    if csvw is None:
-        raise HTTPException(status_code=404, detail=f"CSVW file not found: {chosen['describedBy']}")
-    delimiter, headers = csvw
-
-    for name in [chosen["timeColumn"], chosen["valueColumn"]]:
-        if name not in headers:
-            raise HTTPException(status_code=400, detail=f"Column '{name}' is not described in {chosen['describedBy']}")
-    if not file_exists(chosen["csvUrl"]):
-        raise HTTPException(status_code=404, detail=f"CSV file not found: {chosen['csvUrl']}")
-    return delimiter, headers, headers[chosen["timeColumn"]], headers[chosen["valueColumn"]]
+def query_field(endpoint_id, field):
+    """What the query routes need: the endpoint info, its graph, the chosen field and its source"""
+    info = get_endpoint_info(endpoint_id)
+    graph = load_graph(endpoint_id)
+    chosen = find_field(info, field)
+    source = graph.value(predicate=TSS.hasField, object=URIRef(field))
+    return info, graph, chosen, source
 
 
 @api.get("/endpoints/{endpoint_id}/filter-columns")
-def filter_columns(endpoint_id, snippet):
-    """The other CSV columns the query form can filter on (like a quality code),
+def filter_columns(endpoint_id, field):
+    """The other columns the query form can filter on (like a quality code),
     with the values that occur in them. Only columns with a few different values
     (2 to 30) are useful for that, so only those are sent."""
-    info = get_endpoint_info(endpoint_id)
-    chosen = find_snippet(info, snippet)
-    if chosen["embedded"] is True:
-        return []
-    delimiter, headers, time_header, value_header = snippet_csv(chosen)
+    info, graph, chosen, source = query_field(endpoint_id, field)
 
-    # Start with every column except the time and the value, and drop a column
+    # Start with every column except the time and this field, and drop a column
     # as soon as it has too many different values
     candidates = {}  # column name -> the different values seen so far
-    for name in headers:
-        if name != chosen["timeColumn"] and name != chosen["valueColumn"]:
-            candidates[name] = set()
+    for other in info["fields"]:
+        if other["columnName"] is None or other["isTime"] or other["id"] == chosen["id"]:
+            continue
+        candidates[other["columnName"]] = set()
 
-    for row in csv.DictReader(read_lines(chosen["csvUrl"]), delimiter=delimiter):
-        for name in list(candidates):  # list(...): we may delete from candidates inside the loop
-            candidates[name].add(row.get(headers[name], ""))
-            if len(candidates[name]) > 30:
-                del candidates[name]
-        if len(candidates) == 0:
-            break
+    try:
+        for row in data_rows(graph, info, source):
+            for name in list(candidates):  # list(...): we may delete from candidates inside the loop
+                candidates[name].add(row.get(name, ""))
+                if len(candidates[name]) > 30:
+                    del candidates[name]
+            if len(candidates) == 0:
+                break
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
     columns = []
     for name, values in candidates.items():
         if len(values) >= 2:  # a column with one value is no use as a filter
-            columns.append({"name": name, "header": headers[name], "values": sorted(values)})
+            columns.append({"name": name, "values": sorted(values)})
     return columns
 
 
+def parse_value(text, datatype):
+    """A cell of a numeric field as a number (None when the cell is empty)"""
+    if text == "":
+        return None
+    try:
+        value = int(text) if datatype in INTEGER_DATATYPES else float(text)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"The field declares numeric values ({datatype}), but contains {text!r}.")
+    if not math.isfinite(value):
+        raise HTTPException(status_code=400, detail="The field contains a non-finite numeric value.")
+    return value
+
+
 @api.get("/endpoints/{endpoint_id}/query")
-def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max_value=None,
+def query_series(endpoint_id, field, start=None, end=None, min_value=None, max_value=None,
                  filter_column=None, filter_value=None, resample="", aggregate="mean", limit: int = 100):
-    """Get the readings of one snippet (one time series), with the filters of the query form,
+    """Get the readings of one field (one time series), with the filters of the query form,
     plus summary numbers and the gaps in the data.
 
-    TSS2 tells us which CSV (csvw:url of the table), which columns
-    (tss:timeColumn, tss:valueColumn) and which time window (tss:from,
-    tss:until). Each of these can come from the group's template.
-    The CSVW file tells us how to read that CSV."""
-    info = get_endpoint_info(endpoint_id)
+    The source tells us where the data is (tss:dataFile or the embedded tss:points),
+    how to read it (tss:format, and for CSV tss:delimiter, tss:header, tss:encoding),
+    which column holds the time (tss:timeField) and which time window it covers
+    (tss:from, tss:until). The field tells us its own column (tss:columnName) and
+    its datatype (tss:datatype): only numeric fields have value ranges and mean/min/max."""
+    info, graph, chosen, source = query_field(endpoint_id, field)
     limit = max(1, min(limit, 5000))  # don't send huge answers to the browser
 
-    # 1. The snippet the user picked, and what the form asks for
-    chosen = find_snippet(info, snippet)
+    # 1. What the form asks for
     start_time = parse_time(start) if start else None
     end_time = parse_time(end) if end else None
     low = parse_number(min_value, "The lowest value")
@@ -1351,67 +1402,74 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
     if aggregate not in ["mean", "min", "max"]:
         raise HTTPException(status_code=400, detail="aggregate must be 'mean', 'min' or 'max'")
 
-    # 2. Both storage profiles feed the same filtering and aggregation pipeline.
-    embedded = chosen["embedded"] is True
-    numeric = True
-    if embedded:
-        graph = load_graph(endpoint_id)
-        points = embedded_points(graph, URIRef(snippet))
-        numeric = numeric_points(graph, URIRef(snippet), points)
-        if not numeric and (low is not None or high is not None or resample):
-            raise HTTPException(status_code=400, detail="Value ranges and mean/min/max aggregation require a numeric series. This embedded series contains text or other non-numeric values.")
-        if filter_column:
-            raise HTTPException(status_code=400, detail="CSV column filters are only available for external CSV series.")
-        delimiter, headers, time_header, value_header = None, {}, "time", "value"
-        source_rows = sorted(points, key=lambda point: parse_time(point["time"]))
-    else:
-        delimiter, headers, time_header, value_header = snippet_csv(chosen)
-        source_rows = csv.DictReader(read_lines(chosen["csvUrl"]), delimiter=delimiter)
-    filter_header = None
+    # 2. The columns to read
+    time_column = info["timeField"]
+    value_column = chosen["columnName"]
+    if time_column is None:
+        raise HTTPException(status_code=400, detail="The source has no tss:timeField, so the readings have no time.")
+    if chosen["isTime"]:
+        raise HTTPException(status_code=400, detail="This is the time field itself. Pick a field that holds values.")
     if filter_column:
-        if filter_column not in headers:
-            raise HTTPException(status_code=400, detail=f"Column '{filter_column}' is not described in {chosen['describedBy']}")
-        filter_header = headers[filter_column]
+        names = [other["columnName"] for other in info["fields"]]
+        if filter_column not in names:
+            raise HTTPException(status_code=400, detail=f"'{filter_column}' is not the column of a field of this source")
 
-    # 3. The series only covers its own time window: from is included, until is not
-    #    (in all our files the last reading comes just before until)
-    window_start = parse_time(chosen["from"]) if chosen["from"] else None
-    window_end = parse_time(chosen["until"]) if chosen["until"] else None
+    datatype = graph.value(URIRef(field), TSS.datatype)
+    numeric = datatype in INTEGER_DATATYPES or datatype in DECIMAL_DATATYPES
+    if not numeric and (low is not None or high is not None or resample):
+        holds = show(graph, datatype) if datatype is not None else "values without a tss:datatype"
+        raise HTTPException(status_code=400, detail=f"Value ranges and mean/min/max aggregation need a numeric field. This field holds {holds}.")
 
-    # 4. Go through the CSV row by row
+    # 3. The source only covers its own time window: from is included, until is not
+    window_start = parse_time(info["from"]) if info["from"] else None
+    window_end = parse_time(info["until"]) if info["until"] else None
+
+    # 4. Go through the data row by row
     moments = []  # the time of every row inside the time range: to find the gaps
     kept = []     # the readings that also pass the column filter and the value range
-    for row in source_rows:
-        row_time = parse_time(row[time_header])
-        if window_start and row_time < window_start:
-            continue
-        if window_end and row_time >= window_end:
-            continue
-        if start_time and row_time < start_time:
-            continue
-        if end_time and row_time > end_time:
-            continue
-        moments.append(row_time)
+    first = True
+    try:
+        for row in data_rows(graph, info, source):
+            # The columns must be in the data (an embedded point may leave out an empty value)
+            if first and not info["embedded"]:
+                for name in [time_column, value_column, filter_column]:
+                    if name and name not in row:
+                        raise HTTPException(status_code=400, detail=f"Column '{name}' is not in {info['dataFile']}")
+            first = False
+            if row.get(time_column, "") == "":
+                raise HTTPException(status_code=400, detail=f"A row has no time in column '{time_column}'")
 
-        if filter_header and row[filter_header] != filter_value:
-            continue
-        text = row[value_header]
-        if embedded and not numeric:
-            value = text
-        else:
-            try:
-                value = float(text) if text not in ("", None) else None
-            except (ValueError, TypeError):
-                raise HTTPException(status_code=400, detail=f"The series declares numeric values, but contains {text!r}.")
-            if value is not None and not math.isfinite(value):
-                raise HTTPException(status_code=400, detail="The series contains a non-finite numeric value.")
-        if value is None and (low is not None or high is not None):
-            continue  # with a value range, an empty cell can never match
-        if low is not None and value < low:
-            continue
-        if high is not None and value > high:
-            continue
-        kept.append({"time": row[time_header], "moment": row_time, "value": value})
+            row_time = parse_time(row[time_column])
+            if window_start and row_time < window_start:
+                continue
+            if window_end and row_time >= window_end:
+                continue
+            if start_time and row_time < start_time:
+                continue
+            if end_time and row_time > end_time:
+                continue
+            moments.append(row_time)
+
+            if filter_column and row.get(filter_column, "") != filter_value:
+                continue
+            text = row.get(value_column, "")
+            if numeric:
+                value = parse_value(text, datatype)
+            else:
+                value = text if text != "" else None
+            if value is None and (low is not None or high is not None):
+                continue  # with a value range, an empty cell can never match
+            if low is not None and value < low:
+                continue
+            if high is not None and value > high:
+                continue
+            kept.append({"time": row[time_column], "moment": row_time, "value": value})
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+    # Files are usually in time order, but nothing guarantees it (JSON points certainly not)
+    moments.sort()
+    kept.sort(key=lambda reading: reading["moment"])
 
     # 5. The rows to show: every reading, or one value per hour or per day
     if resample:
@@ -1421,26 +1479,32 @@ def query_series(endpoint_id, snippet, start=None, end=None, min_value=None, max
         for reading in kept:
             rows.append({"time": reading["time"], "value": reading["value"]})
 
+    if numeric:
+        summary = summarize(kept)
+    else:
+        summary = {"count": 0, "empty": 0, "mean": None, "min": None, "max": None}
+        for reading in kept:
+            if reading["value"] is None:
+                summary["empty"] += 1
+            else:
+                summary["count"] += 1
+
     return {
-        "snippet": chosen["label"],
-        "embedded": embedded,
+        "field": chosen["label"] if chosen["label"] else value_column,
+        "embedded": info["embedded"] is True,
+        "format": info["format"],
         "numeric": numeric,
+        "datatype": show(graph, datatype),
         "unit": chosen["unit"],
-        "csvFile": chosen["csvUrl"],
-        "delimiter": delimiter,
-        "timeColumn": chosen["timeColumn"],
-        "timeHeader": time_header,
-        "valueColumn": chosen["valueColumn"],
-        "valueHeader": value_header,
-        "filterHeader": filter_header,
-        "filterValue": filter_value if filter_header else None,
+        "dataFile": info["dataFile"],
+        "delimiter": info["delimiter"] if info["delimiter"] is not None else ",",
+        "timeColumn": time_column,
+        "valueColumn": value_column,
+        "filterColumn": filter_column if filter_column else None,
+        "filterValue": filter_value if filter_column else None,
         "resample": resample,
         "aggregate": aggregate,
-        "summary": summarize(kept) if numeric else {
-            "count": sum(reading["value"] is not None for reading in kept),
-            "empty": sum(reading["value"] is None for reading in kept),
-            "mean": None, "min": None, "max": None,
-        },
+        "summary": summary,
         "gaps": find_gaps(moments),   # over every reading in the time range
         "totalRows": len(rows),
         "limitReached": len(rows) > limit,
@@ -1456,12 +1520,7 @@ def series_metadata(endpoint_id, field):
     graph = load_graph(endpoint_id)
     info = get_endpoint_info(endpoint_id)
 
-    chosen = None
-    for candidate in info["fields"]:
-        if candidate["id"] == field:
-            chosen = candidate
-    if chosen is None:
-        raise HTTPException(status_code=404, detail=f"Unknown field: {field}")
+    chosen = find_field(info, field)
     field = URIRef(field)
     source = graph.value(predicate=TSS.hasField, object=field)
 
@@ -1549,19 +1608,11 @@ def series_metadata(endpoint_id, field):
         "notFound": [],
     }
     try:
-        headers, data_rows = first_rows(graph, info, source)
+        headers, table_rows = first_rows(graph, info, source)
     except ValueError as error:
         rows["error"] = str(error)
     else:
         positions = column_positions(info["fields"], headers)
-        if headers is None:
-            # No header line: name the columns by their position
-            width = 0
-            for row in data_rows:
-                width = max(width, len(row))
-            headers = []
-            for index in range(width):
-                headers.append(f"column {index}")
 
         # Mark this field, the time field, and the fields that describe this one
         bound = {}
@@ -1577,7 +1628,7 @@ def series_metadata(endpoint_id, field):
                 bound[positions[other["id"]]] = "related"
         for index in range(len(headers)):
             rows["columns"].append({"header": headers[index], "bound": bound.get(index)})
-        rows["rows"] = data_rows
+        rows["rows"] = table_rows
 
     return {
         "label": chosen["label"] if chosen["label"] else chosen["columnName"],

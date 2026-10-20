@@ -19,7 +19,7 @@ const tabs = [
   { id: 'shacl', label: 'SHACL', updated: false },
   { id: 'rdf', label: 'RDF generation', updated: false },
   { id: 'files', label: 'Files', updated: false },
-  { id: 'query', label: 'Query', updated: false },
+  { id: 'query', label: 'Query', updated: true },
   { id: 'sql', label: 'SQL (DuckDB)', updated: false },
 ]
 

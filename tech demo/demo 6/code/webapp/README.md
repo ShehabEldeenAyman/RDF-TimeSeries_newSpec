@@ -7,7 +7,7 @@ The dashboard loads local Turtle files from `demo 5/metadata endpoint/`, or onli
 - `tss:embedded false`: groups link to external data with `tss:dataFile`. CSV sources use CSVW descriptions (`tss:describedby`); Parquet sources use the snippet's effective JSON-LD `tss:context` for RDF generation.
 - `tss:embedded true`: each snippet stores a JSON point array in `tss:points`. Its effective JSON-LD `tss:context` identifies numeric or text values.
 
-Every dashboard CSV-reading path uses the corresponding CSVW file's `dialect.delimiter`. If `delimiter` or the entire `dialect` is omitted, it uses the CSVW default comma (`","`). An explicitly supplied delimiter must be a single character; invalid values stop parsing with an error. There is no delimiter guessing. This applies to the query/filter forms, SQL and RDF generation. Raw file previews and downloads do not parse CSV cells.
+Every dashboard CSV-reading path uses the corresponding CSVW file's `dialect.delimiter`. If `delimiter` or the entire `dialect` is omitted, it uses the CSVW default comma (`","`). An explicitly supplied delimiter must be a single character; invalid values stop parsing with an error. There is no delimiter guessing. This applies to SQL and RDF generation. Raw file previews and downloads do not parse CSV cells.
 
 Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they state their own value. `tss:about` is replaced as a whole. The snippet window includes `tss:from` and excludes `tss:until`.
 
@@ -18,7 +18,7 @@ Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they 
 | SHACL | Automatic profile detection or uploaded custom Turtle shapes, conformance test and full text report |
 | RDF generation | Expand embedded points, CSVW-mapped CSV readings, or context-mapped Parquet readings; preview Turtle and download the generated graph |
 | Files | CSV previews, Parquet data previewed as CSV, applicable CSVW metadata, and original-file downloads; embedded points have a series picker |
-| Query | Filtering, summaries, gaps and hourly/daily aggregation; text series support time filtering |
+| Query | Pick a field: filtering, summaries, gaps and hourly/daily aggregation over CSV, Parquet or embedded data, read with the source's tss:timeField, tss:from/until and CSV settings; text fields support time and column filtering |
 | SQL (DuckDB) | One table per external CSV or embedded snippet, plus a snippets metadata table |
 
 In Demo 5's Files tab, a source declared as `dcterms:format filetype:PARQUET` is previewed as CSV text with a header and the first 19 data rows. Only that sample is converted; the original Parquet file is unchanged, and the download icon saves the original `.parquet` file. CSV previews retain their original text and delimiter.

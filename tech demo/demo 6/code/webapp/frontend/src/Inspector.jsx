@@ -1,28 +1,13 @@
 import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
 import { SourceFiles } from './SourceFiles'
-import { roleText } from './fieldRole'
+import { roleText, firstField, fieldText } from './fields'
 
 // How each "where" from the backend is shown next to a value
 const MARKERS = {
   field: '● on the field',
   source: '⬆ from the source',
   missing: '○ not stated',
-}
-
-// The field the inspector shows first: the first measured series (a field with an
-// observed property that does not describe another field), else the first field
-function firstField(fields) {
-  for (const field of fields) {
-    if (field.observedProperty && !field.describesField) return field.id
-  }
-  return fields.length > 0 ? fields[0].id : ''
-}
-
-// The text for a field in the drop down, e.g. "Value: Electrical conductivity at 20 °C, ..."
-function fieldText(field) {
-  if (field.label && field.label !== field.columnName) return field.columnName + ': ' + field.label
-  return field.columnName
 }
 
 // The series inspector: pick a field (one column of the source) and see everything that is

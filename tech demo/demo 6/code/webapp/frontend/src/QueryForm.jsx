@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
+import { firstField, fieldText } from './fields'
 
 // The words the form and the results use for the backend's options
 const RESAMPLE_NAMES = { '': 'every reading', hour: 'one value per hour', day: 'one value per day' }
 
 export function QueryForm({ info }) {
-  // What the user fills in. The form starts at the beginning of the first series:
+  // Every field except the time field is a time series that can be queried
+  const series = info.fields.filter((field) => !field.isTime)
+
+  // What the user fills in. The form starts at the beginning of the source's time window:
   // "2021-03-03T23:45:00+00:00".slice(0, 16) gives "2021-03-03T23:45", the format a datetime-local input wants.
-  const first = info.snippets.length > 0 ? info.snippets[0] : null
-  const [snippetId, setSnippetId] = useState(first ? first.id : '')
-  const [start, setStart] = useState(first && first.from ? first.from.slice(0, 16) : '')
+  const [fieldId, setFieldId] = useState(firstField(info.fields))
+  const [start, setStart] = useState(info.from ? info.from.slice(0, 16) : '')
   const [end, setEnd] = useState('')
   const [minValue, setMinValue] = useState('')
   const [maxValue, setMaxValue] = useState('')
@@ -29,19 +32,15 @@ export function QueryForm({ info }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // The snippet that is picked right now. Its time window can differ from the
-  // group's, if the snippet states its own tss:from or tss:until.
-  const chosen = info.snippets.find((snippet) => snippet.id === snippetId)
-
   // The column picked for the filter (undefined when there is no filter)
   const pickedColumn = filterColumns ? filterColumns.find((column) => column.name === filterColumn) : undefined
 
   // Every time another series is picked: ask which columns it can be filtered on
   useEffect(() => {
-    if (snippetId === '') return
+    if (fieldId === '') return
     let ignore = false // see App.jsx: throw away an answer that arrives too late
 
-    const params = new URLSearchParams({ snippet: snippetId })
+    const params = new URLSearchParams({ field: fieldId })
     fetch(`${API_URL}/endpoints/${info.id}/filter-columns?${params}`)
       .then((response) => response.json())
       .then((data) => {
@@ -62,10 +61,10 @@ export function QueryForm({ info }) {
     return () => {
       ignore = true
     }
-  }, [info.id, snippetId])
+  }, [info.id, fieldId])
 
-  function pickSnippet(id) {
-    setSnippetId(id)
+  function pickField(id) {
+    setFieldId(id)
     setResult(null)
     setError(null)
     setFilterColumns(null) // the new series may have other columns
@@ -83,10 +82,10 @@ export function QueryForm({ info }) {
   function handleSubmit(event) {
     event.preventDefault() // stop the browser from reloading the page
 
-    // URLSearchParams builds "snippet=...&start=...&..." and escapes special characters for us.
+    // URLSearchParams builds "field=...&start=...&..." and escapes special characters for us.
     // Number(limit) turns what was typed (e.g. "1e3") into a plain number (1000)
     const params = new URLSearchParams({
-      snippet: snippetId,
+      field: fieldId,
       start: start,
       end: end,
       min_value: minValue,
@@ -118,9 +117,12 @@ export function QueryForm({ info }) {
     <>
       <section className="card">
         <h3>Query a time series</h3>
-        {info.embedded && <p className="muted small">Reads the points embedded in the selected snippet. Numeric filters and aggregation apply to numeric series; text series support time filtering.</p>}
+        {info.embedded && <p className="muted small">Reads the points embedded in the Turtle file (tss:points).</p>}
         <p className="muted small">
-          {chosen && <>This series runs from {chosen.from} until {chosen.until} (until itself not included). </>}
+          Value ranges and mean/min/max apply to numeric fields (a numeric tss:datatype); text fields can be filtered on time and on other columns.
+        </p>
+        <p className="muted small">
+          {info.from && <>The source runs from {info.from} until {info.until} (until itself not included). </>}
           All times are UTC. Leave a field empty to not use it.
         </p>
 
@@ -128,11 +130,11 @@ export function QueryForm({ info }) {
           {/* 1. Which series, and which time range */}
           <div className="form-row">
             <label>
-              Time series (snippet)
-              <select value={snippetId} onChange={(event) => pickSnippet(event.target.value)}>
-                {info.snippets.map((snippet) => (
-                  <option key={snippet.id} value={snippet.id}>
-                    {snippet.label}
+              Time series (field)
+              <select value={fieldId} onChange={(event) => pickField(event.target.value)}>
+                {series.map((field) => (
+                  <option key={field.id} value={field.id}>
+                    {fieldText(field)}
                   </option>
                 ))}
               </select>
@@ -170,7 +172,7 @@ export function QueryForm({ info }) {
                     <option value="">-- no filter --</option>
                     {filterColumns.map((column) => (
                       <option key={column.name} value={column.name}>
-                        {column.header}
+                        {column.name}
                       </option>
                     ))}
                   </select>
@@ -305,11 +307,15 @@ function QueryResult({ result, requestUrl }) {
         Request sent: <a href={requestUrl} target="_blank" rel="noreferrer">{requestUrl}</a>
       </p>
       <p className="muted small">
-        {result.embedded ? <>The backend read the embedded <code>tss:points</code> of this snippet and applied its time window{grouped && `, grouping readings per ${result.resample}`}.</> : <>How the backend answered: it opened <code>{result.csvFile}</code> (delimiter <code>{result.delimiter}</code>),
-        took the time from column <code>{result.timeColumn}</code> (CSV header "{result.timeHeader}")
-        and the value from column <code>{result.valueColumn}</code> (CSV header "{result.valueHeader}")
-        {result.filterHeader && <>, kept only the rows where "{result.filterHeader}" is "{result.filterValue}"</>}
-        {grouped && <>, and turned each {result.resample} into one value: the {aggregateName}</>}.</>}
+        How the backend answered: it{' '}
+        {result.embedded && <>read the points embedded in the Turtle file (<code>tss:points</code>)</>}
+        {!result.embedded && result.format === 'tss:CSV' && <>opened <code>{result.dataFile}</code> (CSV, delimiter <code>{result.delimiter}</code>)</>}
+        {!result.embedded && result.format !== 'tss:CSV' && <>opened <code>{result.dataFile}</code> ({result.format})</>},
+        took the time from column "{result.timeColumn}" (<code>tss:timeField</code>)
+        and the value from column "{result.valueColumn}" ({result.datatype ? result.datatype : 'no tss:datatype'}),
+        kept only the readings in the source's time window
+        {result.filterColumn && <>, kept only the rows where "{result.filterColumn}" is "{result.filterValue}"</>}
+        {grouped && <>, and turned each {result.resample} into one value: the {aggregateName}</>}.
       </p>
 
       <div className="table-scroll">

@@ -43,16 +43,10 @@ class CsvwDelimiter(unittest.TestCase):
     def write_metadata(self):
         (self.root / "schema.json").write_text(json.dumps(self.metadata), encoding="utf-8")
 
-    def test_query_filters_and_sql_use_semicolon(self):
+    def test_sql_uses_semicolon(self):
         self.assert_csv_parsers(";", "good,review", "bad,review")
 
     def assert_csv_parsers(self, delimiter, good, bad):
-        filters = main.filter_columns("fixture", "urn:demo")
-        self.assertEqual(filters[0]["values"], [bad, good])
-        result = main.query_series("fixture", "urn:demo", filter_column="category", filter_value=good)
-        self.assertEqual(result["delimiter"], delimiter)
-        self.assertEqual(result["summary"]["count"], 1)
-        self.assertEqual(result["readings"][0]["value"], 1.5)
         result = main.run_sql("fixture", main.SqlQuery(sql="SELECT reading, category FROM data ORDER BY timestamp"))
         self.assertEqual(result["rows"], [[1.5, good], [2.5, bad]])
         self.assertEqual(result["skipped"], [])
@@ -78,11 +72,6 @@ class CsvwDelimiter(unittest.TestCase):
                 self.metadata["dialect"] = dialect
                 self.write_metadata()
                 with patch.object(main, "read_lines") as reader:
-                    with self.assertRaises(HTTPException) as caught:
-                        main.query_series("fixture", "urn:demo")
-                    self.assertEqual(caught.exception.status_code, 400)
-                    with self.assertRaises(HTTPException):
-                        main.filter_columns("fixture", "urn:demo")
                     self.assertIn("dialect", main.csvw_columns("schema.json")["error"])
                     reader.assert_not_called()
 

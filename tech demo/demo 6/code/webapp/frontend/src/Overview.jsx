@@ -1,4 +1,4 @@
-import { roleText } from './fieldRole'
+import { roleText } from './fields'
 
 // One "name | value" row in a small table. Shows a dash when the endpoint has no value.
 function Fact({ name, value }) {

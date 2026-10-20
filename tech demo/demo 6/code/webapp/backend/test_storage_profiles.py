@@ -10,9 +10,10 @@ import main
 EMBEDDED = "waterinfo_289441042_tss2_points_embedded"
 EXTERNAL = "waterinfo_289423042_tss2"
 PARQUET = "waterinfo_289429042_tss2_parquet"
-VALUE = "https://example.org/ex#snippet-zevenaarshaven-ec20"
-TEXT = "https://example.org/ex#snippet-zevenaarshaven-quality-code-color"
-CSV_VALUE = "https://example.org/ex#snippet-grootdok-ec20"
+VALUE = "https://example.org/ex#zevenaarshaven-ec20-value-field"
+TEXT = "https://example.org/ex#zevenaarshaven-quality-color-value-field"
+CSV_VALUE = "https://example.org/ex#grootdok-ec20-field"
+PARQUET_VALUE = "https://example.org/ex#rodenhuizedok-ec20-field"
 
 CUSTOM_SHAPES = '''
 @prefix sh: <http://www.w3.org/ns/shacl#> .
@@ -35,16 +36,16 @@ class StorageProfiles(unittest.TestCase):
             expected = "embedded_shapes.ttl" if endpoint == EMBEDDED else "external_non_csv_shapes.ttl" if endpoint == PARQUET else "external_csv_shapes.ttl"
             self.assertEqual(report["shapes"], expected)
 
-    def test_inspector_and_sources_for_both_profiles(self):
-        result = main.series_metadata(EMBEDDED, VALUE)
-        self.assertTrue(result["files"]["embedded"])
-        self.assertEqual(len(json.loads(result["files"]["points"])), 5)
-        self.assertIsNone(result["files"]["csv"])
-        self.assertEqual(main.get_points_file(EMBEDDED, VALUE)["text"], result["files"]["points"])
-        result = main.series_metadata(EXTERNAL, CSV_VALUE)
-        self.assertFalse(result["files"]["embedded"])
-        self.assertEqual(len(result["files"]["csv"]["rows"]), 10)
-        self.assertTrue(any(column["bound"] == "value column" for column in result["files"]["csv"]["columns"]))
+    def test_inspector_reads_first_rows_of_every_format(self):
+        for endpoint, field, count in [(EMBEDDED, VALUE, 5), (EXTERNAL, CSV_VALUE, 10), (PARQUET, PARQUET_VALUE, 10)]:
+            with self.subTest(endpoint=endpoint):
+                rows = main.series_metadata(endpoint, field)["files"]["rows"]
+                self.assertIsNone(rows["error"])
+                self.assertEqual(len(rows["rows"]), count)
+                self.assertEqual(rows["notFound"], [])
+                bound = [column["bound"] for column in rows["columns"]]
+                self.assertEqual(bound.count("field"), 1)
+                self.assertEqual(bound.count("time"), 1)
 
     def test_embedded_numeric_filters_and_limits(self):
         result = main.query_series(EMBEDDED, VALUE, start="2021-03-03T23:30:00Z", max_value="4750", limit=1)
@@ -54,7 +55,8 @@ class StorageProfiles(unittest.TestCase):
 
     def test_embedded_half_open_window(self):
         graph = main.load_graph(EMBEDDED)
-        graph.set((URIRef(VALUE), main.TSS.until, Literal("2021-03-03T23:30:00Z", datatype=URIRef("http://www.w3.org/2001/XMLSchema#dateTime"))))
+        source = graph.value(predicate=main.TSS.hasField, object=URIRef(VALUE))
+        graph.set((source, main.TSS.until, Literal("2021-03-03T23:30:00Z", datatype=URIRef("http://www.w3.org/2001/XMLSchema#dateTime"))))
         with patch.object(main, "load_graph", return_value=graph):
             self.assertEqual(main.query_series(EMBEDDED, VALUE)["summary"]["count"], 1)
 
@@ -74,10 +76,19 @@ class StorageProfiles(unittest.TestCase):
             self.assertEqual(caught.exception.status_code, 400)
 
     def test_external_queries_and_quality_filters(self):
-        result = main.query_series(EXTERNAL, CSV_VALUE, start="2021-03-03T23:45:00Z", end="2021-03-04T00:00:00Z", filter_column="quality_code", filter_value="180")
+        result = main.query_series(EXTERNAL, CSV_VALUE, start="2021-03-03T23:45:00Z", end="2021-03-04T00:00:00Z", filter_column="Quality Code", filter_value="180")
         self.assertFalse(result["embedded"])
         self.assertEqual(result["readings"][0]["value"], 902.27)
-        self.assertEqual(result["timeHeader"], "Timestamp")
+        self.assertEqual(result["timeColumn"], "Timestamp")
+        self.assertEqual(result["valueColumn"], "Value")
+        names = [column["name"] for column in main.filter_columns(EXTERNAL, CSV_VALUE)]
+        self.assertIn("Quality Code", names)
+
+    def test_parquet_queries(self):
+        result = main.query_series(PARQUET, PARQUET_VALUE, end="2021-03-04T00:00:00Z")
+        self.assertEqual(result["format"], "tss:Parquet")
+        self.assertEqual(result["readings"][0], {"time": "2021-03-03T23:15:00Z", "value": 1605.77})
+        self.assertEqual(result["summary"]["count"], 3)  # 23:15, 23:45 and 00:00 (no reading at 23:30)
 
     def test_invalid_metadata_loads_and_reports_nonconformance(self):
         graph = main.load_graph(EMBEDDED)
