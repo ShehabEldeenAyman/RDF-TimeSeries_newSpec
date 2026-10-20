@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
 
-// The SQL box: type a SQL query, the backend runs it with DuckDB on the CSV files
-// of this endpoint (one table per CSV file) and sends the result back.
+// The SQL box: type a SQL query, the backend runs it with DuckDB on the data of this
+// endpoint (one table with a column per field, plus the metadata tables) and sends the result back.
 export function SqlBox({ info }) {
   const [schema, setSchema] = useState(null) // the tables, their columns, and example queries
   const [sql, setSql] = useState('')
@@ -75,7 +75,9 @@ export function SqlBox({ info }) {
         <section className="card">
           <h3>SQL (DuckDB)</h3>
           <p className="muted small">
-            {info.embedded ? 'Read-only SQL on embedded readings: one table per snippet, with time and value columns.' : 'Read-only SQL on external CSV data, with column names and types from CSVW.'} Both include a <code>snippets</code> table with the TSS2 metadata.
+            Read-only SQL on {info.embedded ? 'the points embedded in the Turtle file' : 'the data file of this source'}: one table, with one column per field.
+            {info.format === 'tss:Parquet' ? ' The columns keep the types of the Parquet file.' : ' Each column has the type of its field (tss:datatype).'}
+            {' '}The <code>source</code> and <code>fields</code> tables hold the TSS metadata, so you can join it with the data.
             {schema && <> Only one SELECT, at most {schema.maxRows} rows back, stopped after {schema.maxSeconds} seconds.</>}
           </p>
 
@@ -169,7 +171,7 @@ function Tables({ schema }) {
             <code>{table.name}</code>
           </h4>
           <p className="muted small long-text">
-            {table.file} ({table.csvw ? 'tss:dataFile' : 'embedded readings'} of {table.group})
+            {table.kind === 'points' ? 'the embedded points (tss:points)' : <>{table.file} (tss:dataFile)</>}
           </p>
           {table.error && <p className="error small long-text">{table.error}</p>}
           <ul>
@@ -183,19 +185,21 @@ function Tables({ schema }) {
         </div>
       ))}
 
-      <div className="sql-table">
-        <h4>
-          <code>snippets</code>
-        </h4>
-        <p className="muted small">The TSS2 metadata: one row per series.</p>
-        <ul>
-          {schema.snippetColumns.map((column) => (
-            <li key={column.name}>
-              <code>{column.name}</code> <span className="muted small">{column.type}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {schema.metadataTables.map((table) => (
+        <div key={table.name} className="sql-table">
+          <h4>
+            <code>{table.name}</code>
+          </h4>
+          <p className="muted small">{table.explanation}</p>
+          <ul>
+            {table.columns.map((column) => (
+              <li key={column.name}>
+                <code>{column.name}</code> <span className="muted small">{column.type}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </aside>
   )
 }

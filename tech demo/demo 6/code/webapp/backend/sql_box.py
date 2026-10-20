@@ -1,19 +1,17 @@
-"""The SQL box: read-only SQL with DuckDB on the CSV files of one metadata endpoint.
+"""The SQL box: read-only SQL with DuckDB on the data of one metadata endpoint.
 
 DuckDB is a SQL database that runs inside this Python program (no server).
 For every query we:
   1. open a new, empty DuckDB database in memory,
-  2. copy each CSV file into it as one table (one table per CSV file), with the
-     column names and types from the CSVW file, plus a "snippets" table with the
-     TSS2 metadata (which column is which series, its unit, its time window),
+  2. copy the source's data into it as one table, with one column per data column
+     (a CSV file, a Parquet file, or the JSON points embedded in the Turtle), plus
+     two tables with the TSS metadata: "source" (one row) and "fields" (one row per field),
   3. lock it: no more reading or writing files, no internet, no extensions,
      settings can't be changed back,
   4. run the user's query: only one SELECT, at most 30 seconds, at most 1000 rows
      and 5 MB back,
   5. throw the database away.
 """
-import csv
-import json
 import duckdb
 import math
 import re
@@ -34,16 +32,15 @@ for (word,) in duckdb.connect().execute(
         "SELECT keyword_name FROM duckdb_keywords() WHERE keyword_category = 'reserved'").fetchall():
     RESERVED_WORDS.add(word)
 
-# CSVW datatype (the "base") -> DuckDB column type. Anything not in here stays text (VARCHAR).
-CSVW_TO_DUCKDB = {
+# The XSD datatype (the part after xsd:) of a field -> DuckDB column type.
+# Anything not in here stays text (VARCHAR).
+XSD_TO_DUCKDB = {
     "dateTime": "TIMESTAMPTZ",
-    "datetime": "TIMESTAMPTZ",
     "dateTimeStamp": "TIMESTAMPTZ",
     "date": "DATE",
     "time": "TIME",
     "double": "DOUBLE",
     "float": "DOUBLE",
-    "number": "DOUBLE",
     "decimal": "DOUBLE",
     "integer": "BIGINT",
     "int": "BIGINT",
@@ -71,17 +68,48 @@ TYPE_WORDS = {
     "BOOLEAN": "true, false, 1 or 0",
 }
 
+# The two metadata tables, and their columns
+METADATA_TABLES = {
+    "source": {
+        "explanation": "The TSS source: one row, with what holds for every field.",
+        "columns": [
+            ("source", "VARCHAR"),
+            ("label", "VARCHAR"),
+            ("sql_table", "VARCHAR"),
+            ("format", "VARCHAR"),
+            ("data_file", "VARCHAR"),
+            ("time_column", "VARCHAR"),
+            ("from_time", "TIMESTAMPTZ"),
+            ("until_time", "TIMESTAMPTZ"),
+            ("produced_by", "VARCHAR"),
+            ("mutable", "BOOLEAN"),
+        ],
+    },
+    "fields": {
+        "explanation": "The TSS fields: one row per column of the data table.",
+        "columns": [
+            ("column_name", "VARCHAR"),
+            ("sql_table", "VARCHAR"),
+            ("field", "VARCHAR"),
+            ("label", "VARCHAR"),
+            ("role", "VARCHAR"),
+            ("datatype", "VARCHAR"),
+            ("unit", "VARCHAR"),
+            ("observed_property", "VARCHAR"),
+            ("sensor", "VARCHAR"),
+            ("feature_of_interest", "VARCHAR"),
+            ("describes", "VARCHAR"),
+        ],
+    },
+}
+
 
 def duckdb_type(datatype):
-    """The DuckDB type for a CSVW datatype. A CSVW datatype is a word ("double")
-    or an object ({"base": "double", "minimum": 0}). A column with its own
-    "format" (e.g. dates written as 31-12-2025) stays text: DuckDB would not
-    know how to read it."""
-    if isinstance(datatype, dict):
-        if "format" in datatype:
-            return "VARCHAR"
-        datatype = datatype.get("base", "string")
-    return CSVW_TO_DUCKDB.get(datatype, "VARCHAR")
+    """The DuckDB type for a field's tss:datatype as the dashboard shows it, e.g.
+    "xsd:double" -> DOUBLE. No datatype, or one that is not XSD, stays text."""
+    if datatype is None or not datatype.startswith("xsd:"):
+        return "VARCHAR"
+    return XSD_TO_DUCKDB.get(datatype[len("xsd:"):], "VARCHAR")
 
 
 def sql_text(text):
@@ -97,20 +125,15 @@ def sql_identifier(name):
     return '"' + name.replace('"', '""') + '"'
 
 
-def table_name(csv_file, taken):
-    """A SQL table name made from the CSV file's name, e.g. data/waterinfo_289423042.csv -> waterinfo_289423042"""
-    name = csv_file.split("?")[0].split("#")[0].split("/")[-1].lower()
-    name = re.sub(r"\.csv$", "", name)
+def table_name(location):
+    """A SQL table name made from a file name, e.g. data/waterinfo_289423042.csv -> waterinfo_289423042"""
+    name = location.split("?")[0].split("#")[0].split("/")[-1].lower()
+    name = re.sub(r"\.(csv|parquet)$", "", name)
     name = re.sub(r"[^a-z0-9_]", "_", name)
     if name == "" or not name[0].isalpha():
         name = "t_" + name
-    if name in RESERVED_WORDS:
-        name = name + "_table"  # e.g. "order" -> "order_table", so nobody has to quote it
-    base = name
-    number = 2
-    while name in taken or name == "snippets":  # "snippets" is the name of our metadata table
-        name = f"{base}_{number}"
-        number += 1
+    if name in RESERVED_WORDS or name in METADATA_TABLES:
+        name = name + "_data"  # e.g. "order" -> "order_data", so nobody has to quote it
     return name
 
 
@@ -134,164 +157,113 @@ def to_json_value(value):
 
 
 def column_expression(column):
-    """How one CSV column becomes one typed SQL column.
+    """How one text column becomes one typed SQL column.
 
-    DuckDB first reads every column as text. Here each column is turned into its
-    CSVW type. A value that does not fit (a timestamp without seconds, 1.5 in a
-    whole-number column, ...) stops the loading with a clear message, instead
-    of quietly becoming NULL or another number."""
+    DuckDB first reads every column as text. Here each column is turned into the
+    type of its field's tss:datatype. A value that does not fit (a timestamp without
+    seconds, 1.5 in a whole-number column, ...) stops the loading with a clear message,
+    instead of quietly becoming NULL or another number. Empty cells are NULL."""
     name = sql_identifier(column["name"])
     sql_type = column["type"]
-
-    # CSVW "null" values (e.g. "NA") become NULL. Empty cells are always NULL.
-    nulls = []
-    for null_value in column["nulls"]:
-        if null_value != "":
-            nulls.append(sql_text(null_value))
-    is_null = f"{name} IS NULL"
-    if len(nulls) > 0:
-        is_null += f" OR {name} IN ({', '.join(nulls)})"
-
     if sql_type == "VARCHAR":
-        return f"CASE WHEN {is_null} THEN NULL ELSE {name} END AS {name}"
+        return f"{name} AS {name}"
 
     fits = f"TRY_CAST(trim({name}) AS {sql_type}) IS NOT NULL"
     if sql_type == "BIGINT":
         # TRY_CAST('1.5' AS BIGINT) would quietly round to 2, so also check for a whole number
         fits += f" AND regexp_full_match(trim({name}), '[+-]?[0-9]+')"
     if sql_type == "BOOLEAN":
-        # DuckDB would also accept words like "yes"; CSVW only allows these four
+        # DuckDB would also accept words like "yes"; XSD only allows these four
         fits += f" AND regexp_full_match(lower(trim({name})), 'true|false|1|0')"
-    message = sql_text(f"Column {column['name']} should be {TYPE_WORDS[sql_type]}, but the CSV has: ")
-    return (f"CASE WHEN {is_null} THEN NULL "
+    message = sql_text(f"Column {column['name']} should be {TYPE_WORDS[sql_type]}, but the data has: ")
+    return (f"CASE WHEN {name} IS NULL OR trim({name}) = '' THEN NULL "
             f"WHEN {fits} THEN CAST(trim({name}) AS {sql_type}) "
             f"ELSE error({message} || {name}) END AS {name}")
 
 
-def check_header(table):
-    """The header line of the CSV must match the CSVW columns, in the same order.
-    DuckDB puts the values into the columns by their position, so a CSV with its
-    columns in another order would quietly mix them up."""
-    with open(table["path"], encoding="utf-8-sig", newline="") as f:
-        reader = csv.reader(f, delimiter=table["delimiter"], quotechar=table["quote"] or '"')
-        found = None
-        skipped = 0
-        for row in reader:
-            if skipped < table["skip"]:
-                skipped += 1
-                continue
-            if table["comment"] and len(row) > 0 and row[0].startswith(table["comment"]):
-                continue  # a comment line
-            found = row
-            break
-    if found is None:
-        raise ValueError(f"{table['file']} is empty.")
-
-    columns = table["columns"]
-    if len(found) != len(columns):
-        raise ValueError(f"{table['file']} has {len(found)} columns in its header line, "
-                         f"but its CSVW file describes {len(columns)}.")
-    for position in range(len(columns)):
-        header = found[position].strip()
-        if header not in columns[position]["titles"]:
-            raise ValueError(f"Column {position + 1} of {table['file']} is called '{header}', but the CSVW file "
-                             f"expects '{columns[position]['titles'][0]}' (column {columns[position]['name']}) there.")
-
-
 def load_table(con, table):
-    """Copy one CSV file into the database as one table"""
-    if "points" in table:
-        name = sql_identifier(table["name"])
-        value_type = table["columns"][1]["type"]
-        con.execute(f"CREATE TABLE {name} (time TIMESTAMPTZ, value {value_type})")
+    """Copy the source's data into the database as one table.
+
+    table: {"name", "file", "kind": "csv" | "parquet" | "points", "columns": [{"name", "type"}], ...}
+      csv:     "path", "delimiter", "header"
+      parquet: "path"
+      points:  "rows" (one list of texts per point, in the order of the columns)"""
+    name = sql_identifier(table["name"])
+
+    # CSV cells and JSON values are text: each column gets its field's type (a Parquet file has its own types)
+    typed = []
+    if table["kind"] != "parquet":
+        for column in table["columns"]:
+            typed.append(column_expression(column))
+
+    if table["kind"] == "points":
+        # First every value as text in a helper table, then typed like a CSV file
+        as_text = []
+        for column in table["columns"]:
+            as_text.append(f"{sql_identifier(column['name'])} VARCHAR")
+        con.execute(f"CREATE TABLE points_as_text ({', '.join(as_text)})")
         try:
-            rows = []
-            for point in table["points"]:
-                value = point["value"]
-                if value_type == "DOUBLE":
-                    value = float(value) if value not in (None, "") else None
-                    if value is not None and not math.isfinite(value):
-                        raise ValueError("non-finite numeric value")
-                elif value is not None and not isinstance(value, str):
-                    value = json.dumps(value, ensure_ascii=False)
-                rows.append((point["time"], value))
-            if rows:
-                con.executemany(f"INSERT INTO {name} VALUES (?, ?)", rows)
-        except (ValueError, TypeError, duckdb.Error) as error:
-            con.execute(f"DROP TABLE {name}")
-            raise ValueError(f"Could not load embedded points: {error}")
+            if len(table["rows"]) > 0:
+                places = ", ".join(["?"] * len(table["columns"]))
+                con.executemany(f"INSERT INTO points_as_text VALUES ({places})", table["rows"])
+            con.execute(f"CREATE TABLE {name} AS SELECT {', '.join(typed)} FROM points_as_text")
+        except duckdb.Error as error:
+            raise ValueError(f"Could not load the embedded points: {error}")
+        finally:
+            con.execute("DROP TABLE points_as_text")
         return
+
     # DuckDB would treat * ? [ ] in a file name as a pattern and maybe read other files
     if re.search(r"[*?\[\]]", table["path"]):
         raise ValueError(f"The SQL box can't read files with * ? [ or ] in their name: {table['file']}")
-    if table["header"]:
-        check_header(table)
 
-    # read_csv gets the delimiter, quote character, rows to skip and the column names
-    # from the CSVW file, and reads every column as text (VARCHAR) ...
-    as_text = []
-    typed = []
-    for column in table["columns"]:
-        as_text.append(f"{sql_text(column['name'])}: 'VARCHAR'")
-        typed.append(column_expression(column))
-    options = [
-        "auto_detect = false",  # don't let DuckDB guess anything: the CSVW file says how to read the CSV
-        f"delim = {sql_text(table['delimiter'])}",
-        f"quote = {sql_text(table['quote'])}",
-        f"escape = {sql_text(table['escape'])}",
-        f"header = {'true' if table['header'] else 'false'}",
-        f"skip = {int(table['skip'])}",
-        "nullstr = ''",
-        f"columns = {{{', '.join(as_text)}}}",
-    ]
-    if table["comment"]:
-        options.append(f"comment = {sql_text(table['comment'])}")
-
-    # ... and then every column is turned into its CSVW type (see column_expression)
-    sql = (f"CREATE TABLE {sql_identifier(table['name'])} AS\n"
-           f"SELECT {', '.join(typed)}\n"
-           f"FROM read_csv({sql_text(table['path'])}, {', '.join(options)})")
+    if table["kind"] == "parquet":
+        # A Parquet file has its own column types, so DuckDB keeps them
+        sql = f"CREATE TABLE {name} AS SELECT * FROM read_parquet({sql_text(table['path'])}, hive_partitioning = false)"
+    else:
+        # read_csv gets the delimiter and the column names from the TSS source,
+        # and reads every column as text (VARCHAR) ...
+        as_text = []
+        for column in table["columns"]:
+            as_text.append(f"{sql_text(column['name'])}: 'VARCHAR'")
+        options = [
+            "auto_detect = false",  # don't let DuckDB guess anything: the TSS source says how to read the CSV
+            f"delim = {sql_text(table['delimiter'])}",
+            "quote = '\"'",
+            "escape = '\"'",
+            f"header = {'true' if table['header'] else 'false'}",
+            "nullstr = ''",
+            f"columns = {{{', '.join(as_text)}}}",
+        ]
+        # ... and then every column is turned into its field's type (see column_expression)
+        sql = (f"CREATE TABLE {name} AS\n"
+               f"SELECT {', '.join(typed)}\n"
+               f"FROM read_csv({sql_text(table['path'])}, {', '.join(options)})")
     try:
         con.execute(sql)
     except duckdb.Error as error:
         message = str(error)
         if "Expected Number of Columns" in message:
-            message = (f"a row does not have the {len(table['columns'])} columns the CSVW file describes. "
+            message = (f"a row does not have the {len(table['columns'])} columns of the header line. "
                        f"DuckDB says: {message.splitlines()[0]}")
-        raise ValueError(f"Could not load {table['file']} as described by its CSVW file: {message}")
+        raise ValueError(f"Could not load {table['file']}: {message}")
 
 
-# The columns of the "snippets" table: one row per series (snippet)
-SNIPPET_COLUMNS = [
-    ("label", "VARCHAR"),
-    ("snippet", "VARCHAR"),
-    ("sql_table", "VARCHAR"),
-    ("time_column", "VARCHAR"),
-    ("value_column", "VARCHAR"),
-    ("unit", "VARCHAR"),
-    ("from_time", "TIMESTAMPTZ"),
-    ("until_time", "TIMESTAMPTZ"),
-    ("observed_property", "VARCHAR"),
-    ("sensor", "VARCHAR"),
-    ("feature_of_interest", "VARCHAR"),
-]
-
-
-def open_database(tables, snippets):
+def open_database(tables, metadata_rows):
     """A new in-memory DuckDB with our tables in it, locked down.
     Returns (the database, the tables that could not be loaded and why).
 
-    tables: [{"name", "file", "path", "delimiter", "quote", "escape", "header", "skip",
-              "comment", "columns": [{"name", "type", "titles", "nulls"}]}]
-    snippets: rows for the "snippets" table (see SNIPPET_COLUMNS)"""
+    tables: the data tables (see load_table)
+    metadata_rows: {"source": [row], "fields": [row, ...]}, each row a dict with
+                   the columns of METADATA_TABLES"""
     con = duckdb.connect()  # no file name: the database only lives in memory
     try:
         con.execute("SET TimeZone = 'UTC'")
         # No scratch folder on disk: otherwise the files in it would stay readable
         con.execute("SET temp_directory = ''")
 
-        # 1. One table per CSV file. A file that does not match its CSVW file is
-        #    skipped (with the reason), so the other tables can still be used.
+        # 1. The data. A table that can't be loaded is skipped (with the reason),
+        #    so the metadata tables can still be used.
         skipped = []
         for table in tables:
             try:
@@ -299,20 +271,21 @@ def open_database(tables, snippets):
             except ValueError as error:
                 skipped.append({"name": table["name"], "error": str(error)})
 
-        # 2. The TSS2 metadata as a table, so it can be joined with the data
-        column_list = []
-        for name, sql_type in SNIPPET_COLUMNS:
-            column_list.append(f"{name} {sql_type}")
-        con.execute(f"CREATE TABLE snippets ({', '.join(column_list)})")
-        for row in snippets:
-            values = []
-            for name, sql_type in SNIPPET_COLUMNS:
-                values.append(row[name])
-            try:
-                con.execute(f"INSERT INTO snippets VALUES ({', '.join(['?'] * len(values))})", values)
-            except duckdb.Error as error:
-                raise ValueError(f"Snippet '{row['label']}' can't go into the snippets table "
-                                 f"(is its tss:from / tss:until a date-time?): {error}")
+        # 2. The TSS metadata as tables, so it can be joined with the data
+        for metadata_name, metadata in METADATA_TABLES.items():
+            column_list = []
+            for name, sql_type in metadata["columns"]:
+                column_list.append(f"{name} {sql_type}")
+            con.execute(f"CREATE TABLE {metadata_name} ({', '.join(column_list)})")
+            for row in metadata_rows[metadata_name]:
+                values = []
+                for name, sql_type in metadata["columns"]:
+                    values.append(row[name])
+                try:
+                    con.execute(f"INSERT INTO {metadata_name} VALUES ({', '.join(['?'] * len(values))})", values)
+                except duckdb.Error as error:
+                    raise ValueError(f"A row can't go into the {metadata_name} table "
+                                     f"(is tss:from / tss:until a date-time?): {error}")
 
         # 3. Lock it. From here on the database can only work with what is already in it.
         con.execute("SET autoinstall_known_extensions = false")
@@ -388,34 +361,38 @@ def run_query(con, sql):
     }
 
 
-def example_queries(tables):
-    """A few queries to start from, made for this endpoint's tables and columns"""
-    examples = [{"title": "Which column is which series (the TSS2 metadata)",
-                 "sql": "SELECT label, sql_table, value_column, unit, from_time, until_time\nFROM snippets"}]
-    if len(tables) == 0:
+def example_queries(table, fields):
+    """A few queries to start from, made for this source's table and fields.
+    table: the data table (None when it can't be loaded); fields: the fields from get_endpoint_info"""
+    examples = [{"title": "Which column is which field (the TSS metadata)",
+                 "sql": "SELECT column_name, role, datatype, unit, observed_property\nFROM fields"}]
+    if table is None:
         return examples
 
-    table = tables[0]
     t = sql_identifier(table["name"])
     examples.insert(0, {"title": f"The first 10 rows of {table['name']}", "sql": f"SELECT *\nFROM {t}\nLIMIT 10"})
     examples.append({"title": f"Summary of every column of {table['name']}", "sql": f"SUMMARIZE {t}"})
 
-    # The examples below need a series with both a time column and a value column
-    series = []
-    for snippet in table["snippets"]:
-        if snippet["timeColumn"] and snippet["valueColumn"]:
-            series.append(snippet)
-    if len(series) == 0:
+    # The examples below need the time column and numeric value columns in the table
+    types = {}
+    for column in table["columns"]:
+        types[column["name"]] = column["type"]
+    time_column = None
+    measured = []  # fields with an observed property that don't describe another field, with numbers in them
+    for field in fields:
+        if field["columnName"] not in types:
+            continue
+        if field["isTime"]:
+            time_column = field["columnName"]
+        elif field["observedProperty"] and not field["describesField"] and types[field["columnName"]] in ("DOUBLE", "BIGINT"):
+            measured.append(field)
+    if time_column is None or len(measured) == 0:
         return examples
 
-    first = series[0]
-    when = sql_identifier(first["timeColumn"])
-    value = sql_identifier(first["valueColumn"])
-    label = first["label"]
-
-    value_type = next((column["type"] for column in table["columns"] if column["name"] == first["valueColumn"]), None)
-    if value_type == "VARCHAR":
-        return examples
+    first = measured[0]
+    when = sql_identifier(time_column)
+    value = sql_identifier(first["columnName"])
+    label = first["label"] if first["label"] else first["columnName"]
 
     examples.append({
         "title": f"Daily mean, min and max: {label}",
@@ -441,23 +418,30 @@ def example_queries(tables):
                f"FROM {t}\nORDER BY gap DESC NULLS LAST\nLIMIT 10",
     })
     examples.append({
-        "title": f"Only the readings inside the series' own time window (data + metadata): {label}",
+        "title": f"Only the readings inside the source's time window (data + metadata): {label}",
         "sql": f"SELECT d.{when}, d.{value}\n"
-               f"FROM {t} AS d, snippets AS s\n"
-               f"WHERE s.snippet = {sql_text(first['id'])}\n"
-               f"  AND d.{when} >= s.from_time AND d.{when} < s.until_time\n"
+               f"FROM {t} AS d, source AS s\n"
+               f"WHERE d.{when} >= s.from_time AND d.{when} < s.until_time\n"
                f"ORDER BY d.{when}\nLIMIT 100",
     })
 
-    # Two series side by side: only when the table has a second series in another column
-    second = None
-    for snippet in series[1:]:
-        if snippet["valueColumn"] != first["valueColumn"] and second is None:
-            second = snippet
-    if second is not None:
-        other = sql_identifier(second["valueColumn"])
+    # A field that describes the first value (e.g. a quality code): the readings per code
+    for field in fields:
+        if field["describesField"] == first["columnName"] and field["columnName"] in types:
+            code = sql_identifier(field["columnName"])
+            examples.append({
+                "title": f"Readings per {field['columnName']}: {label}",
+                "sql": f"SELECT {code}, count(*) AS readings, round(avg({value}), 3) AS mean\n"
+                       f"FROM {t}\nGROUP BY ALL\nORDER BY readings DESC",
+            })
+            break
+
+    # Two series side by side: only when the table has a second measured field
+    if len(measured) > 1:
+        second = measured[1]
+        other = sql_identifier(second["columnName"])
         examples.append({
-            "title": f"Two series side by side, per day: {label} / {second['label']}",
+            "title": f"Two series side by side, per day: {first['columnName']} / {second['columnName']}",
             "sql": f"SELECT date_trunc('day', {when}) AS day,\n"
                    f"       round(avg({value}), 3) AS {value},\n"
                    f"       round(avg({other}), 3) AS {other}\n"

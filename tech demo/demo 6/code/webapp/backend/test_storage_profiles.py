@@ -119,22 +119,43 @@ class StorageProfiles(unittest.TestCase):
             self.assertEqual(caught.exception.status_code, 400)
 
     def test_embedded_sql_and_read_only_guard(self):
-        schema = main.sql_schema(EMBEDDED)
-        numeric_table = next(table["name"] for table in schema["tables"] if table["columns"][1]["type"] == "DOUBLE")
-        text_table = next(table["name"] for table in schema["tables"] if table["columns"][1]["type"] == "VARCHAR")
-        result = main.run_sql(EMBEDDED, main.SqlQuery(sql=f"SELECT count(*), avg(value) FROM {numeric_table}"))
+        table = main.sql_schema(EMBEDDED)["tables"][0]
+        self.assertEqual(table["name"], "zevenaarshaven_source")
+        self.assertEqual([(column["name"], column["type"]) for column in table["columns"]],
+                         [("time", "TIMESTAMPTZ"), ("ec20", "DOUBLE"), ("qualityColor", "VARCHAR")])
+        result = main.run_sql(EMBEDDED, main.SqlQuery(sql="SELECT count(*), avg(ec20), min(qualityColor) FROM zevenaarshaven_source"))
         self.assertEqual(result["skipped"], [])
         self.assertEqual(result["rows"][0][0], 5)
         self.assertAlmostEqual(result["rows"][0][1], 4750.588)
-        result = main.run_sql(EMBEDDED, main.SqlQuery(sql=f"SELECT value FROM {text_table} LIMIT 1"))
-        self.assertEqual(result["rows"], [["rgba(0, 128, 0, 1.0)"]])
-        with self.assertRaises(HTTPException):
-            main.run_sql(EMBEDDED, main.SqlQuery(sql="DELETE FROM snippets"))
+        self.assertEqual(result["rows"][0][2], "rgba(0, 128, 0, 1.0)")
+        for sql in ("DELETE FROM fields", "SELECT 1; SELECT 2", "SELECT * FROM read_csv('data.csv')"):
+            with self.subTest(sql=sql):
+                with self.assertRaises(HTTPException):
+                    main.run_sql(EMBEDDED, main.SqlQuery(sql=sql))
 
     def test_external_sql(self):
-        result = main.run_sql(EXTERNAL, main.SqlQuery(sql="SELECT count(*) FROM waterinfo_289423042"))
-        self.assertEqual(result["rows"], [[94853]])
+        result = main.run_sql(EXTERNAL, main.SqlQuery(sql='SELECT count(*), count(DISTINCT "Quality Code") FROM waterinfo_289423042'))
+        self.assertEqual(result["rows"], [[94853, 2]])
         self.assertEqual(result["skipped"], [])
+        result = main.run_sql(EXTERNAL, main.SqlQuery(sql="SELECT column_name, role FROM fields WHERE describes = 'Value' ORDER BY column_name LIMIT 1"))
+        self.assertEqual(result["rows"], [["Interpolation Type", "describes Value"]])
+
+    def test_parquet_sql_keeps_the_file_types(self):
+        table = main.sql_schema(PARQUET)["tables"][0]
+        types = {column["name"]: column["type"] for column in table["columns"]}
+        self.assertEqual(types["Value"], "DOUBLE")
+        self.assertEqual(types["Timestamp"], "TIMESTAMP WITH TIME ZONE")
+        result = main.run_sql(PARQUET, main.SqlQuery(
+            sql="SELECT count(*) FROM waterinfo_289429042 AS d, source AS s WHERE d.Timestamp >= s.from_time AND d.Timestamp < s.until_time"))
+        self.assertEqual(result["rows"], [[158022]])
+
+    def test_every_sql_example_runs(self):
+        for endpoint in (EMBEDDED, EXTERNAL, PARQUET):
+            for example in main.sql_schema(endpoint)["examples"]:
+                with self.subTest(endpoint=endpoint, example=example["title"]):
+                    result = main.run_sql(endpoint, main.SqlQuery(sql=example["sql"]))
+                    self.assertEqual(result["skipped"], [])
+                    self.assertGreater(len(result["rows"]), 0)
 
     def test_uploaded_shapes_used_for_both_profiles(self):
         upload = main.CustomShacl(filename="my-shapes.ttl", turtle=CUSTOM_SHAPES)

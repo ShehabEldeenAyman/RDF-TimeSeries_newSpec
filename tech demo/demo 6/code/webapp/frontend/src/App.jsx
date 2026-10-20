@@ -19,7 +19,7 @@ const tabs = [
   { id: 'rdf', label: 'RDF generation', updated: false },
   { id: 'files', label: 'Files', updated: true },
   { id: 'query', label: 'Query', updated: true },
-  { id: 'sql', label: 'SQL (DuckDB)', updated: false },
+  { id: 'sql', label: 'SQL (DuckDB)', updated: true },
 ]
 
 // Is this tab already updated to the new structure?

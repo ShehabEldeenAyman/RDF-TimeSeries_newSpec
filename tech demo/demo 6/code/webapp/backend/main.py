@@ -395,102 +395,6 @@ def csvw_delimiter(metadata, described_by):
     return csv_rdf_generation.csvw_delimiter(metadata, described_by)
 
 
-def titles_of(column):
-    """Every CSV header the CSVW file accepts for a column. "titles" can be a text,
-    a list of texts, or one per language ({"en": "Value", "nl": "Waarde"}).
-    Without titles, the header is the column's name."""
-    titles = column.get("titles", column["name"])
-    if isinstance(titles, str):
-        return [titles]
-    result = []
-    if isinstance(titles, list):
-        for title in titles:
-            result.append(str(title))
-    if isinstance(titles, dict):
-        for value in titles.values():
-            if isinstance(value, list):
-                for title in value:
-                    result.append(str(title))
-            else:
-                result.append(str(value))
-    if len(result) == 0:
-        result.append(column["name"])
-    return result
-
-
-def null_values(metadata, column):
-    """The texts that mean "no value" in a column (CSVW "null"), e.g. ["", "NA"].
-    The column's own setting wins, then the tableSchema's, then the table's."""
-    for source in [column, metadata["tableSchema"], metadata]:
-        if "null" in source:
-            value = source["null"]
-            return value if isinstance(value, list) else [value]
-    return [""]
-
-
-def read_csvw(described_by):
-    """Read a CSVW file. Returns (delimiter, headers), where headers maps every
-    column name (what TSS2 uses, e.g. "timestamp") to its CSV header (e.g. "Timestamp").
-    Returns None when there is no such file."""
-    if not file_exists(described_by):
-        return None
-    try:
-        metadata = load_csvw_json(described_by)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error))
-
-    delimiter = csvw_delimiter(metadata, described_by)
-    headers = {}
-    for column in metadata["tableSchema"]["columns"]:
-        headers[column["name"]] = titles_of(column)[0]
-    return delimiter, headers
-
-
-def csvw_columns(described_by):
-    """What the SQL box needs from a CSVW file: the columns in CSV order
-    ({"name", "header", "titles", "datatype", "nulls"}) and how to read the CSV
-    (delimiter, quote, escape, skip, header, comment).
-    Returns {"error": "..."} when the file is missing or can't be used."""
-    if not file_exists(described_by):
-        return {"error": f"CSVW file not found: {described_by}"}
-    try:
-        metadata = load_csvw_json(described_by)
-    except ValueError as error:
-        return {"error": str(error)}
-
-    dialect = metadata.get("dialect", {})
-    header_rows = dialect.get("headerRowCount", 1 if dialect.get("header", True) else 0)
-    if header_rows > 1:
-        return {"error": f"The CSVW file {described_by} says the CSV has {header_rows} header lines; "
-                         "the SQL box can only read files with one."}
-    quote = dialect.get("quoteChar", '"') or ""  # null means: no quoting at all
-
-    columns = []
-    for column in metadata["tableSchema"]["columns"]:
-        if column.get("virtual"):
-            continue  # a "virtual" column is not in the CSV file itself
-        titles = titles_of(column)
-        columns.append({
-            "name": column["name"],
-            "header": titles[0],
-            "titles": titles,
-            "datatype": column.get("datatype", "string"),
-            "nulls": null_values(metadata, column),
-        })
-
-    return {
-        "error": None,
-        "delimiter": csvw_delimiter(metadata, described_by),
-        "quote": quote,
-        # doubleQuote (the default): a quote inside a quoted value is written twice ""
-        "escape": quote if dialect.get("doubleQuote", True) else "\\",
-        "skip": dialect.get("skipRows", 0),
-        "header": header_rows == 1,
-        "comment": dialect.get("commentPrefix"),
-        "columns": columns,
-    }
-
-
 def column_name(graph, field):
     """The column a field reads, e.g. "Timestamp". A field without tss:columnName shows its IRI."""
     name = graph.value(field, TSS.columnName)
@@ -605,53 +509,6 @@ def embedded_mode(graph, group):
     if len(values) != 1 or not isinstance(values[0], Literal) or not isinstance(values[0].toPython(), bool):
         return None
     return values[0].toPython()
-
-
-def embedded_points(graph, snippet):
-    """Read the snippet's JSON points without losing string-valued series."""
-    literal = graph.value(snippet, TSS.points)
-    try:
-        points = json.loads(str(literal))
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=400, detail="This embedded snippet has no valid JSON in tss:points.")
-    if not isinstance(points, list) or any(
-        not isinstance(point, dict) or "time" not in point or "value" not in point
-        or not isinstance(point["time"], str) for point in points
-    ):
-        raise HTTPException(status_code=400, detail='tss:points must be an array of objects with a string "time" and a "value".')
-    for point in points:
-        parse_time(point["time"])
-    return points
-
-
-def embedded_value_type(graph, snippet):
-    """Use the effective JSON-LD value mapping to distinguish numbers from text."""
-    group, template = find_group(graph, snippet)
-    context = resolve(graph, snippet, template, TSS.context)
-    if context is None:
-        return None
-    try:
-        context = json.loads(str(context))
-        context = context.get("@context", context)
-        mapping = context.get("value", {})
-        datatype = mapping.get("@type") if isinstance(mapping, dict) else None
-        if datatype and ":" in datatype and not datatype.startswith(("http:", "https:")):
-            prefix, local = datatype.split(":", 1)
-            namespace = context.get(prefix)
-            if isinstance(namespace, str):
-                datatype = namespace + local
-        return datatype
-    except (ValueError, TypeError, AttributeError):
-        raise HTTPException(status_code=400, detail="tss:context must contain a usable JSON-LD context object.")
-
-
-def numeric_points(graph, snippet, points):
-    datatype = embedded_value_type(graph, snippet)
-    if datatype is not None:
-        return (datatype.startswith("http://www.w3.org/2001/XMLSchema#")
-                and sql_box.duckdb_type(datatype.rsplit("#", 1)[-1]) in ("DOUBLE", "BIGINT"))
-    return all(point["value"] is None or isinstance(point["value"], (int, float))
-               and not isinstance(point["value"], bool) for point in points)
 
 
 @api.post("/endpoints/{endpoint_id}/rdf")
@@ -1629,106 +1486,134 @@ def series_metadata(endpoint_id, field):
 # The SQL box (DuckDB): read-only SQL on the CSV files of an endpoint
 # ---------------------------------------------------------------------------
 
-def sql_tables(info):
-    """The SQL tables of an endpoint: one per CSV file (the tss:dataFile of a group) its
-    snippets use, with the column names and types from the CSVW file"""
-    tables = []
-    if info["embedded"] is True:
-        graph = load_graph(info["id"])
-        for snippet in info["snippets"]:
-            node = URIRef(snippet["id"])
-            points = embedded_points(graph, node)
-            numeric = numeric_points(graph, node, points)
-            bound = dict(snippet, timeColumn="time", valueColumn="value")
-            tables.append({
-                "name": sql_box.table_name(snippet["id"].rsplit("#", 1)[-1], [table["name"] for table in tables]),
-                "group": snippet["group"], "file": "tss:points", "csvw": None,
-                "snippets": [bound], "points": points, "error": None,
-                "columns": [{"name": "time", "type": "TIMESTAMPTZ", "role": "time"},
-                            {"name": "value", "type": "DOUBLE" if numeric else "VARCHAR", "role": snippet["label"]}],
-            })
-        return tables
-    by_file = {}  # CSV file -> its entry in tables
-    for snippet in info["snippets"]:
-        if snippet["csvUrl"] is None:
-            continue  # a snippet without a data file (e.g. not in any group) has no CSV to load
-        if snippet["csvUrl"] not in by_file:
-            taken = []
-            for table in tables:
-                taken.append(table["name"])
-            entry = {
-                "name": sql_box.table_name(snippet["csvUrl"], taken),
-                "group": snippet["group"],
-                "file": snippet["csvUrl"],
-                "csvw": snippet["describedBy"],
-                "snippets": [],
-                "columns": [],
-                "error": None,
-            }
-            by_file[snippet["csvUrl"]] = entry
-            tables.append(entry)
-        by_file[snippet["csvUrl"]]["snippets"].append(snippet)
+def column_role(field):
+    """What a column of the data table is, in words, for the SQL box"""
+    if field is None:
+        return "not described by a field"
+    if field["isTime"]:
+        return "time (tss:timeField)"
+    if field["describesField"]:
+        return f"describes {field['describesField']}"
+    if field["observedProperty"]:
+        label = field["label"] if field["label"] else field["columnName"]
+        unit = f" ({field['unit']})" if field["unit"] else ""
+        return f"value of: {label}{unit}"
+    return None
 
-    for table in tables:
-        csvw = csvw_columns(table["csvw"])
-        if csvw["error"] is not None:
-            table["error"] = csvw["error"]
-            continue
-        if not file_exists(table["file"]):
-            table["error"] = f"CSV file not found: {table['file']}"
-            continue
-        # How to read the CSV, from the CSVW dialect
-        for key in ["delimiter", "quote", "escape", "skip", "header", "comment"]:
-            table[key] = csvw[key]
-        for column in csvw["columns"]:
-            # What does TSS2 say about this column?
-            role = None
-            for snippet in table["snippets"]:
-                if column["name"] == snippet["timeColumn"]:
-                    role = "time column"
-                if column["name"] == snippet["valueColumn"]:
-                    unit = f" ({snippet['unit']})" if snippet["unit"] else ""
-                    role = f"value of: {snippet['label']}{unit}"
-            table["columns"].append({
-                "name": column["name"],
-                "header": column["header"],
-                "titles": column["titles"],
-                "nulls": column["nulls"],
-                "type": sql_box.duckdb_type(column["datatype"]),
-                "role": role,
-            })
-    return tables
+
+def sql_table(info, graph):
+    """The SQL table of the source: its name, where its data is, and its columns
+    (one per data column, typed by the field's tss:datatype; Parquet keeps its own types).
+    "error" says why it can't be loaded."""
+    by_column = {}  # column name -> its field
+    for field in info["fields"]:
+        if field["columnName"] is not None:
+            by_column[field["columnName"]] = field
+
+    table = {"name": "data", "file": None, "kind": None, "columns": [], "error": None}
+    names = []          # the columns, in the order of the data
+    native_types = {}   # Parquet: column name -> its type in the file
+    try:
+        if info["embedded"]:
+            # The table is named after the source, e.g. ex:zevenaarshaven-source -> zevenaarshaven_source
+            source = graph.value(predicate=RDF.type, object=TSS.Source)
+            table["name"] = sql_box.table_name(str(source).split("#")[-1].split("/")[-1])
+            table["file"] = "tss:points"
+            table["kind"] = "points"
+            points = list(data_rows(graph, info, source))
+            # The fields' column names first, then any other key the points use
+            for field in info["fields"]:
+                if field["columnName"] is not None:
+                    names.append(field["columnName"])
+            for point in points:
+                for key in point:
+                    if key not in names:
+                        names.append(key)
+            table["rows"] = []
+            for point in points:
+                row = []
+                for name in names:
+                    value = point.get(name, "")
+                    row.append(value if value != "" else None)  # an empty or missing value is NULL
+                table["rows"].append(row)
+        else:
+            location = info["dataFile"]
+            if location is None:
+                raise ValueError("The source has no tss:dataFile")
+            table["name"] = sql_box.table_name(location)
+            table["file"] = location
+            if not file_exists(location):
+                raise ValueError(f"Data file not found: {location}")
+            table["path"] = local_copy(location).as_posix()
+
+            if info["format"] == "tss:Parquet":
+                table["kind"] = "parquet"
+                with duckdb.connect() as connection:
+                    described = connection.execute(
+                        "DESCRIBE SELECT * FROM read_parquet(?, hive_partitioning = false)", [table["path"]]
+                    ).fetchall()
+                for column in described:
+                    names.append(column[0])            # e.g. Timestamp
+                    native_types[column[0]] = column[1]  # e.g. TIMESTAMP WITH TIME ZONE
+            elif info["format"] == "tss:CSV":
+                table["kind"] = "csv"
+                table["delimiter"] = info["delimiter"] if info["delimiter"] is not None else ","
+                if len(table["delimiter"]) != 1:
+                    raise ValueError(f"tss:delimiter must be one character, not '{table['delimiter']}'")
+                table["header"] = info["header"] != "false"
+                first_line = next(csv.reader(read_lines(location), delimiter=table["delimiter"]), [])
+                if table["header"]:
+                    names = first_line
+                else:
+                    # No header line: a column gets the column name of the field with its tss:columnIndex
+                    for index in range(len(first_line)):
+                        name = f"column {index}"
+                        for field in info["fields"]:
+                            if field["columnIndex"] == index and field["columnName"] is not None:
+                                name = field["columnName"]
+                        names.append(name)
+            else:
+                raise ValueError(f"The SQL box can't read data in format {info['format']}")
+    except (ValueError, duckdb.Error) as error:
+        table["error"] = str(error)
+        return table
+
+    for name in names:
+        if names.count(name) > 1:
+            table["error"] = f"Two columns are called '{name}'; a SQL table needs different column names."
+            return table
+        field = by_column.get(name)
+        if table["kind"] == "parquet":
+            sql_type = native_types[name]
+        else:
+            sql_type = sql_box.duckdb_type(field["datatype"] if field is not None else None)
+        table["columns"].append({"name": name, "type": sql_type, "role": column_role(field)})
+    return table
 
 
 @api.get("/endpoints/{endpoint_id}/sql/tables")
 def sql_schema(endpoint_id):
-    """What the SQL box can query for this endpoint: the tables, their columns, and example queries"""
+    """What the SQL box can query for this endpoint: the data table, the metadata tables, and example queries"""
     info = get_endpoint_info(endpoint_id)
-    tables = sql_tables(info)
+    table = sql_table(info, load_graph(endpoint_id))
 
-    snippet_columns = []
-    for name, sql_type in sql_box.SNIPPET_COLUMNS:
-        snippet_columns.append({"name": name, "type": sql_type})
+    metadata_tables = []
+    for name, metadata in sql_box.METADATA_TABLES.items():
+        columns = []
+        for column_name, sql_type in metadata["columns"]:
+            columns.append({"name": column_name, "type": sql_type})
+        metadata_tables.append({"name": name, "explanation": metadata["explanation"], "columns": columns})
 
-    shown_tables = []
-    for table in tables:
-        shown_tables.append({
+    return {
+        "tables": [{
             "name": table["name"],
-            "group": table["group"],
             "file": table["file"],
-            "csvw": table["csvw"],
+            "kind": table["kind"],
             "error": table["error"],
             "columns": table["columns"],
-        })
-
-    usable = []
-    for table in tables:
-        if table["error"] is None:
-            usable.append(table)
-    return {
-        "tables": shown_tables,
-        "snippetColumns": snippet_columns,
-        "examples": sql_box.example_queries(usable),
+        }],
+        "metadataTables": metadata_tables,
+        "examples": sql_box.example_queries(table if table["error"] is None else None, info["fields"]),
         "maxRows": sql_box.MAX_ROWS,
         "maxSeconds": sql_box.MAX_SECONDS,
     }
@@ -1741,70 +1626,65 @@ class SqlQuery(BaseModel):
 
 @api.post("/endpoints/{endpoint_id}/sql")
 def run_sql(endpoint_id, query: SqlQuery):
-    """Run one read-only SQL query with DuckDB on the CSV files of this endpoint"""
+    """Run one read-only SQL query with DuckDB on the data of this endpoint"""
     info = get_endpoint_info(endpoint_id)
 
-    # 1. The tables to load: every CSV file of the endpoint, as a file on this computer.
-    #    A table that can't be made (e.g. its CSVW file is missing) is skipped:
-    #    the other tables and the snippets table still work.
+    # 1. The data table. If it can't be made (e.g. the data file is missing), it is
+    #    skipped: the metadata tables still work.
+    table = sql_table(info, load_graph(endpoint_id))
     tables = []
     skipped = []
-    table_names = {}  # CSV file -> SQL table name, for the snippets table
-    for table in sql_tables(info):
-        table_names[table["file"]] = table["name"]
-        if table["error"] is not None:
-            skipped.append({"name": table["name"], "error": table["error"]})
-            continue
-        if "points" in table:
-            table_names[table["snippets"][0]["id"]] = table["name"]
-            tables.append(table)
-            continue
-        tables.append({
-            "name": table["name"],
-            "file": table["file"],
-            "path": local_copy(table["file"]).as_posix(),
-            "delimiter": table["delimiter"],
-            "quote": table["quote"],
-            "escape": table["escape"],
-            "skip": table["skip"],
-            "header": table["header"],
-            "comment": table["comment"],
-            "columns": table["columns"],
-        })
+    if table["error"] is None:
+        tables.append(table)
+    else:
+        skipped.append({"name": table["name"], "error": table["error"]})
+    loaded_name = table["name"] if table["error"] is None else None
 
-    # 2. The TSS2 metadata, one row per snippet, for the "snippets" table
-    snippet_rows = []
-    for s in info["snippets"]:
-        snippet_rows.append({
-            "label": s["label"],
-            "snippet": s["id"],
-            "sql_table": table_names.get(s["id"] if s["embedded"] else s["csvUrl"]),
-            "time_column": "time" if s["embedded"] else s["timeColumn"],
-            "value_column": "value" if s["embedded"] else s["valueColumn"],
-            "unit": s["unit"],
-            "from_time": s["from"],
-            "until_time": s["until"],
-            "observed_property": s["observedProperty"],
-            "sensor": s["sensor"],
-            "feature_of_interest": s["featureOfInterest"],
+    # 2. The TSS metadata, for the "source" and "fields" tables
+    source_row = {
+        "source": info["source"],
+        "label": info["label"],
+        "sql_table": loaded_name,
+        "format": info["format"],
+        "data_file": info["dataFile"],
+        "time_column": info["timeField"],
+        "from_time": info["from"],
+        "until_time": info["until"],
+        "produced_by": info["producedBy"],
+        "mutable": info["mutable"] == "true" if info["mutable"] is not None else None,
+    }
+    field_rows = []
+    for field in info["fields"]:
+        field_rows.append({
+            "column_name": field["columnName"],
+            "sql_table": loaded_name,
+            "field": field["iri"],
+            "label": field["label"],
+            "role": column_role(field),
+            "datatype": field["datatype"],
+            "unit": field["unit"],
+            "observed_property": field["observedProperty"],
+            "sensor": field["sensor"],
+            "feature_of_interest": field["featureOfInterest"],
+            "describes": field["describesField"],
         })
 
     # 3. Load, lock, run, throw away
     try:
-        con, not_loaded = sql_box.open_database(tables, snippet_rows)
+        con, not_loaded = sql_box.open_database(tables, {"source": [source_row], "fields": field_rows})
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
-    skipped = skipped + not_loaded  # tables without a CSVW file + CSV files that don't match theirs
+    skipped = skipped + not_loaded  # a missing data file + data that could not be loaded
     try:
         result = sql_box.run_query(con, query.sql)
         result["skipped"] = skipped  # the tables that could not be loaded, and why
         return result
     except (ValueError, sql_box.duckdb.Error) as error:
         # a mistake in the query: show DuckDB's own message, it says what is wrong.
-        # If a table was not loaded, say so too: that may be why the query fails.
+        # If the data table was not loaded, say so too: that may be why the query fails.
         message = str(error)
-        for table in skipped:
-            message += f"\n(Table {table['name']} was not loaded: {table['error']})"
+        for skipped_table in skipped:
+            message += f"\n(Table {skipped_table['name']} was not loaded: {skipped_table['error']})"
         raise HTTPException(status_code=400, detail=message)
     finally:
         con.close()

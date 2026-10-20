@@ -7,7 +7,7 @@ The dashboard loads local Turtle files from `demo 5/metadata endpoint/`, or onli
 - `tss:embedded false`: groups link to external data with `tss:dataFile`. CSV sources use CSVW descriptions (`tss:describedby`); Parquet sources use the snippet's effective JSON-LD `tss:context` for RDF generation.
 - `tss:embedded true`: each snippet stores a JSON point array in `tss:points`. Its effective JSON-LD `tss:context` identifies numeric or text values.
 
-Every dashboard CSV-reading path uses the corresponding CSVW file's `dialect.delimiter`. If `delimiter` or the entire `dialect` is omitted, it uses the CSVW default comma (`","`). An explicitly supplied delimiter must be a single character; invalid values stop parsing with an error. There is no delimiter guessing. This applies to SQL and RDF generation. Raw file previews and downloads do not parse CSV cells.
+Every dashboard CSV-reading path uses the corresponding CSVW file's `dialect.delimiter`. If `delimiter` or the entire `dialect` is omitted, it uses the CSVW default comma (`","`). An explicitly supplied delimiter must be a single character; invalid values stop parsing with an error. There is no delimiter guessing. This applies to RDF generation. Raw file previews and downloads do not parse CSV cells.
 
 Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they state their own value. `tss:about` is replaced as a whole. The snippet window includes `tss:from` and excludes `tss:until`.
 
@@ -19,7 +19,7 @@ Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they 
 | RDF generation | Expand embedded points, CSVW-mapped CSV readings, or context-mapped Parquet readings; preview Turtle and download the generated graph |
 | Files | External sources: preview of `tss:dataFile` (CSV as is, Parquet converted to CSV) and a download of the original file. Embedded sources: the source's `tss:points`, one point per line. Both: the metadata Turtle file |
 | Query | Pick a field: filtering, summaries, gaps and hourly/daily aggregation over CSV, Parquet or embedded data, read with the source's tss:timeField, tss:from/until and CSV settings; text fields support time and column filtering |
-| SQL (DuckDB) | One table per external CSV or embedded snippet, plus a snippets metadata table |
+| SQL (DuckDB) | One table for the source's data (CSV, Parquet or embedded points) with a column per field, plus `source` and `fields` metadata tables; example queries are made from the fields |
 
 In the Files tab, a source declared as `tss:format tss:Parquet` is previewed as CSV text with a header and the first 19 data rows. Only that sample is converted; the original Parquet file is unchanged, and the download icon saves the original `.parquet` file. CSV previews retain their original text and delimiter.
 
@@ -87,7 +87,7 @@ Open <http://localhost:5174>. Vite proxies `/api` to port 8001. Alternatively, r
 
 ## Code and API
 
-`main.py` loads endpoints, resolves metadata, reads both storage profiles, runs SHACL and provides the API. `tss2.py` defines inheritance and provenance. `sql_box.py` loads data into a temporary DuckDB database and runs read-only queries. Embedded SQL tables have time and value columns; numeric XSD value mappings become numbers and other values remain text. SQL permits one reading statement, up to 1000 returned rows, about 5 MB of values and 30 seconds of query execution. External access is disabled after loading.
+`main.py` loads endpoints, resolves metadata, reads both storage profiles, runs SHACL and provides the API. `tss2.py` defines inheritance and provenance. `sql_box.py` loads data into a temporary DuckDB database and runs read-only queries. The data table has one column per data column. CSV cells and embedded JSON values get the type of their field's `tss:datatype` (XSD numbers, date-times, booleans; anything else stays text), and a value that does not fit stops loading with a message. Parquet columns keep the types stored in the file. SQL permits one reading statement, up to 1000 returned rows, about 5 MB of values and 30 seconds of query execution. External access is disabled after loading.
 
 All routes use `/api`; API documentation is at <http://localhost:8001/docs>. New routes:
 
@@ -104,7 +104,7 @@ Online endpoint URLs are saved in backend/online_endpoints.json. Relative file l
 
 ```powershell
 # From backend/
-python -B -m unittest -v test_storage_profiles test_external_shacl test_file_previews test_csvw_delimiter test_rdf_generation test_csv_rdf_generation test_parquet_rdf_generation
+python -B -m unittest -v test_storage_profiles test_external_shacl test_file_previews test_rdf_generation test_csv_rdf_generation test_parquet_rdf_generation
 # From frontend/
 npm run lint
 npm run build
