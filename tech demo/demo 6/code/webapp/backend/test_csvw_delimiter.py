@@ -43,13 +43,10 @@ class CsvwDelimiter(unittest.TestCase):
     def write_metadata(self):
         (self.root / "schema.json").write_text(json.dumps(self.metadata), encoding="utf-8")
 
-    def test_preview_query_filters_sql_and_validation_use_semicolon(self):
+    def test_query_filters_and_sql_use_semicolon(self):
         self.assert_csv_parsers(";", "good,review", "bad,review")
 
     def assert_csv_parsers(self, delimiter, good, bad):
-        preview = main.first_csv_rows("data.csv", "schema.json", "timestamp", "reading")
-        self.assertEqual(len(preview["columns"]), 3)
-        self.assertEqual(preview["rows"][0], ["2025-01-01T00:00:00Z", "1.5", good])
         filters = main.filter_columns("fixture", "urn:demo")
         self.assertEqual(filters[0]["values"], [bad, good])
         result = main.query_series("fixture", "urn:demo", filter_column="category", filter_value=good)
@@ -59,7 +56,6 @@ class CsvwDelimiter(unittest.TestCase):
         result = main.run_sql("fixture", main.SqlQuery(sql="SELECT reading, category FROM data ORDER BY timestamp"))
         self.assertEqual(result["rows"], [[1.5, good], [2.5, bad]])
         self.assertEqual(result["skipped"], [])
-        self.assertTrue(main.validate("fixture")["valid"])
 
     def test_missing_delimiter_or_dialect_defaults_to_comma_everywhere(self):
         (self.root / "data.csv").write_text(
@@ -81,20 +77,14 @@ class CsvwDelimiter(unittest.TestCase):
             with self.subTest(dialect=dialect):
                 self.metadata["dialect"] = dialect
                 self.write_metadata()
-                with patch.object(main, "read_lines") as reader, patch.object(main, "CSVW") as validator:
+                with patch.object(main, "read_lines") as reader:
                     with self.assertRaises(HTTPException) as caught:
                         main.query_series("fixture", "urn:demo")
                     self.assertEqual(caught.exception.status_code, 400)
                     with self.assertRaises(HTTPException):
                         main.filter_columns("fixture", "urn:demo")
-                    with self.assertRaises(HTTPException):
-                        main.first_csv_rows("data.csv", "schema.json", "timestamp", "reading")
                     self.assertIn("dialect", main.csvw_columns("schema.json")["error"])
-                    validation = main.validate("fixture")
-                    self.assertFalse(validation["valid"])
-                    self.assertIn("dialect", validation["messages"][0])
                     reader.assert_not_called()
-                    validator.assert_not_called()
 
     def test_wrong_declared_delimiter_is_not_guessed_by_sql(self):
         self.metadata["dialect"]["delimiter"] = ","

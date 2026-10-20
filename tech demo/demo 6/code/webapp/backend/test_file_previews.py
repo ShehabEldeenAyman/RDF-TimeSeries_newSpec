@@ -140,38 +140,5 @@ class DeclaredFormat(unittest.TestCase):
                 self.assertIs(info["csvwApplicable"], applicable)
 
 
-class CsvwValidation(unittest.TestCase):
-    def test_non_csv_formats_skip_file_access_and_validation(self):
-        endpoint = "waterinfo_289423042_tss2"
-        graph = main.load_graph(endpoint)
-        group = next(graph.subjects(RDF.type, main.TSS.SnippetGroup))
-        for value in (main.PARQUET_FILE_TYPE, URIRef("https://example.org/OTHER"), None):
-            with self.subTest(format=value):
-                graph.remove((group, DCTERMS.format, None))
-                if value is not None:
-                    graph.add((group, DCTERMS.format, value))
-                with patch.object(main, "load_graph", return_value=graph), \
-                        patch.object(main, "file_exists") as file_exists, \
-                        patch.object(main, "load_csvw_json") as loader, \
-                        patch.object(main, "CSVW") as validator:
-                    result = main.validate(endpoint)
-                    self.assertFalse(result["applicable"])
-                    self.assertIn("Not applicable", result["note"])
-                    file_exists.assert_not_called()
-                    loader.assert_not_called()
-                    validator.assert_not_called()
-
-    def test_embedded_data_is_not_applicable(self):
-        result = main.validate("waterinfo_289441042_tss2_points_embedded")
-        self.assertFalse(result["applicable"])
-        self.assertNotIn("valid", result)
-
-    def test_missing_csvw_for_declared_csv_is_still_a_validation_error(self):
-        with patch.object(main, "file_exists", return_value=False):
-            result = main.validate("waterinfo_289423042_tss2")
-        self.assertFalse(result["valid"])
-        self.assertIn("CSVW file not found", result["messages"][0])
-
-
 if __name__ == "__main__":
     unittest.main()

@@ -81,7 +81,7 @@ export function Shacl({ info }) {
     {customFile ? <p>Using custom shapes: <strong>{customFile.filename}</strong>. These replace the default shapes for this test.{' '}
       <button className="secondary" disabled={running || reading} onClick={useDefaults}>Use default shapes</button></p>
       : known && <p>Using default shapes: <code>{shapes}</code>.</p>}
-    <p className="muted small">Checks the loaded Turtle against the selected shapes. Warnings are shown but do not make the test fail. Custom files are used for this session and do not replace the bundled files. CSV contents are checked separately in CSVW validation.</p>
+    <p className="muted small">Checks the loaded Turtle against the selected shapes. Warnings are shown but do not make the test fail. Custom files are used for this session and do not replace the bundled files.</p>
     <button disabled={running || reading || (!known && !customFile)} onClick={runValidation}>{running ? 'Checking…' : 'Run conformance test'}</button>
     {error && <p className="error long-text" role="alert">{error}</p>}
     {result && <div className="result" aria-live="polite">

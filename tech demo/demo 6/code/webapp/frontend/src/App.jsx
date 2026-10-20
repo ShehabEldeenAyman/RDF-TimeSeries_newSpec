@@ -3,7 +3,6 @@ import { API_URL, errorText, fetchErrorText } from './config'
 import { Overview } from './Overview'
 import { Inspector } from './Inspector'
 import { FileViewer } from './FileViewer'
-import { Validation } from './Validation'
 import { QueryForm } from './QueryForm'
 import { OnlineEndpointForm } from './OnlineEndpointForm'
 import { SqlBox } from './SqlBox'
@@ -20,7 +19,6 @@ const tabs = [
   { id: 'shacl', label: 'SHACL', updated: false },
   { id: 'rdf', label: 'RDF generation', updated: false },
   { id: 'files', label: 'Files', updated: false },
-  { id: 'validation', label: 'CSVW validation', updated: false },
   { id: 'query', label: 'Query', updated: false },
   { id: 'sql', label: 'SQL (DuckDB)', updated: false },
 ]
@@ -214,26 +212,9 @@ function App() {
             </>
           )}
 
-          {/* Validation stays on the page (only hidden), so a running validation and its
-              result are not lost when you look at another tab in the meantime */}
-          {isUpdated('validation') && (
-            <div style={{ display: tab === 'validation' ? 'block' : 'none' }}>
-              {info.csvwApplicable ? <Validation key={info.id} endpointId={info.id} /> : (
-                <section className="card">
-                  <h3>CSVW validation</h3>
-                  <p className="muted">
-                    Not applicable. CSVW validation is only available when the TSS declares{' '}
-                    <code>dcterms:format filetype:CSV</code>.
-                  </p>
-                  {info.embedded && <p>Use the SHACL tab to check this endpoint's metadata and embedded point structure.</p>}
-                </section>
-              )}
-            </div>
-          )}
-
           {tab === 'query' && isUpdated('query') && <QueryForm info={info} />}
 
-          {/* Like Validation: the SQL box stays on the page (only hidden), so your query
+          {/* Like SHACL: the SQL box stays on the page (only hidden), so your query
               and its result are still there when you come back to the tab */}
           {isUpdated('sql') && (
             <div style={{ display: tab === 'sql' ? 'block' : 'none' }}>

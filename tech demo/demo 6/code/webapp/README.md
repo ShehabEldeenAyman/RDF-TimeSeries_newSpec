@@ -7,7 +7,7 @@ The dashboard loads local Turtle files from `demo 5/metadata endpoint/`, or onli
 - `tss:embedded false`: groups link to external data with `tss:dataFile`. CSV sources use CSVW descriptions (`tss:describedby`); Parquet sources use the snippet's effective JSON-LD `tss:context` for RDF generation.
 - `tss:embedded true`: each snippet stores a JSON point array in `tss:points`. Its effective JSON-LD `tss:context` identifies numeric or text values.
 
-Every dashboard CSV-reading path uses the corresponding CSVW file's `dialect.delimiter`. If `delimiter` or the entire `dialect` is omitted, it uses the CSVW default comma (`","`). An explicitly supplied delimiter must be a single character; invalid values stop parsing with an error. There is no delimiter guessing. This applies to the inspector preview, query/filter forms, SQL, CSVW validation and RDF generation. Raw file previews and downloads do not parse CSV cells.
+Every dashboard CSV-reading path uses the corresponding CSVW file's `dialect.delimiter`. If `delimiter` or the entire `dialect` is omitted, it uses the CSVW default comma (`","`). An explicitly supplied delimiter must be a single character; invalid values stop parsing with an error. There is no delimiter guessing. This applies to the query/filter forms, SQL and RDF generation. Raw file previews and downloads do not parse CSV cells.
 
 Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they state their own value. `tss:about` is replaced as a whole. The snippet window includes `tss:from` and excludes `tss:until`.
 
@@ -18,13 +18,12 @@ Snippets inherit defaults from their group's `tss:snippetTemplate`, unless they 
 | SHACL | Automatic profile detection or uploaded custom Turtle shapes, conformance test and full text report |
 | RDF generation | Expand embedded points, CSVW-mapped CSV readings, or context-mapped Parquet readings; preview Turtle and download the generated graph |
 | Files | CSV previews, Parquet data previewed as CSV, applicable CSVW metadata, and original-file downloads; embedded points have a series picker |
-| CSVW validation | Validate sources explicitly declared as CSV; other formats show Not applicable |
 | Query | Filtering, summaries, gaps and hourly/daily aggregation; text series support time filtering |
 | SQL (DuckDB) | One table per external CSV or embedded snippet, plus a snippets metadata table |
 
 In Demo 5's Files tab, a source declared as `dcterms:format filetype:PARQUET` is previewed as CSV text with a header and the first 19 data rows. Only that sample is converted; the original Parquet file is unchanged, and the download icon saves the original `.parquet` file. CSV previews retain their original text and delimiter.
 
-The CSVW metadata card and CSVW validation tab show **Not applicable** unless the external group's TSS explicitly declares `dcterms:format filetype:CSV`, using the EU file-type vocabulary IRI. This also applies when the format is missing or names another file type. For these sources, the validation tab has no Run validation button, and the API skips CSVW loading and validation. A declared CSV source with a missing CSVW file still reports the missing file. Other Parquet dashboard operations are being implemented separately.
+The CSVW metadata card shows **Not applicable** unless the external group's TSS explicitly declares `dcterms:format filetype:CSV`, using the EU file-type vocabulary IRI. This also applies when the format is missing or names another file type. For these sources, the API skips CSVW loading. A declared CSV source with a missing CSVW file still reports the missing file. Other Parquet dashboard operations are being implemented separately.
 
 SHACL automatically selects one of three files in `demo 5/SHACL/` using the original TSS graph:
 
@@ -38,7 +37,7 @@ Both external profiles require exactly one format IRI. The CSV profile requires 
 
 The Parquet example is `metadata endpoint/waterinfo_289429042_tss2_parquet.ttl`; its dashboard/API ID is `waterinfo_289429042_tss2_parquet`. Its data file remains `data/waterinfo_289429042.parquet`.
 
-Violations fail conformance; warnings are shown without failing it. Tests use the original metadata graph. JSON structure checks use regular expressions and do not replace a full JSON parser. CSV contents are validated separately in CSVW validation.
+Violations fail conformance; warnings are shown without failing it. Tests use the original metadata graph. JSON structure checks use regular expressions and do not replace a full JSON parser.
 
 In the SHACL tab, choose a custom `.ttl` file (up to 5 MB) to validate with your own shapes instead of the bundled profile. The selected filename is shown before running and in the report. **Use default shapes** clears the upload and restores automatic selection. Uploaded shapes are used only for that validation and are not saved over any project files. Malformed Turtle or invalid shapes produce an error.
 
