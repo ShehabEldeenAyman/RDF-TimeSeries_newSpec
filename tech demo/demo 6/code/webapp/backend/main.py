@@ -543,11 +543,7 @@ def check_shacl(endpoint_id):
     if embedded is None:
         raise HTTPException(status_code=400, detail="Cannot pick the default shapes: the metadata needs a tss:Source "
                                                     "with tss:embedded true or false. You can upload your own shapes instead.")
-    if embedded:
-        raise HTTPException(status_code=400, detail="There are no default shapes for embedded sources yet "
-                                                    "(embedded_shapes.ttl is still for the old snippet structure). "
-                                                    "You can upload your own shapes instead.")
-    name = "external_shapes.ttl"
+    name = "embedded_shapes.ttl" if embedded else "external_shapes.ttl"
     shapes = Graph().parse(DEMO_DIR / "SHACL" / name, format="turtle")
     return shacl_report(graph, shapes, name, embedded)
 

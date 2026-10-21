@@ -1,582 +1,411 @@
-@prefix sh:      <http://www.w3.org/ns/shacl#> .
-@prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
-@prefix owl:     <http://www.w3.org/2002/07/owl#> .
-@prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix tss:     <https://w3id.org/tss#> .
-@prefix emb:     <https://w3id.org/tss/shapes/embedded#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix tss:  <https://w3id.org/tss#> .
+@prefix emb:  <https://w3id.org/tss/shapes/embedded#> .
 
 # =============================================================================
-# RDFTSS conformance shapes, profile 2: readings EMBEDDED in the snippets
+# TSS conformance shapes for EMBEDDED data: a tss:Source whose readings are inside
+# the metadata itself, in tss:points: a JSON array with one object per row, keyed by
+# the fields' tss:columnName, e.g. [ { "time": "2021-03-03T23:15:00Z", "ec20": "4797.72" } ]
 #
-# For a metadata endpoint whose tss:SnippetGroup has tss:embedded true: every snippet
-# carries its own readings in tss:points, a JSON array of {"time": ..., "value": ...}
-# objects (as in TSS v1), and tss:context says what "time" and "value" mean.
+# Run:   pyshacl -s embedded_shapes.ttl "<metadata file>.ttl"
+# The metadata conforms when the report holds no sh:Violation. Warnings point at
+# things that look wrong; with -w (allow warnings) they don't fail the run.
 #
-# Run:   pyshacl -w -s embedded_shapes.ttl "<endpoint>.ttl"
-#        (-w: warnings alone don't fail the run; in Python: validate(..., allow_warnings=True))
-# The endpoint conforms to this profile when the report holds no sh:Violation. (Plain SHACL
-# sets sh:conforms to false as soon as the report holds any result, warnings included.)
+# The source (tss:Source)
+#   Required:     S1 the source (exactly one)    S4 time field
+#                 S2 mutable                     S5 has field (at least one)
+#                 S3 embedded (true)             S6 points (one rdf:JSON array of objects)
+#   Optional:     S7 label    S8 produced by    S9 key    S10 from    S11 until (after from)
+#   Not allowed:  S12 tss:dataFile, tss:format, tss:delimiter, tss:encoding, tss:header:
+#                 they describe an external data file
 #
-# Numbers like "1.1.3" refer to the common requirements (the same in both profiles):
-#   1.1    a snippet group exists, with
-#   1.1.1    a label                       1.1.4  produced by
-#   1.1.2    embedded                      1.1.5  a snippet template, with from (1.1.5.2),
-#   1.1.3    mutable                              until, point type, time path, value path (1.1.5.3-6)
-#   1.1.6    has snippet
-#   1.2    a snippet exists
-#   1.2.1    its label is optional
-#   1.2.2    it has tss:about (contents not checked)
-# Checks specific to this profile:
-#   M1 points (tss:points): required, one rdf:JSON literal, a JSON array of point objects,
-#      each with a "value" and a "time" in xsd:dateTime form
-#   M2 context (tss:context): required, on the snippet or its template; one rdf:JSON literal,
-#      a JSON object that maps "time" and "value"
-#   M3 the context agrees with tss:timePath and tss:valuePath (warning)
+# The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl
+#   Required:  F1 the field: typed tss:Field, and a field of exactly one source
+#              F2 column name (unique within the source)
+#              F3 datatype
+#   Optional:  F4 column index (unique within the source)   F5 label   F6 comment
+#              F7 minimum   F8 maximum (not below the minimum)
+#   Warning:   F9 the column name is a key in the points
 #
-# Every property shape is in one of these groups (sh:group):
-#   Required     sh:Violation  missing or malformed: the endpoint does not conform
-#   Recommended  sh:Warning    should be fixed (TSS v1 SHOULD), but the endpoint still conforms
+# Any other property (tss:observedProperty, tss:unit, tss:sensor, tss:featureOfInterest,
+# tss:describesField, tss:language, ...) is allowed and not checked.
+# SHACL can't read JSON: S6 and F9 look at the text of tss:points with patterns, which
+# catch most mistakes but are not a full JSON check.
+#
+# Every check is in one of these groups (sh:group):
+#   Required     sh:Violation  missing or malformed: the metadata does not conform
 #   Optional     -             may be left out; when present it must be well-formed (sh:Violation)
-#   Not allowed  sh:Violation  contradicts this profile, or sh:Warning: has no effect in it
+#   Not allowed  sh:Violation  contradicts embedded data: the metadata does not conform
+#   Warning      sh:Warning    looks wrong, but the metadata still conforms
 # =============================================================================
 
 <https://w3id.org/tss/shapes/embedded>
     a owl:Ontology ;
-    rdfs:label "RDFTSS conformance shapes: readings embedded in the snippets"@en ;
+    rdfs:label "TSS conformance shapes: readings embedded in the metadata"@en ;
     sh:declare
         [ sh:prefix "tss" ; sh:namespace "https://w3id.org/tss#"^^xsd:anyURI ] ,
         [ sh:prefix "xsd" ; sh:namespace "http://www.w3.org/2001/XMLSchema#"^^xsd:anyURI ] .
 
 
-# --- The labels ---------------------------------------------------------------
+# --- The groups ---------------------------------------------------------------
 
 emb:Required a sh:PropertyGroup ;
     rdfs:label "Required"@en ;
     rdfs:comment "Must be present and well-formed (sh:Violation)."@en ;
     sh:order 0 .
 
-emb:Recommended a sh:PropertyGroup ;
-    rdfs:label "Recommended"@en ;
-    rdfs:comment "Should be fixed (TSS v1 SHOULD); gives a sh:Warning, the endpoint still conforms."@en ;
-    sh:order 1 .
-
 emb:Optional a sh:PropertyGroup ;
     rdfs:label "Optional"@en ;
     rdfs:comment "May be left out; when present it must be well-formed (sh:Violation)."@en ;
-    sh:order 2 .
+    sh:order 1 .
 
 emb:NotAllowed a sh:PropertyGroup ;
     rdfs:label "Not allowed"@en ;
-    rdfs:comment "Contradicts this profile (sh:Violation) or has no effect in it (sh:Warning)."@en ;
+    rdfs:comment "Contradicts embedded data (sh:Violation)."@en ;
+    sh:order 2 .
+
+emb:Warning a sh:PropertyGroup ;
+    rdfs:label "Warning"@en ;
+    rdfs:comment "Looks wrong, but the metadata still conforms (sh:Warning)."@en ;
     sh:order 3 .
 
 
-# --- Reusable forms -----------------------------------------------------------
+# --- S1 the source ------------------------------------------------------------
+# sh:targetNode makes the class itself the focus node, so this check also runs
+# (and fails) when the metadata holds no tss:Source at all.
 
-emb:PropertyPathShape a sh:NodeShape ;
-    rdfs:label "A SHACL property path"@en ;
-    rdfs:comment "A property IRI, a list (sequence path), or a node with sh:inversePath, sh:alternativePath, sh:zeroOrMorePath, sh:oneOrMorePath or sh:zeroOrOnePath. Used by tss:timePath and tss:valuePath."@en ;
-    sh:or (
-        [ sh:nodeKind sh:IRI ]
-        [ sh:path rdf:first ; sh:minCount 1 ]
-        [ sh:path sh:inversePath ; sh:minCount 1 ]
-        [ sh:path sh:alternativePath ; sh:minCount 1 ]
-        [ sh:path sh:zeroOrMorePath ; sh:minCount 1 ]
-        [ sh:path sh:oneOrMorePath ; sh:minCount 1 ]
-        [ sh:path sh:zeroOrOnePath ; sh:minCount 1 ]
-    ) .
-
-
-# --- 1.1 and 1.2: a snippet group and a snippet exist ----------------------------
-# sh:targetNode makes the class itself the focus node, whether or not it occurs in the
-# data, so an endpoint without any group or snippet is reported instead of passing silently.
-
-emb:GroupExistsShape a sh:NodeShape ;
-    rdfs:label "1.1 A snippet group exists"@en ;
-    sh:targetNode tss:SnippetGroup ;
+emb:SourceExistsShape a sh:NodeShape ;
+    sh:targetNode tss:Source ;
     sh:property [
-        sh:name "1.1 a snippet group" ;
+        sh:name "S1 the source" ;
+        sh:group emb:Required ;
         sh:path [ sh:inversePath rdf:type ] ;
-        sh:minCount 1 ;
-        sh:group emb:Required ;
-        sh:message "1.1: the endpoint holds no tss:SnippetGroup."@en ] .
-
-emb:SnippetExistsShape a sh:NodeShape ;
-    rdfs:label "1.2 A snippet exists"@en ;
-    sh:targetNode tss:Snippet ;
-    sh:property [
-        sh:name "1.2 a snippet" ;
-        sh:path [ sh:inversePath rdf:type ] ;
-        sh:minCount 1 ;
-        sh:group emb:Required ;
-        sh:message "1.2: the endpoint holds no tss:Snippet."@en ] .
-
-
-# --- 1.1 The snippet group -----------------------------------------------------
-
-emb:GroupShape a sh:NodeShape ;
-    rdfs:label "1.1 Snippet group"@en ;
-    sh:targetClass tss:SnippetGroup ;
-
-    # 1.1.1 label
-    sh:property [
-        sh:name "1.1.1 label" ;
-        sh:path rdfs:label ;
-        sh:minCount 1 ;
-        sh:or ( [ sh:datatype xsd:string ] [ sh:datatype rdf:langString ] ) ;
-        sh:minLength 1 ;
-        sh:group emb:Required ;
-        sh:message "1.1.1: a snippet group needs a label (rdfs:label): a non-empty string, with or without a language tag."@en ] ,
-
-    # 1.1.2 embedded: stated once, as a boolean ...
-    [
-        sh:name "1.1.2 embedded" ;
-        sh:path tss:embedded ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:datatype xsd:boolean ;
-        sh:group emb:Required ;
-        sh:message "1.1.2: state tss:embedded exactly once, as a boolean (true in this profile: the readings are embedded in the snippets)."@en ] ,
+        sh:message "The metadata must describe exactly one tss:Source." ;
+    ] .
 
-    # ... and true in this profile (any form of the boolean true: true or "1")
-    [
-        sh:name "1.1.2 embedded is true" ;
-        sh:path tss:embedded ;
-        sh:not [ sh:in ( false "0"^^xsd:boolean ) ] ;
-        sh:group emb:Required ;
-        sh:message "1.1.2: tss:embedded is false: use external_csv_shapes.ttl for filetype:CSV, or external_non_csv_shapes.ttl for other external formats."@en ] ,
 
-    # 1.1.3 mutable
-    [
-        sh:name "1.1.3 mutable" ;
+# --- The source ---------------------------------------------------------------
+
+emb:SourceShape a sh:NodeShape ;
+    sh:targetClass tss:Source ;
+
+    # Required
+    sh:property [
+        sh:name "S2 mutable" ;
+        sh:group emb:Required ;
         sh:path tss:mutable ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
+        sh:message "The source needs exactly one tss:mutable, true or false." ;
+    ] ;
+    sh:property [
+        sh:name "S3 embedded" ;
         sh:group emb:Required ;
-        sh:message "1.1.3: state tss:mutable exactly once, as a boolean (true or false)."@en ] ,
-
-    # 1.1.4 produced by
-    [
-        sh:name "1.1.4 produced by" ;
-        sh:path tss:producedBy ;
+        sh:path tss:embedded ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:nodeKind sh:IRI ;
+        sh:datatype xsd:boolean ;
+        sh:message "The source needs exactly one tss:embedded, true or false." ;
+    ] ;
+    sh:property [
+        sh:name "S3 embedded is true" ;
         sh:group emb:Required ;
-        sh:message "1.1.4: state tss:producedBy exactly once, as an IRI (the producing system or sensor)."@en ] ,
-
-    # 1.1.5 snippet template (its contents: emb:TemplateShape)
-    [
-        sh:name "1.1.5 snippet template" ;
-        sh:path tss:snippetTemplate ;
+        sh:path tss:embedded ;
+        sh:hasValue true ;
+        sh:message "These shapes are for embedded data: tss:embedded must be true. Use the external shapes for tss:embedded false." ;
+    ] ;
+    sh:property [
+        sh:name "S4 time field" ;
+        sh:group emb:Required ;
+        sh:path tss:timeField ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:class tss:SnippetTemplate ;
+        sh:message "The source needs exactly one tss:timeField: the field that holds the time of each point." ;
+    ] ;
+    sh:property [
+        sh:name "S5 has field" ;
         sh:group emb:Required ;
-        sh:message "1.1.5: a group has exactly one tss:snippetTemplate, a node typed tss:SnippetTemplate."@en ] ,
-
-    # 1.1.6 has snippet
-    [
-        sh:name "1.1.6 has snippet" ;
-        sh:path tss:hasSnippet ;
+        sh:path tss:hasField ;
         sh:minCount 1 ;
-        sh:nodeKind sh:IRI ;
-        sh:class tss:Snippet ;
+        sh:class tss:Field ;
+        sh:message "The source needs at least one tss:hasField, and each of them must be a described tss:Field." ;
+    ] ;
+    sh:property [
+        sh:name "S6 points" ;
         sh:group emb:Required ;
-        sh:message "1.1.6: a group lists at least one member with tss:hasSnippet; every member is an IRI typed tss:Snippet (a member that is not described in the endpoint fails this check)."@en ] ,
-
-    # Not allowed / not used in this profile
-    [
-        sh:name "points" ;
         sh:path tss:points ;
-        sh:maxCount 0 ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype rdf:JSON ;
+        sh:message "The source needs exactly one tss:points, an rdf:JSON literal with the readings." ;
+    ] ;
+    sh:property [
+        sh:name "S6 points are an array of objects" ;
+        sh:group emb:Required ;
+        sh:path tss:points ;
+        # [ ], or [ { ... } ] with anything inside the braces (a pattern, not a full JSON check)
+        sh:pattern "^\\s*\\[\\s*(\\{[\\s\\S]*\\}\\s*)?\\]\\s*$" ;
+        sh:message "tss:points must be a JSON array of objects, one per row: [ { \"time\": ..., ... }, ... ]." ;
+    ] ;
+
+    # Optional
+    sh:property [
+        sh:name "S7 label" ;
+        sh:group emb:Optional ;
+        sh:path rdfs:label ;
+        sh:nodeKind sh:Literal ;
+        sh:message "rdfs:label must be a text." ;
+    ] ;
+    sh:property [
+        sh:name "S8 produced by" ;
+        sh:group emb:Optional ;
+        sh:path tss:producedBy ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "tss:producedBy must be one IRI (the station or system that produced the data)." ;
+    ] ;
+    sh:property [
+        sh:name "S9 key" ;
+        sh:group emb:Optional ;
+        sh:path tss:key ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:message "tss:key must point to a field (the field(s) whose values identify a point)." ;
+    ] ;
+    sh:property [
+        sh:name "S10 from" ;
+        sh:group emb:Optional ;
+        sh:path tss:from ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:from must be one xsd:dateTime: the start of the time window." ;
+    ] ;
+    sh:property [
+        sh:name "S11 until" ;
+        sh:group emb:Optional ;
+        sh:path tss:until ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:until must be one xsd:dateTime: the end of the time window (not included)." ;
+    ] ;
+
+    # Not allowed: these describe an external data file
+    sh:property [
+        sh:name "S12 data file" ;
         sh:group emb:NotAllowed ;
-        sh:message "A group can't hold readings: tss:points belongs on each snippet."@en ] ,
-    [
-        sh:name "data file" ;
         sh:path tss:dataFile ;
         sh:maxCount 0 ;
-        sh:severity sh:Warning ;
-        sh:group emb:NotAllowed ;
-        sh:message "tss:dataFile has no effect when the readings are embedded in the snippets."@en ] ,
-    [
-        sh:name "CSVW description" ;
-        sh:path tss:describedby ;
-        sh:maxCount 0 ;
-        sh:severity sh:Warning ;
-        sh:group emb:NotAllowed ;
-        sh:message "tss:describedby (a CSVW file) has no effect when the readings are embedded in the snippets."@en ] .
-
-
-# --- 1.1.5 The snippet template ---------------------------------------------------
-
-emb:TemplateShape a sh:NodeShape ;
-    rdfs:label "1.1.5 Snippet template"@en ;
-    sh:targetObjectsOf tss:snippetTemplate ;
-
-    # 1.1.5.2 from
+        sh:message "S12 not allowed: an embedded source keeps its readings in tss:points, so it has no tss:dataFile." ;
+    ] ;
     sh:property [
-        sh:name "1.1.5.2 from" ;
-        sh:path tss:from ;
+        sh:name "S12 format" ;
+        sh:group emb:NotAllowed ;
+        sh:path tss:format ;
+        sh:maxCount 0 ;
+        sh:message "S12 not allowed: tss:format describes a data file; embedded points are always JSON." ;
+    ] ;
+    sh:property [
+        sh:name "S12 delimiter" ;
+        sh:group emb:NotAllowed ;
+        sh:path tss:delimiter ;
+        sh:maxCount 0 ;
+        sh:message "S12 not allowed: tss:delimiter describes a CSV data file, not embedded points." ;
+    ] ;
+    sh:property [
+        sh:name "S12 encoding" ;
+        sh:group emb:NotAllowed ;
+        sh:path tss:encoding ;
+        sh:maxCount 0 ;
+        sh:message "S12 not allowed: tss:encoding describes a CSV data file, not embedded points." ;
+    ] ;
+    sh:property [
+        sh:name "S12 header" ;
+        sh:group emb:NotAllowed ;
+        sh:path tss:header ;
+        sh:maxCount 0 ;
+        sh:message "S12 not allowed: tss:header describes a CSV data file, not embedded points." ;
+    ] ;
+
+    # S4 and S9: the time field and the key are fields of this source
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S4 time field: tss:timeField must be one of the source's own fields (tss:hasField)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeField ?value .
+                FILTER NOT EXISTS { $this tss:hasField ?value }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S9 key: every tss:key must be one of the source's own fields (tss:hasField)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:key ?value .
+                FILTER NOT EXISTS { $this tss:hasField ?value }
+            }""" ;
+    ] ;
+
+    # S11: the time window is not empty
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S11 until: tss:until must come after tss:from." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:from ?from ; tss:until ?value .
+                FILTER (?value <= ?from)
+            }""" ;
+    ] .
+
+
+# --- The fields ---------------------------------------------------------------
+# Every tss:Field, and every object of tss:hasField (so an untyped field is checked too)
+
+emb:FieldShape a sh:NodeShape ;
+    sh:targetClass tss:Field ;
+    sh:targetObjectsOf tss:hasField ;
+
+    # Required
+    sh:property [
+        sh:name "F1 the field" ;
+        sh:group emb:Required ;
+        sh:path rdf:type ;
+        sh:hasValue tss:Field ;
+        sh:message "A field must be typed tss:Field." ;
+    ] ;
+    sh:property [
+        sh:name "F1 the field belongs to a source" ;
+        sh:group emb:Required ;
+        sh:path [ sh:inversePath tss:hasField ] ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
+        sh:message "A field must be a field (tss:hasField) of exactly one source." ;
+    ] ;
+    sh:property [
+        sh:name "F2 column name" ;
         sh:group emb:Required ;
-        sh:message "1.1.5.2: the template states tss:from once, as an xsd:dateTime."@en ] ,
-
-    # 1.1.5.3 until
-    [
-        sh:name "1.1.5.3 until" ;
-        sh:path tss:until ;
+        sh:path tss:columnName ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "A field needs exactly one tss:columnName, a non-empty text: its key in the points." ;
+    ] ;
+    sh:property [
+        sh:name "F3 datatype" ;
         sh:group emb:Required ;
-        sh:message "1.1.5.3: the template states tss:until once, as an xsd:dateTime."@en ] ,
-
-    # 1.1.5.2 and 1.1.5.3: with a timezone (the order of from and until: emb:TemplateTimeWindowShape)
-    [
-        sh:name "1.1.5.2-3 from and until have a timezone" ;
-        sh:path [ sh:alternativePath ( tss:from tss:until ) ] ;
-        sh:or ( [ sh:not [ sh:datatype xsd:dateTime ] ] [ sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ] ) ;
-        sh:severity sh:Warning ;
-        sh:group emb:Recommended ;
-        sh:message "1.1.5.2-3: this tss:from or tss:until has no timezone (Z or +hh:mm); it is compared as UTC."@en ] ,
-
-    # 1.1.5.4 point type
-    [
-        sh:name "1.1.5.4 point type" ;
-        sh:path tss:pointType ;
+        sh:path tss:datatype ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
-        sh:group emb:Required ;
-        sh:message "1.1.5.4: the template states tss:pointType once, as a class IRI (for example sosa:Observation)."@en ] ,
+        sh:message "A field needs exactly one tss:datatype, an IRI such as xsd:double or xsd:dateTime." ;
+    ] ;
 
-    # 1.1.5.5 time path
-    [
-        sh:name "1.1.5.5 time path" ;
-        sh:path tss:timePath ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:node emb:PropertyPathShape ;
-        sh:group emb:Required ;
-        sh:message "1.1.5.5: the template states tss:timePath once, as a SHACL property path (a property IRI such as sosa:resultTime, or a path node)."@en ] ,
-
-    # 1.1.5.6 value path
-    [
-        sh:name "1.1.5.6 value path" ;
-        sh:path tss:valuePath ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:node emb:PropertyPathShape ;
-        sh:group emb:Required ;
-        sh:message "1.1.5.6: the template states tss:valuePath once, as a SHACL property path (a property IRI such as sosa:hasSimpleResult, or a path node)."@en ] ,
-
-    # Optional defaults beyond 1.1.5
-    [
-        sh:name "M2 context (default)" ;
-        sh:path tss:context ;
-        sh:maxCount 1 ;
-        sh:datatype rdf:JSON ;
-        sh:group emb:Required ;
-        sh:message "M2: tss:context is one rdf:JSON literal (a JSON-LD context)."@en ] ,
-    [
-        sh:name "M2 context is a JSON object" ; sh:path tss:context ;
-        sh:pattern """^\\s*\\{[\\s\\S]*\\}\\s*$""" ; sh:group emb:Required ;
-        sh:message "M2: tss:context must be a JSON object, for example { \"@context\": { ... } }."@en ] ,
-    [
-        sh:name "M2 context maps time" ; sh:path tss:context ;
-        sh:pattern """"time"\\s*:""" ; sh:group emb:Required ;
-        sh:message "M2: tss:context doesn't map the \"time\" key: the readings' times would be dropped when the points are expanded."@en ] ,
-    [
-        sh:name "M2 context maps value" ; sh:path tss:context ;
-        sh:pattern """"value"\\s*:""" ; sh:group emb:Required ;
-        sh:message "M2: tss:context doesn't map the \"value\" key: the readings' values would be dropped when the points are expanded."@en ] ,
-    [
-        sh:name "about (default)" ;
-        sh:path tss:about ;
-        sh:maxCount 1 ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:group emb:Optional ;
-        sh:message "tss:about is one point template (a node)."@en ] ,
-
-    # Not allowed / not used in this profile
-    [
-        sh:name "points" ;
-        sh:path tss:points ;
-        sh:maxCount 0 ;
-        sh:group emb:NotAllowed ;
-        sh:message "A template can't hold readings: tss:points belongs on each snippet."@en ] ,
-    [
-        sh:name "time and value column" ;
-        sh:path [ sh:alternativePath ( tss:timeColumn tss:valueColumn ) ] ;
-        sh:maxCount 0 ;
-        sh:severity sh:Warning ;
-        sh:group emb:NotAllowed ;
-        sh:message "tss:timeColumn and tss:valueColumn name CSV columns; they have no effect when the readings are embedded."@en ] ,
-    [
-        sh:name "group-level property on the template" ;
-        sh:path [ sh:alternativePath ( tss:embedded tss:dataFile tss:describedby tss:mutable tss:producedBy tss:snippetTemplate tss:hasSnippet ) ] ;
-        sh:maxCount 0 ;
-        sh:severity sh:Warning ;
-        sh:group emb:NotAllowed ;
-        sh:message "tss:embedded, tss:dataFile, tss:describedby, tss:mutable, tss:producedBy, tss:snippetTemplate and tss:hasSnippet belong on the snippet group; on a template they have no effect."@en ] .
-
-emb:TemplateTimeWindowShape a sh:NodeShape ;
-    rdfs:label "1.1.5.2-3 The template's time window"@en ;
-    sh:targetObjectsOf tss:snippetTemplate ;
-    sh:sparql [
-        a sh:SPARQLConstraint ;
-        sh:message "1.1.5.2-3: the template's time window is empty: tss:from {?from} is not before tss:until {?until}."@en ;
-        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
-        sh:select """
-            SELECT $this ?from ?until WHERE {
-                $this tss:from ?from ; tss:until ?until .
-                FILTER (datatype(?from) = xsd:dateTime && datatype(?until) = xsd:dateTime)
-                # a time without a timezone is compared as UTC
-                BIND (IF(TZ(?from) = "", xsd:dateTime(CONCAT(STR(?from), "Z")), ?from) AS ?f)
-                BIND (IF(TZ(?until) = "", xsd:dateTime(CONCAT(STR(?until), "Z")), ?until) AS ?u)
-                FILTER (?f >= ?u)
-            }
-        """ ] .
-
-
-# --- 1.2 The snippet --------------------------------------------------------------
-
-emb:SnippetShape a sh:NodeShape ;
-    rdfs:label "1.2 Snippet"@en ;
-    sh:targetClass tss:Snippet ;
-
-    # Membership: tss:embedded and the template a snippet uses come from its group
+    # Optional
     sh:property [
-        sh:name "1.1.6 member of one group" ;
-        sh:path [ sh:inversePath tss:hasSnippet ] ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:class tss:SnippetGroup ;
-        sh:group emb:Required ;
-        sh:message "Every snippet is a member (tss:hasSnippet) of exactly one tss:SnippetGroup: tss:embedded and the template come from there."@en ] ,
-
-    # 1.2.1 label: optional
-    [
-        sh:name "1.2.1 label" ;
-        sh:path rdfs:label ;
-        sh:or ( [ sh:datatype xsd:string ] [ sh:datatype rdf:langString ] ) ;
-        sh:minLength 1 ;
+        sh:name "F4 column index" ;
         sh:group emb:Optional ;
-        sh:message "1.2.1: a snippet's label (rdfs:label, optional) is a non-empty string, with or without a language tag."@en ] ,
-
-    # 1.2.2 about: present; its contents are not checked
-    [
-        sh:name "1.2.2 about" ;
-        sh:path tss:about ;
-        sh:minCount 1 ;
+        sh:path tss:columnIndex ;
         sh:maxCount 1 ;
-        sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:group emb:Required ;
-        sh:message "1.2.2: a snippet states tss:about once: a point template node (its contents are not checked)."@en ] ,
-
-    # M1 points: the readings, a JSON array of {"time": ..., "value": ...} objects (TSS v1)
-    [
-        sh:name "M1 points" ;
-        sh:path tss:points ;
-        sh:minCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "tss:columnIndex must be one whole number, 0 or more (the first column is 0)." ;
+    ] ;
+    sh:property [
+        sh:name "F5 label" ;
+        sh:group emb:Optional ;
+        sh:path rdfs:label ;
+        sh:nodeKind sh:Literal ;
+        sh:message "rdfs:label must be a text." ;
+    ] ;
+    sh:property [
+        sh:name "F6 comment" ;
+        sh:group emb:Optional ;
+        sh:path rdfs:comment ;
+        sh:nodeKind sh:Literal ;
+        sh:message "rdfs:comment must be a text." ;
+    ] ;
+    sh:property [
+        sh:name "F7 minimum" ;
+        sh:group emb:Optional ;
+        sh:path tss:minimum ;
         sh:maxCount 1 ;
-        sh:datatype rdf:JSON ;
-        sh:group emb:Required ;
-        sh:message "M1: an embedded snippet carries its readings exactly once in tss:points, an rdf:JSON literal."@en ] ,
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:minimum must be one number (xsd:integer, xsd:decimal, xsd:double or xsd:float)." ;
+    ] ;
+    sh:property [
+        sh:name "F8 maximum" ;
+        sh:group emb:Optional ;
+        sh:path tss:maximum ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:maximum must be one number (xsd:integer, xsd:decimal, xsd:double or xsd:float)." ;
+    ] ;
 
-    # M1 the JSON inside tss:points, one rule per shape so each problem gets its own message.
-    # A point is {...}; "id" and other extra keys are allowed. SHACL can't parse JSON, so these
-    # are regular expressions; they assume flat points (no "{" or "}" inside a string value).
-    [
-        sh:name "M1 points: array of point objects" ; sh:path tss:points ;
-        sh:pattern """^\\s*\\[\\s*(\\{[^{}]*\\}(\\s*,\\s*\\{[^{}]*\\})*)?\\s*\\]\\s*$""" ;
-        sh:group emb:Required ;
-        sh:message "M1: tss:points must be a JSON array of point objects, [ {...}, {...} ] (not, for example, [time, value] pairs)."@en ] ,
-    [
-        sh:name "M1 points: every point has a value" ; sh:path tss:points ;
-        sh:pattern """^\\s*\\[\\s*(\\{[^{}]*?"value"\\s*:[^{}]*\\}(\\s*,\\s*\\{[^{}]*?"value"\\s*:[^{}]*\\})*)?\\s*\\]\\s*$""" ;
-        sh:group emb:Required ;
-        sh:message "M1: every point in tss:points must have a \"value\" key."@en ] ,
-    [
-        sh:name "M1 points: every point has an xsd:dateTime time" ; sh:path tss:points ;
-        sh:pattern """^\\s*\\[\\s*(\\{[^{}]*?"time"\\s*:\\s*"-?\\d{4,}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?"[^{}]*\\}(\\s*,\\s*\\{[^{}]*?"time"\\s*:\\s*"-?\\d{4,}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})?"[^{}]*\\})*)?\\s*\\]\\s*$""" ;
-        sh:group emb:Required ;
-        sh:message "M1: every point in tss:points must have a \"time\" key whose value is an xsd:dateTime string, like \"2021-03-03T23:15:00Z\"."@en ] ,
-
-    # M2 context: required, on the snippet itself or as a default on the group's template
-    [
-        sh:name "M2 context (own or inherited)" ;
-        sh:path [ sh:alternativePath ( tss:context ( [ sh:inversePath tss:hasSnippet ] tss:snippetTemplate tss:context ) ) ] ;
-        sh:minCount 1 ;
-        sh:group emb:Required ;
-        sh:message "M2: no tss:context on the snippet or its template: state the JSON-LD context that says what \"time\" and \"value\" in tss:points mean."@en ] ,
-
-    # M2 the form of the snippet's own context (a template's context gets the same checks in emb:TemplateShape)
-    [
-        sh:name "M2 context (form)" ; sh:path tss:context ;
-        sh:maxCount 1 ; sh:datatype rdf:JSON ; sh:group emb:Required ;
-        sh:message "M2: tss:context is one rdf:JSON literal (a JSON-LD context)."@en ] ,
-    [
-        sh:name "M2 context is a JSON object" ; sh:path tss:context ;
-        sh:pattern """^\\s*\\{[\\s\\S]*\\}\\s*$""" ; sh:group emb:Required ;
-        sh:message "M2: tss:context must be a JSON object, for example { \"@context\": { ... } }."@en ] ,
-    [
-        sh:name "M2 context maps time" ; sh:path tss:context ;
-        sh:pattern """"time"\\s*:""" ; sh:group emb:Required ;
-        sh:message "M2: tss:context doesn't map the \"time\" key: the readings' times would be dropped when the points are expanded."@en ] ,
-    [
-        sh:name "M2 context maps value" ; sh:path tss:context ;
-        sh:pattern """"value"\\s*:""" ; sh:group emb:Required ;
-        sh:message "M2: tss:context doesn't map the \"value\" key: the readings' values would be dropped when the points are expanded."@en ] ,
-
-    # Optional: a snippet may override its template's values (the TSS2 inheritance rule)
-    [
-        sh:name "from (override)" ; sh:path tss:from ;
-        sh:maxCount 1 ; sh:datatype xsd:dateTime ; sh:group emb:Optional ;
-        sh:message "A snippet's own tss:from is one xsd:dateTime."@en ] ,
-    [
-        sh:name "until (override)" ; sh:path tss:until ;
-        sh:maxCount 1 ; sh:datatype xsd:dateTime ; sh:group emb:Optional ;
-        sh:message "A snippet's own tss:until is one xsd:dateTime."@en ] ,
-    [
-        sh:name "from and until have a timezone (override)" ;
-        sh:path [ sh:alternativePath ( tss:from tss:until ) ] ;
-        sh:or ( [ sh:not [ sh:datatype xsd:dateTime ] ] [ sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ] ) ;
-        sh:severity sh:Warning ; sh:group emb:Recommended ;
-        sh:message "This tss:from or tss:until has no timezone (Z or +hh:mm); it is compared as UTC."@en ] ,
-    [
-        sh:name "point type (override)" ; sh:path tss:pointType ;
-        sh:maxCount 1 ; sh:nodeKind sh:IRI ; sh:group emb:Optional ;
-        sh:message "A snippet's own tss:pointType is one class IRI."@en ] ,
-    [
-        sh:name "time path (override)" ; sh:path tss:timePath ;
-        sh:maxCount 1 ; sh:node emb:PropertyPathShape ; sh:group emb:Optional ;
-        sh:message "A snippet's own tss:timePath is one SHACL property path."@en ] ,
-    [
-        sh:name "value path (override)" ; sh:path tss:valuePath ;
-        sh:maxCount 1 ; sh:node emb:PropertyPathShape ; sh:group emb:Optional ;
-        sh:message "A snippet's own tss:valuePath is one SHACL property path."@en ] ,
-
-    # Optional extra description
-    [
-        sh:name "identifier" ; sh:path dcterms:identifier ;
-        sh:nodeKind sh:Literal ; sh:group emb:Optional ;
-        sh:message "dcterms:identifier is a literal."@en ] ,
-    [
-        sh:name "comment" ; sh:path rdfs:comment ;
-        sh:or ( [ sh:datatype xsd:string ] [ sh:datatype rdf:langString ] ) ; sh:group emb:Optional ;
-        sh:message "rdfs:comment is a string, with or without a language tag."@en ] ,
-
-    # Not used in this profile
-    [
-        sh:name "time and value column" ;
-        sh:path [ sh:alternativePath ( tss:timeColumn tss:valueColumn ) ] ;
-        sh:maxCount 0 ; sh:severity sh:Warning ; sh:group emb:NotAllowed ;
-        sh:message "tss:timeColumn and tss:valueColumn name CSV columns; they have no effect when the readings are embedded."@en ] ,
-    [
-        sh:name "group-level property on the snippet" ;
-        sh:path [ sh:alternativePath ( tss:embedded tss:dataFile tss:describedby tss:mutable tss:producedBy tss:snippetTemplate tss:hasSnippet ) ] ;
-        sh:maxCount 0 ; sh:severity sh:Warning ; sh:group emb:NotAllowed ;
-        sh:message "tss:embedded, tss:dataFile, tss:describedby, tss:mutable, tss:producedBy, tss:snippetTemplate and tss:hasSnippet belong on the snippet group; on a snippet they have no effect."@en ] .
-
-
-# --- Checks across the snippet and its template (SHACL-SPARQL) --------------------
-# "Own or inherited": a snippet uses its own value, else its group template's (the TSS2 rule).
-
-emb:TimeWindowShape a sh:NodeShape ;
-    rdfs:label "Time window after overrides"@en ;
-    sh:targetClass tss:Snippet ;
+    # F2 and F4: two fields of the same source can't use the same key or index
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "The snippet's time window is empty: tss:from {?from} is not before tss:until {?until} (its own value, else the template's)."@en ;
+        sh:message "F2 column name: another field of the same source has the column name {?value}." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
-        # Only when the snippet overrides from or until: the template alone is checked by emb:TemplateTimeWindowShape.
         sh:select """
-            SELECT $this ?from ?until WHERE {
-                OPTIONAL { $this tss:from ?ownFrom }
-                OPTIONAL { $this tss:until ?ownUntil }
-                OPTIONAL {
-                    ?group tss:hasSnippet $this ; tss:snippetTemplate ?template .
-                    OPTIONAL { ?template tss:from ?templateFrom }
-                    OPTIONAL { ?template tss:until ?templateUntil }
-                }
-                FILTER (BOUND(?ownFrom) || BOUND(?ownUntil))
-                BIND (COALESCE(?ownFrom, ?templateFrom) AS ?from)
-                BIND (COALESCE(?ownUntil, ?templateUntil) AS ?until)
-                FILTER (datatype(?from) = xsd:dateTime && datatype(?until) = xsd:dateTime)
-                # a time without a timezone is compared as UTC
-                BIND (IF(TZ(?from) = "", xsd:dateTime(CONCAT(STR(?from), "Z")), ?from) AS ?f)
-                BIND (IF(TZ(?until) = "", xsd:dateTime(CONCAT(STR(?until), "Z")), ?until) AS ?u)
-                FILTER (?f >= ?u)
-            }
-        """ ] .
+            SELECT $this ?value WHERE {
+                ?source tss:hasField $this, ?other .
+                $this tss:columnName ?value .
+                ?other tss:columnName ?value .
+                FILTER (?other != $this)
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F4 column index: another field of the same source has the column index {?value}." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                ?source tss:hasField $this, ?other .
+                $this tss:columnIndex ?value .
+                ?other tss:columnIndex ?value .
+                FILTER (?other != $this)
+            }""" ;
+    ] ;
 
-emb:ContextAgreesWithPathsShape a sh:NodeShape ;
-    rdfs:label "M3 tss:context agrees with tss:timePath and tss:valuePath"@en ;
-    rdfs:comment "Own value, else the template's (the TSS2 rule), for the context and each path. Compares full IRIs, so a context that writes a compact IRI (sosa:resultTime) is reported too."@en ;
-    sh:targetClass tss:Snippet ;
+    # F8: the allowed range is not empty
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F8 maximum: tss:maximum ({?value}) is below tss:minimum." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:minimum ?minimum ; tss:maximum ?value .
+                FILTER (?value < ?minimum)
+            }""" ;
+    ] .
+
+
+# --- F9: the column name is a key in the points ---------------------------------
+# A shape of its own, because a SPARQL check takes its severity from its shape.
+# It looks for the column name in double quotes ("ec20") anywhere in the points' text.
+
+emb:FieldInPointsShape a sh:NodeShape ;
+    sh:targetClass tss:Field ;
     sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "M3: the snippet's tss:context doesn't mention {?path}, its tss:timePath: the two say different things about where the readings' times go."@en ;
+        sh:message "F9 points: the column name {?value} does not appear as a key in tss:points, so this field has no values." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
-            SELECT $this ?path WHERE {
-                OPTIONAL { $this tss:context ?ownContext }
-                OPTIONAL { $this tss:timePath ?ownPath }
-                OPTIONAL {
-                    ?group tss:hasSnippet $this ; tss:snippetTemplate ?template .
-                    OPTIONAL { ?template tss:context ?templateContext }
-                    OPTIONAL { ?template tss:timePath ?templatePath }
-                }
-                BIND (COALESCE(?ownContext, ?templateContext) AS ?context)
-                BIND (COALESCE(?ownPath, ?templatePath) AS ?path)
-                FILTER (BOUND(?context) && isIRI(?path) && !CONTAINS(STR(?context), STR(?path)))
-            }
-        """ ] ,
-    [
-        a sh:SPARQLConstraint ;
-        sh:message "M3: the snippet's tss:context doesn't mention {?path}, its tss:valuePath: the two say different things about where the readings' values go."@en ;
-        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
-        sh:select """
-            SELECT $this ?path WHERE {
-                OPTIONAL { $this tss:context ?ownContext }
-                OPTIONAL { $this tss:valuePath ?ownPath }
-                OPTIONAL {
-                    ?group tss:hasSnippet $this ; tss:snippetTemplate ?template .
-                    OPTIONAL { ?template tss:context ?templateContext }
-                    OPTIONAL { ?template tss:valuePath ?templatePath }
-                }
-                BIND (COALESCE(?ownContext, ?templateContext) AS ?context)
-                BIND (COALESCE(?ownPath, ?templatePath) AS ?path)
-                FILTER (BOUND(?context) && isIRI(?path) && !CONTAINS(STR(?context), STR(?path)))
-            }
-        """ ] .
-
-emb:KnownTermsShape a sh:NodeShape ;
-    rdfs:label "No unknown tss: properties"@en ;
-    rdfs:comment "Catches typos such as tss:mutabel, which would otherwise be ignored silently."@en ;
-    sh:targetClass tss:SnippetGroup , tss:Snippet ;
-    sh:targetObjectsOf tss:snippetTemplate ;
-    sh:severity sh:Warning ;
-    sh:sparql [
-        a sh:SPARQLConstraint ;
-        sh:message "Unknown TSS property {?property} (a typo?): it is ignored."@en ;
-        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
-        sh:select """
-            SELECT DISTINCT $this ?property WHERE {
-                $this ?property ?value .
-                FILTER (STRSTARTS(STR(?property), "https://w3id.org/tss#"))
-                FILTER (?property NOT IN (tss:embedded, tss:dataFile, tss:describedby, tss:mutable,
-                    tss:producedBy, tss:snippetTemplate, tss:hasSnippet, tss:timeColumn, tss:valueColumn,
-                    tss:from, tss:until, tss:pointType, tss:timePath, tss:valuePath, tss:about,
-                    tss:points, tss:context))
-            }
-        """ ] .
+            SELECT $this ?value WHERE {
+                ?source tss:hasField $this ; tss:points ?points .
+                $this tss:columnName ?value .
+                FILTER (!CONTAINS(STR(?points), CONCAT("\\"", STR(?value), "\\"")))
+            }""" ;
+    ] .

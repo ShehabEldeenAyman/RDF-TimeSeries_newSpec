@@ -15,7 +15,7 @@ The source's `tss:timeField` names the time column. Its time window includes `ts
 |---|---|
 | Overview | The source, its fields (role, datatype, unit, ...) and the raw Turtle |
 | Series inspector | Pick a field: everything known about it, marked as stated on the field or on its source, plus the marked Turtle and the first rows of the data |
-| SHACL | Conformance test of the metadata with `external_shapes.ttl` (external sources) or uploaded custom Turtle shapes, with the full text report |
+| SHACL | Conformance test of the metadata with `external_shapes.ttl` or `embedded_shapes.ttl` (picked from `tss:embedded`), or with uploaded custom Turtle shapes, with the full text report |
 | RDF generation | One `sosa:Observation` per row for each field with a `tss:observedProperty` (CSV, Parquet or embedded data); preview the Turtle and download the whole graph |
 | Files | External sources: preview of `tss:dataFile` (CSV as is, Parquet converted to CSV) and a download of the original file. Embedded sources: the source's `tss:points`, one point per line. Both: the metadata Turtle file |
 | Query | Pick a field: filtering, summaries, gaps and hourly/daily aggregation over CSV, Parquet or embedded data, read with the source's tss:timeField, tss:from/until and CSV settings; text fields support time and column filtering |
@@ -28,10 +28,12 @@ The SHACL tab picks its default shapes from the source's `tss:embedded`:
 | TSS declaration | Default shapes |
 |---|---|
 | `tss:embedded false` (a CSV or Parquet `tss:dataFile`) | `demo 6/SHACL/external_shapes.ttl` |
-| `tss:embedded true` | none yet: `embedded_shapes.ttl` is still for the old snippet structure, so the tab asks for custom shapes |
+| `tss:embedded true` (the readings in `tss:points`) | `demo 6/SHACL/embedded_shapes.ttl` |
 | missing or not a boolean | none: the tab asks for custom shapes |
 
 `external_shapes.ttl` checks the source (exactly one; required `tss:from`, `tss:mutable`, `tss:timeField` and `tss:key` among its own fields, at least one `tss:hasField`, `tss:embedded false`, `tss:dataFile`, `tss:format` `tss:CSV` or `tss:Parquet`, and for `tss:CSV` a one-character `tss:delimiter` and a `tss:encoding`; optional label, `tss:producedBy` and `tss:until` after `tss:from`) and each field (typed `tss:Field` and a field of exactly one source, a unique `tss:columnName`, a `tss:datatype`; optional unique `tss:columnIndex`, label, comment, numeric `tss:minimum`/`tss:maximum`). Other properties are allowed and not checked. A delimiter or encoding on a `tss:Parquet` source is only a warning. The file header lists every check with its number (S1-S15, F1-F8). The shapes only look at the metadata, not at the data file.
+
+`embedded_shapes.ttl` checks the source (exactly one; required `tss:mutable`, `tss:embedded true`, a `tss:timeField` among its own fields, at least one `tss:hasField`, and one `tss:points` typed `rdf:JSON` whose text looks like a JSON array of objects; optional label, `tss:producedBy`, `tss:key` among its fields, `tss:from`, and `tss:until` after `tss:from`). `tss:dataFile`, `tss:format`, `tss:delimiter`, `tss:encoding` and `tss:header` are not allowed on an embedded source. The fields get the same checks as in the external shapes, plus a warning when a field's column name is not a key in the points (S1-S12, F1-F9). SHACL can't parse JSON, so the points checks are text patterns, not a full JSON check.
 
 Violations fail conformance; warnings are shown without failing it.
 

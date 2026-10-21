@@ -1,4 +1,4 @@
-"""The SHACL tab: python -B -m unittest -v test_external_shacl."""
+"""The SHACL tab (external and embedded shapes): python -B -m unittest -v test_external_shacl."""
 import unittest
 from unittest.mock import patch
 
@@ -67,11 +67,31 @@ class ExternalShacl(unittest.TestCase):
         self.assertTrue(report["conforms"], report["report"])
         self.assertEqual((report["violations"], report["warnings"]), (0, 1))
 
-    def test_embedded_sources_have_no_default_shapes_yet(self):
-        with self.assertRaises(HTTPException) as caught:
-            main.check_shacl(EMBEDDED)
-        self.assertEqual(caught.exception.status_code, 400)
-        self.assertIn("no default shapes for embedded", caught.exception.detail)
+    def test_the_embedded_endpoint_conforms_to_the_embedded_shapes(self):
+        report = main.check_shacl(EMBEDDED)
+        self.assertEqual(report["shapes"], "embedded_shapes.ttl")
+        self.assertIs(report["embedded"], True)
+        self.assertTrue(report["conforms"], report["report"])
+        self.assertEqual((report["violations"], report["warnings"]), (0, 0))
+
+    def test_embedded_points_must_be_an_array_of_objects(self):
+        source = URIRef(EX + "zevenaarshaven-source")
+        points = Literal('{"time": "2021-03-03T23:15:00Z"}', datatype=URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#JSON"))
+        report = self.check(EMBEDDED, lambda graph: graph.set((source, main.TSS.points, points)))
+        self.assertFalse(report["conforms"])
+        self.assertIn("JSON array of objects", report["report"])
+
+    def test_an_embedded_source_cannot_have_a_data_file(self):
+        source = URIRef(EX + "zevenaarshaven-source")
+        report = self.check(EMBEDDED, lambda graph: graph.add((source, main.TSS.dataFile, URIRef("https://example.org/data.csv"))))
+        self.assertFalse(report["conforms"])
+        self.assertIn("S12 not allowed", report["report"])
+
+    def test_a_field_missing_from_the_points_is_only_a_warning(self):
+        field = URIRef(EX + "zevenaarshaven-ec20-value-field")
+        report = self.check(EMBEDDED, lambda graph: graph.set((field, main.TSS.columnName, Literal("ec25"))))
+        self.assertTrue(report["conforms"], report["report"])
+        self.assertEqual((report["violations"], report["warnings"]), (0, 1))
 
     def test_without_tss_embedded_no_shapes_are_picked(self):
         graph = main.load_graph(CSV)
