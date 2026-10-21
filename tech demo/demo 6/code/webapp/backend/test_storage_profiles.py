@@ -15,27 +15,8 @@ TEXT = "https://example.org/ex#zevenaarshaven-quality-color-value-field"
 CSV_VALUE = "https://example.org/ex#grootdok-ec20-field"
 PARQUET_VALUE = "https://example.org/ex#rodenhuizedok-ec20-field"
 
-CUSTOM_SHAPES = '''
-@prefix sh: <http://www.w3.org/ns/shacl#> .
-@prefix tss: <https://w3id.org/tss#> .
-@prefix ex: <https://example.org/> .
-ex:OnlyEmbedded a sh:NodeShape ;
-    sh:targetClass tss:SnippetGroup ;
-    sh:property [ sh:path tss:embedded ; sh:hasValue true ] .
-'''
-
 
 class StorageProfiles(unittest.TestCase):
-    def test_all_endpoints_and_matching_shacl_profiles(self):
-        for endpoint in main.local_endpoint_ids():
-            info = main.get_endpoint_info(endpoint)
-            self.assertIs(info["embedded"], endpoint == EMBEDDED)
-            self.assertTrue(info["snippets"])
-            report = main.check_shacl(endpoint)
-            self.assertTrue(report["conforms"], report["report"])
-            expected = "embedded_shapes.ttl" if endpoint == EMBEDDED else "external_non_csv_shapes.ttl" if endpoint == PARQUET else "external_csv_shapes.ttl"
-            self.assertEqual(report["shapes"], expected)
-
     def test_inspector_reads_first_rows_of_every_format(self):
         for endpoint, field, count in [(EMBEDDED, VALUE, 5), (EXTERNAL, CSV_VALUE, 10), (PARQUET, PARQUET_VALUE, 10)]:
             with self.subTest(endpoint=endpoint):
@@ -90,34 +71,6 @@ class StorageProfiles(unittest.TestCase):
         self.assertEqual(result["readings"][0], {"time": "2021-03-03T23:15:00Z", "value": 1605.77})
         self.assertEqual(result["summary"]["count"], 3)  # 23:15, 23:45 and 00:00 (no reading at 23:30)
 
-    def test_invalid_metadata_loads_and_reports_nonconformance(self):
-        graph = main.load_graph(EMBEDDED)
-        group = next(graph.subjects(RDF.type, main.TSS.SnippetGroup))
-        graph.remove((group, main.TSS.snippetTemplate, None))
-        with patch.object(main, "load_graph", return_value=graph):
-            self.assertIs(main.get_endpoint_info(EMBEDDED)["embedded"], True)
-            report = main.check_shacl(EMBEDDED)
-            self.assertFalse(report["conforms"])
-            self.assertGreater(report["violations"], 0)
-            self.assertIn("snippet template", report["report"])
-
-    def test_warnings_do_not_fail_conformance(self):
-        graph = main.load_graph(EMBEDDED)
-        group = next(graph.subjects(RDF.type, main.TSS.SnippetGroup))
-        graph.add((group, main.TSS.dataFile, URIRef("https://example.org/unused.csv")))
-        with patch.object(main, "load_graph", return_value=graph):
-            report = main.check_shacl(EMBEDDED)
-            self.assertTrue(report["conforms"])
-            self.assertEqual(report["warnings"], 1)
-
-    def test_missing_storage_flag_does_not_guess_profile(self):
-        graph = main.load_graph(EMBEDDED)
-        graph.remove((None, main.TSS.embedded, None))
-        with patch.object(main, "load_graph", return_value=graph):
-            with self.assertRaises(HTTPException) as caught:
-                main.check_shacl(EMBEDDED)
-            self.assertEqual(caught.exception.status_code, 400)
-
     def test_embedded_sql_and_read_only_guard(self):
         table = main.sql_schema(EMBEDDED)["tables"][0]
         self.assertEqual(table["name"], "zevenaarshaven_source")
@@ -156,42 +109,6 @@ class StorageProfiles(unittest.TestCase):
                     result = main.run_sql(endpoint, main.SqlQuery(sql=example["sql"]))
                     self.assertEqual(result["skipped"], [])
                     self.assertGreater(len(result["rows"]), 0)
-
-    def test_uploaded_shapes_used_for_both_profiles(self):
-        upload = main.CustomShacl(filename="my-shapes.ttl", turtle=CUSTOM_SHAPES)
-        embedded = main.check_custom_shacl(EMBEDDED, upload)
-        self.assertTrue(embedded["conforms"])
-        self.assertTrue(embedded["custom"])
-        self.assertEqual(embedded["shapes"], "my-shapes.ttl")
-        external = main.check_custom_shacl(EXTERNAL, upload)
-        self.assertFalse(external["conforms"])
-        self.assertEqual(external["violations"], 1)
-        self.assertIn("HasValueConstraintComponent", external["report"])
-
-    def test_uploaded_shapes_replace_instead_of_merge_with_defaults(self):
-        graph = main.load_graph(EMBEDDED)
-        graph.remove((None, main.TSS.mutable, None))
-        with patch.object(main, "load_graph", return_value=graph):
-            self.assertFalse(main.check_shacl(EMBEDDED)["conforms"])
-            result = main.check_custom_shacl(EMBEDDED, main.CustomShacl(filename="custom.ttl", turtle=CUSTOM_SHAPES))
-            self.assertTrue(result["conforms"])
-
-    def test_invalid_or_non_shacl_upload_has_clear_error(self):
-        for turtle, message in (("@prefix broken", "as Turtle"),
-                                ("<https://example.org/a> <https://example.org/b> <https://example.org/c> .", "no SHACL shapes"),
-                                ("@prefix sh: <http://www.w3.org/ns/shacl#> . <urn:shape> a sh:NodeShape ; sh:targetNode <urn:a> ; sh:property [ sh:path <urn:b> ; sh:minCount \"invalid\" ] .", "Could not validate")):
-            with self.assertRaises(HTTPException) as caught:
-                main.check_custom_shacl(EMBEDDED, main.CustomShacl(filename="bad.ttl", turtle=turtle))
-            self.assertEqual(caught.exception.status_code, 400)
-            self.assertIn(message, caught.exception.detail)
-
-    def test_default_selection_remains_unchanged_after_custom_validation(self):
-        main.check_custom_shacl(EXTERNAL, main.CustomShacl(filename="custom.ttl", turtle=CUSTOM_SHAPES))
-        result = main.check_shacl(EXTERNAL)
-        self.assertTrue(result["conforms"])
-        self.assertFalse(result["custom"])
-        self.assertEqual(result["shapes"], "external_csv_shapes.ttl")
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,7 +15,7 @@ import { RdfGeneration } from './RdfGeneration'
 const tabs = [
   { id: 'overview', label: 'Overview', updated: true },
   { id: 'inspector', label: 'Series inspector', updated: true },
-  { id: 'shacl', label: 'SHACL', updated: false },
+  { id: 'shacl', label: 'SHACL', updated: true },
   { id: 'rdf', label: 'RDF generation', updated: true },
   { id: 'files', label: 'Files', updated: true },
   { id: 'query', label: 'Query', updated: true },

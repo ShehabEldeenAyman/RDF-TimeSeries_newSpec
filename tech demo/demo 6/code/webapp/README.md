@@ -15,7 +15,7 @@ The source's `tss:timeField` names the time column. Its time window includes `ts
 |---|---|
 | Overview | The source, its fields (role, datatype, unit, ...) and the raw Turtle |
 | Series inspector | Pick a field: everything known about it, marked as stated on the field or on its source, plus the marked Turtle and the first rows of the data |
-| SHACL | Automatic profile detection or uploaded custom Turtle shapes, conformance test and full text report |
+| SHACL | Conformance test of the metadata with `external_shapes.ttl` (external sources) or uploaded custom Turtle shapes, with the full text report |
 | RDF generation | One `sosa:Observation` per row for each field with a `tss:observedProperty` (CSV, Parquet or embedded data); preview the Turtle and download the whole graph |
 | Files | External sources: preview of `tss:dataFile` (CSV as is, Parquet converted to CSV) and a download of the original file. Embedded sources: the source's `tss:points`, one point per line. Both: the metadata Turtle file |
 | Query | Pick a field: filtering, summaries, gaps and hourly/daily aggregation over CSV, Parquet or embedded data, read with the source's tss:timeField, tss:from/until and CSV settings; text fields support time and column filtering |
@@ -23,19 +23,17 @@ The source's `tss:timeField` names the time column. Its time window includes `ts
 
 In the Files tab, a source declared as `tss:format tss:Parquet` is previewed as CSV text with a header and the first 19 data rows. Only that sample is converted; the original Parquet file is unchanged, and the download icon saves the original `.parquet` file. CSV previews retain their original text and delimiter.
 
-SHACL automatically selects one of three files in `demo 6/SHACL/` using the original TSS graph:
+The SHACL tab picks its default shapes from the source's `tss:embedded`:
 
-| TSS declaration | Default shapes | Mapping requirements |
-|---|---|---|
-| `tss:embedded true` | `embedded_shapes.ttl` | Embedded JSON points and their context |
-| `tss:embedded false` with `dcterms:format filetype:CSV` | `external_csv_shapes.ttl` | CSVW via `tss:describedby` |
-| `tss:embedded false` with another format | `external_non_csv_shapes.ttl` | Mandatory `tss:context` on each snippet or inherited from its template; no CSVW requirement |
+| TSS declaration | Default shapes |
+|---|---|
+| `tss:embedded false` (a CSV or Parquet `tss:dataFile`) | `demo 6/SHACL/external_shapes.ttl` |
+| `tss:embedded true` | none yet: `embedded_shapes.ttl` is still for the old snippet structure, so the tab asks for custom shapes |
+| missing or not a boolean | none: the tab asks for custom shapes |
 
-Both external profiles require exactly one format IRI. The CSV profile requires the EU `filetype:CSV` IRI; the non-CSV profile excludes it and allows formats such as `filetype:PARQUET`. Non-CSV context values must be `rdf:JSON` objects, and column bindings may contain spaces or punctuation. These checks establish the presence and form of the context; they do not verify its complete mapping against the external file. Missing format declarations are reported as nonconformance by the non-CSV shapes. Mixed CSV/non-CSV groups require custom shapes for one combined test.
+`external_shapes.ttl` checks the source (exactly one; required `tss:from`, `tss:mutable`, `tss:timeField` and `tss:key` among its own fields, at least one `tss:hasField`, `tss:embedded false`, `tss:dataFile`, `tss:format` `tss:CSV` or `tss:Parquet`, and for `tss:CSV` a one-character `tss:delimiter` and a `tss:encoding`; optional label, `tss:producedBy` and `tss:until` after `tss:from`) and each field (typed `tss:Field` and a field of exactly one source, a unique `tss:columnName`, a `tss:datatype`; optional unique `tss:columnIndex`, label, comment, numeric `tss:minimum`/`tss:maximum`). Other properties are allowed and not checked. A delimiter or encoding on a `tss:Parquet` source is only a warning. The file header lists every check with its number (S1-S15, F1-F8). The shapes only look at the metadata, not at the data file.
 
-The Parquet example is `metadata endpoint/waterinfo_289429042_tss2_parquet.ttl`; its dashboard/API ID is `waterinfo_289429042_tss2_parquet`. Its data file remains `data/waterinfo_289429042.parquet`.
-
-Violations fail conformance; warnings are shown without failing it. Tests use the original metadata graph. JSON structure checks use regular expressions and do not replace a full JSON parser.
+Violations fail conformance; warnings are shown without failing it.
 
 In the SHACL tab, choose a custom `.ttl` file (up to 5 MB) to validate with your own shapes instead of the bundled profile. The selected filename is shown before running and in the report. **Use default shapes** clears the upload and restores automatic selection. Uploaded shapes are used only for that validation and are not saved over any project files. Malformed Turtle or invalid shapes produce an error.
 
@@ -69,7 +67,7 @@ Open <http://localhost:5174>. Vite proxies `/api` to port 8001. Alternatively, r
 
 ## Code and API
 
-`main.py` loads endpoints, resolves metadata, reads both storage profiles, runs SHACL and provides the API. `tss2.py` defines inheritance and provenance. `sql_box.py` loads data into a temporary DuckDB database and runs read-only queries. The data table has one column per data column. CSV cells and embedded JSON values get the type of their field's `tss:datatype` (XSD numbers, date-times, booleans; anything else stays text), and a value that does not fit stops loading with a message. Parquet columns keep the types stored in the file. SQL permits one reading statement, up to 1000 returned rows, about 5 MB of values and 30 seconds of query execution. External access is disabled after loading.
+`main.py` loads endpoints, resolves metadata, reads both storage profiles, runs SHACL and provides the API. `sql_box.py` loads data into a temporary DuckDB database and runs read-only queries. The data table has one column per data column. CSV cells and embedded JSON values get the type of their field's `tss:datatype` (XSD numbers, date-times, booleans; anything else stays text), and a value that does not fit stops loading with a message. Parquet columns keep the types stored in the file. SQL permits one reading statement, up to 1000 returned rows, about 5 MB of values and 30 seconds of query execution. External access is disabled after loading.
 
 All routes use `/api`; API documentation is at <http://localhost:8001/docs>. New routes:
 
@@ -80,7 +78,7 @@ All routes use `/api`; API documentation is at <http://localhost:8001/docs>. New
 - `GET /api/endpoints/{id}/data` and `GET /api/endpoints/{id}/data/download`: preview and download of an external source's `tss:dataFile`.
 - `GET /api/endpoints/{id}/points`: the embedded source's `tss:points`, one point per line.
 
-Online endpoint URLs are saved in backend/online_endpoints.json. Relative file links resolve against the endpoint URL. Embedded endpoints need no external data file. Each endpoint is expected to describe one group; SHACL rejects missing, invalid or conflicting storage flags rather than guessing.
+Online endpoint URLs are saved in backend/online_endpoints.json. Relative file links resolve against the endpoint URL. Embedded endpoints need no external data file. Each endpoint is expected to describe one `tss:Source`; the SHACL tab does not guess a profile when `tss:embedded` is missing or invalid.
 
 ## Verification
 

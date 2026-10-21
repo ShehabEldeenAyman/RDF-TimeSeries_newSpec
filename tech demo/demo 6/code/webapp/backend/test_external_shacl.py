@@ -1,112 +1,123 @@
-"""External SHACL profiles and the renamed Parquet endpoint."""
+"""The SHACL tab: python -B -m unittest -v test_external_shacl."""
 import unittest
 from unittest.mock import patch
 
 from fastapi import HTTPException
-from rdflib import Graph, Literal, RDF, URIRef
-from rdflib.namespace import DCTERMS
+from rdflib import Literal, URIRef
 
 import main
 
-PARQUET = "waterinfo_289429042_tss2_parquet"
+EMBEDDED = "waterinfo_289441042_tss2_points_embedded"
+EXTERNAL = ["waterinfo_289423042_tss2", "waterinfo_289435042_tss2", "waterinfo_289429042_tss2_parquet", "factory_conductivity_tss2"]
 CSV = "waterinfo_289423042_tss2"
+PARQUET = "waterinfo_289429042_tss2_parquet"
+EX = "https://example.org/ex#"
+
+# Custom shapes: every source must be embedded
+CUSTOM_SHAPES = '''
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/> .
+ex:OnlyEmbedded a sh:NodeShape ;
+    sh:targetClass tss:Source ;
+    sh:property [ sh:path tss:embedded ; sh:hasValue true ] .
+'''
 
 
 class ExternalShacl(unittest.TestCase):
-    def setUp(self):
-        self.graph = main.load_graph(PARQUET)
-        self.group = next(self.graph.subjects(RDF.type, main.TSS.SnippetGroup))
-        self.snippet = self.graph.value(self.group, main.TSS.hasSnippet)
-        self.template = self.graph.value(self.group, main.TSS.snippetTemplate)
-
-    def check(self):
-        with patch.object(main, "load_graph", return_value=self.graph):
-            return main.check_shacl(PARQUET)
-
-    def test_renamed_endpoint_is_discovered_and_uses_non_csv_shapes(self):
-        self.assertIn(PARQUET, main.local_endpoint_ids())
-        info = main.get_endpoint(PARQUET)
-        self.assertEqual(info["file"], f"metadata endpoint/{PARQUET}.ttl")
-        self.assertEqual(info["csvUrl"], "data/waterinfo_289429042.parquet")
-        report = self.check()
-        self.assertEqual(report["shapes"], "external_non_csv_shapes.ttl")
-        self.assertTrue(report["conforms"], report["report"])
-        self.assertEqual(report["warnings"], 0)
-
-    def test_non_csv_requires_context_even_if_csvw_is_provided(self):
-        self.graph.remove((None, main.TSS.context, None))
-        self.graph.add((self.group, main.TSS.describedby, URIRef("https://example.org/schema.json")))
-        report = self.check()
-        self.assertFalse(report["conforms"])
-        self.assertIn("no tss:context", report["report"])
-
-    def test_non_csv_accepts_context_inherited_from_template(self):
-        context = self.graph.value(self.snippet, main.TSS.context)
-        self.graph.remove((self.snippet, main.TSS.context, None))
-        self.graph.add((self.template, main.TSS.context, context))
-        report = self.check()
-        self.assertTrue(report["conforms"], report["report"])
-        self.assertEqual(report["warnings"], 0)
-
-    def test_snippet_context_can_override_template_context(self):
-        self.graph.add((self.template, main.TSS.context, Literal('{"@context": {}}', datatype=RDF.JSON)))
-        report = self.check()
-        self.assertTrue(report["conforms"], report["report"])
-
-    def test_non_csv_context_must_be_an_rdf_json_object(self):
-        original = self.graph.value(self.snippet, main.TSS.context)
-        for context in (Literal(str(original)), Literal("[]", datatype=RDF.JSON)):
-            with self.subTest(context=context):
-                self.graph.set((self.snippet, main.TSS.context, context))
-                report = self.check()
-                self.assertFalse(report["conforms"])
-                self.assertIn("tss:context", report["report"])
-
-    def test_non_csv_allows_field_names_with_spaces(self):
-        self.graph.set((self.template, main.TSS.timeColumn, Literal("Observation Time")))
-        self.graph.set((self.snippet, main.TSS.valueColumn, Literal("Measured Value")))
-        report = self.check()
-        self.assertTrue(report["conforms"], report["report"])
-
-    def test_non_csv_profile_accepts_other_file_types(self):
-        self.graph.set((self.group, DCTERMS.format, URIRef("http://publications.europa.eu/resource/authority/file-type/JSON")))
-        report = self.check()
-        self.assertEqual(report["shapes"], "external_non_csv_shapes.ttl")
-        self.assertTrue(report["conforms"], report["report"])
-
-    def test_missing_format_is_reported_as_nonconformance(self):
-        self.graph.remove((self.group, DCTERMS.format, None))
-        report = self.check()
-        self.assertFalse(report["conforms"])
-        self.assertIn("dcterms:format", report["report"])
-
-    def test_csv_requires_csvw_and_does_not_require_context(self):
-        graph = main.load_graph(CSV)
-        self.assertFalse(list(graph.triples((None, main.TSS.context, None))))
-        self.assertTrue(main.check_shacl(CSV)["conforms"])
-        graph.remove((None, main.TSS.describedby, None))
+    def check(self, endpoint, change):
+        """The default check on a changed copy of an endpoint's metadata (the file stays as it is)"""
+        graph = main.load_graph(endpoint)
+        change(graph)
         with patch.object(main, "load_graph", return_value=graph):
-            report = main.check_shacl(CSV)
+            return main.check_shacl(endpoint)
+
+    def test_every_external_endpoint_conforms(self):
+        for endpoint in EXTERNAL:
+            with self.subTest(endpoint=endpoint):
+                report = main.check_shacl(endpoint)
+                self.assertEqual(report["shapes"], "external_shapes.ttl")
+                self.assertFalse(report["custom"])
+                self.assertIs(report["embedded"], False)
+                self.assertTrue(report["conforms"], report["report"])
+                self.assertEqual((report["violations"], report["warnings"]), (0, 0))
+
+    def test_a_missing_required_property_is_a_violation(self):
+        source = URIRef(EX + "grootdok-source")
+        report = self.check(CSV, lambda graph: graph.remove((source, main.TSS["from"], None)))
         self.assertFalse(report["conforms"])
-        self.assertIn("CSVW metadata file", report["report"])
+        self.assertEqual(report["violations"], 1)
+        self.assertIn("tss:from", report["report"])
 
-    def test_each_external_profile_rejects_the_other_format(self):
-        for endpoint, shapes_file in ((PARQUET, "external_csv_shapes.ttl"), (CSV, "external_non_csv_shapes.ttl")):
-            with self.subTest(endpoint=endpoint, shapes=shapes_file):
-                shapes = Graph().parse(main.DEMO_DIR / "SHACL" / shapes_file, format="turtle")
-                report = main.shacl_report(main.load_graph(endpoint), shapes, shapes_file, False)
-                self.assertFalse(report["conforms"])
-                self.assertIn("filetype:CSV", report["report"])
+    def test_a_csv_source_needs_its_delimiter(self):
+        source = URIRef(EX + "grootdok-source")
+        report = self.check(CSV, lambda graph: graph.remove((source, main.TSS.delimiter, None)))
+        self.assertFalse(report["conforms"])
+        self.assertIn("S10 delimiter", report["report"])
 
-    def test_mixed_external_profiles_need_custom_shapes(self):
-        other = URIRef("https://example.org/csv-group")
-        self.graph.add((other, RDF.type, main.TSS.SnippetGroup))
-        self.graph.add((other, main.TSS.embedded, Literal(False)))
-        self.graph.add((other, DCTERMS.format, main.CSV_FILE_TYPE))
+    def test_a_field_without_a_column_name_is_a_violation(self):
+        field = URIRef(EX + "grootdok-ec20-field")
+        report = self.check(CSV, lambda graph: graph.remove((field, main.TSS.columnName, None)))
+        self.assertFalse(report["conforms"])
+        self.assertIn("tss:columnName", report["report"])
+
+    def test_a_delimiter_on_parquet_is_only_a_warning(self):
+        source = URIRef(EX + "rodenhuizedok-source")
+        report = self.check(PARQUET, lambda graph: graph.add((source, main.TSS.delimiter, Literal(","))))
+        self.assertTrue(report["conforms"], report["report"])
+        self.assertEqual((report["violations"], report["warnings"]), (0, 1))
+
+    def test_embedded_sources_have_no_default_shapes_yet(self):
         with self.assertRaises(HTTPException) as caught:
-            self.check()
+            main.check_shacl(EMBEDDED)
         self.assertEqual(caught.exception.status_code, 400)
-        self.assertIn("mixed profiles", caught.exception.detail)
+        self.assertIn("no default shapes for embedded", caught.exception.detail)
+
+    def test_without_tss_embedded_no_shapes_are_picked(self):
+        graph = main.load_graph(CSV)
+        graph.remove((None, main.TSS.embedded, None))
+        with patch.object(main, "load_graph", return_value=graph):
+            with self.assertRaises(HTTPException) as caught:
+                main.check_shacl(CSV)
+        self.assertEqual(caught.exception.status_code, 400)
+        self.assertIn("tss:embedded", caught.exception.detail)
+
+    def test_uploaded_shapes_work_for_both_profiles(self):
+        upload = main.CustomShacl(filename="my-shapes.ttl", turtle=CUSTOM_SHAPES)
+        embedded = main.check_custom_shacl(EMBEDDED, upload)
+        self.assertTrue(embedded["conforms"])
+        self.assertTrue(embedded["custom"])
+        self.assertIs(embedded["embedded"], True)
+        self.assertEqual(embedded["shapes"], "my-shapes.ttl")
+        external = main.check_custom_shacl(CSV, upload)
+        self.assertFalse(external["conforms"])
+        self.assertEqual(external["violations"], 1)
+        self.assertIn("HasValueConstraintComponent", external["report"])
+
+    def test_uploaded_shapes_replace_the_defaults_instead_of_adding_to_them(self):
+        graph = main.load_graph(CSV)
+        graph.remove((None, main.TSS.mutable, None))
+        with patch.object(main, "load_graph", return_value=graph):
+            self.assertFalse(main.check_shacl(CSV)["conforms"])
+            upload = main.CustomShacl(filename="custom.ttl", turtle=CUSTOM_SHAPES.replace("hasValue true", "hasValue false"))
+            self.assertTrue(main.check_custom_shacl(CSV, upload)["conforms"])
+
+    def test_the_defaults_stay_after_a_custom_check(self):
+        main.check_custom_shacl(CSV, main.CustomShacl(filename="custom.ttl", turtle=CUSTOM_SHAPES))
+        result = main.check_shacl(CSV)
+        self.assertTrue(result["conforms"])
+        self.assertFalse(result["custom"])
+        self.assertEqual(result["shapes"], "external_shapes.ttl")
+
+    def test_a_bad_upload_has_a_clear_error(self):
+        for turtle, message in (("@prefix broken", "as Turtle"),
+                                ("<https://example.org/a> <https://example.org/b> <https://example.org/c> .", "no SHACL shapes"),
+                                ("@prefix sh: <http://www.w3.org/ns/shacl#> . <urn:shape> a sh:NodeShape ; sh:targetNode <urn:a> ; sh:property [ sh:path <urn:b> ; sh:minCount \"invalid\" ] .", "Could not validate")):
+            with self.subTest(message=message):
+                with self.assertRaises(HTTPException) as caught:
+                    main.check_custom_shacl(CSV, main.CustomShacl(filename="bad.ttl", turtle=turtle))
+                self.assertEqual(caught.exception.status_code, 400)
+                self.assertIn(message, caught.exception.detail)
 
 
 if __name__ == "__main__":

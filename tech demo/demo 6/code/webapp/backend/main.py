@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
-from rdflib import Graph, URIRef, Literal, RDF, RDFS
-from rdflib.namespace import DCTERMS, XSD
+from rdflib import Graph, URIRef, Literal, Namespace, RDF, RDFS
+from rdflib.namespace import XSD
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 from urllib.request import url2pathname
@@ -20,9 +20,8 @@ from collections import Counter
 from uuid import uuid4
 from pyshacl import validate as shacl_validate
 
-# The TSS2 inheritance rule (snippet <- group template) lives in tss2.py
-from tss2 import TSS, SOSA, QUDT
-from tss2 import value_of, find_group, resolve, resolve_with_source
+# The TSS vocabulary: tss:Source, tss:Field, tss:hasField, ...
+TSS = Namespace("https://w3id.org/tss#")
 
 # The SQL box (DuckDB) lives in sql_box.py
 import sql_box
@@ -32,8 +31,6 @@ import rdf_generation
 # This file lives in demo 3/code/webapp/backend/, so demo 3/ is three folders up
 DEMO_DIR = Path(__file__).resolve().parents[3]
 METADATA_DIR = DEMO_DIR / "metadata endpoint"
-CSV_FILE_TYPE = URIRef("http://publications.europa.eu/resource/authority/file-type/CSV")
-PARQUET_FILE_TYPE = URIRef("http://publications.europa.eu/resource/authority/file-type/PARQUET")
 
 # The online endpoints the user adds are remembered in this file
 ONLINE_ENDPOINTS_FILE = Path(__file__).parent / "online_endpoints.json"
@@ -526,22 +523,31 @@ def download_generated_rdf(endpoint_id, token):
     return FileResponse(artifact[1], media_type="text/turtle", filename="observations.ttl")
 
 
+def storage_profile(graph):
+    """True (embedded points) or False (an external data file), from the tss:embedded of
+    the metadata's tss:Source nodes. None when that can't be told: no source, a source
+    without one boolean tss:embedded, or sources that disagree."""
+    modes = set()
+    for source in graph.subjects(RDF.type, TSS.Source):
+        modes.add(embedded_mode(graph, source))
+    if len(modes) != 1:
+        return None
+    return modes.pop()
+
+
 @api.get("/endpoints/{endpoint_id}/shacl")
 def check_shacl(endpoint_id):
-    """Select embedded, external CSV, or external non-CSV shapes from the TSS."""
+    """Validate with the bundled shapes for the source's storage profile (tss:embedded)"""
     graph = load_graph(endpoint_id)
-    groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
-    modes = {embedded_mode(graph, group) for group in groups}
-    if not groups or None in modes or len(modes) != 1:
-        raise HTTPException(status_code=400, detail="Cannot select SHACL shapes: every SnippetGroup must state one boolean tss:embedded, and all groups must use the same profile.")
-    embedded = modes.pop()
+    embedded = storage_profile(graph)
+    if embedded is None:
+        raise HTTPException(status_code=400, detail="Cannot pick the default shapes: the metadata needs a tss:Source "
+                                                    "with tss:embedded true or false. You can upload your own shapes instead.")
     if embedded:
-        name = "embedded_shapes.ttl"
-    else:
-        csv_modes = {list(graph.objects(group, DCTERMS.format)) == [CSV_FILE_TYPE] for group in groups}
-        if len(csv_modes) != 1:
-            raise HTTPException(status_code=400, detail="Cannot select SHACL shapes: external groups must all use the CSV profile or all use the non-CSV profile. Upload custom shapes for mixed profiles.")
-        name = "external_csv_shapes.ttl" if csv_modes.pop() else "external_non_csv_shapes.ttl"
+        raise HTTPException(status_code=400, detail="There are no default shapes for embedded sources yet "
+                                                    "(embedded_shapes.ttl is still for the old snippet structure). "
+                                                    "You can upload your own shapes instead.")
+    name = "external_shapes.ttl"
     shapes = Graph().parse(DEMO_DIR / "SHACL" / name, format="turtle")
     return shacl_report(graph, shapes, name, embedded)
 
@@ -588,10 +594,7 @@ def check_custom_shacl(endpoint_id, upload: CustomShacl):
     )
     if not has_shapes:
         raise HTTPException(status_code=400, detail=f"{name} contains no SHACL shapes or targets.")
-    groups = list(graph.subjects(RDF.type, TSS.SnippetGroup))
-    modes = {embedded_mode(graph, group) for group in groups}
-    embedded = modes.pop() if len(modes) == 1 else None
-    return shacl_report(graph, shapes, name, embedded, custom=True)
+    return shacl_report(graph, shapes, name, storage_profile(graph), custom=True)
 
 
 # ---------------------------------------------------------------------------

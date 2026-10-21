@@ -10,9 +10,8 @@ export function Shacl({ info }) {
   const fileInput = useRef(null)
   const controller = useRef(null)
   useEffect(() => () => controller.current?.abort(), [])
-  const known = typeof info.embedded === 'boolean'
-  const shapes = info.embedded ? 'embedded_shapes.ttl' : info.csvwApplicable ? 'external_csv_shapes.ttl' : 'external_non_csv_shapes.ttl'
-  const profile = info.embedded ? 'embedded time series' : info.csvwApplicable ? 'external CSV time series' : 'external non-CSV time series'
+  // Default shapes exist for external sources only (tss:embedded false), for now
+  const known = info.embedded === false
 
   async function selectFile(event) {
     const file = event.target.files[0]
@@ -73,14 +72,15 @@ export function Shacl({ info }) {
 
   return <section className="card">
     <h3>SHACL conformance</h3>
-    {known ? <p>Detected <strong>{profile}</strong> using <code>tss:embedded {String(info.embedded)}</code>{!info.embedded && <> and <code>dcterms:format</code></>}.</p>
-      : <p className="muted">Cannot select default shapes: the group must state one boolean tss:embedded. You can upload custom shapes instead.</p>}
+    {known && <p>Detected <strong>external data</strong>: <code>tss:embedded false</code>, <code>tss:format {info.format ? info.format : '(not stated)'}</code>.</p>}
+    {info.embedded === true && <p className="muted">There are no default shapes for embedded sources yet. You can upload your own shapes instead.</p>}
+    {typeof info.embedded !== 'boolean' && <p className="muted">Cannot pick the default shapes: the source must state tss:embedded true or false. You can upload your own shapes instead.</p>}
     <p><label htmlFor="shacl-file">Upload custom SHACL shapes (.ttl)</label>{' '}
       <input ref={fileInput} id="shacl-file" type="file" accept=".ttl,text/turtle" disabled={running || reading} onChange={selectFile} /></p>
     {reading && <p role="status">Reading shapes file…</p>}
     {customFile ? <p>Using custom shapes: <strong>{customFile.filename}</strong>. These replace the default shapes for this test.{' '}
       <button className="secondary" disabled={running || reading} onClick={useDefaults}>Use default shapes</button></p>
-      : known && <p>Using default shapes: <code>{shapes}</code>.</p>}
+      : known && <p>Using default shapes: <code>external_shapes.ttl</code>.</p>}
     <p className="muted small">Checks the loaded Turtle against the selected shapes. Warnings are shown but do not make the test fail. Custom files are used for this session and do not replace the bundled files.</p>
     <button disabled={running || reading || (!known && !customFile)} onClick={runValidation}>{running ? 'Checking…' : 'Run conformance test'}</button>
     {error && <p className="error long-text" role="alert">{error}</p>}
