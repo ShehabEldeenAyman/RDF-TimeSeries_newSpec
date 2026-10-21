@@ -1,0 +1,7 @@
+SHACL report, 2026-10-13 14:44
+Endpoint: ..\..\metadata endpoint\waterinfo_289423042_tss2.ttl
+Shapes:   ..\..\SHACL\external_csv_shapes.ttl
+Result:   CONFORMS (0 violations, 0 warnings, 0 infos)
+======================================================================
+Validation Report
+Conforms: True

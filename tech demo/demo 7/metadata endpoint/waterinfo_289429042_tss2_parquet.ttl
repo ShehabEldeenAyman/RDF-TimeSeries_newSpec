@@ -1,0 +1,110 @@
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+
+# Demo 6: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
+# RDFS/catalog annotations and external datatype/unit identifiers are retained.
+
+# Shared source: provenance, time window, time field and column schema.
+
+ex:rodenhuizedok-source
+    a tss:Source ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
+    tss:mutable false ;
+    tss:producedBy ex:station-rodenhuizedok ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:embedded false ;
+    tss:dataFile <../data/waterinfo_289429042.parquet> ;
+    tss:format tss:Parquet ;
+    tss:timeField ex:rodenhuizedok-time-field ;
+    tss:key ex:rodenhuizedok-time-field ;
+    tss:hasField ex:rodenhuizedok-ts_id-field,
+        ex:rodenhuizedok-time-field,
+        ex:rodenhuizedok-ec20-field,
+        ex:rodenhuizedok-interpolation-type-field,
+        ex:rodenhuizedok-quality-code-field,
+        ex:rodenhuizedok-quality-code-name-field,
+        ex:rodenhuizedok-quality-code-description-field,
+        ex:rodenhuizedok-quality-code-color-field .
+
+# Field definitions include measurement meaning, units, sensor and feature.
+
+ex:rodenhuizedok-ts_id-field
+    a tss:Field ;
+    tss:columnName "ts_id" ;
+    rdfs:label "ts_id"@en ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "Waterinfo time series identifier (the same on every row)."@en .
+
+ex:rodenhuizedok-time-field
+    a tss:Field ;
+    tss:columnName "Timestamp" ;
+    rdfs:label "Timestamp"@en ;
+    tss:datatype xsd:dateTime ;
+    rdfs:comment "Observation time (UTC)."@en .
+
+ex:rodenhuizedok-ec20-field
+    a tss:Field ;
+    tss:columnName "Value" ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
+    rdfs:comment "Electrical conductivity corrected to 20 degrees Celsius."@en ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-rodenhuizedok-ec20 ;
+    tss:featureOfInterest ex:water-rodenhuizedok .
+
+ex:rodenhuizedok-interpolation-type-field
+    a tss:Field ;
+    tss:columnName "Interpolation Type" ;
+    rdfs:label "Interpolation Type"@en ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "KiWIS interpolation type code of the value."@en ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+ex:rodenhuizedok-quality-code-field
+    a tss:Field ;
+    tss:columnName "Quality Code" ;
+    rdfs:label "Quality Code"@en ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "KiWIS quality code of the value."@en ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+ex:rodenhuizedok-quality-code-name-field
+    a tss:Field ;
+    tss:columnName "Quality Code Name" ;
+    rdfs:label "Quality Code Name"@en ;
+    tss:datatype xsd:string ;
+    rdfs:comment "Short name of the quality code."@en ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+ex:rodenhuizedok-quality-code-description-field
+    a tss:Field ;
+    tss:columnName "Quality Code Description" ;
+    rdfs:label "Quality Code Description"@en ;
+    tss:datatype rdf:langString ;
+    rdfs:comment "Description of the quality code."@en ;
+    tss:language "en" ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
+
+ex:rodenhuizedok-quality-code-color-field
+    a tss:Field ;
+    tss:columnName "Quality Code Color" ;
+    rdfs:label "Quality Code Color"@en ;
+    tss:datatype xsd:string ;
+    rdfs:comment "Display colour of the quality code (RGBA)."@en ;
+    tss:observedProperty ex:qualityCodeColor ;
+    tss:describesField ex:rodenhuizedok-ec20-field .
