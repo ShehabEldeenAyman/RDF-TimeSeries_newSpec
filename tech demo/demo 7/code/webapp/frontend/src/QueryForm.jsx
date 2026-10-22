@@ -1,56 +1,85 @@
 import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
-import { firstField, fieldText } from './fields'
+import {
+  one, oneText, readFields, isEmbedded, shortName, dateTimeValue,
+  XSD, RDFS_LABEL, TSS_TIME_FIELD, TSS_FROM, TSS_UNTIL, TSS_DATA_FILE, TSS_FORMAT, TSS_CSV,
+  TSS_DELIMITER, TSS_DATATYPE, TSS_UNIT,
+} from './tss'
+import { firstField, fieldName, fieldText, isTimeField } from './fields'
 
 // The words the form and the results use for the backend's options
 const RESAMPLE_NAMES = { '': 'every reading', hour: 'one value per hour', day: 'one value per day' }
 
-export function QueryForm({ info }) {
-  // Every field except the time field is a time series that can be queried
-  const series = info.fields.filter((field) => !field.isTime)
+// The numeric XSD datatypes. Only a field whose tss:datatype is one of these has value
+// ranges and mean/min/max (the backend uses the same list: XSD_TO_DUCKDB in sql_box.py).
+const NUMERIC_DATATYPES = [
+  XSD + 'double', XSD + 'float', XSD + 'decimal',
+  XSD + 'integer', XSD + 'int', XSD + 'long', XSD + 'short', XSD + 'byte',
+  XSD + 'nonNegativeInteger', XSD + 'positiveInteger', XSD + 'nonPositiveInteger', XSD + 'negativeInteger',
+  XSD + 'unsignedLong', XSD + 'unsignedInt', XSD + 'unsignedShort', XSD + 'unsignedByte',
+]
 
-  // What the user fills in. The form starts at the beginning of the source's time window:
-  // "2021-03-03T23:45:00+00:00".slice(0, 16) gives "2021-03-03T23:45", the format a datetime-local input wants.
-  const [fieldId, setFieldId] = useState(firstField(info.fields))
-  const [start, setStart] = useState(info.from ? info.from.slice(0, 16) : '')
-  const [end, setEnd] = useState('')
+// The query form. Everything it says about the source and its fields comes from the
+// metadata (rdf.store, the parsed Turtle). The backend only reads the data and computes
+// the readings, the summary and the gaps.
+export function QueryForm({ endpoint, rdf }) {
+  const store = rdf.store
+  const source = rdf.source
+  const from = one(store, source, TSS_FROM)   // a literal like "2021-03-03T23:45:00Z"^^xsd:dateTime, or null
+  const until = one(store, source, TSS_UNTIL)
+
+  // Every field except the time field is a time series that can be queried
+  const series = []
+  for (const field of readFields(store, source)) {
+    if (!isTimeField(store, source, field)) series.push(field)
+  }
+
+  // What the user fills in. A field is picked by its IRI. The form starts with the
+  // source's whole time window: from tss:from until tss:until.
+  const [fieldIri, setFieldIri] = useState(firstSeries(store, source, series))
+  const [start, setStart] = useState(inputTime(from, false))
+  const [end, setEnd] = useState(inputTime(until, true))
   const [minValue, setMinValue] = useState('')
   const [maxValue, setMaxValue] = useState('')
-  const [filterColumn, setFilterColumn] = useState('') // '' = no filter
+  const [filterField, setFilterField] = useState('') // the IRI of the field to filter on; '' = no filter
   const [filterValue, setFilterValue] = useState('')
   const [resample, setResample] = useState('')         // '', 'hour' or 'day'
   const [aggregate, setAggregate] = useState('mean')   // 'mean', 'min' or 'max'
   const [limit, setLimit] = useState(100)
 
-  // The columns this series can be filtered on (e.g. a quality code), from the backend
-  const [filterColumns, setFilterColumns] = useState(null) // null = still loading
+  // The fields this series can be filtered on (e.g. a quality code), from the backend:
+  // [{ field: '<IRI>', values: ['100', '180'] }, ...]
+  const [filterFields, setFilterFields] = useState(null) // null = still loading
   const [filterNote, setFilterNote] = useState('')
 
-  // The answer from the backend
+  // The answer from the backend, and what we asked (to explain the answer)
   const [result, setResult] = useState(null)
-  const [requestUrl, setRequestUrl] = useState('')
+  const [request, setRequest] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // The column picked for the filter (undefined when there is no filter)
-  const pickedColumn = filterColumns ? filterColumns.find((column) => column.name === filterColumn) : undefined
+  // Is the picked field numeric? That depends on its tss:datatype IRI.
+  const numeric = isNumeric(store, fieldIri)
 
-  // Every time another series is picked: ask which columns it can be filtered on
+  // The filter field that is picked (undefined when there is no filter)
+  const pickedFilter = filterFields ? filterFields.find((entry) => entry.field === filterField) : undefined
+
+  // Every time another series is picked: ask which fields it can be filtered on
   useEffect(() => {
-    if (fieldId === '') return
+    if (fieldIri === '') return
     let ignore = false // see App.jsx: throw away an answer that arrives too late
 
-    const params = new URLSearchParams({ field: fieldId })
-    fetch(`${API_URL}/endpoints/${info.id}/filter-columns?${params}`)
+    const params = new URLSearchParams({ field: fieldIri })
+    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/filter-columns?${params}`)
       .then((response) => response.json())
       .then((data) => {
         if (ignore) return
         if (data.detail) {
           // Not a real error for the form: there is just nothing to filter on
-          setFilterColumns([])
+          setFilterFields([])
           setFilterNote(errorText(data.detail))
         } else {
-          setFilterColumns(data)
+          setFilterFields(data)
           setFilterNote('')
         }
       })
@@ -61,44 +90,57 @@ export function QueryForm({ info }) {
     return () => {
       ignore = true
     }
-  }, [info.id, fieldId])
+  }, [endpoint.id, fieldIri])
 
-  function pickField(id) {
-    setFieldId(id)
+  function pickField(iri) {
+    setFieldIri(iri)
     setResult(null)
     setError(null)
-    setFilterColumns(null) // the new series may have other columns
-    setFilterColumn('')
+    setFilterFields(null) // the new series may have other fields to filter on
+    setFilterField('')
     setFilterValue('')
+    // Value ranges and grouping only work for numbers: clear them for a text field
+    if (!isNumeric(store, iri)) {
+      setMinValue('')
+      setMaxValue('')
+      setResample('')
+    }
   }
 
-  function pickFilterColumn(name) {
-    setFilterColumn(name)
-    // Start with the first value of that column
-    const column = filterColumns.find((c) => c.name === name)
-    setFilterValue(column ? column.values[0] : '')
+  function pickFilterField(iri) {
+    setFilterField(iri)
+    // Start with the first value of that field
+    const entry = filterFields.find((e) => e.field === iri)
+    setFilterValue(entry ? entry.values[0] : '')
   }
 
   function handleSubmit(event) {
     event.preventDefault() // stop the browser from reloading the page
 
-    // URLSearchParams builds "field=...&start=...&..." and escapes special characters for us.
+    // URLSearchParams builds "field=...&start=...&..." and escapes special characters
+    // (like the # in a field IRI) for us. Only the parts that are used go in.
+    const params = new URLSearchParams()
+    params.set('field', fieldIri)
+    if (start !== '') params.set('start', start)
+    if (end !== '') params.set('end', end)
+    if (numeric && minValue !== '') params.set('min_value', minValue)
+    if (numeric && maxValue !== '') params.set('max_value', maxValue)
+    if (filterField !== '') {
+      params.set('filterField', filterField)
+      // Always sent with filterField: '' means "the rows without a value there"
+      params.set('filter_value', filterValue)
+    }
+    if (numeric && resample !== '') {
+      params.set('resample', resample)
+      params.set('aggregate', aggregate)
+    }
     // Number(limit) turns what was typed (e.g. "1e3") into a plain number (1000)
-    const params = new URLSearchParams({
-      field: fieldId,
-      start: start,
-      end: end,
-      min_value: minValue,
-      max_value: maxValue,
-      filter_column: filterColumn,
-      filter_value: filterColumn ? filterValue : '',
-      resample: resample,
-      aggregate: aggregate,
-      limit: Number(limit),
-    })
-    const url = `${API_URL}/endpoints/${info.id}/query?${params}`
+    params.set('limit', Number(limit))
+    const url = `${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/query?${params}`
 
-    setRequestUrl(url)
+    // Remember what we asked: the answer only holds numbers, and the explanation
+    // under it reads the fields of this request from the metadata
+    setRequest({ url: url, field: fieldIri, filterField: filterField })
     setLoading(true)
     setResult(null)
     setError(null)
@@ -113,16 +155,18 @@ export function QueryForm({ info }) {
       .finally(() => setLoading(false))
   }
 
+  if (series.length === 0) return <p className="muted">This data source has no fields to query.</p>
+
   return (
     <>
       <section className="card">
         <h3>Query a time series</h3>
-        {info.embedded && <p className="muted small">Reads the points embedded in the Turtle file (tss:points).</p>}
+        {isEmbedded(store, source) === true && <p className="muted small">Reads the points embedded in the Turtle file (tss:points).</p>}
         <p className="muted small">
-          Value ranges and mean/min/max apply to numeric fields (a numeric tss:datatype); text fields can be filtered on time and on other columns.
+          Value ranges and mean/min/max apply to numeric fields (a numeric tss:datatype); text fields can be filtered on time and on other fields.
         </p>
         <p className="muted small">
-          {info.from && <>The source runs from {info.from} until {info.until} (until itself not included). </>}
+          {from && until && <>The source runs from {from.value} until {until.value} (<code>tss:from</code>, <code>tss:until</code>; until itself not included); the form starts with that whole window. </>}
           All times are UTC. Leave a field empty to not use it.
         </p>
 
@@ -131,10 +175,10 @@ export function QueryForm({ info }) {
           <div className="form-row">
             <label>
               Time series (field)
-              <select value={fieldId} onChange={(event) => pickField(event.target.value)}>
+              <select value={fieldIri} onChange={(event) => pickField(event.target.value)}>
                 {series.map((field) => (
-                  <option key={field.id} value={field.id}>
-                    {fieldText(field)}
+                  <option key={field.value} value={field.value}>
+                    {fieldText(store, field, rdf.prefixes)}
                   </option>
                 ))}
               </select>
@@ -154,34 +198,34 @@ export function QueryForm({ info }) {
           <div className="form-row">
             <label>
               Values from
-              <input type="number" step="any" placeholder="lowest" value={minValue}
-                onChange={(event) => setMinValue(event.target.value)} />
+              <input type="number" step="any" placeholder={numeric ? 'lowest' : 'numbers only'} value={minValue}
+                disabled={!numeric} onChange={(event) => setMinValue(event.target.value)} />
             </label>
             <label>
               to
-              <input type="number" step="any" placeholder="highest" value={maxValue}
-                onChange={(event) => setMaxValue(event.target.value)} />
+              <input type="number" step="any" placeholder={numeric ? 'highest' : 'numbers only'} value={maxValue}
+                disabled={!numeric} onChange={(event) => setMaxValue(event.target.value)} />
             </label>
 
-            {filterColumns === null && <p className="muted small">Looking for columns to filter on…</p>}
-            {filterColumns !== null && filterColumns.length > 0 && (
+            {filterFields === null && <p className="muted small">Looking for fields to filter on…</p>}
+            {filterFields !== null && filterFields.length > 0 && (
               <>
                 <label>
                   Keep only rows where
-                  <select value={filterColumn} onChange={(event) => pickFilterColumn(event.target.value)}>
+                  <select value={filterField} onChange={(event) => pickFilterField(event.target.value)}>
                     <option value="">-- no filter --</option>
-                    {filterColumns.map((column) => (
-                      <option key={column.name} value={column.name}>
-                        {column.name}
+                    {filterFields.map((entry) => (
+                      <option key={entry.field} value={entry.field}>
+                        {fieldText(store, entry.field, rdf.prefixes)}
                       </option>
                     ))}
                   </select>
                 </label>
-                {pickedColumn && (
+                {pickedFilter && (
                   <label>
                     is
                     <select value={filterValue} onChange={(event) => setFilterValue(event.target.value)}>
-                      {pickedColumn.values.map((value) => (
+                      {pickedFilter.values.map((value) => (
                         <option key={value} value={value}>
                           {value === '' ? '(empty)' : value}
                         </option>
@@ -191,8 +235,8 @@ export function QueryForm({ info }) {
                 )}
               </>
             )}
-            {filterColumns !== null && filterColumns.length === 0 && (
-              <p className="muted small long-text">No other columns to filter on. {filterNote}</p>
+            {filterFields !== null && filterFields.length === 0 && (
+              <p className="muted small long-text">No other fields to filter on. {filterNote}</p>
             )}
           </div>
 
@@ -200,7 +244,8 @@ export function QueryForm({ info }) {
           <div className="form-row">
             <label>
               Show
-              <select value={resample} onChange={(event) => setResample(event.target.value)}>
+              {/* grouping per hour or day needs numbers, so only numeric fields can use it */}
+              <select value={resample} disabled={!numeric} onChange={(event) => setResample(event.target.value)}>
                 <option value="">{RESAMPLE_NAMES['']}</option>
                 <option value="hour">{RESAMPLE_NAMES.hour}</option>
                 <option value="day">{RESAMPLE_NAMES.day}</option>
@@ -228,22 +273,25 @@ export function QueryForm({ info }) {
       </section>
 
       {error && <p className="error long-text">Error: {error}</p>}
-      {result && <Summary result={result} />}
-      {result && <QueryResult result={result} requestUrl={requestUrl} />}
+      {result && <Summary result={result} request={request} rdf={rdf} />}
+      {result && <QueryResult result={result} request={request} rdf={rdf} />}
     </>
   )
 }
 
 // The summary numbers and the gaps
-function Summary({ result }) {
+function Summary({ result, request, rdf }) {
   const summary = result.summary
   const gaps = result.gaps
-  const unit = result.unit ? ' ' + result.unit : ''
+  // The unit is not in the answer: it is in the metadata, on the field we asked for
+  const unitName = unitText(rdf.store, one(rdf.store, request.field, TSS_UNIT), rdf.prefixes)
+  const unit = unitName !== '' ? ' ' + unitName : ''
+  const numeric = isNumeric(rdf.store, request.field)
 
   return (
     <section className="card">
       <h3>Summary</h3>
-      <p className="muted small">Over the single readings that passed all filters (before any grouping per hour or day). {result.numeric === false && 'This is a non-numeric series; numeric statistics are not applicable.'}</p>
+      <p className="muted small">Over the single readings that passed all filters (before any grouping per hour or day). {!numeric && 'This is a non-numeric series; numeric statistics are not applicable.'}</p>
       <div className="stats">
         <Stat name="Readings" value={summary.count} />
         <Stat name="Mean" value={summary.mean === null ? '—' : summary.mean + unit} />
@@ -292,9 +340,23 @@ function Stat({ name, value, note }) {
   )
 }
 
-function QueryResult({ result, requestUrl }) {
+function QueryResult({ result, request, rdf }) {
+  const store = rdf.store
+  const source = rdf.source
   const grouped = result.resample !== ''
   const aggregateName = { mean: 'mean', min: 'minimum', max: 'maximum' }[result.aggregate]
+
+  // How the backend read the data: the metadata says it, so we read it from there
+  const embedded = isEmbedded(store, source) === true
+  const format = one(store, source, TSS_FORMAT)
+  const isCsv = format !== null && format.value === TSS_CSV
+  const dataFile = one(store, source, TSS_DATA_FILE)
+  const dataFileText = dataFile ? dataFile.value : '(no tss:dataFile)'
+  const delimiter = oneText(store, source, TSS_DELIMITER)
+  const timeField = one(store, source, TSS_TIME_FIELD)
+  const datatype = one(store, request.field, TSS_DATATYPE)
+  const unitName = unitText(store, one(store, request.field, TSS_UNIT), rdf.prefixes)
+  const numeric = isNumeric(store, request.field)
 
   return (
     <section className="card">
@@ -304,17 +366,23 @@ function QueryResult({ result, requestUrl }) {
       </h3>
 
       <p className="muted small long-text">
-        Request sent: <a href={requestUrl} target="_blank" rel="noreferrer">{requestUrl}</a>
+        Request sent: <a href={request.url} target="_blank" rel="noreferrer">{request.url}</a>
       </p>
       <p className="muted small">
         How the backend answered: it{' '}
-        {result.embedded && <>read the points embedded in the Turtle file (<code>tss:points</code>)</>}
-        {!result.embedded && result.format === 'tss:CSV' && <>opened <code>{result.dataFile}</code> (CSV, delimiter <code>{result.delimiter}</code>)</>}
-        {!result.embedded && result.format !== 'tss:CSV' && <>opened <code>{result.dataFile}</code> ({result.format})</>},
-        took the time from column "{result.timeColumn}" (<code>tss:timeField</code>)
-        and the value from column "{result.valueColumn}" ({result.datatype ? result.datatype : 'no tss:datatype'}),
+        {embedded && <>read the points embedded in the Turtle file (<code>tss:points</code>) as RDF</>}
+        {!embedded && isCsv && <>opened <code>{dataFileText}</code> (CSV{delimiter !== '' && <>, delimiter <code>{delimiter}</code></>})</>}
+        {!embedded && !isCsv && <>opened <code>{dataFileText}</code> ({format ? shortName(format, rdf.prefixes) : 'no tss:format'})</>},
+        took the time from column "{timeField ? fieldName(store, timeField, rdf.prefixes) : '(none)'}" (<code>tss:timeField</code>)
+        and the value from column "{fieldName(store, request.field, rdf.prefixes)}" ({datatype ? shortName(datatype, rdf.prefixes) : 'no tss:datatype'}),
         kept only the readings in the source's time window
-        {result.filterColumn && <>, kept only the rows where "{result.filterColumn}" is "{result.filterValue}"</>}
+        {request.filterField !== '' && (
+          <>
+            , kept only the rows where "{fieldName(store, request.filterField, rdf.prefixes)}"{' '}
+            {/* filterValue '' means: the rows without a value there */}
+            {result.filterValue === '' ? 'has no value' : <>is "{result.filterValue}"</>}
+          </>
+        )}
         {grouped && <>, and turned each {result.resample} into one value: the {aggregateName}</>}.
       </p>
 
@@ -324,16 +392,16 @@ function QueryResult({ result, requestUrl }) {
             <tr>
               <th>{grouped ? `Start of the ${result.resample}` : 'Time'}</th>
               <th>
-                {grouped ? `${aggregateName} ` : 'Value '}{result.numeric !== false && `(${result.unit ? result.unit : 'unit unknown'})`}
+                {grouped ? `${aggregateName} ` : 'Value '}{numeric && `(${unitName !== '' ? unitName : 'unit unknown'})`}
               </th>
               {grouped && <th>Readings in it</th>}
             </tr>
           </thead>
           <tbody>
-            {result.readings.map((reading) => (
-              <tr key={reading.time}>
+            {result.readings.map((reading, index) => (
+              <tr key={index}>
                 <td>{reading.time}</td>
-                <td>{reading.value === null ? '—' : typeof reading.value === 'object' ? JSON.stringify(reading.value) : String(reading.value)}</td>
+                <td>{reading.value === null ? '—' : String(reading.value)}</td>
                 {grouped && <td>{reading.count}</td>}
               </tr>
             ))}
@@ -342,4 +410,50 @@ function QueryResult({ result, requestUrl }) {
       </div>
     </section>
   )
+}
+
+// --- Reading the metadata -------------------------------------------------------
+// field may be an IRI (a string) or a NamedNode; the tss.js helpers accept both.
+
+// Is this field numeric? Only when its tss:datatype is one of the NUMERIC_DATATYPES.
+function isNumeric(store, field) {
+  if (field === '' || field === null) return false
+  const datatype = one(store, field, TSS_DATATYPE)
+  return datatype !== null && NUMERIC_DATATYPES.includes(datatype.value)
+}
+
+// The series to show first: the one firstField (fields.js) picks, e.g. the first
+// measured series. The time field is no series, so then simply the first series.
+// Gives its IRI, or '' when there is no series.
+function firstSeries(store, source, series) {
+  const first = firstField(store, source)
+  if (first !== null && !isTimeField(store, source, first)) return first.value
+  return series.length > 0 ? series[0].value : ''
+}
+
+// A unit to show, e.g. unit:MicroS-PER-CentiM: its rdfs:label when the document gives
+// one, else its short name. '' when there is no unit.
+function unitText(store, unit, prefixes) {
+  if (unit === null) return ''
+  const label = oneText(store, unit, RDFS_LABEL)
+  return label !== '' ? label : shortName(unit, prefixes)
+}
+
+// A tss:from or tss:until literal as the text a datetime-local input wants, in UTC:
+// "2021-03-03T23:45". '' when there is none, or it is not an xsd:dateTime.
+//   roundUp: the input only has whole minutes. For the end of the range we round a time
+//            like 23:15:30 up to 23:16, so no reading inside the window is left out.
+function inputTime(literal, roundUp) {
+  // dateTimeValue (tss.js) looks at the datatype first (the text only means a date-time
+  // when the literal says so), and reads a time without a timezone as UTC, as the backend does
+  const time = dateTimeValue(literal)
+  if (time === null) return ''
+
+  const minute = 60 * 1000 // in milliseconds
+  if (roundUp) time.setTime(Math.ceil(time.getTime() / minute) * minute)
+
+  // The parts of the time in UTC (getUTC...), each written with two digits
+  const two = (number) => String(number).padStart(2, '0')
+  return time.getUTCFullYear() + '-' + two(time.getUTCMonth() + 1) + '-' + two(time.getUTCDate()) +
+    'T' + two(time.getUTCHours()) + ':' + two(time.getUTCMinutes())
 }

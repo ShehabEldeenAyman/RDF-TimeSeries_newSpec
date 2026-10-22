@@ -1,93 +1,183 @@
-# TSS2 Dashboard (Demo 6)
+# TSS2 Dashboard (Demo 7)
 
-The dashboard loads local Turtle files from `demo 6/metadata endpoint/`, or online Turtle URLs.
+The dashboard shows TSS2 metadata endpoints: the local Turtle files in `demo 7/metadata endpoint/`, and online RDF documents added by URL. The browser fetches each RDF document and parses it with [rdf-parse](https://github.com/rubensworks/rdf-parse.js) into an N3.js Store (`frontend/src/rdf.js`). The helpers in `frontend/src/tss.js` ask that store questions by full IRI, and every metadata fact a tab shows comes from it. The FastAPI backend serves the documents, reads the data files and does the computing: rdflib for RDF, pyshacl for SHACL, DuckDB for SQL and Parquet.
 
 ## Storage profiles
 
 Each metadata endpoint describes one `tss:Source` with its columns as `tss:Field` nodes (column name, datatype, unit, observed property, ...).
 
 - `tss:embedded false`: the data is in an external file, `tss:dataFile`, read as `tss:format` says: `tss:CSV` (with `tss:delimiter`, default `,`; `tss:header`, default `true`; `tss:encoding`, default `utf-8`) or `tss:Parquet`.
-- `tss:embedded true`: the data is a JSON array of objects in `tss:points`, one object per row, keyed by the fields' `tss:columnName`.
+- `tss:embedded true`: the data is in `tss:points`, an `rdf:JSON` literal holding a JSON array of objects, one per point, keyed by the fields' `tss:columnName`. It is read as RDF (see [Embedded points](#embedded-points-tsspoints)).
 
-The source's `tss:timeField` names the time column. Its time window includes `tss:from` and excludes `tss:until`. There is no delimiter guessing; raw file previews and downloads do not parse CSV cells.
+The source's `tss:timeField` names the time field. Its time window includes `tss:from` and excludes `tss:until`. There is no delimiter guessing. Terms are compared by their full IRI (`https://w3id.org/tss#CSV`), never by a prefixed name, so a document may use any prefixes.
 
-| Tab | Purpose |
-|---|---|
-| Overview | The source, its fields (role, datatype, unit, ...) and the raw Turtle |
-| Series inspector | Pick a field: everything known about it, marked as stated on the field or on its source, plus the marked Turtle and the first rows of the data |
-| SHACL | Conformance test of the metadata with `external_shapes.ttl` or `embedded_shapes.ttl` (picked from `tss:embedded`), or with uploaded custom Turtle shapes, with the full text report |
-| RDF generation | One `sosa:Observation` per row for each field with a `tss:observedProperty` (CSV, Parquet or embedded data); preview the Turtle and download the whole graph |
-| Files | External sources: preview of `tss:dataFile` (CSV as is, Parquet converted to CSV) and a download of the original file. Embedded sources: the source's `tss:points`, one point per line. Both: the metadata Turtle file |
-| Query | Pick a field: filtering, summaries, gaps and hourly/daily aggregation over CSV, Parquet or embedded data, read with the source's tss:timeField, tss:from/until and CSV settings; text fields support time and column filtering |
-| SQL (DuckDB) | One table for the source's data (CSV, Parquet or embedded points) with a column per field, plus `source` and `fields` metadata tables; example queries are made from the fields |
+## What is RDF and what is not
 
-In the Files tab, a source declared as `tss:format tss:Parquet` is previewed as CSV text with a header and the first 19 data rows. Only that sample is converted; the original Parquet file is unchanged, and the download icon saves the original `.parquet` file. CSV previews retain their original text and delimiter.
+| What | Syntax | Read with |
+|---|---|---|
+| Metadata endpoints (`/files/metadata%20endpoint/<id>.ttl`, online documents) | Turtle (online also RDF/XML, N-Triples, N3; not JSON-LD, see [Security](#security)) | rdf-parse in the browser, rdflib in the backend, both with the same base IRI |
+| Catalogue (`GET /api/catalog`) | Turtle (DCAT) | rdf-parse (`readCatalog` in `tss.js`) |
+| Online registry (`backend/online_endpoints.ttl`, gitignored) | Turtle (DCAT) | rdflib |
+| SHACL shapes (`/files/SHACL/*.ttl`) and validation reports | Turtle | pyshacl and rdflib; the browser parses the report with rdf-parse |
+| Generated observations | N-Triples download and Turtle preview, both written by rdflib | the browser parses the preview with rdf-parse |
+| Embedded points (`tss:points`) | an `rdf:JSON` literal inside the metadata | a JSON-LD parser (rdflib, rdf-parse) with a context made from the fields |
+| Data files (`tss:dataFile`) | CSV or Parquet: raw data, described by the RDF | the backend (Python's csv module, DuckDB), as the `tss:format` IRI says |
+| Computed results and errors | JSON | `response.json()` |
+
+JSON is used only for computed tabular results (rows, previews, filter values, readings, summaries, SQL results, counts) and for error messages (`{"detail": "..."}`). No code reads RDF as JSON (no `JSON.parse` or `json.loads` of RDF). The JSON answers don't repeat what the metadata says (labels, units, datatypes, formats, column names, paths): they name fields by their full IRI, and the browser looks those up in the store.
+
+## Tabs
+
+| Tab | What it shows | Where it comes from |
+|---|---|---|
+| Overview | The source and how to read its data (literals written as in Turtle), the fields table (role, datatype, unit, observed property, range, ...), every other statement in the document, the number of embedded points, and the document as it was sent | The store; the point count from `liftPoints` |
+| Series inspector | Pick a field: each of its properties, marked as stated on the field, on its source, or missing; the source's own statements; the Turtle of the field and its source; the first 10 rows of the data | The store. Rows: `GET /rows` for CSV and Parquet; for embedded points, `liftPoints` in the browser (no request) |
+| SHACL | Conformance with the default shapes (picked from `tss:embedded`) or uploaded shapes: conforms or not, counts per severity, one row per result, and the report as Turtle | The backend's report (Turtle), parsed in the browser; labels of focus nodes from the store |
+| RDF generation | Observations and triples per field, a preview of the first 200 observations, and a download of the whole graph | `POST /rdf` (counts and links, JSON); the preview fetched and parsed in the browser; field names from the store |
+| Files | External source: the first lines of `tss:dataFile` (Parquet as CSV text) and a download of the original file. Embedded source: the `tss:points` literal, the points read as RDF (a table, and the triples as Turtle), and a warning for undeclared keys. Both: the metadata document as it was sent | `GET /data` (JSON) for data files; the store and `liftPoints` for points |
+| Query | Pick a field: time, value and column filters, summary, gaps, and hourly/daily aggregation for numeric fields | `/filter-columns` and `/query` (JSON); time window, unit and datatype from the store |
+| SQL (DuckDB) | One data table with a column per field, plus the `source` and `fields` metadata tables (IRIs in full), example queries and a list of the tables | `/sql/tables` and `POST /sql` (JSON); what each column means, and the labels in the example names, from the store |
+
+The `tss:dataFile` IRI is resolved against the document's IRI and shown as text. `data/` is not served to the browser (the factory data is NDA-derived), so data previews and downloads go through the `/api` routes.
+
+## Embedded points (`tss:points`)
+
+The points are never read as plain JSON. Python (`lift_points` in `code/TSS2RDF/tss2rdf.py`, used by the backend, the converter and the SHACL command line) and JavaScript (`liftPoints` in `frontend/src/tss.js`) follow the same rule:
+
+- The JSON-LD context is derived from the fields: each field of the source with a `tss:columnName` maps that key to `{"@id": <field IRI>, "@type": <its tss:datatype>}`. An `rdf:langString` field gets `"@language": <its tss:language>` instead of `"@type"`, and a field without `tss:datatype` only `"@id"`. The context also has `"@vocab": "urn:tss:unmapped:"`.
+- The literal's text is parsed by a JSON-LD parser (rdflib, rdf-parse) with that context given out of band. Each point becomes a blank node, each value a triple with the field's IRI as predicate and a typed literal. Blank nodes have no order, so points are put in order by their `tss:timeField` value.
+- Values should be JSON strings (`"ec20": "4797.72"`). `""`, `null` or a missing key means no value (no triple), like an empty CSV cell.
+- No key may start with `@` (`"@context"`, `"@id"`, also written `"@id"`): such points are refused before parsing (SHACL S6, 400 on the data routes, an error message in the browser).
+- A key that is no field's column name (an undeclared key) becomes a predicate under `urn:tss:unmapped:`. Tables and the converter ignore it; SHACL reports it as a warning (P6), and the Files tab counts it.
+- Both lifts keep the exact text of a JSON string: `"...Z"` stays `...Z`, and a wrong text such as `" 12 "` for an `xsd:double` stays as it is, so SHACL can report it (rdflib's literal normalisation is switched off during the lift). JSON numbers lose their text: rdflib gives `"4797.72"`, rdf-parse `"4.79772E3"`. A key that can't be an IRI (`"Some Key"`) is percent-encoded by Python and dropped by rdf-parse; only P6 sees the difference.
+- Known limit: JSON-LD skips array items that are not objects (`[ {...}, 42 ]`), so no check sees them.
+
+## SHACL
 
 The SHACL tab picks its default shapes from the source's `tss:embedded`:
 
 | TSS declaration | Default shapes |
 |---|---|
-| `tss:embedded false` (a CSV or Parquet `tss:dataFile`) | `demo 6/SHACL/external_shapes.ttl` |
-| `tss:embedded true` (the readings in `tss:points`) | `demo 6/SHACL/embedded_shapes.ttl` |
+| `tss:embedded false` (a CSV or Parquet `tss:dataFile`) | `demo 7/SHACL/external_shapes.ttl` |
+| `tss:embedded true` (the readings in `tss:points`) | `demo 7/SHACL/embedded_shapes.ttl` |
 | missing or not a boolean | none: the tab asks for custom shapes |
 
-`external_shapes.ttl` checks the source (exactly one; required `tss:from`, `tss:mutable`, `tss:timeField` and `tss:key` among its own fields, at least one `tss:hasField`, `tss:embedded false`, `tss:dataFile`, `tss:format` `tss:CSV` or `tss:Parquet`, and for `tss:CSV` a one-character `tss:delimiter` and a `tss:encoding`; optional label, `tss:producedBy` and `tss:until` after `tss:from`) and each field (typed `tss:Field` and a field of exactly one source, a unique `tss:columnName`, a `tss:datatype`; optional unique `tss:columnIndex`, label, comment, numeric `tss:minimum`/`tss:maximum`). Other properties are allowed and not checked. A delimiter or encoding on a `tss:Parquet` source is only a warning. The file header lists every check with its number (S1-S15, F1-F8). The shapes only look at the metadata, not at the data file.
+`external_shapes.ttl` checks the metadata only (S1-S15, F1-F8), not the data file. `embedded_shapes.ttl` checks the metadata (S1-S12, F1-F8, and the F9 warning: some point has a value for the field) together with the lifted points. Its SPARQL checks join each point with the field metadata:
 
-`embedded_shapes.ttl` checks the source (exactly one; required `tss:mutable`, `tss:embedded true`, a `tss:timeField` among its own fields, at least one `tss:hasField`, and one `tss:points` typed `rdf:JSON` whose text looks like a JSON array of objects; optional label, `tss:producedBy`, `tss:key` among its fields, `tss:from`, and `tss:until` after `tss:from`). `tss:dataFile`, `tss:format`, `tss:delimiter`, `tss:encoding` and `tss:header` are not allowed on an embedded source. The fields get the same checks as in the external shapes, plus a warning when a field's column name is not a key in the points (S1-S12, F1-F9). SHACL can't parse JSON, so the points checks are text patterns, not a full JSON check.
+- P1: every point has a time (a value for the `tss:timeField`);
+- P2: every time is in `[tss:from, tss:until)`;
+- P3: no two points have the same `tss:key` value(s);
+- P4: every value is a literal with its field's `tss:datatype`, in a valid lexical form (`xsd:dateTime`, `xsd:dateTimeStamp` (with a timezone), `xsd:date` (a timezone is allowed), `xsd:double`, `xsd:float`, `xsd:decimal`, the integer types and `xsd:boolean` are checked);
+- P5: numbers are within the field's `tss:minimum` and `tss:maximum`;
+- P6 (warning): every key of a point is a field's `tss:columnName`.
 
-Violations fail conformance; warnings are shown without failing it.
+When `tss:points` can't be read as JSON-LD at all, the backend adds an S6 violation to the report itself, because SHACL can't look inside the literal. Violations fail conformance; warnings are shown without failing it. Known limit: P3 compares RDF terms, so one instant written as `...Z` and as `...+00:00` is not a duplicate. The header of each shapes file lists every check.
 
-In the SHACL tab, choose a custom `.ttl` file (up to 5 MB) to validate with your own shapes instead of the bundled profile. The selected filename is shown before running and in the report. **Use default shapes** clears the upload and restores automatic selection. Uploaded shapes are used only for that validation and are not saved over any project files. Malformed Turtle or invalid shapes produce an error.
+To use your own shapes, choose a `.ttl` file (up to 5 MB). The browser parses it first, so a Turtle error shows at once, then sends the file as the request body with `Content-Type: text/turtle`. Uploaded shapes are used for that run only and are not saved. **Use default shapes** goes back to the bundled ones.
 
-The embedded Zevenaarshaven example has only five readings per series. Its queries read these samples, not the complete CSV stored elsewhere in the demo. Numeric ranges and mean/min/max aggregation apply only to numeric series.
+The same validation, with the same lift and S6 result, runs from the command line (from `demo 7/`):
+
+```powershell
+python code/shacl_report/shacl_report.py "metadata endpoint/waterinfo_289441042_tss2_points_embedded.ttl" --out report.ttl
+```
 
 ## RDF generation
 
-Open **RDF generation** and click **Generate RDF**. The backend runs the shared converter `code/TSS2RDF/tss2rdf.py` (through `backend/rdf_generation.py`) on the source's data: the CSV or Parquet `tss:dataFile`, or the embedded `tss:points`. Every row gives one `sosa:Observation` for each field with a `tss:observedProperty` (except the time field), with the field's observed property, sensor, feature of interest and unit, the row's time as `sosa:resultTime` and the cell as `sosa:hasSimpleResult`, typed with the field's `tss:datatype`. Only rows inside `[tss:from, tss:until)` are used; empty cells give no observation; a value that does not fit its datatype stops generation with the row. See `code/TSS2RDF/README.md` for all rules.
+**Generate RDF** runs the shared converter `code/TSS2RDF/tss2rdf.py` (through `backend/rdf_generation.py`) on the CSV or Parquet `tss:dataFile`, or on the lifted points. Every row gives one `sosa:Observation` for each field with a `tss:observedProperty` (except the time field), with the field's observed property, sensor, feature of interest and unit, the row's time as `sosa:resultTime` and the value as `sosa:hasSimpleResult`, typed with the field's `tss:datatype`. Only rows inside `[tss:from, tss:until)` are used; an empty value gives no observation; a value that does not fit its datatype stops generation.
 
-The whole graph is streamed to a temporary file, which the **Download Turtle** link serves; the page shows the counts per field and a preview of the first 200 observations. No SHACL validation is done before generating.
+rdflib writes all of it: the whole graph as N-Triples (`observations.nt`, in batches of 10,000 observations, so memory stays bounded) and the first 200 observations as a Turtle preview. N-Triples is about twice the size of Turtle: the grootdok CSV gives 189,706 observations in 112 MB. No SHACL validation is done before generating. See `code/TSS2RDF/README.md` for all rules.
+
+## API
+
+All routes are served on port 8001; Vite proxies `/api` and `/files` to it. The interactive API documentation is at <http://localhost:8001/docs>. `{id}` is a catalogue id (`dcterms:identifier`): a local file name without `.ttl`, or `online-1`, `online-2`, ...
+
+RDF answers (Turtle, `text/turtle; charset=utf-8`, unless noted):
+
+| Route | Answer |
+|---|---|
+| `GET /files/metadata%20endpoint/<id>.ttl` | A local metadata endpoint, exactly as the file is |
+| `GET /files/SHACL/<name>.ttl` | The bundled shapes |
+| `GET /api/catalog` | The DCAT catalogue: per endpoint a `dcat:Dataset` with `dcterms:identifier`, the source's `rdfs:label`, and a `dcat:distribution` with `dcat:downloadURL` and `dcat:mediaType`. A local dataset's IRI is its download URL; an online dataset's IRI is its registered URL, and it is downloaded through `/document`. Online labels come from the registry, so the catalogue downloads nothing |
+| `POST /api/endpoints/online?url=<URL>` | Fetches and parses the URL, checks that it has exactly one `tss:Source`, and registers it as the next `online-N`; answers with the updated catalogue |
+| `DELETE /api/endpoints/{id}` | Removes an online endpoint; answers with the updated catalogue |
+| `GET /api/endpoints/{id}/document` | The endpoint's document as it is, with its own media type (an online one is fetched by the backend, so the browser needs no CORS; `Content-Location` gives its registered URL, the base IRI the browser and the backend read it with) |
+| `GET /api/endpoints/{id}/shacl` | The `sh:ValidationReport` for the default shapes, with `dcterms:source` naming the shapes file |
+| `POST /api/endpoints/{id}/shacl` | The same, for the shapes file sent as the body (its RDF media type as `Content-Type`, not JSON-LD; untyped is read as Turtle) |
+| `GET /api/endpoints/{id}/rdf/preview/{token}` | The Turtle preview of generated observations |
+| `GET /api/endpoints/{id}/rdf/download/{token}` | The whole generated graph, `application/n-triples`, saved as `observations.nt` |
+
+JSON answers:
+
+| Route | Answer |
+|---|---|
+| `POST /api/endpoints/{id}/rdf` | `observations`, `triples`, `series` (`{field, observations}` per field IRI), `previewUrl`, `previewObservations`, `previewTruncated`, `bytes`, `downloadUrl`, `filename` |
+| `GET /api/endpoints/{id}/rows?limit=10` | `{columns: [field IRIs], rows: [[text or null]]}`: the first rows of the data |
+| `GET /api/endpoints/{id}/data?lines=20` | `{found, note, text}`: the first lines of the data file (Parquet as CSV text) |
+| `GET /api/endpoints/{id}/data/download` | The original CSV or Parquet file (an attachment, not JSON) |
+| `GET /api/endpoints/{id}/filter-columns?field=<IRI>` | `[{field, values}]`: the other fields with 2 to 30 different values |
+| `GET /api/endpoints/{id}/query?field=<IRI>` | `resample`, `aggregate`, `filterValue`, `summary`, `gaps`, `totalRows`, `limitReached`, `readings`. Parameters: `start`, `end`, `min_value`, `max_value`, `filterField` (an IRI), `filter_value`, `resample` (`hour`, `day`), `aggregate` (`mean`, `min`, `max`), `limit` (up to 5000) |
+| `GET /api/endpoints/{id}/sql/tables` | The data table (`name`, `error`, `columns` as `{name, type, field}`), `metadataTables`, `examples` (`{title, sql, field}`), `maxRows`, `maxSeconds` |
+| `POST /api/endpoints/{id}/sql` | Body `{"sql": "SELECT ..."}`; answers `columns`, `rows`, `moreRows`, `seconds`, `skipped` |
+
+Errors are always JSON `{"detail": "..."}` (FastAPI's own 422 has a list as `detail`); a crash answers 500 with the error. Data cells must have the XSD form of their field's datatype, as SHACL's P4 wants (a time like `2021-03-03T23:45:00Z`, a number like `4797.72`): `/query` refuses other texts, and the SQL box skips a data table that has them, with the reason. SQL permits one reading statement, up to 1000 returned rows, about 5 MB of values and 30 seconds; external access is disabled after loading.
+
+Removed in demo 7, because the browser reads the RDF instead: `GET /api/`, `GET /api/endpoints`, `GET /api/endpoints/{id}`, `GET /api/endpoints/{id}/series/metadata`, `GET /api/endpoints/{id}/points`, and the JSON body and answers of the SHACL routes. The online registry moved from `online_endpoints.json` to `online_endpoints.ttl`.
 
 ## Running
 
 From the repository root:
 
 ```powershell
-cd "tech demo/demo 6/code/webapp/backend"
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8001
+cd "tech demo/demo 7/code/webapp/backend"
+python -m pip install -r requirements.txt
+python -m uvicorn main:app --port 8001
 ```
 
 In another terminal:
 
 ```powershell
-cd "tech demo/demo 6/code/webapp/frontend"
+cd "tech demo/demo 7/code/webapp/frontend"
 npm install
 npm run dev
 ```
 
-Open <http://localhost:5174>. Vite proxies `/api` to port 8001. Alternatively, run `npm run build` in the frontend folder and open <http://localhost:8001>; the backend serves `frontend/dist` when present. These ports are shared with Demo 3.
+Open <http://localhost:5174>. Vite proxies `/api` and `/files` to port 8001 without changing the `Host` header, so the IRIs in the catalogue use `localhost:5174`. Alternatively, run `npm run build` in the frontend folder and open <http://localhost:8001>; the backend serves `frontend/dist` when present. Demo 6 uses the same two ports, so run one demo at a time.
 
-## Code and API
+## Security
 
-`main.py` loads endpoints, resolves metadata, reads both storage profiles, runs SHACL and provides the API. `sql_box.py` loads data into a temporary DuckDB database and runs read-only queries. The data table has one column per data column. CSV cells and embedded JSON values get the type of their field's `tss:datatype` (XSD numbers, date-times, booleans; anything else stays text), and a value that does not fit stops loading with a message. Parquet columns keep the types stored in the file. SQL permits one reading statement, up to 1000 returned rows, about 5 MB of values and 30 seconds of query execution. External access is disabled after loading.
+Run the backend for yourself only, on your own computer. It is not safe to share:
 
-All routes use `/api`; API documentation is at <http://localhost:8001/docs>. New routes:
+- **It fetches any address it is given.** The backend downloads every http(s) address that a registered online endpoint names (the document, and its `tss:dataFile`), including `localhost`, `127.0.0.1` and addresses on your private network, and it passes the answer on through `/document`, `/data`, `/data/download`, `/rows`, `/query` and the SQL box.
+- **Anyone who can reach port 8001 can register an online endpoint** (`POST /api/endpoints/online` has no login), and so make the backend fetch such addresses for them.
+- **Never use `backend/tunnel.py` with this backend.** It puts port 8001 on the public internet (ngrok); then anyone could read pages and files that only your computer can reach.
 
-- `GET /api/endpoints/{id}/shacl`: conformance status, selected shapes, full report, timing and severity counts.
-- `POST /api/endpoints/{id}/shacl`: custom validation with a JSON body containing `filename` and `turtle`; returns the same report fields plus `custom: true`.
-- `POST /api/endpoints/{id}/rdf`: generate the observations; returns a `turtle` preview, `observations`, `triples`, `series` (observations per field), `previewObservations`, `previewTruncated`, `bytes`, `filename` and `downloadUrl`. Embedded downloads use the complete generated response in the browser.
-- `GET /api/endpoints/{id}/rdf/download/{token}`: download a completed export as `observations.ttl` without repeating the conversion.
-- `GET /api/endpoints/{id}/data` and `GET /api/endpoints/{id}/data/download`: preview and download of an external source's `tss:dataFile`.
-- `GET /api/endpoints/{id}/points`: the embedded source's `tss:points`, one point per line.
-
-Online endpoint URLs are saved in backend/online_endpoints.json. Relative file links resolve against the endpoint URL. Embedded endpoints need no external data file. Each endpoint is expected to describe one `tss:Source`; the SHACL tab does not guess a profile when `tss:embedded` is missing or invalid.
+What the backend does guard against: an online document can't make it read a local file. Its `tss:dataFile` must be a web address, and only files in `demo 7/data/` are read for local endpoints (after `..` is resolved). Online documents and uploaded shapes can't be JSON-LD, because a JSON-LD `@context` can name another address or a local file, which rdflib would download or read while parsing. (The embedded points are still read as JSON-LD, but with a context made from the fields, and a key that starts with `@` is refused.)
 
 ## Verification
 
 ```powershell
-# From backend/
-python -B -m unittest -v test_storage_profiles test_external_shacl test_file_previews test_rdf_generation
+# From backend/ (109 tests, a few minutes)
+python -B -m unittest -v
+# From code/TSS2RDF/
+python -B -m unittest -v test_tss2rdf
 # From frontend/
 npm run lint
 npm run build
+```
+
+The backend tests cover the catalogue, `/files` and the online registry (`test_rdf_documents`), SHACL with both shapes files (`test_embedded_shacl`, `test_external_shacl`), RDF generation, the file previews, both storage profiles with their query and SQL routes (`test_storage_profiles`), answers that stay the same when the metadata uses other prefixes or none (`test_prefix_independence`), field IRIs that are the same as the browser's for a document with relative IRIs, local and online (`test_base_iri`), and what online documents and uploads may not do: read a local file through `tss:dataFile` or `..`, or be JSON-LD (`test_untrusted_documents`). `npm run build` prints Vite's warning about a chunk over 500 kB (rdf-parse and its parsers); that is expected.
+
+## ldfetch
+
+[ldfetch](https://github.com/pietercolpaert/ldfetch), which follows links between RDF documents, was evaluated next to rdf-parse. The app uses rdf-parse: it is the production-grade parser, it bundles with Vite and runs in the browser without polyfills, and `loadRdf` checks each answer's status itself. ldfetch 1.3.6 is a 180 MB install (616 packages), ends a 404 with exit code 0 and no triples (only `404` on stderr), and, used as a library in a long-running process, keeps a page without `Cache-Control` for about 69 days (it gives milliseconds to a cache that counts seconds). It was not tried with Vite.
+
+It is still a handy command-line tool to look at the RDF. These commands were checked against this backend from a scratch install; following `dcat:dataset` from the catalogue gives the same 497 triples as rdflib (the catalogue plus the five local documents):
+
+```powershell
+# in an empty folder
+npm install ldfetch@1.3.6
+# one metadata endpoint (TriG)
+npx ldfetch "http://localhost:8001/files/metadata%20endpoint/waterinfo_289441042_tss2_points_embedded.ttl"
+# the catalogue and every document it lists (N-Quads; an online one from its own URL)
+npx ldfetch --format nquads -p "http://www.w3.org/ns/dcat#dataset" "http://localhost:8001/api/catalog"
 ```

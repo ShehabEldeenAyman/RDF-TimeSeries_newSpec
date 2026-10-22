@@ -1,6 +1,9 @@
-// Where the FastAPI backend runs. Every component imports this,
-// so if the backend moves you only change it here.
-// Port 8001, because demo 2's backend uses 8000.
+// Where the FastAPI backend's data and computed routes are. Every component imports
+// this, so if the backend moves you only change it here.
+// It is a path on the page's own server: Vite (port 5174) passes /api/... and
+// /files/... on to the backend on port 8001 (see vite.config.js).
+// The RDF documents themselves (catalogue, metadata endpoints, SHACL shapes) are
+// loaded and parsed with loadRdf from rdf.js.
 export const API_URL = '/api'
 
 // FastAPI puts its error message in "detail". Usually that is a text, but for a

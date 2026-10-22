@@ -369,7 +369,7 @@ a.marker:hover {
   margin-bottom: 4px;
 }
 
-/* ---------- Source files (Turtle / CSVW JSON / CSV rows) ---------- */
+/* ---------- Source files of the series inspector (Turtle / first rows of the data) ---------- */
 
 .source-tabs {
   display: flex;

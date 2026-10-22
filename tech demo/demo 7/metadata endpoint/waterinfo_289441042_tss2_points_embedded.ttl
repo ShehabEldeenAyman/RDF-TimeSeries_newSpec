@@ -6,9 +6,9 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 6: experimental RDF time-series schema with field-level source locators.
+# Demo 7: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
-# Logical datatypes interpret CSV/JSON lexical values; native types stay in the file.
+# Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
 # Source windows are [from, until).
 # tss:key identifies the field whose values uniquely identify a row.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
@@ -16,7 +16,9 @@
 
 # One embedded source contains both series, with one shared time field.
 # The source window applies to all fields; the points are five-reading samples.
-# Embedded object keys use tss:columnName on fields; object ordering has no meaning.
+# tss:points is read as JSON-LD with a context derived from the fields:
+# tss:columnName -> the field IRI, tss:datatype -> @type; values are JSON strings.
+# "" or a missing key means no value; the points are unordered (sort by tss:timeField).
 
 ex:zevenaarshaven-source
     a tss:Source ;

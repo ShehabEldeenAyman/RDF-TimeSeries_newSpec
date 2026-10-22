@@ -8,17 +8,37 @@
 
 # =============================================================================
 # TSS conformance shapes for EMBEDDED data: a tss:Source whose readings are inside
-# the metadata itself, in tss:points: a JSON array with one object per row, keyed by
-# the fields' tss:columnName, e.g. [ { "time": "2021-03-03T23:15:00Z", "ec20": "4797.72" } ]
+# the metadata itself, in tss:points: an rdf:JSON literal with a JSON array of objects,
+# one object per point, keyed by the fields' tss:columnName, e.g.
+#   [ { "time": "2021-03-03T23:15:00Z", "ec20": "4797.72" } ]
 #
-# Run:   pyshacl -s embedded_shapes.ttl "<metadata file>.ttl"
+# The points are checked as RDF. They are read as JSON-LD, with a context made from
+# the source's fields (lift_points in code/TSS2RDF/tss2rdf.py): each point becomes a
+# blank node, and each value one triple, with the field's IRI as predicate and a
+# literal typed by the field's tss:datatype:
+#   _:p1 ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double .
+# A key that is no field's tss:columnName becomes a predicate under urn:tss:unmapped:
+# (percent-encoded when it holds a space or another character an IRI can't hold:
+# "Some Key" -> urn:tss:unmapped:Some%20Key; a key with a colon, like "a:b", is read as
+# an IRI of its own), and "" (no value) gives no triple. A value keeps its text exactly
+# as it is written (" 12 " stays " 12 ", "...Z" stays "...Z"), so P4 sees wrong texts.
+# A key that starts with @ (a JSON-LD keyword, like "@context") is refused, like JSON
+# that can't be read: the points can't be read (S6). JSON-LD skips a value that is not
+# an object, like the 42 in [ { ... }, 42 ], so such a value is not checked.
+#
+# Run:   the dashboard's SHACL tab (code/webapp/backend/main.py), or
+#        python code/shacl_report/shacl_report.py "<metadata file>.ttl".
+#        Both validate the metadata plus the point triples, and add an S6 violation to
+#        the report themselves when tss:points can't be read as JSON-LD.
+#        pyshacl -s embedded_shapes.ttl "<metadata file>.ttl" checks the metadata
+#        alone: without the point triples, P1-P6 and F9 have nothing to look at.
 # The metadata conforms when the report holds no sh:Violation. Warnings point at
 # things that look wrong; with -w (allow warnings) they don't fail the run.
 #
 # The source (tss:Source)
 #   Required:     S1 the source (exactly one)    S4 time field
 #                 S2 mutable                     S5 has field (at least one)
-#                 S3 embedded (true)             S6 points (one rdf:JSON array of objects)
+#                 S3 embedded (true)             S6 points (one rdf:JSON literal, readable as JSON-LD)
 #   Optional:     S7 label    S8 produced by    S9 key    S10 from    S11 until (after from)
 #   Not allowed:  S12 tss:dataFile, tss:format, tss:delimiter, tss:encoding, tss:header:
 #                 they describe an external data file
@@ -29,18 +49,28 @@
 #              F3 datatype
 #   Optional:  F4 column index (unique within the source)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
-#   Warning:   F9 the column name is a key in the points
+#   Warning:   F9 some point has a value for the field
+#
+# The points (tss:points, read as RDF)
+#   Required:  P1 time: every point has a value for the tss:timeField
+#              P2 time window: every time is from tss:from (included) until tss:until (not included)
+#              P3 key: no two points have the same value(s) for the tss:key field(s)
+#              P4 datatype: every value is a literal with its field's tss:datatype,
+#                 and a valid value of it (xsd:dateTime, xsd:dateTimeStamp (with a timezone),
+#                 xsd:date, xsd:double, xsd:float, xsd:decimal, the integer types and
+#                 xsd:boolean are checked)
+#              P5 range: every number is within its field's tss:minimum and tss:maximum
+#   Warning:   P6 keys: every key of a point is a field's tss:columnName
 #
 # Any other property (tss:observedProperty, tss:unit, tss:sensor, tss:featureOfInterest,
 # tss:describesField, tss:language, ...) is allowed and not checked.
-# SHACL can't read JSON: S6 and F9 look at the text of tss:points with patterns, which
-# catch most mistakes but are not a full JSON check.
 #
 # Every check is in one of these groups (sh:group):
 #   Required     sh:Violation  missing or malformed: the metadata does not conform
 #   Optional     -             may be left out; when present it must be well-formed (sh:Violation)
 #   Not allowed  sh:Violation  contradicts embedded data: the metadata does not conform
 #   Warning      sh:Warning    looks wrong, but the metadata still conforms
+# (The SPARQL checks have no group: their id says where they belong.)
 # =============================================================================
 
 <https://w3id.org/tss/shapes/embedded>
@@ -138,6 +168,8 @@ emb:SourceShape a sh:NodeShape ;
         sh:class tss:Field ;
         sh:message "The source needs at least one tss:hasField, and each of them must be a described tss:Field." ;
     ] ;
+    # Whether the JSON inside can be read is checked when the points are read as JSON-LD
+    # (see the header): SHACL itself does not look inside an rdf:JSON literal
     sh:property [
         sh:name "S6 points" ;
         sh:group emb:Required ;
@@ -145,15 +177,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype rdf:JSON ;
-        sh:message "The source needs exactly one tss:points, an rdf:JSON literal with the readings." ;
-    ] ;
-    sh:property [
-        sh:name "S6 points are an array of objects" ;
-        sh:group emb:Required ;
-        sh:path tss:points ;
-        # [ ], or [ { ... } ] with anything inside the braces (a pattern, not a full JSON check)
-        sh:pattern "^\\s*\\[\\s*(\\{[\\s\\S]*\\}\\s*)?\\]\\s*$" ;
-        sh:message "tss:points must be a JSON array of objects, one per row: [ { \"time\": ..., ... }, ... ]." ;
+        sh:message "The source needs exactly one tss:points: an rdf:JSON literal with the readings, a JSON array of objects." ;
     ] ;
 
     # Optional
@@ -209,7 +233,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:group emb:NotAllowed ;
         sh:path tss:format ;
         sh:maxCount 0 ;
-        sh:message "S12 not allowed: tss:format describes a data file; embedded points are always JSON." ;
+        sh:message "S12 not allowed: tss:format describes a data file; embedded points are always an rdf:JSON literal, read as JSON-LD." ;
     ] ;
     sh:property [
         sh:name "S12 delimiter" ;
@@ -299,7 +323,7 @@ emb:FieldShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
         sh:minLength 1 ;
-        sh:message "A field needs exactly one tss:columnName, a non-empty text: its key in the points." ;
+        sh:message "A field needs exactly one tss:columnName, a non-empty text: the key of its values in the points." ;
     ] ;
     sh:property [
         sh:name "F3 datatype" ;
@@ -391,21 +415,237 @@ emb:FieldShape a sh:NodeShape ;
     ] .
 
 
-# --- F9: the column name is a key in the points ---------------------------------
+# --- F9: some point has a value for the field -----------------------------------
 # A shape of its own, because a SPARQL check takes its severity from its shape.
-# It looks for the column name in double quotes ("ec20") anywhere in the points' text.
+# A point's value for a field is the triple  ?point <the field> ?value .
+# Only when the points have values at all: an empty array (or points that can't be
+# read, see S6) gives no warning per field.
 
 emb:FieldInPointsShape a sh:NodeShape ;
     sh:targetClass tss:Field ;
+    sh:targetObjectsOf tss:hasField ;
     sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F9 points: the column name {?value} does not appear as a key in tss:points, so this field has no values." ;
+        sh:message "F9 points: no point has a value for the column name {?value}, so this field has no values." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
                 ?source tss:hasField $this ; tss:points ?points .
                 $this tss:columnName ?value .
-                FILTER (!CONTAINS(STR(?points), CONCAT("\\"", STR(?value), "\\"")))
+                # The points have values for some field of the source ...
+                FILTER EXISTS { ?source tss:hasField ?other . ?point ?other ?any }
+                # ... but none for this one
+                FILTER NOT EXISTS { ?somePoint $this ?someValue }
+            }""" ;
+    ] .
+
+
+# --- The points: P1-P3, about each point as a whole ------------------------------
+# The points of the source are the nodes with a value for one of its fields:
+#   $this tss:hasField ?field .  ?point ?field ?value .
+
+emb:PointsShape a sh:NodeShape ;
+    sh:targetClass tss:Source ;
+
+    # P1: every point has a time. sh:value is the point, so the report shows its values.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P1 time: a point in tss:points has no time: no value for the source's tss:timeField." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:timeField ?timeField ; tss:hasField ?field .
+                ?value ?field ?any .
+                FILTER NOT EXISTS { ?value ?timeField ?time }
+            }""" ;
+    ] ;
+
+    # P2: every time is inside the window [tss:from, tss:until).
+    # xsd:dateTime(...) gives no value for a time that is not a valid date-time;
+    # P4 reports those, so they are skipped here.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P2 time window: the point at {?value} is before tss:from." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeField ?timeField ; tss:from ?from .
+                ?point ?timeField ?value .
+                BIND (xsd:dateTime(STR(?value)) AS ?moment)
+                FILTER (BOUND(?moment) && ?moment < ?from)
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P2 time window: the point at {?value} is not before tss:until (until is not included)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeField ?timeField ; tss:until ?until .
+                ?point ?timeField ?value .
+                BIND (xsd:dateTime(STR(?value)) AS ?moment)
+                FILTER (BOUND(?moment) && ?moment >= ?until)
+            }""" ;
+    ] ;
+
+    # P3: the key identifies a point. Two points have the same key when they have the
+    # same value for every tss:key field (most sources have one key field: the time).
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P3 key: more than one point has the tss:key value {?value}." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:key ?key .
+                ?point ?key ?value .
+                ?other ?key ?value .
+                FILTER (?other != ?point)
+                # ... and no other key field where the two points differ
+                FILTER NOT EXISTS {
+                    $this tss:key ?otherKey .
+                    ?point ?otherKey ?mine .
+                    FILTER NOT EXISTS { ?other ?otherKey ?mine }
+                }
+            }""" ;
+    ] .
+
+
+# --- The points: P4 and P5, about the values of one field -------------------------
+# The focus node is the field; sh:value is the value that is wrong.
+# ?when is the time of the point, to find it in tss:points.
+
+emb:FieldValuesShape a sh:NodeShape ;
+    sh:targetClass tss:Field ;
+    sh:targetObjectsOf tss:hasField ;
+
+    # P4: the value is a literal with the field's datatype (the JSON-LD context gives every
+    # value the field's tss:datatype, but a JSON object as a value becomes a node, not a literal)
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P4 datatype: the point at {?when} has a value for this field that is not a literal with the field's tss:datatype." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value ?when WHERE {
+                ?source tss:hasField $this .
+                $this tss:datatype ?datatype .
+                ?point $this ?value .
+                OPTIONAL { ?source tss:timeField ?timeField . ?point ?timeField ?time }
+                BIND (COALESCE(STR(?time), "(no time)") AS ?when)
+                FILTER (!isLiteral(?value) || DATATYPE(?value) != ?datatype)
+            }""" ;
+    ] ;
+
+    # P4: the text of the value is a valid value of its datatype (the XSD lexical forms).
+    # A date or date-time must also be a real day: xsd:dateTime(...) gives no value for 30 February.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P4 datatype: {?value} (the point at {?when}) is not a valid value of the field's tss:datatype." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value ?when WHERE {
+                ?source tss:hasField $this .
+                $this tss:datatype ?datatype .
+                ?point $this ?value .
+                FILTER (isLiteral(?value) && DATATYPE(?value) = ?datatype)
+                OPTIONAL { ?source tss:timeField ?timeField . ?point ?timeField ?time }
+                BIND (COALESCE(STR(?time), "(no time)") AS ?when)
+                BIND (STR(?value) AS ?text)
+                BIND (xsd:dateTime(?text) AS ?moment)
+                # A date: its day at midnight, without its timezone (xsd:dateTime("2021-03-04Z")
+                # gives no value, although "2021-03-04Z" is a valid xsd:date)
+                BIND (xsd:dateTime(CONCAT(REPLACE(?text, "(Z|[+-][0-9]{2}:[0-9]{2})$", ""), "T00:00:00")) AS ?day)
+                FILTER (
+                    (?datatype IN (xsd:double, xsd:float)
+                        && !REGEX(?text, "^([+-]?(([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?|INF)|NaN)$"))
+                    || (?datatype = xsd:decimal
+                        && !REGEX(?text, "^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$"))
+                    || (?datatype IN (xsd:integer, xsd:long, xsd:int, xsd:short, xsd:byte)
+                        && !REGEX(?text, "^[+-]?[0-9]+$"))
+                    || (?datatype IN (xsd:nonNegativeInteger, xsd:unsignedLong, xsd:unsignedInt, xsd:unsignedShort, xsd:unsignedByte)
+                        && !REGEX(?text, "^[+]?[0-9]+$"))
+                    || (?datatype = xsd:positiveInteger
+                        && !REGEX(?text, "^[+]?[0-9]*[1-9][0-9]*$"))
+                    || (?datatype = xsd:nonPositiveInteger
+                        && !REGEX(?text, "^(-[0-9]+|[+]?0+)$"))
+                    || (?datatype = xsd:negativeInteger
+                        && !REGEX(?text, "^-[0-9]*[1-9][0-9]*$"))
+                    || (?datatype = xsd:boolean
+                        && !REGEX(?text, "^(true|false|1|0)$"))
+                    || (?datatype = xsd:dateTime
+                        && (!REGEX(?text, "^-?[0-9]{4,}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?$")
+                            || !BOUND(?moment)))
+                    # xsd:dateTimeStamp: an xsd:dateTime whose timezone can't be left out
+                    || (?datatype = xsd:dateTimeStamp
+                        && (!REGEX(?text, "^-?[0-9]{4,}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$")
+                            || !BOUND(?moment)))
+                    || (?datatype = xsd:date
+                        && (!REGEX(?text, "^-?[0-9]{4,}-[0-9]{2}-[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})?$")
+                            || !BOUND(?day)))
+                )
+            }""" ;
+    ] ;
+
+    # P5: a number is within the field's range. xsd:double(...) gives no value for a text
+    # that is not a number; P4 reports those, so they are skipped here.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P5 range: {?value} (the point at {?when}) is below the field's tss:minimum {?minimum}." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value ?when ?minimum WHERE {
+                ?source tss:hasField $this .
+                $this tss:minimum ?minimum .
+                ?point $this ?value .
+                OPTIONAL { ?source tss:timeField ?timeField . ?point ?timeField ?time }
+                BIND (COALESCE(STR(?time), "(no time)") AS ?when)
+                BIND (xsd:double(STR(?value)) AS ?number)
+                FILTER (isNumeric(?value) && BOUND(?number) && ?number < ?minimum)
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P5 range: {?value} (the point at {?when}) is above the field's tss:maximum {?maximum}." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value ?when ?maximum WHERE {
+                ?source tss:hasField $this .
+                $this tss:maximum ?maximum .
+                ?point $this ?value .
+                OPTIONAL { ?source tss:timeField ?timeField . ?point ?timeField ?time }
+                BIND (COALESCE(STR(?time), "(no time)") AS ?when)
+                BIND (xsd:double(STR(?value)) AS ?number)
+                FILTER (isNumeric(?value) && BOUND(?number) && ?number > ?maximum)
+            }""" ;
+    ] .
+
+
+# --- P6: every key of a point is a field's column name ------------------------------
+# A shape of its own, because a SPARQL check takes its severity from its shape.
+# The JSON-LD context gives a key that is no field's tss:columnName a predicate under
+# urn:tss:unmapped:, e.g. "extra" -> <urn:tss:unmapped:extra>. A key with a colon, like
+# "a:b", is read as an IRI of its own: <a:b>. Nothing reads the values of either.
+
+emb:UnmappedKeysShape a sh:NodeShape ;
+    sh:targetClass tss:Source ;
+    sh:severity sh:Warning ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P6 keys: the points have the key {?value}, which is no field's tss:columnName, so its values are not read." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:points ?points .
+                ?point ?predicate ?any .
+                FILTER (
+                    # a key under urn:tss:unmapped: ...
+                    STRSTARTS(STR(?predicate), "urn:tss:unmapped:")
+                    # ... or another predicate that is no field, next to a field's value in a point
+                    || (EXISTS { $this tss:hasField ?field . ?point ?field ?fieldValue }
+                        && NOT EXISTS { $this tss:hasField ?predicate })
+                )
+                # The key: "extra" for urn:tss:unmapped:extra, "a:b" for <a:b>
+                BIND (IF(STRSTARTS(STR(?predicate), "urn:tss:unmapped:"),
+                         STRAFTER(STR(?predicate), "urn:tss:unmapped:"), STR(?predicate)) AS ?value)
             }""" ;
     ] .

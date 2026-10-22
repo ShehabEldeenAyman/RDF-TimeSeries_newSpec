@@ -1,12 +1,20 @@
-"""The SHACL tab (external and embedded shapes): python -B -m unittest -v test_external_shacl."""
+"""The SHACL tab (the default shapes, and uploaded shapes): python -B -m unittest -v test_external_shacl.
+
+The answer of the SHACL routes is the validation report as RDF (an sh:ValidationReport, in Turtle).
+The tests read it back with rdflib and look at its results with the SHACL terms
+(rdflib.namespace.SH): the severity, the focus node, the path, the constraint component,
+and the id of the check (S2, F2, ...). The embedded points have tests of their own
+(test_embedded_shacl.py), which use the helper functions below."""
 import unittest
 from unittest.mock import patch
 
-from fastapi import HTTPException
-from rdflib import Literal, URIRef
+from fastapi.testclient import TestClient
+from rdflib import Graph, Literal, URIRef, RDF
+from rdflib.namespace import DCTERMS, SH
 
 import main
 
+BASE = "http://testserver/"  # the address TestClient gives the backend
 EMBEDDED = "waterinfo_289441042_tss2_points_embedded"
 EXTERNAL = ["waterinfo_289423042_tss2", "waterinfo_289435042_tss2", "waterinfo_289429042_tss2_parquet", "factory_conductivity_tss2"]
 CSV = "waterinfo_289423042_tss2"
@@ -24,120 +32,192 @@ ex:OnlyEmbedded a sh:NodeShape ;
 '''
 
 
+# --- Reading a report (also used by test_embedded_shacl.py) ------------------
+
+def read_report(response):
+    """The answer of a SHACL route as an RDF graph, and its sh:ValidationReport node"""
+    report = Graph().parse(data=response.text, format="turtle")
+    return report, report.value(predicate=RDF.type, object=SH.ValidationReport)
+
+
+def conforms(report):
+    """The report's sh:conforms, as True or False"""
+    node = report.value(predicate=RDF.type, object=SH.ValidationReport)
+    return report.value(node, SH.conforms).toPython()
+
+
+def results(report):
+    """The results (sh:ValidationResult nodes) of a report"""
+    node = report.value(predicate=RDF.type, object=SH.ValidationReport)
+    return list(report.objects(node, SH.result))
+
+
+def count(report, severity):
+    """How many results of one severity (SH.Violation, SH.Warning or SH.Info) the report holds"""
+    number = 0
+    for result in results(report):
+        if report.value(result, SH.resultSeverity) == severity:
+            number += 1
+    return number
+
+
+def check_id(report, result):
+    """The id of the check that gave a result (S2, F2, P5, ...): the first word of the sh:name
+    of its shape, or, for a SPARQL check (its shape has no name), of its message"""
+    shape = report.value(result, SH.sourceShape)
+    name = None
+    if shape is not None:
+        name = report.value(shape, SH.name)
+    if name is None:
+        name = report.value(result, SH.resultMessage)
+    return str(name).split()[0].rstrip(":")
+
+
+def checks(report):
+    """Every result of a report as (severity, check id), sorted, e.g. [(SH.Violation, "P5")]"""
+    found = []
+    for result in results(report):
+        found.append((report.value(result, SH.resultSeverity), check_id(report, result)))
+    found.sort()
+    return found
+
+
+def result_of(report, check):
+    """The one result of a check (by its id)"""
+    found = []
+    for result in results(report):
+        if check_id(report, result) == check:
+            found.append(result)
+    assert len(found) == 1, f"{len(found)} results of {check}"
+    return found[0]
+
+
 class ExternalShacl(unittest.TestCase):
-    def check(self, endpoint, change):
-        """The default check on a changed copy of an endpoint's metadata (the file stays as it is)"""
+    def setUp(self):
+        self.client = TestClient(main.app)
+
+    def validate(self, endpoint, change=None):
+        """GET the SHACL report of an endpoint, as a graph. change: a function that changes a copy
+        of the endpoint's metadata first (the file stays as it is)"""
         graph = main.load_graph(endpoint)
-        change(graph)
+        if change is not None:
+            change(graph)
         with patch.object(main, "load_graph", return_value=graph):
-            return main.check_shacl(endpoint)
+            response = self.client.get(f"/api/endpoints/{endpoint}/shacl")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers["content-type"], "text/turtle; charset=utf-8")
+        report, node = read_report(response)
+        return report
+
+    def upload(self, endpoint, shapes, content_type="text/turtle"):
+        """POST shapes as the request body"""
+        return self.client.post(f"/api/endpoints/{endpoint}/shacl", content=shapes,
+                                headers={"Content-Type": content_type})
 
     def test_every_external_endpoint_conforms(self):
         for endpoint in EXTERNAL:
             with self.subTest(endpoint=endpoint):
-                report = main.check_shacl(endpoint)
-                self.assertEqual(report["shapes"], "external_shapes.ttl")
-                self.assertFalse(report["custom"])
-                self.assertIs(report["embedded"], False)
-                self.assertTrue(report["conforms"], report["report"])
-                self.assertEqual((report["violations"], report["warnings"]), (0, 0))
+                report = self.validate(endpoint)
+                self.assertTrue(conforms(report))
+                self.assertEqual(checks(report), [])
+                # The report says which shapes were used: their address on this backend
+                node = report.value(predicate=RDF.type, object=SH.ValidationReport)
+                self.assertEqual(report.value(node, DCTERMS.source), URIRef(BASE + "files/SHACL/external_shapes.ttl"))
 
     def test_a_missing_required_property_is_a_violation(self):
         source = URIRef(EX + "grootdok-source")
-        report = self.check(CSV, lambda graph: graph.remove((source, main.TSS["from"], None)))
-        self.assertFalse(report["conforms"])
-        self.assertEqual(report["violations"], 1)
-        self.assertIn("tss:from", report["report"])
+        report = self.validate(CSV, lambda graph: graph.remove((source, main.TSS["from"], None)))
+        self.assertFalse(conforms(report))
+        self.assertEqual(checks(report), [(SH.Violation, "S2")])
+        result = result_of(report, "S2")
+        self.assertEqual(report.value(result, SH.focusNode), source)
+        self.assertEqual(report.value(result, SH.resultPath), main.TSS["from"])
+        self.assertEqual(report.value(result, SH.sourceConstraintComponent), SH.MinCountConstraintComponent)
 
     def test_a_csv_source_needs_its_delimiter(self):
         source = URIRef(EX + "grootdok-source")
-        report = self.check(CSV, lambda graph: graph.remove((source, main.TSS.delimiter, None)))
-        self.assertFalse(report["conforms"])
-        self.assertIn("S10 delimiter", report["report"])
+        report = self.validate(CSV, lambda graph: graph.remove((source, main.TSS.delimiter, None)))
+        self.assertEqual(checks(report), [(SH.Violation, "S10")])
+        self.assertEqual(report.value(result_of(report, "S10"), SH.focusNode), source)
 
     def test_a_field_without_a_column_name_is_a_violation(self):
         field = URIRef(EX + "grootdok-ec20-field")
-        report = self.check(CSV, lambda graph: graph.remove((field, main.TSS.columnName, None)))
-        self.assertFalse(report["conforms"])
-        self.assertIn("tss:columnName", report["report"])
+        report = self.validate(CSV, lambda graph: graph.remove((field, main.TSS.columnName, None)))
+        self.assertFalse(conforms(report))
+        self.assertEqual(checks(report), [(SH.Violation, "F2")])
+        result = result_of(report, "F2")
+        self.assertEqual(report.value(result, SH.focusNode), field)
+        self.assertEqual(report.value(result, SH.resultPath), main.TSS.columnName)
 
     def test_a_delimiter_on_parquet_is_only_a_warning(self):
         source = URIRef(EX + "rodenhuizedok-source")
-        report = self.check(PARQUET, lambda graph: graph.add((source, main.TSS.delimiter, Literal(","))))
-        self.assertTrue(report["conforms"], report["report"])
-        self.assertEqual((report["violations"], report["warnings"]), (0, 1))
-
-    def test_the_embedded_endpoint_conforms_to_the_embedded_shapes(self):
-        report = main.check_shacl(EMBEDDED)
-        self.assertEqual(report["shapes"], "embedded_shapes.ttl")
-        self.assertIs(report["embedded"], True)
-        self.assertTrue(report["conforms"], report["report"])
-        self.assertEqual((report["violations"], report["warnings"]), (0, 0))
-
-    def test_embedded_points_must_be_an_array_of_objects(self):
-        source = URIRef(EX + "zevenaarshaven-source")
-        points = Literal('{"time": "2021-03-03T23:15:00Z"}', datatype=URIRef("http://www.w3.org/1999/02/22-rdf-syntax-ns#JSON"))
-        report = self.check(EMBEDDED, lambda graph: graph.set((source, main.TSS.points, points)))
-        self.assertFalse(report["conforms"])
-        self.assertIn("JSON array of objects", report["report"])
-
-    def test_an_embedded_source_cannot_have_a_data_file(self):
-        source = URIRef(EX + "zevenaarshaven-source")
-        report = self.check(EMBEDDED, lambda graph: graph.add((source, main.TSS.dataFile, URIRef("https://example.org/data.csv"))))
-        self.assertFalse(report["conforms"])
-        self.assertIn("S12 not allowed", report["report"])
-
-    def test_a_field_missing_from_the_points_is_only_a_warning(self):
-        field = URIRef(EX + "zevenaarshaven-ec20-value-field")
-        report = self.check(EMBEDDED, lambda graph: graph.set((field, main.TSS.columnName, Literal("ec25"))))
-        self.assertTrue(report["conforms"], report["report"])
-        self.assertEqual((report["violations"], report["warnings"]), (0, 1))
+        report = self.validate(PARQUET, lambda graph: graph.add((source, main.TSS.delimiter, Literal(","))))
+        self.assertTrue(conforms(report))
+        self.assertEqual(checks(report), [(SH.Warning, "S15")])
+        self.assertEqual((count(report, SH.Violation), count(report, SH.Warning)), (0, 1))
 
     def test_without_tss_embedded_no_shapes_are_picked(self):
         graph = main.load_graph(CSV)
         graph.remove((None, main.TSS.embedded, None))
         with patch.object(main, "load_graph", return_value=graph):
-            with self.assertRaises(HTTPException) as caught:
-                main.check_shacl(CSV)
-        self.assertEqual(caught.exception.status_code, 400)
-        self.assertIn("tss:embedded", caught.exception.detail)
+            response = self.client.get(f"/api/endpoints/{CSV}/shacl")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("tss:embedded", response.json()["detail"])
 
     def test_uploaded_shapes_work_for_both_profiles(self):
-        upload = main.CustomShacl(filename="my-shapes.ttl", turtle=CUSTOM_SHAPES)
-        embedded = main.check_custom_shacl(EMBEDDED, upload)
-        self.assertTrue(embedded["conforms"])
-        self.assertTrue(embedded["custom"])
-        self.assertIs(embedded["embedded"], True)
-        self.assertEqual(embedded["shapes"], "my-shapes.ttl")
-        external = main.check_custom_shacl(CSV, upload)
-        self.assertFalse(external["conforms"])
-        self.assertEqual(external["violations"], 1)
-        self.assertIn("HasValueConstraintComponent", external["report"])
+        response = self.upload(EMBEDDED, CUSTOM_SHAPES)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers["content-type"], "text/turtle; charset=utf-8")
+        embedded, node = read_report(response)
+        self.assertTrue(conforms(embedded))
+        # Uploaded shapes have no address, so the report names no shapes file
+        self.assertIsNone(embedded.value(node, DCTERMS.source))
+
+        external, node = read_report(self.upload(CSV, CUSTOM_SHAPES))
+        self.assertFalse(conforms(external))
+        self.assertEqual(count(external, SH.Violation), 1)
+        self.assertEqual(external.value(results(external)[0], SH.sourceConstraintComponent), SH.HasValueConstraintComponent)
+
+    def test_uploaded_shapes_can_be_rdf_xml(self):
+        # The same shapes, written as RDF/XML by rdflib and sent as application/rdf+xml.
+        # (JSON-LD shapes are refused: see test_untrusted_documents.)
+        shapes = Graph().parse(data=CUSTOM_SHAPES, format="turtle").serialize(format="xml")
+        response = self.upload(CSV, shapes, content_type="application/rdf+xml")
+        self.assertEqual(response.status_code, 200, response.text)
+        report, node = read_report(response)
+        self.assertEqual(count(report, SH.Violation), 1)
 
     def test_uploaded_shapes_replace_the_defaults_instead_of_adding_to_them(self):
         graph = main.load_graph(CSV)
         graph.remove((None, main.TSS.mutable, None))
         with patch.object(main, "load_graph", return_value=graph):
-            self.assertFalse(main.check_shacl(CSV)["conforms"])
-            upload = main.CustomShacl(filename="custom.ttl", turtle=CUSTOM_SHAPES.replace("hasValue true", "hasValue false"))
-            self.assertTrue(main.check_custom_shacl(CSV, upload)["conforms"])
+            default, node = read_report(self.client.get(f"/api/endpoints/{CSV}/shacl"))
+            self.assertFalse(conforms(default))
+            custom, node = read_report(self.upload(CSV, CUSTOM_SHAPES.replace("hasValue true", "hasValue false")))
+            self.assertTrue(conforms(custom))
 
     def test_the_defaults_stay_after_a_custom_check(self):
-        main.check_custom_shacl(CSV, main.CustomShacl(filename="custom.ttl", turtle=CUSTOM_SHAPES))
-        result = main.check_shacl(CSV)
-        self.assertTrue(result["conforms"])
-        self.assertFalse(result["custom"])
-        self.assertEqual(result["shapes"], "external_shapes.ttl")
+        self.assertEqual(self.upload(CSV, CUSTOM_SHAPES).status_code, 200)
+        report = self.validate(CSV)
+        self.assertTrue(conforms(report))
+        node = report.value(predicate=RDF.type, object=SH.ValidationReport)
+        self.assertEqual(report.value(node, DCTERMS.source), URIRef(BASE + "files/SHACL/external_shapes.ttl"))
 
     def test_a_bad_upload_has_a_clear_error(self):
-        for turtle, message in (("@prefix broken", "as Turtle"),
-                                ("<https://example.org/a> <https://example.org/b> <https://example.org/c> .", "no SHACL shapes"),
-                                ("@prefix sh: <http://www.w3.org/ns/shacl#> . <urn:shape> a sh:NodeShape ; sh:targetNode <urn:a> ; sh:property [ sh:path <urn:b> ; sh:minCount \"invalid\" ] .", "Could not validate")):
-            with self.subTest(message=message):
-                with self.assertRaises(HTTPException) as caught:
-                    main.check_custom_shacl(CSV, main.CustomShacl(filename="bad.ttl", turtle=turtle))
-                self.assertEqual(caught.exception.status_code, 400)
-                self.assertIn(message, caught.exception.detail)
+        too_big = "# " + "x" * main.MAX_SHAPES_BYTES
+        invalid = ("@prefix sh: <http://www.w3.org/ns/shacl#> . <urn:shape> a sh:NodeShape ; sh:targetNode <urn:a> ; "
+                   "sh:property [ sh:path <urn:b> ; sh:minCount \"invalid\" ] .")
+        for shapes, content_type, status, message in (
+                ("@prefix broken", "text/turtle", 400, "Could not read the shapes"),
+                ("<https://example.org/a> <https://example.org/b> <https://example.org/c> .", "text/turtle", 400, "no SHACL shapes"),
+                ("", "text/turtle", 400, "no SHACL shapes"),
+                (invalid, "text/turtle", 400, "Could not validate"),
+                ("<html></html>", "text/html", 415, "not an RDF syntax"),
+                (too_big, "text/turtle", 413, "at most 5 MB")):
+            with self.subTest(message=message, content_type=content_type):
+                response = self.upload(CSV, shapes, content_type)
+                self.assertEqual(response.status_code, status)
+                self.assertIn(message, response.json()["detail"])
 
 
 if __name__ == "__main__":

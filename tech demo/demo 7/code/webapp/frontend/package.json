@@ -10,8 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "n3": "2.13.12",
+    "rdf-parse": "5.0.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "readable-stream": "4.8.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

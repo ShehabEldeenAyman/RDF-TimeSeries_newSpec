@@ -1,2 +1,2 @@
-rdflib
+rdflib>=7
 duckdb

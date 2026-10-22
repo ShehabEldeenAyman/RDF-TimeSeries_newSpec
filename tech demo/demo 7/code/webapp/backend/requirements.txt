@@ -5,3 +5,5 @@ requests
 duckdb
 pyngrok
 pyshacl
+# for the tests (FastAPI's TestClient)
+httpx

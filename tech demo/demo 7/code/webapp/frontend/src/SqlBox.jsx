@@ -1,20 +1,33 @@
 import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
+import {
+  one, oneText, has, isEmbedded, shortName,
+  RDFS_LABEL, TSS_FORMAT, TSS_PARQUET, TSS_DATA_FILE,
+  TSS_UNIT, TSS_OBSERVED_PROPERTY, TSS_DESCRIBES_FIELD,
+} from './tss'
+import { fieldName, isTimeField } from './fields'
 
 // The SQL box: type a SQL query, the backend runs it with DuckDB on the data of this
 // endpoint (one table with a column per field, plus the metadata tables) and sends the result back.
-export function SqlBox({ info }) {
+// The backend tells us the tables and their columns; what each column means (its field,
+// label, unit) we read from the metadata (rdf.store), by the field's IRI.
+export function SqlBox({ endpoint, rdf }) {
   const [schema, setSchema] = useState(null) // the tables, their columns, and example queries
   const [sql, setSql] = useState('')
   const [result, setResult] = useState(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState(null)
 
+  // Where the data is and in which format: from the metadata
+  const embedded = isEmbedded(rdf.store, rdf.source) === true
+  const format = one(rdf.store, rdf.source, TSS_FORMAT)
+  const isParquet = format !== null && format.value === TSS_PARQUET
+
   // When the tab opens: ask which tables there are, and start with the first example
   useEffect(() => {
     let ignore = false // see App.jsx: throw away an answer that arrives too late
 
-    fetch(`${API_URL}/endpoints/${info.id}/sql/tables`)
+    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/sql/tables`)
       .then((response) => response.json())
       .then((data) => {
         if (ignore) return
@@ -32,7 +45,7 @@ export function SqlBox({ info }) {
     return () => {
       ignore = true
     }
-  }, [info.id])
+  }, [endpoint.id])
 
   function runQuery() {
     setRunning(true)
@@ -40,7 +53,7 @@ export function SqlBox({ info }) {
     setError(null)
 
     // POST, with the query in the body as JSON (a query can be too long for the address)
-    fetch(`${API_URL}/endpoints/${info.id}/sql`, {
+    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/sql`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sql: sql }),
@@ -75,8 +88,8 @@ export function SqlBox({ info }) {
         <section className="card">
           <h3>SQL (DuckDB)</h3>
           <p className="muted small">
-            Read-only SQL on {info.embedded ? 'the points embedded in the Turtle file' : 'the data file of this source'}: one table, with one column per field.
-            {info.format === 'tss:Parquet' ? ' The columns keep the types of the Parquet file.' : ' Each column has the type of its field (tss:datatype).'}
+            Read-only SQL on {embedded ? 'the points embedded in the Turtle file' : 'the data file of this source'}: one table, with one column per field.
+            {isParquet ? ' The columns keep the types of the Parquet file.' : ' Each column has the type of its field (tss:datatype).'}
             {' '}The <code>source</code> and <code>fields</code> tables hold the TSS metadata, so you can join it with the data.
             {schema && <> Only one SELECT, at most {schema.maxRows} rows back, stopped after {schema.maxSeconds} seconds.</>}
           </p>
@@ -88,7 +101,7 @@ export function SqlBox({ info }) {
                 <option value="">-- pick an example --</option>
                 {schema.examples.map((example, index) => (
                   <option key={index} value={index}>
-                    {example.title}
+                    {exampleText(rdf.store, example, rdf.prefixes)}
                   </option>
                 ))}
               </select>
@@ -116,7 +129,7 @@ export function SqlBox({ info }) {
         {result && <SqlResult result={result} />}
       </div>
 
-      {schema && <Tables schema={schema} />}
+      {schema && <Tables schema={schema} rdf={rdf} />}
     </div>
   )
 }
@@ -161,7 +174,7 @@ function SqlResult({ result }) {
 }
 
 // The tables you can query, with their columns: a cheat sheet next to the text box
-function Tables({ schema }) {
+function Tables({ schema, rdf }) {
   return (
     <aside className="card sql-tables">
       <h3>Tables</h3>
@@ -170,17 +183,19 @@ function Tables({ schema }) {
           <h4>
             <code>{table.name}</code>
           </h4>
-          <p className="muted small long-text">
-            {table.kind === 'points' ? 'the embedded points (tss:points)' : <>{table.file} (tss:dataFile)</>}
-          </p>
+          <p className="muted small long-text">{dataText(rdf.store, rdf.source)}</p>
           {table.error && <p className="error small long-text">{table.error}</p>}
           <ul>
-            {table.columns.map((column) => (
-              <li key={column.name}>
-                <code>{column.name}</code> <span className="muted small">{column.type}</span>
-                {column.role && <div className="small sql-role">{column.role}</div>}
-              </li>
-            ))}
+            {table.columns.map((column) => {
+              const role = columnRole(rdf.store, rdf.source, column.field, rdf.prefixes)
+              return (
+                <li key={column.name}>
+                  <code>{column.name}</code> <span className="muted small">{column.type}</span>
+                  {/* hovering shows the full IRI of the field */}
+                  {role && <div className="small sql-role" title={column.field ? column.field : undefined}>{role}</div>}
+                </li>
+              )
+            })}
           </ul>
         </div>
       ))}
@@ -202,4 +217,52 @@ function Tables({ schema }) {
       ))}
     </aside>
   )
+}
+
+// --- Reading the metadata -------------------------------------------------------
+
+// The name of an example query in the list. The backend sends a fixed title, and the IRI of
+// the field the example is about (or null); the field's label comes from the metadata, e.g.
+// 'Daily mean, min and max: Electrical conductivity at 20 °C, ...'
+function exampleText(store, example, prefixes) {
+  // No field (null): the title alone. (Never look up a missing field: a null subject
+  // would match every subject in the store.)
+  if (!example.field) return example.title
+  let label = oneText(store, example.field, RDFS_LABEL)
+  if (label === '') label = fieldName(store, example.field, prefixes) // no label: its column name
+  return example.title + ': ' + label
+}
+
+// Where the data table comes from, in words: the embedded points or the data file
+function dataText(store, source) {
+  if (isEmbedded(store, source) === true) return 'the embedded points (tss:points)'
+  const dataFile = one(store, source, TSS_DATA_FILE)
+  if (dataFile === null) return 'no tss:dataFile'
+  return dataFile.value + ' (tss:dataFile)'
+}
+
+// What a column of the data table is, in words, e.g. "value of: Electrical conductivity ... (unit:MicroS-PER-CentiM)".
+//   fieldIri: the IRI of the field with this column name (from the backend), or null
+// Gives null when there is nothing to say.
+function columnRole(store, source, fieldIri, prefixes) {
+  if (fieldIri === null) return 'not described by a field'
+  if (isTimeField(store, source, fieldIri)) return 'time (tss:timeField)'
+
+  const described = one(store, fieldIri, TSS_DESCRIBES_FIELD)
+  if (described !== null) return 'describes ' + fieldName(store, described, prefixes)
+
+  if (has(store, fieldIri, TSS_OBSERVED_PROPERTY, null)) {
+    let label = oneText(store, fieldIri, RDFS_LABEL)
+    if (label === '') label = fieldName(store, fieldIri, prefixes)
+    const unit = one(store, fieldIri, TSS_UNIT)
+    if (unit === null) return 'value of: ' + label
+    return 'value of: ' + label + ' (' + unitText(store, unit, prefixes) + ')'
+  }
+  return null
+}
+
+// A unit to show: its rdfs:label when the document gives one, else its short name
+function unitText(store, unit, prefixes) {
+  const label = oneText(store, unit, RDFS_LABEL)
+  return label !== '' ? label : shortName(unit, prefixes)
 }

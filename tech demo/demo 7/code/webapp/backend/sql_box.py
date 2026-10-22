@@ -4,7 +4,7 @@ DuckDB is a SQL database that runs inside this Python program (no server).
 For every query we:
   1. open a new, empty DuckDB database in memory,
   2. copy the source's data into it as one table, with one column per data column
-     (a CSV file, a Parquet file, or the JSON points embedded in the Turtle), plus
+     (a CSV file, a Parquet file, or the points embedded in the Turtle, read as RDF), plus
      two tables with the TSS metadata: "source" (one row) and "fields" (one row per field),
   3. lock it: no more reading or writing files, no internet, no extensions,
      settings can't be changed back,
@@ -21,6 +21,8 @@ from datetime import date, datetime, timedelta, timezone
 from datetime import time as time_of_day
 from decimal import Decimal
 
+from rdflib.namespace import XSD
+
 MAX_ROWS = 1000          # rows sent back to the browser
 MAX_BYTES = 5_000_000    # about 5 MB of values sent back to the browser
 MAX_SECONDS = 30         # a query that takes longer is stopped
@@ -32,31 +34,37 @@ for (word,) in duckdb.connect().execute(
         "SELECT keyword_name FROM duckdb_keywords() WHERE keyword_category = 'reserved'").fetchall():
     RESERVED_WORDS.add(word)
 
-# The XSD datatype (the part after xsd:) of a field -> DuckDB column type.
-# Anything not in here stays text (VARCHAR).
+# A field's tss:datatype (an IRI, e.g. XSD.double = http://www.w3.org/2001/XMLSchema#double)
+# -> DuckDB column type. Anything not in here stays text (VARCHAR).
+# The keys are the full IRIs (rdflib URIRefs), so it does not matter which prefix a
+# metadata file uses for XSD (xsd:, x:, or none at all).
+# main.py uses this map too: a field is numeric when its type here is DOUBLE or BIGINT.
 XSD_TO_DUCKDB = {
-    "dateTime": "TIMESTAMPTZ",
-    "dateTimeStamp": "TIMESTAMPTZ",
-    "date": "DATE",
-    "time": "TIME",
-    "double": "DOUBLE",
-    "float": "DOUBLE",
-    "decimal": "DOUBLE",
-    "integer": "BIGINT",
-    "int": "BIGINT",
-    "long": "BIGINT",
-    "short": "BIGINT",
-    "byte": "BIGINT",
-    "nonNegativeInteger": "BIGINT",
-    "positiveInteger": "BIGINT",
-    "nonPositiveInteger": "BIGINT",
-    "negativeInteger": "BIGINT",
-    "unsignedLong": "BIGINT",
-    "unsignedInt": "BIGINT",
-    "unsignedShort": "BIGINT",
-    "unsignedByte": "BIGINT",
-    "boolean": "BOOLEAN",
+    XSD.dateTime: "TIMESTAMPTZ",
+    XSD.dateTimeStamp: "TIMESTAMPTZ",
+    XSD.date: "DATE",
+    XSD.time: "TIME",
+    XSD.double: "DOUBLE",
+    XSD.float: "DOUBLE",
+    XSD.decimal: "DOUBLE",
+    XSD.integer: "BIGINT",
+    XSD.int: "BIGINT",
+    XSD.long: "BIGINT",
+    XSD.short: "BIGINT",
+    XSD.byte: "BIGINT",
+    XSD.nonNegativeInteger: "BIGINT",
+    XSD.positiveInteger: "BIGINT",
+    XSD.nonPositiveInteger: "BIGINT",
+    XSD.negativeInteger: "BIGINT",
+    XSD.unsignedLong: "BIGINT",
+    XSD.unsignedInt: "BIGINT",
+    XSD.unsignedShort: "BIGINT",
+    XSD.unsignedByte: "BIGINT",
+    XSD.boolean: "BOOLEAN",
 }
+
+# The DuckDB types of numeric columns: only those have mean/min/max and value ranges
+NUMERIC_TYPES = ("DOUBLE", "BIGINT")
 
 # How the error messages describe each type
 TYPE_WORDS = {
@@ -68,17 +76,17 @@ TYPE_WORDS = {
     "BOOLEAN": "true, false, 1 or 0",
 }
 
-# The two metadata tables, and their columns
+# The two metadata tables, and their columns. IRIs (source, format, field, datatype, unit, ...)
+# are written in full, e.g. https://w3id.org/tss#CSV, whatever prefixes the metadata file uses.
 METADATA_TABLES = {
     "source": {
-        "explanation": "The TSS source: one row, with what holds for every field.",
+        "explanation": "The TSS source: one row, with what holds for every field. IRIs are written in full.",
         "columns": [
             ("source", "VARCHAR"),
             ("label", "VARCHAR"),
             ("sql_table", "VARCHAR"),
             ("format", "VARCHAR"),
-            ("data_file", "VARCHAR"),
-            ("time_column", "VARCHAR"),
+            ("time_field", "VARCHAR"),
             ("from_time", "TIMESTAMPTZ"),
             ("until_time", "TIMESTAMPTZ"),
             ("produced_by", "VARCHAR"),
@@ -86,7 +94,9 @@ METADATA_TABLES = {
         ],
     },
     "fields": {
-        "explanation": "The TSS fields: one row per column of the data table.",
+        "explanation": "The TSS fields: one row per field. IRIs are written in full; "
+                       "role is 'time', 'value', 'describes' (e.g. a quality code) or NULL; "
+                       "describes is the IRI of the field it describes.",
         "columns": [
             ("column_name", "VARCHAR"),
             ("sql_table", "VARCHAR"),
@@ -105,11 +115,9 @@ METADATA_TABLES = {
 
 
 def duckdb_type(datatype):
-    """The DuckDB type for a field's tss:datatype as the dashboard shows it, e.g.
-    "xsd:double" -> DOUBLE. No datatype, or one that is not XSD, stays text."""
-    if datatype is None or not datatype.startswith("xsd:"):
-        return "VARCHAR"
-    return XSD_TO_DUCKDB.get(datatype[len("xsd:"):], "VARCHAR")
+    """The DuckDB type for a field's tss:datatype (an rdflib URIRef, or None), e.g.
+    XSD.double -> DOUBLE. No datatype, or one that is not in XSD_TO_DUCKDB, stays text."""
+    return XSD_TO_DUCKDB.get(datatype, "VARCHAR")
 
 
 def sql_text(text):
@@ -156,71 +164,74 @@ def to_json_value(value):
     return str(value)      # anything else (lists, structs, ...) as text
 
 
-def column_expression(column):
-    """How one text column becomes one typed SQL column.
+def column_expression(column, form):
+    """How one text column of a CSV file becomes one typed SQL column.
 
-    DuckDB first reads every column as text. Here each column is turned into the
-    type of its field's tss:datatype. A value that does not fit (a timestamp without
-    seconds, 1.5 in a whole-number column, ...) stops the loading with a clear message,
-    instead of quietly becoming NULL or another number. Empty cells are NULL."""
+    DuckDB first reads every column of the CSV file as text. Here each column is turned into the
+    type of its field's tss:datatype. Each cell's text must have the XSD form of that datatype
+    (form: a regular expression, from LEXICAL_FORMS in code/TSS2RDF/tss2rdf.py), the same check
+    as the query form and SHACL make. So " 12 ", "1_000" or 1.5 in a whole-number column, a date
+    without a time, or "yes" as a boolean stop the loading with a clear message, instead of
+    quietly becoming another value (DuckDB itself would read " 12 " as 12 and "yes" as true).
+    A text in the right form that is still no value (30 February) stops it too. Empty cells are NULL.
+    form: None for a datatype without a known XSD form (then only DuckDB's own reading counts)."""
     name = sql_identifier(column["name"])
     sql_type = column["type"]
     if sql_type == "VARCHAR":
         return f"{name} AS {name}"
 
-    fits = f"TRY_CAST(trim({name}) AS {sql_type}) IS NOT NULL"
-    if sql_type == "BIGINT":
-        # TRY_CAST('1.5' AS BIGINT) would quietly round to 2, so also check for a whole number
-        fits += f" AND regexp_full_match(trim({name}), '[+-]?[0-9]+')"
-    if sql_type == "BOOLEAN":
-        # DuckDB would also accept words like "yes"; XSD only allows these four
-        fits += f" AND regexp_full_match(lower(trim({name})), 'true|false|1|0')"
+    fits = f"TRY_CAST({name} AS {sql_type}) IS NOT NULL"
+    if form is not None:
+        # regexp_full_match: the whole text must have the form, not just a part of it
+        fits = f"regexp_full_match({name}, {sql_text(form)}) AND {fits}"
     message = sql_text(f"Column {column['name']} should be {TYPE_WORDS[sql_type]}, but the data has: ")
-    return (f"CASE WHEN {name} IS NULL OR trim({name}) = '' THEN NULL "
-            f"WHEN {fits} THEN CAST(trim({name}) AS {sql_type}) "
+    return (f"CASE WHEN {name} IS NULL THEN NULL "
+            f"WHEN {fits} THEN CAST({name} AS {sql_type}) "
             f"ELSE error({message} || {name}) END AS {name}")
 
 
 def load_table(con, table):
     """Copy the source's data into the database as one table.
 
-    table: {"name", "file", "kind": "csv" | "parquet" | "points", "columns": [{"name", "type"}], ...}
-      csv:     "path", "delimiter", "header"
+    table: {"name", "kind": "csv" | "parquet" | "points", "columns": [{"name", "type"}], ...}
+      csv:     "path", "delimiter", "header", and "forms": column name -> the XSD form its
+               cells must have (a regular expression), or None (see column_expression)
       parquet: "path"
-      points:  "rows" (one list of texts per point, in the order of the columns)"""
+      points:  "rows" (one list of values per point, in the order of the columns: the Python
+               values rdflib read from the points' literals, see sql_table in main.py)"""
     name = sql_identifier(table["name"])
 
-    # CSV cells and JSON values are text: each column gets its field's type (a Parquet file has its own types)
-    typed = []
-    if table["kind"] != "parquet":
-        for column in table["columns"]:
-            typed.append(column_expression(column))
-
     if table["kind"] == "points":
-        # First every value as text in a helper table, then typed like a CSV file
-        as_text = []
+        # The points were read as RDF, so every value already has its field's type
+        # (a float for xsd:double, a datetime for xsd:dateTime, ...): the table gets
+        # those types straight away, no text in between
+        column_list = []
         for column in table["columns"]:
-            as_text.append(f"{sql_identifier(column['name'])} VARCHAR")
-        con.execute(f"CREATE TABLE points_as_text ({', '.join(as_text)})")
+            column_list.append(f"{sql_identifier(column['name'])} {column['type']}")
+        con.execute(f"CREATE TABLE {name} ({', '.join(column_list)})")
         try:
             if len(table["rows"]) > 0:
                 places = ", ".join(["?"] * len(table["columns"]))
-                con.executemany(f"INSERT INTO points_as_text VALUES ({places})", table["rows"])
-            con.execute(f"CREATE TABLE {name} AS SELECT {', '.join(typed)} FROM points_as_text")
+                con.executemany(f"INSERT INTO {name} VALUES ({places})", table["rows"])
         except duckdb.Error as error:
+            con.execute(f"DROP TABLE {name}")  # no half-filled table
             raise ValueError(f"Could not load the embedded points: {error}")
-        finally:
-            con.execute("DROP TABLE points_as_text")
         return
 
     # DuckDB would treat * ? [ ] in a file name as a pattern and maybe read other files
     if re.search(r"[*?\[\]]", table["path"]):
-        raise ValueError(f"The SQL box can't read files with * ? [ or ] in their name: {table['file']}")
+        raise ValueError(f"Could not load table {table['name']}: the SQL box can't read a data file "
+                         "with * ? [ or ] in its name.")
 
     if table["kind"] == "parquet":
         # A Parquet file has its own column types, so DuckDB keeps them
         sql = f"CREATE TABLE {name} AS SELECT * FROM read_parquet({sql_text(table['path'])}, hive_partitioning = false)"
     else:
+        # CSV cells are text: each column gets its field's type (see column_expression)
+        typed = []
+        for column in table["columns"]:
+            typed.append(column_expression(column, table["forms"].get(column["name"])))
+
         # read_csv gets the delimiter and the column names from the TSS source,
         # and reads every column as text (VARCHAR) ...
         as_text = []
@@ -246,7 +257,7 @@ def load_table(con, table):
         if "Expected Number of Columns" in message:
             message = (f"a row does not have the {len(table['columns'])} columns of the header line. "
                        f"DuckDB says: {message.splitlines()[0]}")
-        raise ValueError(f"Could not load {table['file']}: {message}")
+        raise ValueError(f"Could not load table {table['name']}: {message}")
 
 
 def open_database(tables, metadata_rows):
@@ -263,13 +274,16 @@ def open_database(tables, metadata_rows):
         con.execute("SET temp_directory = ''")
 
         # 1. The data. A table that can't be loaded is skipped (with the reason),
-        #    so the metadata tables can still be used.
+        #    so the metadata tables can still be used. (duckdb.Error too: e.g. two embedded
+        #    columns "Value" and "value", which are one name for DuckDB)
         skipped = []
         for table in tables:
             try:
                 load_table(con, table)
             except ValueError as error:
                 skipped.append({"name": table["name"], "error": str(error)})
+            except duckdb.Error as error:
+                skipped.append({"name": table["name"], "error": f"Could not load table {table['name']}: {error}"})
 
         # 2. The TSS metadata as tables, so it can be joined with the data
         for metadata_name, metadata in METADATA_TABLES.items():
@@ -362,16 +376,23 @@ def run_query(con, sql):
 
 
 def example_queries(table, fields):
-    """A few queries to start from, made for this source's table and fields.
-    table: the data table (None when it can't be loaded); fields: the fields from get_endpoint_info"""
+    """A few queries to start from, made for this source's table and fields. Each example is
+    {"title": a fixed English text, "sql": the query, "field": the IRI of the field it is about, or None}.
+    The title names no field (no label, no column name): the browser reads the field's label
+    from the metadata by its IRI and adds it (SqlBox.jsx). The SQL itself needs the column names.
+    table: the data table (None when it can't be loaded)
+    fields: the fields from read_source in main.py. Each is a dict with RDF terms (rdflib):
+      "node" (the field's IRI), "columnName", "isTime", "label",
+      "observedProperty" and "describes" (the field it says something about), or None"""
     examples = [{"title": "Which column is which field (the TSS metadata)",
-                 "sql": "SELECT column_name, role, datatype, unit, observed_property\nFROM fields"}]
+                 "sql": "SELECT column_name, role, datatype, unit, observed_property\nFROM fields",
+                 "field": None}]
     if table is None:
         return examples
 
     t = sql_identifier(table["name"])
-    examples.insert(0, {"title": f"The first 10 rows of {table['name']}", "sql": f"SELECT *\nFROM {t}\nLIMIT 10"})
-    examples.append({"title": f"Summary of every column of {table['name']}", "sql": f"SUMMARIZE {t}"})
+    examples.insert(0, {"title": "The first 10 rows of the data", "sql": f"SELECT *\nFROM {t}\nLIMIT 10", "field": None})
+    examples.append({"title": "Summary of every column of the data", "sql": f"SUMMARIZE {t}", "field": None})
 
     # The examples below need the time column and numeric value columns in the table
     types = {}
@@ -384,18 +405,19 @@ def example_queries(table, fields):
             continue
         if field["isTime"]:
             time_column = field["columnName"]
-        elif field["observedProperty"] and not field["describesField"] and types[field["columnName"]] in ("DOUBLE", "BIGINT"):
+        elif (field["observedProperty"] is not None and field["describes"] is None
+              and types[field["columnName"]] in NUMERIC_TYPES):
             measured.append(field)
     if time_column is None or len(measured) == 0:
         return examples
 
     first = measured[0]
+    first_iri = str(first["node"])  # the examples about the first series name its field by IRI
     when = sql_identifier(time_column)
     value = sql_identifier(first["columnName"])
-    label = first["label"] if first["label"] else first["columnName"]
 
     examples.append({
-        "title": f"Daily mean, min and max: {label}",
+        "title": "Daily mean, min and max",
         # GROUP BY ALL: group by every column that is not a sum/avg/min/max/count
         "sql": f"SELECT date_trunc('day', {when}) AS day,\n"
                f"       round(avg({value}), 3) AS mean,\n"
@@ -403,48 +425,57 @@ def example_queries(table, fields):
                f"       max({value}) AS max,\n"
                f"       count({value}) AS readings\n"
                f"FROM {t}\nGROUP BY ALL\nORDER BY day",
+        "field": first_iri,
     })
     examples.append({
-        "title": f"Moving average over the last 4 readings: {label}",
+        "title": "Moving average over the last 4 readings",
         "sql": f"SELECT {when}, {value},\n"
                f"       round(avg({value}) OVER (ORDER BY {when} ROWS BETWEEN 3 PRECEDING AND CURRENT ROW), 3) AS moving_avg\n"
                f"FROM {t}\nORDER BY {when}\nLIMIT 100",
+        "field": first_iri,
     })
     examples.append({
-        "title": f"The 10 longest gaps between readings in {table['name']}",
+        "title": "The 10 longest gaps between readings",
         "sql": f"SELECT lag({when}) OVER (ORDER BY {when}) AS previous_reading,\n"
                f"       {when} AS next_reading,\n"
                f"       {when} - lag({when}) OVER (ORDER BY {when}) AS gap\n"
                f"FROM {t}\nORDER BY gap DESC NULLS LAST\nLIMIT 10",
+        "field": None,
     })
     examples.append({
-        "title": f"Only the readings inside the source's time window (data + metadata): {label}",
+        "title": "Only the readings inside the source's time window (data + metadata)",
         "sql": f"SELECT d.{when}, d.{value}\n"
                f"FROM {t} AS d, source AS s\n"
                f"WHERE d.{when} >= s.from_time AND d.{when} < s.until_time\n"
                f"ORDER BY d.{when}\nLIMIT 100",
+        "field": first_iri,
     })
 
-    # A field that describes the first value (e.g. a quality code): the readings per code
+    # A field that describes the first value (e.g. a quality code): the readings per code.
+    # tss:describesField points to the field itself, so we compare the two IRIs.
+    # This example is about the describing field (the code), so it carries that field's IRI.
     for field in fields:
-        if field["describesField"] == first["columnName"] and field["columnName"] in types:
+        if field["describes"] == first["node"] and field["columnName"] in types:
             code = sql_identifier(field["columnName"])
             examples.append({
-                "title": f"Readings per {field['columnName']}: {label}",
+                "title": "Readings per value",
                 "sql": f"SELECT {code}, count(*) AS readings, round(avg({value}), 3) AS mean\n"
                        f"FROM {t}\nGROUP BY ALL\nORDER BY readings DESC",
+                "field": str(field["node"]),
             })
             break
 
-    # Two series side by side: only when the table has a second measured field
+    # Two series side by side: only when the table has a second measured field.
+    # (It is about two fields: the SQL names both columns, the title neither.)
     if len(measured) > 1:
         second = measured[1]
         other = sql_identifier(second["columnName"])
         examples.append({
-            "title": f"Two series side by side, per day: {first['columnName']} / {second['columnName']}",
+            "title": "Two series side by side, per day",
             "sql": f"SELECT date_trunc('day', {when}) AS day,\n"
                    f"       round(avg({value}), 3) AS {value},\n"
                    f"       round(avg({other}), 3) AS {other}\n"
                    f"FROM {t}\nGROUP BY ALL\nORDER BY day",
+            "field": None,
         })
     return examples
