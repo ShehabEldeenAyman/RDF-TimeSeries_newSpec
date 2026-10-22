@@ -3,6 +3,7 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss:  <https://w3id.org/tss#> .
 @prefix emb:  <https://w3id.org/tss/shapes/embedded#> .
 
@@ -49,6 +50,7 @@
 #              F3 datatype
 #   Optional:  F4 column index (unique within the source)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
+#              F10 summary (each summary attribute is also optional)
 #   Warning:   F9 some point has a value for the field
 #
 # The points (tss:points, read as RDF)
@@ -61,6 +63,14 @@
 #                 xsd:boolean are checked)
 #              P5 range: every number is within its field's tss:minimum and tss:maximum
 #   Warning:   P6 keys: every key of a point is a field's tss:columnName
+#
+# The summary (optional tss:summary on a field)
+#   Optional:  Q1 from   Q2 until   Q3 missing-value policy   Q4 count   Q5 missing
+#              Q6 first time   Q7 last time   Q8 observed minimum   Q9 observed maximum
+#              Q10 mean   Q11 median   Q12 generated at time
+# An absent summary or an empty summary node is valid. Each supplied attribute
+# has at most one value of the stated type. These shapes do not recompute statistics
+# or compare observed extrema with the allowed tss:minimum / tss:maximum bounds.
 #
 # Any other property (tss:observedProperty, tss:unit, tss:sensor, tss:featureOfInterest,
 # tss:describesField, tss:language, ...) is allowed and not checked.
@@ -376,6 +386,16 @@ emb:FieldShape a sh:NodeShape ;
         sh:message "tss:maximum must be one number (xsd:integer, xsd:decimal, xsd:double or xsd:float)." ;
     ] ;
 
+    sh:property [
+        sh:name "F10 summary" ;
+        sh:group emb:Optional ;
+        sh:path tss:summary ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:node emb:SummaryShape ;
+        sh:message "tss:summary must point to one summary node; the summary and all its attributes may be omitted." ;
+    ] ;
+
     # F2 and F4: two fields of the same source can't use the same key or index
     sh:sparql [
         a sh:SPARQLConstraint ;
@@ -648,4 +668,110 @@ emb:UnmappedKeysShape a sh:NodeShape ;
                 BIND (IF(STRSTARTS(STR(?predicate), "urn:tss:unmapped:"),
                          STRAFTER(STR(?predicate), "urn:tss:unmapped:"), STR(?predicate)) AS ?value)
             }""" ;
+    ] .
+
+# --- Optional field summaries --------------------------------------------------
+# No sh:minCount: neither the summary nor any of its attributes is mandatory.
+# Validate supplied values without requiring a complete summary or scanning the data.
+
+emb:SummaryShape a sh:NodeShape ;
+    sh:targetObjectsOf tss:summary ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+    sh:property [
+        sh:name "Q1 from" ;
+        sh:group emb:Optional ;
+        sh:path tss:from ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:from must be one xsd:dateTime when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q2 until" ;
+        sh:group emb:Optional ;
+        sh:path tss:until ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:until must be one xsd:dateTime when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q3 missing-value policy" ;
+        sh:group emb:Optional ;
+        sh:path tss:missingValuePolicy ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "tss:missingValuePolicy must be one IRI, such as tss:ExcludeEmptyValues, when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q4 count" ;
+        sh:group emb:Optional ;
+        sh:path tss:count ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "tss:count must be one non-negative xsd:integer when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q5 missing" ;
+        sh:group emb:Optional ;
+        sh:path tss:missing ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "tss:missing must be one non-negative xsd:integer when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q6 first time" ;
+        sh:group emb:Optional ;
+        sh:path tss:firstTime ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:firstTime must be one xsd:dateTime when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q7 last time" ;
+        sh:group emb:Optional ;
+        sh:path tss:lastTime ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:lastTime must be one xsd:dateTime when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q8 observed minimum" ;
+        sh:group emb:Optional ;
+        sh:path tss:observedMinimum ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:observedMinimum must be one number when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q9 observed maximum" ;
+        sh:group emb:Optional ;
+        sh:path tss:observedMaximum ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:observedMaximum must be one number when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q10 mean" ;
+        sh:group emb:Optional ;
+        sh:path tss:mean ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:mean must be one number when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q11 median" ;
+        sh:group emb:Optional ;
+        sh:path tss:median ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:median must be one number when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q12 generated at time" ;
+        sh:group emb:Optional ;
+        sh:path prov:generatedAtTime ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "prov:generatedAtTime must be one xsd:dateTime when supplied." ;
     ] .
