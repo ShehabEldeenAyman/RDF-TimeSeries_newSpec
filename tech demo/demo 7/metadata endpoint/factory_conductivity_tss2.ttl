@@ -1,3 +1,4 @@
+@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -47,13 +48,36 @@ ex:factory-source
 
 # Field definitions include measurement meaning, units, sensor and feature.
 
+# Generated column summaries (calculated from the actual data, not example values).
+# Each summary covers existing rows/points in [tss:from, tss:until) only.
+# tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
+# whitespace-only strings are not treated as empty. tss:count counts present values;
+# tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
+# tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
+# Numeric aggregates are for conductivity fields, in their declared units if known.
+# Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
+# All present readings are included regardless of quality codes or allowed bounds.
+# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
+# For embedded data these summaries describe only the supplied sample points.
+# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+
 ex:factory-time-field
     a tss:Field ;
     tss:columnName "datetime" ;
     tss:columnIndex 0 ;
     rdfs:label "datetime"@en ;
     tss:datatype xsd:dateTime ;
-    rdfs:comment "Observation time (UTC), 15-minute resolution"@en .
+    rdfs:comment "Observation time (UTC), 15-minute resolution"@en ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "35033"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-ro1_a_permeate_conductivity-field
     a tss:Field ;
@@ -68,7 +92,21 @@ ex:factory-ro1_a_permeate_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_a_permeate ;
-    tss:featureOfInterest ex:ro1_a_permeate .
+    tss:featureOfInterest ex:ro1_a_permeate ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33997"^^xsd:integer ;
+        tss:missing "1036"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "1.116248"^^xsd:double ;
+        tss:observedMaximum "27297.440431"^^xsd:double ;
+        tss:mean "82.28262446154072"^^xsd:double ;
+        tss:median "77.120205"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-ro1_b_permeate_conductivity-field
     a tss:Field ;
@@ -83,7 +121,21 @@ ex:factory-ro1_b_permeate_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_b_permeate ;
-    tss:featureOfInterest ex:ro1_b_permeate .
+    tss:featureOfInterest ex:ro1_b_permeate ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "34000"^^xsd:integer ;
+        tss:missing "1033"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "0.0"^^xsd:double ;
+        tss:observedMaximum "25133.892928"^^xsd:double ;
+        tss:mean "144.20755343038235"^^xsd:double ;
+        tss:median "59.9185535"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-ro1_c_permeate_conductivity-field
     a tss:Field ;
@@ -98,7 +150,21 @@ ex:factory-ro1_c_permeate_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_c_permeate ;
-    tss:featureOfInterest ex:ro1_c_permeate .
+    tss:featureOfInterest ex:ro1_c_permeate ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "34000"^^xsd:integer ;
+        tss:missing "1033"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "0.0"^^xsd:double ;
+        tss:observedMaximum "24272.137992"^^xsd:double ;
+        tss:mean "182.33738701902942"^^xsd:double ;
+        tss:median "149.64687"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-ro2_a_permeate_conductivity-field
     a tss:Field ;
@@ -113,7 +179,21 @@ ex:factory-ro2_a_permeate_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro2_a_permeate ;
-    tss:featureOfInterest ex:ro2_a_permeate .
+    tss:featureOfInterest ex:ro2_a_permeate ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33996"^^xsd:integer ;
+        tss:missing "1037"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "0.0"^^xsd:double ;
+        tss:observedMaximum "41429.990362"^^xsd:double ;
+        tss:mean "11.370732131309566"^^xsd:double ;
+        tss:median "2.783907"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-ro2_b_permeate_conductivity-field
     a tss:Field ;
@@ -128,7 +208,21 @@ ex:factory-ro2_b_permeate_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro2_b_permeate ;
-    tss:featureOfInterest ex:ro2_b_permeate .
+    tss:featureOfInterest ex:ro2_b_permeate ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33991"^^xsd:integer ;
+        tss:missing "1042"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "0.0"^^xsd:double ;
+        tss:observedMaximum "36634.188629"^^xsd:double ;
+        tss:mean "34.59727942931953"^^xsd:double ;
+        tss:median "10.870987"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-cooling_water_conductivity-field
     a tss:Field ;
@@ -143,7 +237,21 @@ ex:factory-cooling_water_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-cooling_water ;
-    tss:featureOfInterest ex:cooling_water .
+    tss:featureOfInterest ex:cooling_water ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "34000"^^xsd:integer ;
+        tss:missing "1033"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "1.965696"^^xsd:double ;
+        tss:observedMaximum "24624.794491"^^xsd:double ;
+        tss:mean "143.95241408805882"^^xsd:double ;
+        tss:median "142.3577785"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-boiler_feed_conductivity-field
     a tss:Field ;
@@ -158,7 +266,21 @@ ex:factory-boiler_feed_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-boiler_feed ;
-    tss:featureOfInterest ex:boiler_feed .
+    tss:featureOfInterest ex:boiler_feed ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33996"^^xsd:integer ;
+        tss:missing "1037"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "1.45045"^^xsd:double ;
+        tss:observedMaximum "57054.147219"^^xsd:double ;
+        tss:mean "10.365869883662784"^^xsd:double ;
+        tss:median "4.626449"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-boiler_water_delivery_conductivity-field
     a tss:Field ;
@@ -173,7 +295,21 @@ ex:factory-boiler_water_delivery_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-boiler_water_delivery ;
-    tss:featureOfInterest ex:boiler_water_delivery .
+    tss:featureOfInterest ex:boiler_water_delivery ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33967"^^xsd:integer ;
+        tss:missing "1066"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "0.0"^^xsd:double ;
+        tss:observedMaximum "312551.014798"^^xsd:double ;
+        tss:mean "25.75021324329496"^^xsd:double ;
+        tss:median "1.039377"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-dockwater_blowdown_conductivity-field
     a tss:Field ;
@@ -188,7 +324,21 @@ ex:factory-dockwater_blowdown_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-dockwater_blowdown ;
-    tss:featureOfInterest ex:dockwater_blowdown .
+    tss:featureOfInterest ex:dockwater_blowdown ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "34000"^^xsd:integer ;
+        tss:missing "1033"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "0.0"^^xsd:double ;
+        tss:observedMaximum "22909.422542"^^xsd:double ;
+        tss:mean "8653.226761380412"^^xsd:double ;
+        tss:median "7494.228771"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-venturi_reject_conductivity-field
     a tss:Field ;
@@ -203,7 +353,21 @@ ex:factory-venturi_reject_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-venturi_reject ;
-    tss:featureOfInterest ex:venturi_reject .
+    tss:featureOfInterest ex:venturi_reject ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33998"^^xsd:integer ;
+        tss:missing "1035"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "0.0"^^xsd:double ;
+        tss:observedMaximum "47844.229807"^^xsd:double ;
+        tss:mean "19604.451817061476"^^xsd:double ;
+        tss:median "18475.501609"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-ro1de_feed_conductivity-field
     a tss:Field ;
@@ -216,7 +380,21 @@ ex:factory-ro1de_feed_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1de_feed ;
-    tss:featureOfInterest ex:ro1de_feed .
+    tss:featureOfInterest ex:ro1de_feed ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33994"^^xsd:integer ;
+        tss:missing "1039"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "32.637959"^^xsd:double ;
+        tss:observedMaximum "11972097.073206"^^xsd:double ;
+        tss:mean "6392.581568974113"^^xsd:double ;
+        tss:median "2347.34368"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-ro1d_feed_conductivity-field
     a tss:Field ;
@@ -229,7 +407,21 @@ ex:factory-ro1d_feed_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1d_feed ;
-    tss:featureOfInterest ex:ro1d_feed .
+    tss:featureOfInterest ex:ro1d_feed ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33993"^^xsd:integer ;
+        tss:missing "1040"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "4.039894"^^xsd:double ;
+        tss:observedMaximum "12081262.451126"^^xsd:double ;
+        tss:mean "3379.540025022093"^^xsd:double ;
+        tss:median "36.6465"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:factory-ro1e_feed_conductivity-field
     a tss:Field ;
@@ -242,4 +434,18 @@ ex:factory-ro1e_feed_conductivity-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1e_feed ;
-    tss:featureOfInterest ex:ro1e_feed .
+    tss:featureOfInterest ex:ro1e_feed ;
+    tss:summary [
+        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "33991"^^xsd:integer ;
+        tss:missing "1042"^^xsd:integer ;
+        tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "3.929154"^^xsd:double ;
+        tss:observedMaximum "12039157.659813"^^xsd:double ;
+        tss:mean "4686.543670799653"^^xsd:double ;
+        tss:median "53.967353"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .

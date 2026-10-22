@@ -1,3 +1,4 @@
+@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -39,19 +40,52 @@ ex:rodenhuizedok-source
 
 # Field definitions include measurement meaning, units, sensor and feature.
 
+# Generated column summaries (calculated from the actual data, not example values).
+# Each summary covers existing rows/points in [tss:from, tss:until) only.
+# tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
+# whitespace-only strings are not treated as empty. tss:count counts present values;
+# tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
+# tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
+# Numeric aggregates are for conductivity fields, in their declared units if known.
+# Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
+# All present readings are included regardless of quality codes or allowed bounds.
+# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
+# For embedded data these summaries describe only the supplied sample points.
+# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+
 ex:rodenhuizedok-ts_id-field
     a tss:Field ;
     tss:columnName "ts_id" ;
     rdfs:label "ts_id"@en ;
     tss:datatype xsd:integer ;
-    rdfs:comment "Waterinfo time series identifier (the same on every row)."@en .
+    rdfs:comment "Waterinfo time series identifier (the same on every row)."@en ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "158022"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:rodenhuizedok-time-field
     a tss:Field ;
     tss:columnName "Timestamp" ;
     rdfs:label "Timestamp"@en ;
     tss:datatype xsd:dateTime ;
-    rdfs:comment "Observation time (UTC)."@en .
+    rdfs:comment "Observation time (UTC)."@en ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "158022"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:rodenhuizedok-ec20-field
     a tss:Field ;
@@ -65,7 +99,21 @@ ex:rodenhuizedok-ec20-field
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-rodenhuizedok-ec20 ;
-    tss:featureOfInterest ex:water-rodenhuizedok .
+    tss:featureOfInterest ex:water-rodenhuizedok ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "158022"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "475.51"^^xsd:double ;
+        tss:observedMaximum "19526.76"^^xsd:double ;
+        tss:mean "6334.6262085658955"^^xsd:double ;
+        tss:median "5531.94"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:rodenhuizedok-interpolation-type-field
     a tss:Field ;
@@ -73,7 +121,17 @@ ex:rodenhuizedok-interpolation-type-field
     rdfs:label "Interpolation Type"@en ;
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS interpolation type code of the value."@en ;
-    tss:describesField ex:rodenhuizedok-ec20-field .
+    tss:describesField ex:rodenhuizedok-ec20-field ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "158022"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:rodenhuizedok-quality-code-field
     a tss:Field ;
@@ -81,7 +139,17 @@ ex:rodenhuizedok-quality-code-field
     rdfs:label "Quality Code"@en ;
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS quality code of the value."@en ;
-    tss:describesField ex:rodenhuizedok-ec20-field .
+    tss:describesField ex:rodenhuizedok-ec20-field ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "158022"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:rodenhuizedok-quality-code-name-field
     a tss:Field ;
@@ -89,7 +157,17 @@ ex:rodenhuizedok-quality-code-name-field
     rdfs:label "Quality Code Name"@en ;
     tss:datatype xsd:string ;
     rdfs:comment "Short name of the quality code."@en ;
-    tss:describesField ex:rodenhuizedok-ec20-field .
+    tss:describesField ex:rodenhuizedok-ec20-field ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "158022"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:rodenhuizedok-quality-code-description-field
     a tss:Field ;
@@ -98,7 +176,17 @@ ex:rodenhuizedok-quality-code-description-field
     tss:datatype rdf:langString ;
     rdfs:comment "Description of the quality code."@en ;
     tss:language "en" ;
-    tss:describesField ex:rodenhuizedok-ec20-field .
+    tss:describesField ex:rodenhuizedok-ec20-field ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "158022"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
 
 ex:rodenhuizedok-quality-code-color-field
     a tss:Field ;
@@ -107,4 +195,14 @@ ex:rodenhuizedok-quality-code-color-field
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)."@en ;
     tss:observedProperty ex:qualityCodeColor ;
-    tss:describesField ex:rodenhuizedok-ec20-field .
+    tss:describesField ex:rodenhuizedok-ec20-field ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "158022"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
