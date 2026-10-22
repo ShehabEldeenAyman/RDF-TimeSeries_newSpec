@@ -36,6 +36,10 @@
 # The metadata conforms when the report holds no sh:Violation. Warnings point at
 # things that look wrong; with -w (allow warnings) they don't fail the run.
 #
+# The metadata document (<>, resolved against the document base IRI)
+#   Required:  D1 exactly one document with tss:modifiedAt
+#              D2 one xsd:dateTime timestamp with a timezone
+#
 # The source (tss:Source)
 #   Required:     S1 the source (exactly one)    S4 time field
 #                 S2 mutable                     S5 has field (at least one)
@@ -112,6 +116,49 @@ emb:Warning a sh:PropertyGroup ;
     rdfs:label "Warning"@en ;
     rdfs:comment "Looks wrong, but the metadata still conforms (sh:Warning)."@en ;
     sh:order 3 .
+
+
+# --- The metadata document ----------------------------------------------------
+# Target a fixed term for the existence check so a missing tss:modifiedAt fails.
+# Targeting only subjects of tss:modifiedAt would skip documents without a stamp.
+# This works independently of the data document's base IRI; no fixed file URL is used.
+
+emb:MetadataDocumentExistsShape a sh:NodeShape ;
+    sh:targetNode tss:modifiedAt ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "D1 metadata document: exactly one metadata document must have tss:modifiedAt (declare it on <>)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS { ?document tss:modifiedAt ?stamp }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "D1 metadata document: tss:modifiedAt must describe only one metadata document." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                ?document tss:modifiedAt ?stamp .
+                ?value tss:modifiedAt ?otherStamp .
+                FILTER (?document != ?value)
+            }""" ;
+    ] .
+
+emb:MetadataDocumentShape a sh:NodeShape ;
+    sh:targetSubjectsOf tss:modifiedAt ;
+    sh:nodeKind sh:IRI ;
+    sh:property [
+        sh:name "D2 modified at" ;
+        sh:group emb:Required ;
+        sh:path tss:modifiedAt ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ;
+        sh:message "The metadata document needs exactly one tss:modifiedAt, an xsd:dateTime with a timezone (preferably Z for UTC)." ;
+    ] .
 
 
 # --- S1 the source ------------------------------------------------------------

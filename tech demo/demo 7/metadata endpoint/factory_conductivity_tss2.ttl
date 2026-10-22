@@ -6,6 +6,9 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
+# Last edit of this metadata document, separate from data and summary timestamps.
+<> tss:modifiedAt "2026-10-22T14:13:56Z"^^xsd:dateTime .
+
 # Demo 7: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
