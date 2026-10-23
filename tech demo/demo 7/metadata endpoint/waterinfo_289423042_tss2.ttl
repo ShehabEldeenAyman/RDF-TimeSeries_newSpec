@@ -1,3 +1,4 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
@@ -7,7 +8,7 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
 # Last edit of this metadata document, separate from data and summary timestamps.
-<> tss:modifiedAt "2026-10-22T14:13:56Z"^^xsd:dateTime .
+<> tss:modifiedAt "2026-10-23T08:37:07Z"^^xsd:dateTime .
 
 # Demo 7: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
@@ -22,6 +23,13 @@
 ex:grootdok-source
     a tss:Source ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
+    # Optional descriptive RDF; publishers may use any vocabulary and additional properties.
+    tss:description [
+        dcterms:spatial [
+            a dcterms:Location ;
+            rdfs:label "Kanaal Gent-Terneuzen Grootdok (BE)"@en
+        ]
+    ] ;
     tss:mutable false ;
     tss:producedBy ex:station-grootdok ;
     tss:from "2021-03-03T23:45:00Z"^^xsd:dateTime ;

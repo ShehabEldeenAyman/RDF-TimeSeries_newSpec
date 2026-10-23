@@ -1,3 +1,5 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix s4inma: <https://saref.etsi.org/saref4inma/> .
 @prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
@@ -7,7 +9,7 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
 # Last edit of this metadata document, separate from data and summary timestamps.
-<> tss:modifiedAt "2026-10-22T14:13:56Z"^^xsd:dateTime .
+<> tss:modifiedAt "2026-10-23T08:37:07Z"^^xsd:dateTime .
 
 # Demo 7: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
@@ -22,6 +24,14 @@
 ex:factory-source
     a tss:Source ;
     rdfs:label "Factory water conductivity, 2025"@en ;
+    # Optional descriptive RDF; publishers may use any vocabulary and additional properties.
+    tss:description [
+        dcterms:spatial [
+            a s4inma:Factory ;
+            # Illustrative site description: the factory name and coordinates were not supplied.
+            rdfs:label "Factory site"@en
+        ]
+    ] ;
     tss:mutable false ;
     tss:producedBy ex:system1 ;
     tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
