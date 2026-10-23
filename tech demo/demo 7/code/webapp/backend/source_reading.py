@@ -4,6 +4,7 @@ message_text for error messages) and where a tss:dataFile is (iri_to_location).
 Used by documents.load_source and by the modules that read the data and answer the routes."""
 from fastapi import HTTPException
 from rdflib import Literal, URIRef, RDF, RDFS
+from rdflib.namespace import PROV
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 from urllib.request import url2pathname
@@ -70,6 +71,38 @@ def read_field(graph, field, time_field):
         "unit": graph.value(field, TSS.unit),
         "describes": graph.value(field, TSS.describesField),  # the field this one says something about
     }
+
+
+# The attributes of a field's stored summary (tss:summary): the name each one has in the SQL
+# table "summaries" (sql_box.METADATA_TABLES), and its property. Every attribute is optional.
+SUMMARY_ATTRIBUTES = [
+    ("from_time", TSS["from"]),                       # the summary covers [from, until)
+    ("until_time", TSS.until),
+    ("missing_value_policy", TSS.missingValuePolicy),  # e.g. tss:ExcludeEmptyValues
+    ("value_count", TSS["count"]),                     # how many values there are
+    ("missing", TSS.missing),                          # how many rows have an empty value
+    ("first_time", TSS.firstTime),                     # the first and last time with a value
+    ("last_time", TSS.lastTime),
+    ("observed_minimum", TSS.observedMinimum),         # only for numeric fields
+    ("observed_maximum", TSS.observedMaximum),
+    ("mean", TSS.mean),
+    ("median", TSS.median),
+    ("generated_at", PROV.generatedAtTime),            # when the summary was computed
+]
+
+
+def read_summary(graph, field):
+    """A field's stored summary (its tss:summary node) as RDF terms, e.g. {"value_count":
+    Literal("94853", datatype=XSD.integer), "mean": ..., ...} (None for an attribute it does not state).
+    None when the field has no tss:summary. The numbers were computed from the data when the
+    metadata was made (prov:generatedAtTime); this app shows and checks them, it never changes them."""
+    summary = graph.value(field, TSS.summary)
+    if summary is None:
+        return None
+    values = {}
+    for name, prop in SUMMARY_ATTRIBUTES:
+        values[name] = graph.value(summary, prop)
+    return values
 
 
 def field_order(field):

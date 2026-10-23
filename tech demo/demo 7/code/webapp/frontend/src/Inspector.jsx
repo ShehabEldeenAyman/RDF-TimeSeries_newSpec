@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SourceFiles } from './SourceFiles'
+import { SummaryFacts } from './SummaryTable'
 import { FIELD_SECTIONS, SHOWN_ELSEWHERE, SOURCE_PANEL_SKIPS, LINKABLE_VOCABULARIES } from './sections'
 import { firstField, fieldLabel, fieldName, fieldText, roleText } from './fields'
 import {
@@ -134,6 +135,15 @@ function FieldPanel({ rdf, fields, field, onPick }) {
           </table>
         </div>
       ))}
+
+      <div className="inspector-section">
+        <h4>Stored summary</h4>
+        <p className="muted small">
+          What this field's <code>tss:summary</code> says: numbers computed from the data when the metadata was made,
+          over the readings in [from, until). The Query tab compares them with the data now.
+        </p>
+        <SummaryFacts rdf={rdf} field={field} />
+      </div>
     </section>
   )
 }

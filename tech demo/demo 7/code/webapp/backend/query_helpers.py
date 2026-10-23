@@ -2,6 +2,7 @@
 form, the summary numbers, the gaps in the data and the hourly/daily values. No routes."""
 from fastapi import HTTPException
 from datetime import datetime, timezone
+import statistics
 
 
 def parse_time(text):
@@ -49,13 +50,18 @@ def duration_text(seconds):
 
 
 def summarize(readings):
-    """Count, mean, min and max of the readings (empty cells are counted apart).
+    """Count, mean, median, min and max of the readings (empty cells are counted apart), and the
+    first and last time with a value: the same numbers a field's stored summary (tss:summary)
+    states, so the Query tab can put the two side by side.
     Each reading is {"moment": its time (a datetime), "value": its value}."""
     count = 0
     empty = 0
     total = 0
     lowest = None
     highest = None
+    values = []  # every value, for the median
+    first_time = None
+    last_time = None
     for reading in readings:
         value = reading["value"]
         if value is None:
@@ -65,16 +71,48 @@ def summarize(readings):
             continue
         count += 1
         total += value
+        values.append(value)
         if lowest is None or value < lowest["value"]:
             lowest = reading
         if highest is None or value > highest["value"]:
             highest = reading
+        if first_time is None or reading["moment"] < first_time:
+            first_time = reading["moment"]
+        if last_time is None or reading["moment"] > last_time:
+            last_time = reading["moment"]
 
-    summary = {"count": count, "empty": empty, "mean": None, "min": None, "max": None}
+    summary = {"count": count, "empty": empty, "mean": None, "median": None, "min": None, "max": None,
+               "firstTime": None, "lastTime": None}
     if count > 0:
         summary["mean"] = round(total / count, 3)
+        # The middle value; with an even number of values, the mean of the middle two
+        summary["median"] = statistics.median(values)
         summary["min"] = {"value": lowest["value"], "time": time_text(lowest["moment"])}
         summary["max"] = {"value": highest["value"], "time": time_text(highest["moment"])}
+        summary["firstTime"] = time_text(first_time)
+        summary["lastTime"] = time_text(last_time)
+    return summary
+
+
+def text_summary(readings):
+    """For a field that holds text: how many readings have a value, how many are empty, and the
+    first and last time with a value. (No mean, median, min or max: those need numbers.)"""
+    summary = {"count": 0, "empty": 0, "mean": None, "median": None, "min": None, "max": None,
+               "firstTime": None, "lastTime": None}
+    first_time = None
+    last_time = None
+    for reading in readings:
+        if reading["value"] is None:
+            summary["empty"] += 1
+            continue
+        summary["count"] += 1
+        if first_time is None or reading["moment"] < first_time:
+            first_time = reading["moment"]
+        if last_time is None or reading["moment"] > last_time:
+            last_time = reading["moment"]
+    if first_time is not None:
+        summary["firstTime"] = time_text(first_time)
+        summary["lastTime"] = time_text(last_time)
     return summary
 
 

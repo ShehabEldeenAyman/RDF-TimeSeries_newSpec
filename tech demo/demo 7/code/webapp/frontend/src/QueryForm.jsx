@@ -6,6 +6,7 @@ import {
   TSS_DELIMITER, TSS_DATATYPE, TSS_UNIT,
 } from './tss'
 import { firstField, fieldName, fieldText, isTimeField, unitText } from './fields'
+import { SummaryCheck } from './SummaryCheck'
 
 // The words the form and the results use for the backend's options
 const RESAMPLE_NAMES = { '': 'every reading', hour: 'one value per hour', day: 'one value per day' }
@@ -263,6 +264,9 @@ export function QueryForm({ endpoint, rdf }) {
         </form>
       </section>
 
+      {/* key: a new check for each picked field, so an answer for another field is never shown */}
+      <SummaryCheck key={fieldIri} endpoint={endpoint} rdf={rdf} fieldIri={fieldIri} />
+
       {error && <p className="error long-text">Error: {error}</p>}
       {result && <Summary result={result} request={request} rdf={rdf} />}
       {result && <QueryResult result={result} request={request} rdf={rdf} />}
@@ -286,6 +290,7 @@ function Summary({ result, request, rdf }) {
       <div className="stats">
         <Stat name="Readings" value={summary.count} />
         <Stat name="Mean" value={summary.mean === null ? '—' : summary.mean + unit} />
+        <Stat name="Median" value={summary.median === null ? '—' : summary.median + unit} />
         <Stat name="Minimum" value={summary.min ? summary.min.value + unit : '—'} note={summary.min && summary.min.time} />
         <Stat name="Maximum" value={summary.max ? summary.max.value + unit : '—'} note={summary.max && summary.max.time} />
         <Stat name="Empty cells" value={summary.empty} />

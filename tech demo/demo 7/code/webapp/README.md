@@ -30,15 +30,24 @@ JSON is used only for computed tabular results (rows, previews, filter values, r
 
 | Tab | What it shows | Where it comes from |
 |---|---|---|
-| Overview | The source and how to read its data (literals written as in Turtle), the fields table (role, datatype, unit, observed property, range, ...), every other statement in the document, the number of embedded points, and the document as it was sent | The store; the point count from `rdf.points` (App.jsx reads the points once with `readPoints`, which calls `liftPoints`) |
-| Series inspector | Pick a field: each of its properties, marked as stated on the field, on its source, or missing; the source's own statements; the Turtle of the field and its source; the first 10 rows of the data | The store. Rows: `GET /rows` for CSV and Parquet; for embedded points, `rdf.points` (read in the browser, no request) |
+| Overview | The source and how to read its data (literals written as in Turtle), when the document was last edited (`tss:modifiedAt`), the fields table (role, datatype, unit, observed property, range, ...), the stored summaries of the fields, every other statement in the document, the number of embedded points, and the document as it was sent | The store; the point count from `rdf.points` (App.jsx reads the points once with `readPoints`, which calls `liftPoints`) |
+| Series inspector | Pick a field: each of its properties, marked as stated on the field, on its source, or missing; its stored summary; the source's own statements; the Turtle of the field and its source; the first 10 rows of the data | The store. Rows: `GET /rows` for CSV and Parquet; for embedded points, `rdf.points` (read in the browser, no request) |
 | SHACL | Conformance with the default shapes (picked by the backend from `tss:embedded`) or uploaded shapes: conforms or not, counts per severity, one row per result, and the report as Turtle | The backend's report (Turtle), parsed in the browser; labels of focus nodes from the store |
 | RDF generation | Observations and triples per field, a preview of the first 200 observations, and a download of the whole graph | `POST /rdf` (counts and links, JSON); the preview fetched and parsed in the browser; field names from the store |
 | Files | External source: the first lines of `tss:dataFile` (Parquet as CSV text) and a download of the original file. Embedded source: the `tss:points` literal, the points read as RDF (a table, and the triples as Turtle), and a warning for undeclared keys. Both: the metadata document as it was sent | `GET /data` (JSON) for data files; the store and `rdf.points` for points |
-| Query | Pick a field: time, value and column filters, summary, gaps, and hourly/daily aggregation for numeric fields | `/filter-columns` and `/query` (JSON); time window, unit and datatype from the store |
-| SQL (DuckDB) | One data table with a column per field, plus the `source` and `fields` metadata tables (IRIs in full), example queries and a list of the tables | `/sql/tables` and `POST /sql` (JSON); what each column means, and the labels in the example names, from the store |
+| Query | Pick a field: time, value and column filters, summary, gaps, and hourly/daily aggregation for numeric fields; "Check the stored summary" puts the field's `tss:summary` next to the same numbers computed from the data now, marked same or different | `/filter-columns` and `/query` (JSON); time window, unit, datatype and the stored summary from the store |
+| SQL (DuckDB) | One data table with a column per field, plus the `source`, `fields` and `summaries` metadata tables (IRIs in full), example queries and a list of the tables | `/sql/tables` and `POST /sql` (JSON); what each column means, and the labels in the example names, from the store |
 
 The `tss:dataFile` IRI is resolved against the document's IRI and shown as text. `data/` is not served to the browser (the factory data is NDA-derived), so data previews and downloads go through the `/api` routes.
+
+## Stored summaries (`tss:summary`)
+
+A field may carry a `tss:summary` node with numbers computed from the data when the metadata was made: the window (`tss:from`, `tss:until`), `tss:missingValuePolicy`, `tss:count`, `tss:missing`, `tss:firstTime`, `tss:lastTime`, for numeric fields `tss:observedMinimum`, `tss:observedMaximum`, `tss:mean` and `tss:median`, and `prov:generatedAtTime`. Every attribute is optional. The document says when it was last edited with `<> tss:modifiedAt`.
+
+The summaries are not refreshed by themselves, so the app can check them against the data:
+
+- The Query tab's "Check the stored summary" asks `/query` for the field's readings in the summary's window (no filters) and compares count, empty values, first and last time, and for numbers minimum, maximum, mean (to 3 decimals) and median.
+- The SQL box has a `summaries` table (one row per field with a summary; `source` has a `modified_at` column) and three example queries: the stored summaries; one series' stored summary next to the same numbers computed with SQL; and "Is every stored summary still up to date?", which recomputes count, empty values and first/last time for every column in its summary's window.
 
 ## Embedded points (`tss:points`)
 
@@ -121,7 +130,7 @@ JSON answers:
 | `GET /api/endpoints/{id}/data?lines=20` | `{found, note, text}`: the first lines of the data file (Parquet as CSV text) |
 | `GET /api/endpoints/{id}/data/download` | The original CSV or Parquet file (an attachment, not JSON) |
 | `GET /api/endpoints/{id}/filter-columns?field=<IRI>` | `[{field, values}]`: the other fields with 2 to 30 different values |
-| `GET /api/endpoints/{id}/query?field=<IRI>` | `resample`, `aggregate`, `filterValue`, `summary`, `gaps`, `totalRows`, `limitReached`, `readings`. Parameters: `start`, `end`, `min_value`, `max_value`, `filterField` (an IRI), `filter_value`, `resample` (`hour`, `day`), `aggregate` (`mean`, `min`, `max`), `limit` (up to 5000) |
+| `GET /api/endpoints/{id}/query?field=<IRI>` | `resample`, `aggregate`, `filterValue`, `summary` (`count`, `empty`, `mean`, `median`, `min`, `max`, `firstTime`, `lastTime`), `gaps`, `totalRows`, `limitReached`, `readings`. Parameters: `start`, `end`, `min_value`, `max_value`, `filterField` (an IRI), `filter_value`, `resample` (`hour`, `day`), `aggregate` (`mean`, `min`, `max`), `limit` (up to 5000) |
 | `GET /api/endpoints/{id}/sql/tables` | The data table (`name`, `error`, `columns` as `{name, type, field}`), `metadataTables`, `examples` (`{title, sql, field}`), `maxRows`, `maxSeconds` |
 | `POST /api/endpoints/{id}/sql` | Body `{"sql": "SELECT ..."}`; answers `columns`, `rows`, `moreRows`, `seconds`, `skipped` |
 

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from rdflib import Literal, RDFS
 from pydantic import BaseModel
+from decimal import Decimal
 import csv
 import duckdb
 
@@ -63,6 +64,62 @@ def sql_value(literal, column):
         raise ValueError(f"Column {column['name']} should be {sql_box.TYPE_WORDS[column['type']]}, "
                          f"but the data has: {literal}")
     return value
+
+
+def summary_value(term, sql_type):
+    """One attribute of a stored summary (an RDF term, or None), for its column of the SQL table
+    "summaries": a time as a datetime (read like every other time, see value_reading.literal_time),
+    a number as a number (read by rdflib), an IRI as its full text. A value that does not fit its
+    column, e.g. "abc"^^xsd:integer, becomes NULL here: the SHACL tab reports it."""
+    if term is None:
+        return None
+    if sql_type == "VARCHAR":
+        return str(term)
+    if not isinstance(term, Literal):
+        return None
+    if sql_type == "TIMESTAMPTZ":
+        return value_reading.literal_time(term)
+    value = term.toPython()  # an int, a float or a Decimal; the literal itself when rdflib can't read it
+    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+        return None
+    if sql_type == "BIGINT":
+        return int(value) if value == int(value) else None
+    return float(value)
+
+
+def summary_rows(graph, source, loaded_name):
+    """The rows of the SQL table "summaries": one per field that has a stored summary (tss:summary)"""
+    sql_types = dict(sql_box.METADATA_TABLES["summaries"]["columns"])  # column name -> its SQL type
+    rows = []
+    for field in source["fields"]:
+        summary = source_reading.read_summary(graph, field["node"])
+        if summary is None:
+            continue
+        row = {"field": str(field["node"]), "column_name": field["columnName"], "sql_table": loaded_name}
+        for name, prop in source_reading.SUMMARY_ATTRIBUTES:
+            row[name] = summary_value(summary[name], sql_types[name])
+        rows.append(row)
+    return rows
+
+
+def summarized_fields(graph, source):
+    """The IRIs of the fields that have a stored summary (tss:summary)"""
+    summarized = []
+    for field in source["fields"]:
+        if graph.value(field["node"], TSS.summary) is not None:
+            summarized.append(field["node"])
+    return summarized
+
+
+def document_modified_at(graph):
+    """When the metadata document was last edited: its tss:modifiedAt, as a datetime, or None.
+    The document states it about itself (<> in Turtle, read as the document's own IRI), and only
+    the document has one (SHACL's check D1), so the one subject with a tss:modifiedAt is the document.
+    None when there is no such statement, or more than one."""
+    values = list(graph.subject_objects(TSS.modifiedAt))
+    if len(values) != 1 or not isinstance(values[0][1], Literal):
+        return None
+    return value_reading.literal_time(values[0][1])
 
 
 def sql_table(graph, source):
@@ -176,7 +233,8 @@ def sql_schema(endpoint_id, request: Request = None):
             "columns": table["columns"],   # [{"name", "type", "field": <the field's IRI, or None>}]
         }],
         "metadataTables": metadata_tables,
-        "examples": sql_box.example_queries(table if table["error"] is None else None, source["fields"]),
+        "examples": sql_box.example_queries(table if table["error"] is None else None, source["fields"],
+                                            summarized_fields(graph, source)),
         "maxRows": sql_box.MAX_ROWS,
         "maxSeconds": sql_box.MAX_SECONDS,
     }
@@ -203,7 +261,7 @@ def run_sql(endpoint_id, query: SqlQuery, request: Request = None):
         skipped.append({"name": table["name"], "error": table["error"]})
     loaded_name = table["name"] if table["error"] is None else None
 
-    # 2. The TSS metadata, for the "source" and "fields" tables (see sql_box.METADATA_TABLES).
+    # 2. The TSS metadata, for the "source", "fields" and "summaries" tables (see sql_box.METADATA_TABLES).
     #    IRIs are written in full, so a query does not depend on the prefixes of the file.
     node = source["node"]
     label = graph.value(node, RDFS.label)
@@ -217,6 +275,7 @@ def run_sql(endpoint_id, query: SqlQuery, request: Request = None):
         "until_time": value_reading.window_moment(graph, node, "until"),
         "produced_by": text_or_none(graph.value(node, TSS.producedBy)),
         "mutable": source_reading.boolean_value(graph, node, TSS.mutable),
+        "modified_at": document_modified_at(graph),
     }
     field_rows = []
     for field in source["fields"]:
@@ -236,7 +295,11 @@ def run_sql(endpoint_id, query: SqlQuery, request: Request = None):
 
     # 3. Load, lock, run, throw away
     try:
-        con, not_loaded = sql_box.open_database(tables, {"source": [source_row], "fields": field_rows})
+        con, not_loaded = sql_box.open_database(tables, {
+            "source": [source_row],
+            "fields": field_rows,
+            "summaries": summary_rows(graph, source, loaded_name),
+        })
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     skipped = skipped + not_loaded  # a missing data file + data that could not be loaded

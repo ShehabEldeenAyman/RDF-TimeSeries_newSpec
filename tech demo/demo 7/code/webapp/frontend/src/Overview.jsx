@@ -1,9 +1,12 @@
 import { roleText } from './fields'
+import { SummaryTable } from './SummaryTable'
 import {
   all,
   has,
   one,
   readFields,
+  readSummary,
+  documentModifiedAt,
   isEmbedded,
   shortName,
   termText,
@@ -38,6 +41,8 @@ import {
   TSS_MINIMUM,
   TSS_MAXIMUM,
   TSS_DESCRIBES_FIELD,
+  TSS_SUMMARY,
+  TSS_MODIFIED_AT,
 } from './tss'
 
 // The properties of a field that the fields table shows. Everything else the document
@@ -56,6 +61,7 @@ const FIELD_PROPERTIES = [
   TSS_MINIMUM,
   TSS_MAXIMUM,
   TSS_DESCRIBES_FIELD, // in the Role column
+  TSS_SUMMARY,         // in the "Stored summaries" card
 ]
 
 // One RDF term as text for people:
@@ -178,11 +184,15 @@ function PointsNote({ points }) {
 
 // Is this statement (quad) one of those the cards of the Overview show?
 //   shownSourceProperties: the properties of the source the "Source" and "Reading the data" cards show
-function isShown(quad, source, fields, shownSourceProperties) {
+//   summaryNodes: the fields' tss:summary nodes (the "Stored summaries" card shows what they say)
+//   documentIri: the IRI of the metadata document (<>): the top card shows its tss:modifiedAt
+function isShown(quad, source, fields, shownSourceProperties, summaryNodes, documentIri) {
   const predicate = quad.predicate.value
   if (quad.subject.equals(source)) {
     return shownSourceProperties.includes(predicate)
   }
+  if (quad.subject.value === documentIri && predicate === TSS_MODIFIED_AT) return true
+  if (summaryNodes.some((node) => node.equals(quad.subject))) return true
   // Is the subject one of the fields of the source? (equals compares two RDF terms)
   const isField = fields.some((field) => field.equals(quad.subject))
   if (!isField) return false
@@ -194,10 +204,15 @@ function isShown(quad, source, fields, shownSourceProperties) {
 // All statements of the document that the cards do not show: other properties of the
 // source and its fields (a licence, provenance, ...), and what the document says about
 // anything else (a sensor, a station, ...)
-function otherStatements(store, source, fields, shownSourceProperties) {
+function otherStatements(store, source, fields, shownSourceProperties, documentIri) {
+  const summaryNodes = []
+  for (const field of fields) {
+    const summary = readSummary(store, field)
+    if (summary !== null) summaryNodes.push(summary.node)
+  }
   const others = []
   for (const quad of store.getQuads(null, null, null, null)) {
-    if (!isShown(quad, source, fields, shownSourceProperties)) others.push(quad)
+    if (!isShown(quad, source, fields, shownSourceProperties, summaryNodes, documentIri)) others.push(quad)
   }
   return others
 }
@@ -230,7 +245,10 @@ export function Overview({ endpoint, rdf }) {
   if (embedded === true) shownSourceProperties.push(TSS_POINTS)
   else shownSourceProperties.push(TSS_FORMAT, TSS_DATA_FILE)
   if (csv) shownSourceProperties.push(TSS_DELIMITER, TSS_HEADER, TSS_ENCODING)
-  const others = otherStatements(store, source, fields, shownSourceProperties)
+  const others = otherStatements(store, source, fields, shownSourceProperties, endpoint.iri)
+  // When the document was last edited (it says so about itself: <> tss:modifiedAt ...)
+  const modifiedAt = documentModifiedAt(store, endpoint.iri)
+  const summaryCount = fields.filter((field) => readSummary(store, field) !== null).length
 
   return (
     <>
@@ -239,6 +257,11 @@ export function Overview({ endpoint, rdf }) {
         <p className="muted long-text">
           {endpoint.online ? 'Online metadata endpoint: ' : 'Metadata endpoint file: '}
           <a href={endpoint.iri} target="_blank" rel="noreferrer">{endpoint.iri}</a>
+        </p>
+        <p className="muted small">
+          {modifiedAt
+            ? <>Metadata last edited: <Term term={modifiedAt} prefixes={prefixes} plain /> (<code>tss:modifiedAt</code> on the document itself)</>
+            : 'The document does not say when it was last edited (no tss:modifiedAt).'}
         </p>
       </section>
 
@@ -330,6 +353,17 @@ export function Overview({ endpoint, rdf }) {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="card">
+        <h3>Stored summaries ({summaryCount} of {fields.length} fields)</h3>
+        <p className="muted small">
+          What each field's <code>tss:summary</code> says: numbers computed from the
+          {embedded === true ? ' embedded points' : ' data'} when the metadata was made (<code>prov:generatedAtTime</code>),
+          over the readings in [from, until). They are not refreshed by themselves: the Query tab and the SQL box
+          (its example queries) compare them with the data now.
+        </p>
+        <SummaryTable rdf={rdf} fields={fields} />
       </section>
 
       {others.length > 0 && (

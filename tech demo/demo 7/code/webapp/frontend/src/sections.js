@@ -30,6 +30,7 @@ import {
   TSS_DESCRIBES_FIELD,
   TSS_HAS_FIELD,
   TSS_POINTS,
+  TSS_SUMMARY,
 } from './tss'
 
 // The sections of the field panel, in the order the inspector shows them.
@@ -85,8 +86,8 @@ export const FIELD_SECTIONS = [
 ]
 
 // Properties of a field that the inspector shows in their own place (the heading, the
-// comments under it, the "Describes" row), so "Also stated" leaves them out
-export const SHOWN_ELSEWHERE = [RDF_TYPE, RDFS_LABEL, RDFS_COMMENT, TSS_DESCRIBES_FIELD]
+// comments under it, the "Describes" row, the "Stored summary" section), so "Also stated" leaves them out
+export const SHOWN_ELSEWHERE = [RDF_TYPE, RDFS_LABEL, RDFS_COMMENT, TSS_DESCRIBES_FIELD, TSS_SUMMARY]
 
 // Properties of the source that its panel leaves out: the type and the label are its
 // heading, its fields are listed under it, and the points can be very long

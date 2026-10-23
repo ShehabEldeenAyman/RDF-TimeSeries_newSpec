@@ -52,6 +52,7 @@ export const DCTERMS = 'http://purl.org/dc/terms/'
 export const SH = 'http://www.w3.org/ns/shacl#'
 export const SOSA = 'http://www.w3.org/ns/sosa/'
 export const QUDT = 'http://qudt.org/schema/qudt/'
+export const PROV = 'http://www.w3.org/ns/prov#'
 
 // When a key in tss:points is not the tss:columnName of any field, the JSON-LD parser
 // gives it a predicate under this namespace (instead of dropping it without a word).
@@ -69,6 +70,7 @@ export const KNOWN_PREFIXES = {
   sh: SH,
   sosa: SOSA,
   qudt: QUDT,
+  prov: PROV,
 }
 
 // --- The terms the app uses (full IRIs, as strings) ---------------------------
@@ -118,6 +120,38 @@ export const TSS_UNIT = TSS + 'unit'
 export const TSS_SENSOR = TSS + 'sensor'
 export const TSS_FEATURE_OF_INTEREST = TSS + 'featureOfInterest'
 export const TSS_DESCRIBES_FIELD = TSS + 'describesField'
+// When the metadata document was last edited (the document says it about itself: <> in Turtle)
+export const TSS_MODIFIED_AT = TSS + 'modifiedAt'
+// A field's stored summary: a blank node with numbers computed from the data when the metadata
+// was made (they are not refreshed by themselves). Every attribute is optional.
+export const TSS_SUMMARY = TSS + 'summary'
+export const TSS_MISSING_VALUE_POLICY = TSS + 'missingValuePolicy'  // e.g. tss:ExcludeEmptyValues
+export const TSS_COUNT = TSS + 'count'                 // how many values
+export const TSS_MISSING = TSS + 'missing'             // how many empty values
+export const TSS_FIRST_TIME = TSS + 'firstTime'        // the first and last time with a value
+export const TSS_LAST_TIME = TSS + 'lastTime'
+export const TSS_OBSERVED_MINIMUM = TSS + 'observedMinimum'  // the numbers: only for numeric fields
+export const TSS_OBSERVED_MAXIMUM = TSS + 'observedMaximum'
+export const TSS_MEAN = TSS + 'mean'
+export const TSS_MEDIAN = TSS + 'median'
+export const PROV_GENERATED_AT_TIME = PROV + 'generatedAtTime'  // when the summary was computed
+
+// The attributes of a stored summary, in the order the app shows them:
+// a key (for the code), the property, and a name for people
+export const SUMMARY_ATTRIBUTES = [
+  { key: 'from', iri: TSS_FROM, name: 'from' },
+  { key: 'until', iri: TSS_UNTIL, name: 'until' },
+  { key: 'policy', iri: TSS_MISSING_VALUE_POLICY, name: 'missing-value policy' },
+  { key: 'count', iri: TSS_COUNT, name: 'values' },
+  { key: 'missing', iri: TSS_MISSING, name: 'empty values' },
+  { key: 'firstTime', iri: TSS_FIRST_TIME, name: 'first time' },
+  { key: 'lastTime', iri: TSS_LAST_TIME, name: 'last time' },
+  { key: 'minimum', iri: TSS_OBSERVED_MINIMUM, name: 'observed minimum' },
+  { key: 'maximum', iri: TSS_OBSERVED_MAXIMUM, name: 'observed maximum' },
+  { key: 'mean', iri: TSS_MEAN, name: 'mean' },
+  { key: 'median', iri: TSS_MEDIAN, name: 'median' },
+  { key: 'generatedAt', iri: PROV_GENERATED_AT_TIME, name: 'generated at' },
+]
 
 // The catalogue of endpoints (GET /api/catalog)
 export const DCAT_DATASET_CLASS = DCAT + 'Dataset'            // dcat:Dataset (a class)
@@ -297,6 +331,26 @@ function compareFields(store, a, b) {
 // tss:embedded is missing or not an xsd:boolean
 export function isEmbedded(store, source) {
   return booleanValue(one(store, source, TSS_EMBEDDED))
+}
+
+// A field's stored summary (its tss:summary node), or null when the field has none:
+//   { node: the blank node, values: { count: Literal "94853"^^xsd:integer, mean: ..., ... } }
+// An attribute the summary does not state is null. (Keys: see SUMMARY_ATTRIBUTES.)
+export function readSummary(store, field) {
+  const node = one(store, field, TSS_SUMMARY)
+  if (node === null) return null
+  const values = {}
+  for (const attribute of SUMMARY_ATTRIBUTES) {
+    values[attribute.key] = one(store, node, attribute.iri)
+  }
+  return { node: node, values: values }
+}
+
+// When the metadata document was last edited: its tss:modifiedAt literal, or null.
+// The document says it about itself (<> in Turtle), and the parser reads <> as the
+// document's own IRI: the base IRI it was parsed with (endpoint.iri, see App.jsx).
+export function documentModifiedAt(store, documentIri) {
+  return one(store, documentIri, TSS_MODIFIED_AT)
 }
 
 // --- Showing terms ------------------------------------------------------------

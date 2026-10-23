@@ -280,12 +280,7 @@ def query_series(endpoint_id, field, start=None, end=None, min_value=None, max_v
     if numeric:
         summary = query_helpers.summarize(kept)
     else:
-        summary = {"count": 0, "empty": 0, "mean": None, "min": None, "max": None}
-        for reading in kept:
-            if reading["value"] is None:
-                summary["empty"] += 1
-            else:
-                summary["count"] += 1
+        summary = query_helpers.text_summary(kept)
 
     # Only what was computed from the data, and what the request asked for: the browser
     # reads everything about the field and the source (label, unit, datatype, ...) from the RDF

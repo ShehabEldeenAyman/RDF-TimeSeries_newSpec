@@ -76,11 +76,12 @@ TYPE_WORDS = {
     "BOOLEAN": "true, false, 1 or 0",
 }
 
-# The two metadata tables, and their columns. IRIs (source, format, field, datatype, unit, ...)
+# The three metadata tables, and their columns. IRIs (source, format, field, datatype, unit, ...)
 # are written in full, e.g. https://w3id.org/tss#CSV, whatever prefixes the metadata file uses.
 METADATA_TABLES = {
     "source": {
-        "explanation": "The TSS source: one row, with what holds for every field. IRIs are written in full.",
+        "explanation": "The TSS source: one row, with what holds for every field. IRIs are written in full; "
+                       "modified_at is when the metadata document was last edited (tss:modifiedAt).",
         "columns": [
             ("source", "VARCHAR"),
             ("label", "VARCHAR"),
@@ -91,6 +92,7 @@ METADATA_TABLES = {
             ("until_time", "TIMESTAMPTZ"),
             ("produced_by", "VARCHAR"),
             ("mutable", "BOOLEAN"),
+            ("modified_at", "TIMESTAMPTZ"),
         ],
     },
     "fields": {
@@ -109,6 +111,30 @@ METADATA_TABLES = {
             ("sensor", "VARCHAR"),
             ("feature_of_interest", "VARCHAR"),
             ("describes", "VARCHAR"),
+        ],
+    },
+    # The column names after "sql_table" are those of source_reading.SUMMARY_ATTRIBUTES, in the same order
+    "summaries": {
+        "explanation": "The stored summaries (tss:summary): one row per field that has one, computed from "
+                       "the data when the metadata was made (generated_at) and not refreshed since. "
+                       "They cover [from_time, until_time); value_count counts the values, missing the "
+                       "empty ones; the numbers are only there for numeric fields.",
+        "columns": [
+            ("field", "VARCHAR"),
+            ("column_name", "VARCHAR"),
+            ("sql_table", "VARCHAR"),
+            ("from_time", "TIMESTAMPTZ"),
+            ("until_time", "TIMESTAMPTZ"),
+            ("missing_value_policy", "VARCHAR"),
+            ("value_count", "BIGINT"),
+            ("missing", "BIGINT"),
+            ("first_time", "TIMESTAMPTZ"),
+            ("last_time", "TIMESTAMPTZ"),
+            ("observed_minimum", "DOUBLE"),
+            ("observed_maximum", "DOUBLE"),
+            ("mean", "DOUBLE"),
+            ("median", "DOUBLE"),
+            ("generated_at", "TIMESTAMPTZ"),
         ],
     },
 }
@@ -265,8 +291,8 @@ def open_database(tables, metadata_rows):
     Returns (the database, the tables that could not be loaded and why).
 
     tables: the data tables (see load_table)
-    metadata_rows: {"source": [row], "fields": [row, ...]}, each row a dict with
-                   the columns of METADATA_TABLES"""
+    metadata_rows: {"source": [row], "fields": [row, ...], "summaries": [row, ...]}, each row
+                   a dict with the columns of METADATA_TABLES"""
     con = duckdb.connect()  # no file name: the database only lives in memory
     try:
         con.execute("SET TimeZone = 'UTC'")
@@ -375,7 +401,51 @@ def run_query(con, sql):
     }
 
 
-def example_queries(table, fields):
+def summary_window(when, indent):
+    """The SQL condition "this row of the data (d) lies in the window of the summary (s)":
+    [from_time, until_time), and no limit on a side the summary does not state.
+    indent: the spaces in front of each line"""
+    return (f"{indent}AND (s.from_time IS NULL OR d.{when} >= s.from_time)\n"
+            f"{indent}AND (s.until_time IS NULL OR d.{when} < s.until_time)")
+
+
+def summary_check_sql(t, when, columns):
+    """A query that checks every stored summary against the data: for each column with a summary,
+    the count, the empty values and the first/last time with a value, computed from the data now,
+    next to what the summary says. up_to_date is false as soon as one stated number differs
+    (a number the summary does not state is not checked).
+    t, when: the data table and its time column (both written for SQL)
+    columns: [(the column's name, its field's IRI), ...] of the columns that have a summary"""
+    parts = []
+    for name, iri in columns:
+        c = sql_identifier(name)
+        parts.append(
+            f"  SELECT {sql_text(iri)} AS field,\n"
+            f"         count(d.{c}) AS data_count,\n"
+            f"         count(*) - count(d.{c}) AS data_missing,\n"
+            f"         min(d.{when}) FILTER (WHERE d.{c} IS NOT NULL) AS data_first,\n"
+            f"         max(d.{when}) FILTER (WHERE d.{c} IS NOT NULL) AS data_last\n"
+            f"  FROM {t} AS d, summaries AS s\n"
+            f"  WHERE s.field = {sql_text(iri)}\n"
+            + summary_window(when, "    ")
+        )
+    return ("-- One row per column with a stored summary: what the summary says, and the same\n"
+            "-- numbers computed from the data now (only rows in the summary's window count)\n"
+            "WITH from_the_data AS (\n" + "\n  UNION ALL\n".join(parts) + "\n)\n"
+            "SELECT s.column_name,\n"
+            "       s.value_count AS stored_count, d.data_count,\n"
+            "       s.missing AS stored_missing, d.data_missing,\n"
+            "       s.first_time AS stored_first, d.data_first,\n"
+            "       s.last_time AS stored_last, d.data_last,\n"
+            "       (s.value_count IS NULL OR s.value_count = d.data_count)\n"
+            "         AND (s.missing IS NULL OR s.missing = d.data_missing)\n"
+            "         AND (s.first_time IS NULL OR s.first_time = d.data_first)\n"
+            "         AND (s.last_time IS NULL OR s.last_time = d.data_last) AS up_to_date\n"
+            "FROM summaries AS s JOIN from_the_data AS d USING (field)\n"
+            "ORDER BY up_to_date, s.column_name")
+
+
+def example_queries(table, fields, summarized):
     """A few queries to start from, made for this source's table and fields. Each example is
     {"title": a fixed English text, "sql": the query, "field": the IRI of the field it is about, or None}.
     The title names no field (no label, no column name): the browser reads the field's label
@@ -383,10 +453,20 @@ def example_queries(table, fields):
     table: the data table (None when it can't be loaded)
     fields: the fields from read_source in source_reading.py. Each is a dict with RDF terms (rdflib):
       "node" (the field's IRI), "columnName", "isTime", "label",
-      "observedProperty" and "describes" (the field it says something about), or None"""
+      "observedProperty" and "describes" (the field it says something about), or None
+    summarized: the IRIs (rdflib URIRefs) of the fields that have a stored summary (tss:summary)"""
     examples = [{"title": "Which column is which field (the TSS metadata)",
                  "sql": "SELECT column_name, role, datatype, unit, observed_property\nFROM fields",
                  "field": None}]
+    if len(summarized) > 0:
+        examples.append({
+            "title": "The stored summaries (tss:summary in the metadata)",
+            "sql": "SELECT column_name, value_count, missing, first_time, last_time,\n"
+                   "       observed_minimum, observed_maximum, round(mean, 3) AS mean, median,\n"
+                   "       generated_at\n"
+                   "FROM summaries\nORDER BY column_name",
+            "field": None,
+        })
     if table is None:
         return examples
 
@@ -408,6 +488,19 @@ def example_queries(table, fields):
         elif (field["observedProperty"] is not None and field["describes"] is None
               and types[field["columnName"]] in NUMERIC_TYPES):
             measured.append(field)
+
+    # Every column with a stored summary, checked against the data (needs the time column)
+    checked = []
+    for field in fields:
+        if field["node"] in summarized and field["columnName"] in types:
+            checked.append((field["columnName"], str(field["node"])))
+    if time_column is not None and len(checked) > 0:
+        examples.append({
+            "title": "Is every stored summary still up to date? (count, missing, first and last time)",
+            "sql": summary_check_sql(t, sql_identifier(time_column), checked),
+            "field": None,
+        })
+
     if time_column is None or len(measured) == 0:
         return examples
 
@@ -450,6 +543,26 @@ def example_queries(table, fields):
                f"ORDER BY d.{when}\nLIMIT 100",
         "field": first_iri,
     })
+
+    # The stored summary of the first series next to the same numbers computed from the data now
+    if first["node"] in summarized:
+        examples.append({
+            "title": "Stored summary next to the same numbers computed from the data",
+            "sql": f"SELECT 'stored (tss:summary)' AS summary, value_count, missing, first_time, last_time,\n"
+                   f"       observed_minimum AS minimum, observed_maximum AS maximum,\n"
+                   f"       round(mean, 3) AS mean, round(median, 3) AS median\n"
+                   f"FROM summaries\n"
+                   f"WHERE field = {sql_text(first_iri)}\n"
+                   f"UNION ALL\n"
+                   f"SELECT 'from the data now', count(d.{value}), count(*) - count(d.{value}),\n"
+                   f"       min(d.{when}) FILTER (WHERE d.{value} IS NOT NULL),\n"
+                   f"       max(d.{when}) FILTER (WHERE d.{value} IS NOT NULL),\n"
+                   f"       min(d.{value}), max(d.{value}), round(avg(d.{value}), 3), round(median(d.{value}), 3)\n"
+                   f"FROM {t} AS d, summaries AS s\n"
+                   f"WHERE s.field = {sql_text(first_iri)}\n"
+                   + summary_window(when, "  "),
+            "field": first_iri,
+        })
 
     # A field that describes the first value (e.g. a quality code): the readings per code.
     # tss:describesField points to the field itself, so we compare the two IRIs.
