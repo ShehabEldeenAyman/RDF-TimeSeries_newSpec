@@ -8,7 +8,7 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
 # Last edit of this metadata document, separate from data and summary timestamps.
-<> tss:modifiedAt "2026-10-23T08:37:07Z"^^xsd:dateTime .
+<> tss:modifiedAt "2026-10-23T10:22:39Z"^^xsd:dateTime .
 
 # Demo 7: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
@@ -23,8 +23,8 @@
 ex:grootdok-source
     a tss:Source ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
-    # Optional descriptive RDF; publishers may use any vocabulary and additional properties.
-    tss:description [
+    # Optional tss:source_description; publishers may use any RDF vocabulary and properties.
+    tss:source_description [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Grootdok (BE)"@en
@@ -52,6 +52,7 @@ ex:grootdok-source
     tss:encoding "utf-8" .
 
 # Field definitions include measurement meaning, units, sensor and feature.
+# Optional tss:field_description records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
 # Each summary covers existing rows/points in [tss:from, tss:until) only.
@@ -73,6 +74,9 @@ ex:grootdok-ts_id-field
     rdfs:label "ts_id"@en ;
     tss:datatype xsd:integer ;
     rdfs:comment "waterinfo.be time series identifier (the same on every row)"@en ;
+    tss:field_description [
+        dcterms:description "waterinfo.be time series identifier (the same on every row)"@en
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
@@ -91,6 +95,9 @@ ex:grootdok-time-field
     rdfs:label "Timestamp"@en ;
     tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC)"@en ;
+    tss:field_description [
+        dcterms:description "Observation time (UTC)"@en
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
@@ -116,6 +123,11 @@ ex:grootdok-ec20-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-grootdok-ec20 ;
     tss:featureOfInterest ex:water-grootdok ;
+    tss:field_description [
+        dcterms:description "Electrical conductivity at 20 °C"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-grootdok-ec20, ex:water-grootdok
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
@@ -139,6 +151,10 @@ ex:grootdok-interpolation-type-field
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS interpolation type code of the value"@en ;
     tss:describesField ex:grootdok-ec20-field ;
+    tss:field_description [
+        dcterms:description "KiWIS interpolation type code of the value"@en ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
@@ -158,6 +174,10 @@ ex:grootdok-quality-code-field
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS quality code of the value"@en ;
     tss:describesField ex:grootdok-ec20-field ;
+    tss:field_description [
+        dcterms:description "KiWIS quality code of the value"@en ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
@@ -177,6 +197,10 @@ ex:grootdok-quality-code-name-field
     tss:datatype xsd:string ;
     rdfs:comment "Short name of the quality code"@en ;
     tss:describesField ex:grootdok-ec20-field ;
+    tss:field_description [
+        dcterms:description "Short name of the quality code"@en ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
@@ -196,6 +220,10 @@ ex:grootdok-quality-code-description-field
     tss:datatype xsd:string ;
     rdfs:comment "Description of the quality code"@en ;
     tss:describesField ex:grootdok-ec20-field ;
+    tss:field_description [
+        dcterms:description "Description of the quality code"@en ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
@@ -216,6 +244,11 @@ ex:grootdok-quality-code-color-field
     rdfs:comment "Display colour of the quality code (RGBA)"@en ;
     tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:grootdok-ec20-field ;
+    tss:field_description [
+        dcterms:description "Display colour of the quality code (RGBA)"@en ;
+        dcterms:subject ex:qualityCodeColor ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
         tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;

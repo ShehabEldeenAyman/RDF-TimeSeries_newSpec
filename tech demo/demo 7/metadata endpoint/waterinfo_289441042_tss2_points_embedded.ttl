@@ -9,7 +9,7 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
 # Last edit of this metadata document, separate from data and summary timestamps.
-<> tss:modifiedAt "2026-10-23T08:37:07Z"^^xsd:dateTime .
+<> tss:modifiedAt "2026-10-23T10:22:39Z"^^xsd:dateTime .
 
 # Demo 7: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
@@ -28,8 +28,8 @@
 ex:zevenaarshaven-source
     a tss:Source ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
-    # Optional descriptive RDF; publishers may use any vocabulary and additional properties.
-    tss:description [
+    # Optional tss:source_description; publishers may use any RDF vocabulary and properties.
+    tss:source_description [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
@@ -71,6 +71,9 @@ ex:zevenaarshaven-time-field
     tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
+    tss:field_description [
+        dcterms:description "Observation time"@en
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -94,6 +97,11 @@ ex:zevenaarshaven-ec20-value-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-zevenaarshaven-ec20 ;
     tss:featureOfInterest ex:water-zevenaarshaven ;
+    tss:field_description [
+        dcterms:description "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -116,6 +124,11 @@ ex:zevenaarshaven-quality-color-value-field
     tss:datatype xsd:string ;
     tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:zevenaarshaven-ec20-value-field ;
+    tss:field_description [
+        dcterms:description "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
+        dcterms:subject ex:qualityCodeColor ;
+        dcterms:relation ex:zevenaarshaven-ec20-value-field
+    ] ;
     tss:summary [
         tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;

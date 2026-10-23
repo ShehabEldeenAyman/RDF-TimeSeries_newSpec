@@ -9,7 +9,7 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
 # Last edit of this metadata document, separate from data and summary timestamps.
-<> tss:modifiedAt "2026-10-23T08:37:07Z"^^xsd:dateTime .
+<> tss:modifiedAt "2026-10-23T10:22:39Z"^^xsd:dateTime .
 
 # Demo 7: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
@@ -24,8 +24,8 @@
 ex:factory-source
     a tss:Source ;
     rdfs:label "Factory water conductivity, 2025"@en ;
-    # Optional descriptive RDF; publishers may use any vocabulary and additional properties.
-    tss:description [
+    # Optional tss:source_description; publishers may use any RDF vocabulary and properties.
+    tss:source_description [
         dcterms:spatial [
             a s4inma:Factory ;
             # Illustrative site description: the factory name and coordinates were not supplied.
@@ -60,6 +60,7 @@ ex:factory-source
     tss:encoding "utf-8" .
 
 # Field definitions include measurement meaning, units, sensor and feature.
+# Optional tss:field_description records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
 # Each summary covers existing rows/points in [tss:from, tss:until) only.
@@ -81,6 +82,9 @@ ex:factory-time-field
     rdfs:label "datetime"@en ;
     tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC), 15-minute resolution"@en ;
+    tss:field_description [
+        dcterms:description "Observation time (UTC), 15-minute resolution"@en
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -106,6 +110,11 @@ ex:factory-ro1_a_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_a_permeate ;
     tss:featureOfInterest ex:ro1_a_permeate ;
+    tss:field_description [
+        dcterms:description "Permeate conductivity of reverse-osmosis unit RO1 train A"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-ro1_a_permeate, ex:ro1_a_permeate
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -135,6 +144,11 @@ ex:factory-ro1_b_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_b_permeate ;
     tss:featureOfInterest ex:ro1_b_permeate ;
+    tss:field_description [
+        dcterms:description "Permeate conductivity of reverse-osmosis unit RO1 train B"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-ro1_b_permeate, ex:ro1_b_permeate
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -164,6 +178,11 @@ ex:factory-ro1_c_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_c_permeate ;
     tss:featureOfInterest ex:ro1_c_permeate ;
+    tss:field_description [
+        dcterms:description "Permeate conductivity of reverse-osmosis unit RO1 train C"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-ro1_c_permeate, ex:ro1_c_permeate
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -193,6 +212,11 @@ ex:factory-ro2_a_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro2_a_permeate ;
     tss:featureOfInterest ex:ro2_a_permeate ;
+    tss:field_description [
+        dcterms:description "Permeate conductivity of reverse-osmosis unit RO2 train A"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-ro2_a_permeate, ex:ro2_a_permeate
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -222,6 +246,11 @@ ex:factory-ro2_b_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro2_b_permeate ;
     tss:featureOfInterest ex:ro2_b_permeate ;
+    tss:field_description [
+        dcterms:description "Permeate conductivity of reverse-osmosis unit RO2 train B"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-ro2_b_permeate, ex:ro2_b_permeate
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -251,6 +280,11 @@ ex:factory-cooling_water_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-cooling_water ;
     tss:featureOfInterest ex:cooling_water ;
+    tss:field_description [
+        dcterms:description "Conductivity of the cooling water supply (including drinking-water blend)"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-cooling_water, ex:cooling_water
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -280,6 +314,11 @@ ex:factory-boiler_feed_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-boiler_feed ;
     tss:featureOfInterest ex:boiler_feed ;
+    tss:field_description [
+        dcterms:description "Conductivity of the boiler feed water"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-boiler_feed, ex:boiler_feed
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -309,6 +348,11 @@ ex:factory-boiler_water_delivery_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-boiler_water_delivery ;
     tss:featureOfInterest ex:boiler_water_delivery ;
+    tss:field_description [
+        dcterms:description "Conductivity of the boiler water delivered to the customer"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-boiler_water_delivery, ex:boiler_water_delivery
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -338,6 +382,11 @@ ex:factory-dockwater_blowdown_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-dockwater_blowdown ;
     tss:featureOfInterest ex:dockwater_blowdown ;
+    tss:field_description [
+        dcterms:description "Conductivity of combined dock water and blowdown"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-dockwater_blowdown, ex:dockwater_blowdown
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -367,6 +416,11 @@ ex:factory-venturi_reject_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-venturi_reject ;
     tss:featureOfInterest ex:venturi_reject ;
+    tss:field_description [
+        dcterms:description "Conductivity of the venturi drain reject stream"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-venturi_reject, ex:venturi_reject
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -394,6 +448,11 @@ ex:factory-ro1de_feed_conductivity-field
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1de_feed ;
     tss:featureOfInterest ex:ro1de_feed ;
+    tss:field_description [
+        dcterms:description "Feed conductivity to RO1D and RO1E combined"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-ro1de_feed, ex:ro1de_feed
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -421,6 +480,11 @@ ex:factory-ro1d_feed_conductivity-field
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1d_feed ;
     tss:featureOfInterest ex:ro1d_feed ;
+    tss:field_description [
+        dcterms:description "Feed conductivity to RO1D (after chemical injection)"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-ro1d_feed, ex:ro1d_feed
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
@@ -448,6 +512,11 @@ ex:factory-ro1e_feed_conductivity-field
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1e_feed ;
     tss:featureOfInterest ex:ro1e_feed ;
+    tss:field_description [
+        dcterms:description "Feed conductivity to RO1E"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-ro1e_feed, ex:ro1e_feed
+    ] ;
     tss:summary [
         tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
