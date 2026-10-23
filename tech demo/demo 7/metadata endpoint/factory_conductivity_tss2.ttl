@@ -8,9 +8,6 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Last edit of this metadata document, separate from data and summary timestamps.
-<> tss:modifiedAt "2026-10-23T10:22:39Z"^^xsd:dateTime .
-
 # Demo 7: experimental RDF time-series schema with field-level source locators.
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
@@ -23,6 +20,8 @@
 
 ex:factory-source
     a tss:Source ;
+    # Last edit of the source metadata; summary calculation times are separate.
+    tss:modifiedAt "2026-10-23T10:41:27Z"^^xsd:dateTime ;
     rdfs:label "Factory water conductivity, 2025"@en ;
     # Optional tss:source_description; publishers may use any RDF vocabulary and properties.
     tss:source_description [
