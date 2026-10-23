@@ -38,7 +38,7 @@ for (word,) in duckdb.connect().execute(
 # -> DuckDB column type. Anything not in here stays text (VARCHAR).
 # The keys are the full IRIs (rdflib URIRefs), so it does not matter which prefix a
 # metadata file uses for XSD (xsd:, x:, or none at all).
-# main.py uses this map too: a field is numeric when its type here is DOUBLE or BIGINT.
+# value_reading.is_numeric uses this map too: a field is numeric when its type here is DOUBLE or BIGINT.
 XSD_TO_DUCKDB = {
     XSD.dateTime: "TIMESTAMPTZ",
     XSD.dateTimeStamp: "TIMESTAMPTZ",
@@ -198,7 +198,7 @@ def load_table(con, table):
                cells must have (a regular expression), or None (see column_expression)
       parquet: "path"
       points:  "rows" (one list of values per point, in the order of the columns: the Python
-               values rdflib read from the points' literals, see sql_table in main.py)"""
+               values rdflib read from the points' literals, see sql_table in sql_routes.py)"""
     name = sql_identifier(table["name"])
 
     if table["kind"] == "points":
@@ -381,7 +381,7 @@ def example_queries(table, fields):
     The title names no field (no label, no column name): the browser reads the field's label
     from the metadata by its IRI and adds it (SqlBox.jsx). The SQL itself needs the column names.
     table: the data table (None when it can't be loaded)
-    fields: the fields from read_source in main.py. Each is a dict with RDF terms (rdflib):
+    fields: the fields from read_source in source_reading.py. Each is a dict with RDF terms (rdflib):
       "node" (the field's IRI), "columnName", "isTime", "label",
       "observedProperty" and "describes" (the field it says something about), or None"""
     examples = [{"title": "Which column is which field (the TSS metadata)",

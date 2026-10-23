@@ -1,21 +1,16 @@
 import { useRef, useState } from 'react'
 import { DataFactory } from 'n3'
-import { API_URL, errorText, fetchErrorText } from './config'
-import { loadRdf, parseRdf } from './rdf'
+import { API_URL, fetchErrorText } from './config'
+import { loadRdf, parseRdf, readRdfAnswer } from './rdf'
 import {
   one, all, oneText, isEmbedded, booleanValue, shortName, termText,
-  SH, DCTERMS, RDF_TYPE, RDFS_LABEL, TSS_FORMAT,
+  RDF_TYPE, RDFS_LABEL, TSS_FORMAT,
   SH_VALIDATION_REPORT, SH_CONFORMS, SH_RESULT, SH_FOCUS_NODE, SH_RESULT_PATH, SH_VALUE,
   SH_RESULT_SEVERITY, SH_RESULT_MESSAGE, SH_SOURCE_SHAPE, SH_VIOLATION, SH_WARNING, SH_INFO,
+  SH_NAME, DCTERMS_SOURCE,
 } from './tss'
 
 const { namedNode } = DataFactory
-
-const SH_NAME = SH + 'name'                  // the name of a shape, e.g. "S6 points"
-const DCTERMS_SOURCE = DCTERMS + 'source'    // on the report: the shapes file the backend used
-
-// Where the backend serves the bundled shapes (embedded_shapes.ttl, external_shapes.ttl)
-const SHAPES_URL = '/files/SHACL/'
 
 // The backend refuses bigger shapes files, so we check this before sending one
 const MAX_SHAPES_BYTES = 5000000
@@ -38,10 +33,10 @@ export function Shacl({ endpoint, rdf }) {
   // it arrived) is thrown away, like the "ignore" trick in App.jsx.
   const runNumber = useRef(0)
 
-  // The default shapes follow tss:embedded: embedded points, or an external data file
+  // The backend picks the default shapes by tss:embedded (embedded points, or an external data
+  // file), so it can only do that when the source states tss:embedded true or false
   const embedded = isEmbedded(rdf.store, rdf.source) // true, false, or null when not stated
   const known = embedded !== null
-  const shapesFile = embedded ? 'embedded_shapes.ttl' : 'external_shapes.ttl'
   const format = one(rdf.store, rdf.source, TSS_FORMAT)
 
   // The full address of the SHACL route. It is also the base IRI for the report and for
@@ -120,22 +115,66 @@ export function Shacl({ endpoint, rdf }) {
       })
   }
 
-  return <section className="card">
-    <h3>SHACL conformance</h3>
-    {embedded === false && <p>Detected <strong>external data</strong>: <code>tss:embedded false</code>, <code>tss:format {format ? shortName(format, rdf.prefixes) : '(not stated)'}</code>.</p>}
-    {embedded === true && <p>Detected <strong>embedded points</strong>: <code>tss:embedded true</code>. The points are read as RDF too (JSON-LD with a context made from the fields), so the shapes can check every value.</p>}
-    {!known && <p className="muted">Cannot pick the default shapes: the source must state tss:embedded true or false. You can upload your own shapes instead.</p>}
-    <p><label htmlFor="shacl-file">Upload custom SHACL shapes (.ttl)</label>{' '}
-      <input ref={fileInput} id="shacl-file" type="file" accept=".ttl,text/turtle" disabled={running || reading} onChange={selectFile} /></p>
-    {reading && <p role="status">Reading the shapes file…</p>}
-    {customShapes ? <p>Using custom shapes: <strong>{customShapes.name}</strong> ({customShapes.triples} triples, read without errors). These replace the default shapes for this test.{' '}
-      <button className="secondary" disabled={running || reading} onClick={useDefaults}>Use default shapes</button></p>
-      : known && <p>Using default shapes: <a href={SHAPES_URL + shapesFile} target="_blank" rel="noreferrer"><code>{shapesFile}</code></a>.</p>}
-    <p className="muted small">Checks the loaded Turtle against the selected shapes. Warnings are shown but do not make the test fail. Custom files are used for this session and do not replace the bundled files.</p>
-    <button disabled={running || reading || (!known && !customShapes)} onClick={runValidation}>{running ? 'Checking…' : 'Run conformance test'}</button>
-    {error && <p className="error long-text" role="alert">{error}</p>}
-    {report && <ShaclReport report={report} rdf={rdf} />}
-  </section>
+  return (
+    <section className="card">
+      <h3>SHACL conformance</h3>
+      {embedded === false && (
+        <p>
+          Detected <strong>external data</strong>: <code>tss:embedded false</code>,{' '}
+          <code>tss:format {format ? shortName(format, rdf.prefixes) : '(not stated)'}</code>.
+        </p>
+      )}
+      {embedded === true && (
+        <p>
+          Detected <strong>embedded points</strong>: <code>tss:embedded true</code>. The points are read as RDF too
+          (JSON-LD with a context made from the fields), so the shapes can check every value.
+        </p>
+      )}
+      {!known && (
+        <p className="muted">
+          Cannot pick the default shapes: the source must state tss:embedded true or false. You can upload your own
+          shapes instead.
+        </p>
+      )}
+      <p>
+        <label htmlFor="shacl-file">Upload custom SHACL shapes (.ttl)</label>{' '}
+        <input
+          ref={fileInput}
+          id="shacl-file"
+          type="file"
+          accept=".ttl,text/turtle"
+          disabled={running || reading}
+          onChange={selectFile}
+        />
+      </p>
+      {reading && <p role="status">Reading the shapes file…</p>}
+      {customShapes && (
+        <p>
+          Using custom shapes: <strong>{customShapes.name}</strong> ({customShapes.triples} triples, read without
+          errors). These replace the default shapes for this test.{' '}
+          <button className="secondary" disabled={running || reading} onClick={useDefaults}>
+            Use default shapes
+          </button>
+        </p>
+      )}
+      {/* The backend picks the default shapes file; after a run, the report names it (dcterms:source) */}
+      {!customShapes && known && (
+        <p>
+          Using the default shapes for this source: the backend picks them by <code>tss:embedded</code>, and the
+          report names the file it used.
+        </p>
+      )}
+      <p className="muted small">
+        Checks the loaded Turtle against the selected shapes. Warnings are shown but do not make the test fail.
+        Custom files are used for this session and do not replace the bundled files.
+      </p>
+      <button disabled={running || reading || (!known && !customShapes)} onClick={runValidation}>
+        {running ? 'Checking…' : 'Run conformance test'}
+      </button>
+      {error && <p className="error long-text" role="alert">{error}</p>}
+      {report && <ShaclReport report={report} rdf={rdf} />}
+    </section>
+  )
 }
 
 // What the report says: conforms or not, the counts, and one table row per result
@@ -149,42 +188,56 @@ function ShaclReport({ report, rdf }) {
   if (report.shapesName) {
     shapesText = <>{report.shapesName} (custom upload)</>
   } else if (report.shapesSource) {
-    shapesText = <><a href={report.shapesSource.value} target="_blank" rel="noreferrer">{report.shapesSource.value}</a> (default, named by the report's dcterms:source)</>
+    shapesText = (
+      <>
+        <a href={report.shapesSource.value} target="_blank" rel="noreferrer">{report.shapesSource.value}</a> (default,
+        named by the report's dcterms:source)
+      </>
+    )
   } else {
     shapesText = 'the default shapes (the report does not name the file)'
   }
 
-  return <div className="result" aria-live="polite">
-    <p><span className={report.conforms === true ? 'badge ok' : 'badge bad'}>{conformsText}</span>{' '}
-      {report.counts.violations} violations · {report.counts.warnings} warnings · {report.counts.infos} infos · {report.seconds} s</p>
-    <p className="muted small long-text">Shapes: {shapesText}</p>
-    <p className="muted small">The time is measured in the browser: the request, the validation and reading the report.</p>
+  return (
+    <div className="result" aria-live="polite">
+      <p>
+        <span className={report.conforms === true ? 'badge ok' : 'badge bad'}>{conformsText}</span>{' '}
+        {report.counts.violations} violations · {report.counts.warnings} warnings ·{' '}
+        {report.counts.infos} infos · {report.seconds} s
+      </p>
+      <p className="muted small long-text">Shapes: {shapesText}</p>
+      <p className="muted small">
+        The time is measured in the browser: the request, the validation and reading the report.
+      </p>
 
-    {report.results.length > 0 && <div className="table-scroll">
-      <table className="data">
-        <thead>
-          <tr>
-            <th>Severity</th>
-            <th>Focus node</th>
-            <th>Path</th>
-            <th>Value</th>
-            <th>Message</th>
-            <th>Source shape</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.results.map((result) => (
-            <ResultRow key={result.node.value} result={result} report={report} rdf={rdf} />
-          ))}
-        </tbody>
-      </table>
-    </div>}
+      {report.results.length > 0 && (
+        <div className="table-scroll">
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Severity</th>
+                <th>Focus node</th>
+                <th>Path</th>
+                <th>Value</th>
+                <th>Message</th>
+                <th>Source shape</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.results.map((result) => (
+                <ResultRow key={result.node.value} result={result} report={report} rdf={rdf} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-    <details>
-      <summary>Show the report as Turtle</summary>
-      <pre className="shacl-report" tabIndex={0} aria-label="SHACL validation report">{report.text}</pre>
-    </details>
-  </div>
+      <details>
+        <summary>Show the report as Turtle</summary>
+        <pre className="shacl-report" tabIndex={0} aria-label="SHACL validation report">{report.text}</pre>
+      </details>
+    </div>
+  )
 }
 
 // One sh:ValidationResult
@@ -223,23 +276,9 @@ function postShapes(url, turtle) {
     .catch((err) => {
       throw new Error(fetchErrorText(err))
     })
-    .then((response) => {
-      if (!response.ok) {
-        // FastAPI sends its errors as JSON: { "detail": "..." }. That is not RDF, so reading it as JSON is fine.
-        return response
-          .json()
-          .catch(() => ({}))
-          .then((body) => {
-            throw new Error(body.detail ? errorText(body.detail) : `${response.status} ${response.statusText}`)
-          })
-      }
-      return response.text()
-    })
-    .then((text) => {
-      return parseRdf(text, 'text/turtle', url).then((parsed) => {
-        return { store: parsed.store, prefixes: parsed.prefixes, text: text }
-      })
-    })
+    // The report as Turtle, or FastAPI's error as JSON: { "detail": "..." } (see readRdfAnswer in rdf.js).
+    // The report is read with the address of the SHACL route as its base IRI.
+    .then((response) => readRdfAnswer(response, url))
 }
 
 // Read the parts of a SHACL validation report (an N3 Store) that the page shows:

@@ -13,6 +13,9 @@ from rdflib import Graph, Literal, URIRef, RDF
 from rdflib.namespace import DCTERMS, SH
 
 import main
+import documents
+import shacl_routes
+from rdf_generation import TSS
 
 BASE = "http://testserver/"  # the address TestClient gives the backend
 EMBEDDED = "waterinfo_289441042_tss2_points_embedded"
@@ -99,10 +102,10 @@ class ExternalShacl(unittest.TestCase):
     def validate(self, endpoint, change=None):
         """GET the SHACL report of an endpoint, as a graph. change: a function that changes a copy
         of the endpoint's metadata first (the file stays as it is)"""
-        graph = main.load_graph(endpoint)
+        graph = documents.load_graph(endpoint)
         if change is not None:
             change(graph)
-        with patch.object(main, "load_graph", return_value=graph):
+        with patch.object(documents, "load_graph", return_value=graph):
             response = self.client.get(f"/api/endpoints/{endpoint}/shacl")
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.headers["content-type"], "text/turtle; charset=utf-8")
@@ -126,40 +129,40 @@ class ExternalShacl(unittest.TestCase):
 
     def test_a_missing_required_property_is_a_violation(self):
         source = URIRef(EX + "grootdok-source")
-        report = self.validate(CSV, lambda graph: graph.remove((source, main.TSS["from"], None)))
+        report = self.validate(CSV, lambda graph: graph.remove((source, TSS["from"], None)))
         self.assertFalse(conforms(report))
         self.assertEqual(checks(report), [(SH.Violation, "S2")])
         result = result_of(report, "S2")
         self.assertEqual(report.value(result, SH.focusNode), source)
-        self.assertEqual(report.value(result, SH.resultPath), main.TSS["from"])
+        self.assertEqual(report.value(result, SH.resultPath), TSS["from"])
         self.assertEqual(report.value(result, SH.sourceConstraintComponent), SH.MinCountConstraintComponent)
 
     def test_a_csv_source_needs_its_delimiter(self):
         source = URIRef(EX + "grootdok-source")
-        report = self.validate(CSV, lambda graph: graph.remove((source, main.TSS.delimiter, None)))
+        report = self.validate(CSV, lambda graph: graph.remove((source, TSS.delimiter, None)))
         self.assertEqual(checks(report), [(SH.Violation, "S10")])
         self.assertEqual(report.value(result_of(report, "S10"), SH.focusNode), source)
 
     def test_a_field_without_a_column_name_is_a_violation(self):
         field = URIRef(EX + "grootdok-ec20-field")
-        report = self.validate(CSV, lambda graph: graph.remove((field, main.TSS.columnName, None)))
+        report = self.validate(CSV, lambda graph: graph.remove((field, TSS.columnName, None)))
         self.assertFalse(conforms(report))
         self.assertEqual(checks(report), [(SH.Violation, "F2")])
         result = result_of(report, "F2")
         self.assertEqual(report.value(result, SH.focusNode), field)
-        self.assertEqual(report.value(result, SH.resultPath), main.TSS.columnName)
+        self.assertEqual(report.value(result, SH.resultPath), TSS.columnName)
 
     def test_a_delimiter_on_parquet_is_only_a_warning(self):
         source = URIRef(EX + "rodenhuizedok-source")
-        report = self.validate(PARQUET, lambda graph: graph.add((source, main.TSS.delimiter, Literal(","))))
+        report = self.validate(PARQUET, lambda graph: graph.add((source, TSS.delimiter, Literal(","))))
         self.assertTrue(conforms(report))
         self.assertEqual(checks(report), [(SH.Warning, "S15")])
         self.assertEqual((count(report, SH.Violation), count(report, SH.Warning)), (0, 1))
 
     def test_without_tss_embedded_no_shapes_are_picked(self):
-        graph = main.load_graph(CSV)
-        graph.remove((None, main.TSS.embedded, None))
-        with patch.object(main, "load_graph", return_value=graph):
+        graph = documents.load_graph(CSV)
+        graph.remove((None, TSS.embedded, None))
+        with patch.object(documents, "load_graph", return_value=graph):
             response = self.client.get(f"/api/endpoints/{CSV}/shacl")
         self.assertEqual(response.status_code, 400)
         self.assertIn("tss:embedded", response.json()["detail"])
@@ -188,9 +191,9 @@ class ExternalShacl(unittest.TestCase):
         self.assertEqual(count(report, SH.Violation), 1)
 
     def test_uploaded_shapes_replace_the_defaults_instead_of_adding_to_them(self):
-        graph = main.load_graph(CSV)
-        graph.remove((None, main.TSS.mutable, None))
-        with patch.object(main, "load_graph", return_value=graph):
+        graph = documents.load_graph(CSV)
+        graph.remove((None, TSS.mutable, None))
+        with patch.object(documents, "load_graph", return_value=graph):
             default, node = read_report(self.client.get(f"/api/endpoints/{CSV}/shacl"))
             self.assertFalse(conforms(default))
             custom, node = read_report(self.upload(CSV, CUSTOM_SHAPES.replace("hasValue true", "hasValue false")))
@@ -204,7 +207,7 @@ class ExternalShacl(unittest.TestCase):
         self.assertEqual(report.value(node, DCTERMS.source), URIRef(BASE + "files/SHACL/external_shapes.ttl"))
 
     def test_a_bad_upload_has_a_clear_error(self):
-        too_big = "# " + "x" * main.MAX_SHAPES_BYTES
+        too_big = "# " + "x" * shacl_routes.MAX_SHAPES_BYTES
         invalid = ("@prefix sh: <http://www.w3.org/ns/shacl#> . <urn:shape> a sh:NodeShape ; sh:targetNode <urn:a> ; "
                    "sh:property [ sh:path <urn:b> ; sh:minCount \"invalid\" ] .")
         for shapes, content_type, status, message in (

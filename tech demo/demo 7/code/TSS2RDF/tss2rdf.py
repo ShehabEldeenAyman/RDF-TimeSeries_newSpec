@@ -27,7 +27,9 @@ The data is a CSV file or a Parquet file (tss:dataFile, read as tss:format says)
 points embedded in the Turtle (tss:points). Embedded points are read as RDF: as JSON-LD,
 with a context made from the source's fields (see points_context and lift_points).
 This file runs on its own: it needs rdflib, and duckdb for Parquet. The dashboard imports
-generate() and lift_points(), so both give the same RDF.
+(through code/webapp/backend/rdf_generation.py) generate, lift_points and points_context,
+TSS, LEXICAL_FORMS, TIME_DATATYPES and NORMALIZE_LOCK, and exact_turtle, column_index and
+embedded_mode, so both give the same RDF.
 """
 import argparse
 import csv
@@ -68,8 +70,9 @@ NOT_IN_IRI = r'[\x00-\x20<>"{}|\\^`]'
 
 # rdflib.NORMALIZE_LITERALS is one switch for the whole program. Two things write it:
 # lift_points (see there), and pyshacl, whose validate() turns it off and on again while it
-# reads the shapes. This lock makes them take turns: the lifts hold it here, and the web app
-# (main.validation_report) and shacl_report.py hold it around pyshacl's validate().
+# reads the shapes. This lock makes them take turns: the lifts hold it here, and
+# shacl_report.validation_report holds it around pyshacl's validate(); the web app's SHACL tab
+# runs that same function.
 # (The web app answers requests in threads, so a lift and a validation can run at the same time.)
 NORMALIZE_LOCK = threading.Lock()
 
@@ -132,6 +135,8 @@ def read_time(text, where, datatype=XSD.dateTime):
     return literal, value
 
 
+# The web app has its own window_moment (backend/value_reading.py): it answers an HTTP error
+# instead of raising ValueError.
 def window_moment(graph, node, name):
     """tss:from or tss:until of the source as a datetime in UTC, or None when it is not stated"""
     value = single(graph, node, TSS[name])
@@ -157,6 +162,21 @@ def column_index(value):
     return number
 
 
+# Shared by the SHACL command line and the web app (they pick the shapes by it)
+def embedded_mode(graph, source):
+    """The source's tss:embedded as True or False, read by rdflib.
+    None when it does not have exactly one boolean tss:embedded."""
+    values = list(graph.objects(source, TSS.embedded))
+    if len(values) != 1 or not isinstance(values[0], Literal):
+        return None
+    value = values[0].toPython()  # rdflib reads an xsd:boolean literal as True or False
+    if not isinstance(value, bool):
+        return None
+    return value
+
+
+# The web app has its own read_source (backend/source_reading.py): it answers HTTP errors and
+# takes one value where this one refuses two.
 def read_source(graph):
     """The source, and everything the conversion needs from it and its fields"""
     sources = list(graph.subjects(RDF.type, TSS.Source))
@@ -420,6 +440,7 @@ def read_points(graph, source):
 # Reading the data
 # ---------------------------------------------------------------------------
 
+# The web app has its own cell_text (backend/data_reading.py) for its previews and tables.
 def cell_text(value):
     """A value from a Parquet file as text, like it would be in a CSV file. rdflib writes numbers,
     booleans, decimals, times, ... in their XSD form: 4797.72, true, 1.50, 12:30:00"""

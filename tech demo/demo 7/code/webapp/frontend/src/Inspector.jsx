@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { SourceFiles } from './SourceFiles'
 import { FIELD_SECTIONS, SHOWN_ELSEWHERE, SOURCE_PANEL_SKIPS, LINKABLE_VOCABULARIES } from './sections'
-import { firstField, fieldName, fieldText, roleText } from './fields'
+import { firstField, fieldLabel, fieldName, fieldText, roleText } from './fields'
 import {
   all,
   has,
@@ -9,8 +9,6 @@ import {
   oneText,
   readFields,
   isEmbedded,
-  liftPoints,
-  pointRows,
   shortName,
   termText,
   dateTimeValue,
@@ -32,33 +30,14 @@ const MARKERS = {
 
 // The series inspector: pick a field (one column of the source) and see everything the
 // metadata says about it, with, for every value, where it is stated: on the field, or on
-// its source. Everything is read from the parsed metadata document (rdf.store).
-//   endpoint = { id, iri, downloadUrl, label, online }   rdf = { store, prefixes, text, url, source }
+// its source. Everything is read from the parsed metadata document (rdf.store), and for
+// embedded data from the points App.jsx read as RDF (rdf.points).
+//   endpoint = { id, iri, downloadUrl, label, online }   rdf = { store, prefixes, text, url, source, points }
 export function Inspector({ endpoint, rdf }) {
   const fields = readFields(rdf.store, rdf.source)
   const first = firstField(rdf.store, rdf.source)
   // The picked field, by its full IRI (an RDF term is a new object every time we ask the store)
   const [fieldIri, setFieldIri] = useState(first ? first.value : '')
-  // Embedded data only: how many points there are, { count, error }, or null while reading them
-  const [points, setPoints] = useState(null)
-
-  // Embedded data: read the points (tss:points) as RDF once, to say how many there are
-  useEffect(() => {
-    if (isEmbedded(rdf.store, rdf.source) !== true) return
-    let ignore = false // see App.jsx: throw away an answer that arrives too late
-
-    liftPoints(rdf.store, rdf.source)
-      .then((lifted) => {
-        if (!ignore) setPoints({ count: pointRows(lifted, rdf.store, rdf.source).length, error: null })
-      })
-      .catch((err) => {
-        if (!ignore) setPoints({ count: null, error: err.message })
-      })
-
-    return () => {
-      ignore = true
-    }
-  }, [rdf])
 
   if (fields.length === 0) return <p className="muted">This data source has no fields.</p>
 
@@ -85,7 +64,7 @@ export function Inspector({ endpoint, rdf }) {
         </p>
       </section>
 
-      <FieldPanel rdf={rdf} fields={fields} field={field} points={points} onPick={setFieldIri} />
+      <FieldPanel rdf={rdf} fields={fields} field={field} onPick={setFieldIri} />
       <SourceFiles endpoint={endpoint} rdf={rdf} fieldIri={fieldIri} />
       <SourcePanel endpoint={endpoint} rdf={rdf} fields={fields} field={field} onPick={setFieldIri} />
     </>
@@ -94,11 +73,10 @@ export function Inspector({ endpoint, rdf }) {
 
 // The field's own panel: its label and comments, how it relates to the other fields, and
 // the sections, with for every line where the value is stated
-function FieldPanel({ rdf, fields, field, points, onPick }) {
+function FieldPanel({ rdf, fields, field, onPick }) {
   const store = rdf.store
-  const sections = fieldSections(rdf, field, points)
+  const sections = fieldSections(rdf, field)
   const counts = countLines(sections)
-  const label = oneText(store, field, RDFS_LABEL)
 
   // The fields this one says something about, and the fields that say something about this one
   const describes = all(store, field, TSS_DESCRIBES_FIELD)
@@ -106,7 +84,7 @@ function FieldPanel({ rdf, fields, field, points, onPick }) {
 
   return (
     <section className="card">
-      <h3>{label !== '' ? label : fieldName(store, field, rdf.prefixes)}</h3>
+      <h3>{fieldLabel(store, field, rdf.prefixes)}</h3>
       {all(store, field, RDFS_COMMENT).map((comment, index) => (
         <p key={index} className="muted">{comment.value}</p>
       ))}
@@ -271,8 +249,8 @@ function SourcePanel({ endpoint, rdf, fields, field, onPick }) {
 
 // The sections of the field panel (the table in sections.js), each with its lines, plus
 // "Also stated" with everything else the field says, so nothing is hidden.
-//   points: for embedded data, what liftPoints found ({ count, error }), or null while reading
-function fieldSections(rdf, field, points) {
+// (For embedded data, the "readings" line says how many points App.jsx read: rdf.points.)
+function fieldSections(rdf, field) {
   const sections = []
   // The properties of the field that a line already shows; "Also stated" shows the rest.
   // slice() makes a copy, so adding to it does not change SHOWN_ELSEWHERE itself.
@@ -289,7 +267,7 @@ function fieldSections(rdf, field, points) {
     sections.push({ title: section.title, explanation: section.explanation, lines: lines })
   }
 
-  addBindingLines(rdf, sections[0], points)
+  addBindingLines(rdf, sections[0])
 
   const others = alsoStatedLines(rdf, field, shown)
   if (others.length > 0) {
@@ -311,7 +289,7 @@ function makeLine(rdf, name, property, term, on) {
 
 // "Data binding" also depends on the kind of source: first where the values are (the
 // data file, or the points embedded in the metadata), last the time column and the key
-function addBindingLines(rdf, binding, points) {
+function addBindingLines(rdf, binding) {
   const store = rdf.store
   const source = rdf.source
 
@@ -321,8 +299,9 @@ function addBindingLines(rdf, binding, points) {
       'made from the fields, so this field is one key in each point.'
     const line = makeLine(rdf, 'readings', TSS_POINTS, one(store, source, TSS_POINTS), 'source')
     if (line.value) {
-      line.value.text = pointsText(points)
-      line.value.hover = points && points.error ? points.error : 'tss:points (in the Turtle of the source below)'
+      // rdf.points: the points App.jsx read as RDF, { store, rows, error } (see readPoints in tss.js)
+      line.value.text = pointsText(rdf.points)
+      line.value.hover = rdf.points.error ? rdf.points.error : 'tss:points (in the Turtle of the source below)'
     }
     binding.lines.unshift(line) // unshift: put it first
   } else {
@@ -353,10 +332,10 @@ function addBindingLines(rdf, binding, points) {
 }
 
 // The text of the "readings" line of embedded data
+//   points: rdf.points, { store, rows, error }
 function pointsText(points) {
-  if (points === null) return 'reading the points…'
   if (points.error) return "can't be read as JSON-LD"
-  return points.count === 1 ? '1 point' : points.count + ' points'
+  return points.rows.length === 1 ? '1 point' : points.rows.length + ' points'
 }
 
 // Every other statement about the field, one line per value, sorted by the property's full IRI

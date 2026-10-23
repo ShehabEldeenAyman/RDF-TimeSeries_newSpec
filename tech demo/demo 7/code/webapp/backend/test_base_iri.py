@@ -19,9 +19,12 @@ from rdflib import Graph, Literal, RDF, URIRef
 from rdflib.namespace import DCAT, DCTERMS, SH
 
 import main
+import paths
+import files
+import documents
+from rdf_generation import TSS
 from test_rdf_documents import FakeResponse
 
-TSS = main.TSS
 SOSA_OBSERVED_PROPERTY = URIRef("http://www.w3.org/ns/sosa/observedProperty")
 BASE = "http://testserver/"  # the address TestClient gives the backend
 
@@ -31,6 +34,10 @@ PROBE = """
 @prefix tss: <https://w3id.org/tss#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+# The document's own last edit, as in every metadata endpoint (SHACL D1 wants exactly one).
+# <> is the document itself, so it is relative too.
+<> tss:modifiedAt "2026-10-22T14:13:56Z"^^xsd:dateTime .
 
 <#source> a tss:Source ;
     rdfs:label "Probe with relative IRIs"@en ;
@@ -65,13 +72,13 @@ class SameIrisAsTheBrowser(unittest.TestCase):
         (root / "data" / "probe.csv").write_text(PROBE_CSV, encoding="utf-8")
         for name, value in [("DEMO_DIR", root), ("METADATA_DIR", root / "metadata endpoint"),
                             ("ONLINE_ENDPOINTS_FILE", root / "online_endpoints.ttl")]:
-            patcher = patch.object(main, name, value)
+            patcher = patch.object(paths, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
 
         # A fake web: address -> (final address after redirects, Content-Type, text)
         self.web = {REGISTERED: (MIRROR, "text/turtle", PROBE), ONLINE_DATA: (ONLINE_DATA, "text/csv", PROBE_CSV)}
-        patcher = patch.object(main.requests, "get", side_effect=self.fake_get)
+        patcher = patch.object(files.requests, "get", side_effect=self.fake_get)
         patcher.start()
         self.addCleanup(patcher.stop)
         self.client = TestClient(main.app)
@@ -144,7 +151,7 @@ class SameIrisAsTheBrowser(unittest.TestCase):
         self.check_answers("probe")
         # Its <../data/probe.csv> is {base}files/data/probe.csv, which is the file data/probe.csv
         # (also without a request: then the base is DEFAULT_BASE, http://localhost:5174/)
-        graph, source = main.load_source("probe")
+        graph, source = documents.load_source("probe")
         self.assertIn(URIRef("http://localhost:5174/files/data/probe.csv"), set(graph.objects(None, TSS.dataFile)))
         self.assertEqual(source["dataFile"], "data/probe.csv")
 
@@ -155,7 +162,7 @@ class SameIrisAsTheBrowser(unittest.TestCase):
         self.assertEqual(fields["value"], REGISTERED + "#value")
         self.check_answers("online-1")
         # Its data file is read against the registered address too, and stays a web address
-        graph, source = main.load_source("online-1")
+        graph, source = documents.load_source("online-1")
         self.assertEqual(source["dataFile"], ONLINE_DATA)
         # The IRI against the mirror (where the redirect ends) is no field of this source
         response = self.client.get("/api/endpoints/online-1/query", params={"field": MIRROR + "#value"})

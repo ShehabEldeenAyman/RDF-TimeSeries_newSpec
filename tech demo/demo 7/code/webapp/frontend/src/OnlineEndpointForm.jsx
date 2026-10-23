@@ -1,32 +1,13 @@
 import { useState } from 'react'
-import { API_URL, errorText, fetchErrorText } from './config'
-import { parseRdf } from './rdf'
+import { API_URL, fetchErrorText } from './config'
+import { readRdfAnswer } from './rdf'
 import { readCatalog } from './tss'
 
-// The backend answers with the new catalogue (Turtle), or with an error as JSON:
-// { "detail": "..." }. This reads either answer and gives a Promise of the new list of
-// endpoints. (App.jsx has the same function, for removing an endpoint.)
-function readCatalogAnswer(response) {
-  if (!response.ok) {
-    const statusText = `${response.status} ${response.statusText}`
-    return response
-      .json()
-      .catch(() => ({})) // the error was not JSON: use the status text
-      .then((body) => {
-        throw new Error(body.detail ? errorText(body.detail) : statusText)
-      })
-  }
-  return response
-    .text()
-    // response.url is the full address we sent the request to: the base IRI for the Turtle
-    .then((turtle) => parseRdf(turtle, 'text/turtle', response.url))
-    .then((parsed) => readCatalog(parsed.store))
-}
-
 // A small form to add an online TSS2 metadata endpoint: the web address of an RDF document
-// (Turtle, JSON-LD, ...) with one tss:Source. The backend downloads it, checks it, and
-// answers with the new catalogue. From then on it works like the local ones: the data
-// file it points to (tss:dataFile) is downloaded from the web as well.
+// (Turtle, N-Triples, N3 or RDF/XML; the backend refuses JSON-LD) with one tss:Source.
+// The backend downloads it, checks it, and answers with the new catalogue. From then on it
+// works like the local ones: the data file it points to (tss:dataFile) is downloaded from
+// the web as well.
 //   onAdded(endpoints, added): called with the new list and the new entry in it
 export function OnlineEndpointForm({ onAdded }) {
   const [url, setUrl] = useState('')
@@ -45,7 +26,10 @@ export function OnlineEndpointForm({ onAdded }) {
       .catch((err) => {
         throw new Error(fetchErrorText(err))
       })
-      .then((response) => readCatalogAnswer(response))
+      // The answer is the new catalogue (Turtle), or an error as JSON (see readRdfAnswer in rdf.js).
+      // response.url is the full address we sent the request to: the base IRI for the Turtle.
+      .then((response) => readRdfAnswer(response, response.url))
+      .then((parsed) => readCatalog(parsed.store))
       .then((endpoints) => {
         // In the catalogue, an online endpoint's IRI (the dataset IRI) is the address we registered
         const added = endpoints.find((endpoint) => endpoint.iri === url)

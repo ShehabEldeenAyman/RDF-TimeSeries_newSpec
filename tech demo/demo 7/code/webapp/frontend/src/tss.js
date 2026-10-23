@@ -14,7 +14,7 @@
 // Usage:
 //   import { loadRdf } from './rdf.js'
 //   import { findSource, readFields, one, oneText, termText, TSS_FORMAT, TSS_CSV,
-//            TSS_COLUMN_NAME, liftPoints, pointRows } from './tss.js'
+//            TSS_COLUMN_NAME, liftPoints, pointRows, readPoints } from './tss.js'
 //
 //   loadRdf('/files/metadata%20endpoint/waterinfo_289423042_tss2.ttl').then((rdf) => {
 //     const source = findSource(rdf.store)                  // NamedNode ex:grootdok-source, or null
@@ -31,6 +31,10 @@
 //     const rows = pointRows(points, rdf.store, source)     // ordered by time
 //     // rows[0] = { point: BlankNode, time: Literal, values: { 'https://example.org/ex#...-field': Literal } }
 //   })
+//
+//   // Both at once, as App.jsx does for every tab: null (not embedded), { store, rows, error: null },
+//   // or { store: null, rows: null, error: 'why the points can't be read' }
+//   readPoints(rdf.store, source).then((points) => console.log(points))
 
 import { DataFactory } from 'n3'
 import { parseRdf } from './rdf.js'
@@ -78,10 +82,8 @@ export const RDFS_COMMENT = RDFS + 'comment'
 
 export const XSD_STRING = XSD + 'string'
 export const XSD_BOOLEAN = XSD + 'boolean'
-export const XSD_INTEGER = XSD + 'integer'
-export const XSD_DECIMAL = XSD + 'decimal'
-export const XSD_DOUBLE = XSD + 'double'
 export const XSD_DATE_TIME = XSD + 'dateTime'
+export const XSD_DATE_TIME_STAMP = XSD + 'dateTimeStamp' // an xsd:dateTime that must have a timezone
 
 // The source and its fields
 export const TSS_SOURCE = TSS + 'Source'           // tss:Source (a class)
@@ -108,6 +110,7 @@ export const TSS_COLUMN_NAME = TSS + 'columnName'
 export const TSS_COLUMN_INDEX = TSS + 'columnIndex'
 export const TSS_DATATYPE = TSS + 'datatype'
 export const TSS_LANGUAGE = TSS + 'language'
+export const TSS_REQUIRED = TSS + 'required'
 export const TSS_MINIMUM = TSS + 'minimum'
 export const TSS_MAXIMUM = TSS + 'maximum'
 export const TSS_OBSERVED_PROPERTY = TSS + 'observedProperty'
@@ -117,23 +120,10 @@ export const TSS_FEATURE_OF_INTEREST = TSS + 'featureOfInterest'
 export const TSS_DESCRIBES_FIELD = TSS + 'describesField'
 
 // The catalogue of endpoints (GET /api/catalog)
-export const DCAT_CATALOG_CLASS = DCAT + 'Catalog'            // dcat:Catalog (a class)
 export const DCAT_DATASET_CLASS = DCAT + 'Dataset'            // dcat:Dataset (a class)
-export const DCAT_DISTRIBUTION_CLASS = DCAT + 'Distribution'  // dcat:Distribution (a class)
-export const DCAT_DATASET = DCAT + 'dataset'                  // dcat:dataset: catalogue -> dataset
 export const DCAT_DISTRIBUTION = DCAT + 'distribution'        // dcat:distribution: dataset -> distribution
 export const DCAT_DOWNLOAD_URL = DCAT + 'downloadURL'
-export const DCAT_MEDIA_TYPE = DCAT + 'mediaType'
 export const DCTERMS_IDENTIFIER = DCTERMS + 'identifier'
-
-// The observations the RDF generation writes (SOSA and QUDT)
-export const SOSA_OBSERVATION = SOSA + 'Observation'          // sosa:Observation (a class)
-export const SOSA_OBSERVED_PROPERTY = SOSA + 'observedProperty'
-export const SOSA_MADE_BY_SENSOR = SOSA + 'madeBySensor'
-export const SOSA_HAS_FEATURE_OF_INTEREST = SOSA + 'hasFeatureOfInterest'
-export const SOSA_RESULT_TIME = SOSA + 'resultTime'
-export const SOSA_HAS_SIMPLE_RESULT = SOSA + 'hasSimpleResult'
-export const QUDT_HAS_UNIT = QUDT + 'hasUnit'
 
 // A SHACL validation report
 export const SH_VALIDATION_REPORT = SH + 'ValidationReport'   // sh:ValidationReport (a class)
@@ -148,6 +138,8 @@ export const SH_SOURCE_SHAPE = SH + 'sourceShape'
 export const SH_VIOLATION = SH + 'Violation'
 export const SH_WARNING = SH + 'Warning'
 export const SH_INFO = SH + 'Info'
+export const SH_NAME = SH + 'name'                  // the name of a shape, e.g. "S6 points"
+export const DCTERMS_SOURCE = DCTERMS + 'source'    // on the report: the shapes file the backend used
 
 // --- Asking the store ---------------------------------------------------------
 // subject, predicate and object may be a full IRI (a string) or an RDF/JS term.
@@ -216,6 +208,13 @@ export function numberValue(term) {
   return number
 }
 
+// Is this datatype (e.g. the tss:datatype of a field) one of the numeric XSD datatypes?
+// Only a numeric field has value ranges and mean/min/max (the backend uses the same list:
+// XSD_TO_DUCKDB in sql_box.py). null (no datatype) -> false.
+export function isNumericDatatype(datatype) {
+  return datatype !== null && NUMBER_DATATYPES.includes(datatype.value)
+}
+
 // An xsd:boolean literal -> true or false, else null. XSD allows "true", "false", "1", "0".
 export function booleanValue(term) {
   if (!term || term.termType !== 'Literal') return null
@@ -232,12 +231,15 @@ export function booleanValue(term) {
 //   "2021-03-03T23:45:00+02:00" -> 21:45 UTC
 //   "2021-03-03T23:45:00"       -> 23:45 UTC: a time without a timezone is taken as UTC
 //                                  (new Date alone would take it as the browser's local time)
+// An xsd:dateTimeStamp is read the same way, but it must have a timezone (as in the backend,
+// the converter and SHACL): "2021-03-03T23:45:00"^^xsd:dateTimeStamp -> null.
 // null for any other datatype (also xsd:date: a day is not a moment), for a text that is not
 // in the xsd:dateTime form (e.g. "2021-03-03", a date alone), and for a date-time that does
 // not exist (e.g. 30 February).
 export function dateTimeValue(term) {
   if (!term || term.termType !== 'Literal') return null
-  if (term.datatype.value !== XSD_DATE_TIME) return null
+  const stamp = term.datatype.value === XSD_DATE_TIME_STAMP
+  if (term.datatype.value !== XSD_DATE_TIME && !stamp) return null
   const parts = DATE_TIME_FORM.exec(term.value)
   if (parts === null) return null
 
@@ -249,6 +251,7 @@ export function dateTimeValue(term) {
 
   // Now the real moment, with its timezone; without one, we add "Z" (UTC) ourselves
   const hasTimezone = parts[3] !== undefined
+  if (stamp && !hasTimezone) return null
   const date = new Date(hasTimezone ? term.value : term.value + 'Z')
   return Number.isNaN(date.getTime()) ? null : date
 }
@@ -438,8 +441,14 @@ function onlineNumber(id) {
 //   - two fields with the same column name: a value with that key could belong to either
 //   - a column name that starts with @: JSON-LD would read that key as a keyword
 //   - a tss:datatype that is not an IRI
+// One more rule only the browser has: a field with the column name '__proto__' (see the end).
 export function pointsContext(store, source) {
-  const context = { '@vocab': UNMAPPED }
+  // Object.create(null): an object without the usual JavaScript extras (no prototype), so
+  // every column name is a plain key, also '__proto__'. On a normal {} object,
+  // context['__proto__'] = ... would not add a key, and Object.hasOwn would not see it.
+  const context = Object.create(null)
+  context['@vocab'] = UNMAPPED
+  let protoField = null // the field with the column name '__proto__', if there is one
   // In the same order as the Python lift (blank nodes first, then by IRI), so that when
   // several fields are wrong, both lifts name the same problem
   const fields = all(store, source, TSS_HAS_FIELD)
@@ -476,6 +485,18 @@ export function pointsContext(store, source) {
       definition['@type'] = datatype.value
     }
     context[name] = definition
+    if (name === '__proto__') protoField = field
+  }
+
+  // '__proto__' is a special word in JavaScript. The JSON-LD parser copies the context into
+  // normal objects, where that key gets lost, so the parser would quietly treat the field's
+  // values as unknown keys (UNMAPPED) and the tables would show them as missing. We say so
+  // instead. (The Python lift reads such values. This check comes after the loop, so that
+  // metadata Python refuses, such as two fields named '__proto__', gets Python's message.)
+  if (protoField !== null) {
+    throw new Error(`The field ${shortName(protoField)} has tss:columnName '__proto__': the JSON-LD parser in ` +
+      'the browser can\'t use that key (a special word in JavaScript), so its values can\'t be read here. ' +
+      'The backend reads them.')
   }
   return context
 }
@@ -558,11 +579,12 @@ export function liftPoints(store, source) {
   // is normally resolved against it)
   return parseRdf(literal.value, 'application/ld+json', source.value, options).then((parsed) => {
     dropEmptyValues(parsed.store)
-    // Read the rows once here, only to find a point that no table can show: pointRows
-    // throws for a point with two values for one field (a JSON array as a value), and a
-    // throw inside .then rejects the Promise. The Python converter and /query refuse such
-    // points too. Checking here means every tab gets the reason through its .catch, also
-    // the tabs that call pointRows while they draw (where a throw would stop the whole page).
+    // pointRows runs here only as a check, and its rows are thrown away: it throws for a
+    // point that no table can show (two values for one field, e.g. a JSON array as a value),
+    // and a throw inside .then rejects the Promise. The Python converter and /query refuse
+    // such points too. So whoever lifts the points gets the reason through its .catch.
+    // The rows the tabs draw are made again by readPoints (called once by App.jsx): no tab
+    // calls pointRows while it draws, where a throw would stop the whole page.
     pointRows(parsed.store, store, source)
     return parsed.store
   })
@@ -583,7 +605,8 @@ function dropEmptyValues(store) {
 // Throws an Error when a point has more than one value for a field (a JSON array as a
 // value, e.g. "v": ["1.5", "9.9"]): a cell can show only one, and keeping the first would
 // hide the others. The Python lift says the same (read_points in tss2rdf.py, point_rows in
-// main.py). liftPoints already makes this check, so its store never makes pointRows throw.
+// backend/data_reading.py). liftPoints already makes this check, so its store never makes
+// pointRows throw.
 export function pointRows(liftedStore, store, source) {
   const timeField = one(store, source, TSS_TIME_FIELD)
   const fieldIris = all(store, source, TSS_HAS_FIELD).map((field) => field.value)
@@ -599,7 +622,7 @@ export function pointRows(liftedStore, store, source) {
       if (!fieldIris.includes(fieldIri)) continue
       // Object.hasOwn: does this point already have a value for this field?
       if (Object.hasOwn(values, fieldIri)) {
-        // The field by its column name, or by its IRI when it has none (as main.column_name)
+        // The field by its column name, or by its IRI when it has none (as column_name in backend/source_reading.py)
         let name = oneText(store, fieldIri, TSS_COLUMN_NAME)
         if (name === '') name = shortName(fieldIri)
         throw new Error(`A point in tss:points has more than one '${name}' value.`)
@@ -614,6 +637,19 @@ export function pointRows(liftedStore, store, source) {
   }
   rows.sort(compareRowTimes)
   return rows
+}
+
+// The embedded points of a source, read once for every tab: App.jsx calls this while it loads
+// the document and puts the answer on the rdf prop (rdf.points). Gives a Promise of
+//   null                                the source is not embedded (tss:embedded is not true)
+//   { store, rows, error: null }        store: the points as RDF (liftPoints), rows: pointRows of it
+//   { store: null, rows: null, error }  the points can't be read: error says why (a text)
+// The Promise is never rejected: the tabs show a problem with the points, not App.
+export function readPoints(store, source) {
+  if (isEmbedded(store, source) !== true) return Promise.resolve(null)
+  return liftPoints(store, source)
+    .then((lifted) => ({ store: lifted, rows: pointRows(lifted, store, source), error: null }))
+    .catch((err) => ({ store: null, rows: null, error: err.message }))
 }
 
 // Earlier times first; rows without a readable time last. A time field may also

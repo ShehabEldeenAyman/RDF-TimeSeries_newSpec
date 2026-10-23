@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { API_URL, errorText, fetchErrorText } from './config'
-import { loadRdf, parseRdf } from './rdf'
-import { findSource, readCatalog } from './tss'
+import { API_URL, fetchErrorText } from './config'
+import { loadRdf, readRdfAnswer } from './rdf'
+import { findSource, readCatalog, readPoints } from './tss'
 import { Overview } from './Overview'
 import { Inspector } from './Inspector'
 import { Files } from './Files'
@@ -14,6 +14,7 @@ import { RdfGeneration } from './RdfGeneration'
 // App is the whole page. It does three things:
 //   1. load the catalogue of metadata endpoints (an RDF document) and list them in a drop down
 //   2. load the metadata document of the endpoint you pick, and parse it into an RDF store
+//      (and, for embedded points, read those as RDF too: once, here, for every tab)
 //   3. show the tabs; every tab reads what it needs from that store
 
 // The tabs of the dashboard: an id we use in the code, and the text on the button
@@ -39,26 +40,6 @@ function optionText(endpoint) {
   if (endpoint.comment) text = endpoint.id + ' (' + endpoint.comment + ')'
   if (endpoint.online) text = text + ' (online)'
   return text
-}
-
-// Adding and removing an online endpoint: the backend answers with the new catalogue
-// (Turtle), or with an error as JSON: { "detail": "..." }. This reads either answer and
-// gives a Promise of the new list of endpoints. (OnlineEndpointForm.jsx has the same function.)
-function readCatalogAnswer(response) {
-  if (!response.ok) {
-    const statusText = `${response.status} ${response.statusText}`
-    return response
-      .json()
-      .catch(() => ({})) // the error was not JSON: use the status text
-      .then((body) => {
-        throw new Error(body.detail ? errorText(body.detail) : statusText)
-      })
-  }
-  return response
-    .text()
-    // response.url is the full address we sent the request to: the base IRI for the Turtle
-    .then((turtle) => parseRdf(turtle, 'text/turtle', response.url))
-    .then((parsed) => readCatalog(parsed.store))
 }
 
 function App() {
@@ -97,13 +78,21 @@ function App() {
           setError(`${selected.iri} has no tss:Source, or more than one. This app needs exactly one.`)
           return
         }
-        // What every tab gets as its "rdf" prop
-        setRdf({
-          store: loaded.store,       // all the triples, in an N3 Store (ask it with the helpers in tss.js)
-          prefixes: loaded.prefixes, // the document's @prefix lines, to show IRIs short (tss:CSV)
-          text: loaded.text,         // the document as text, exactly as it was sent
-          url: loaded.url,           // where it was fetched from
-          source: source,            // the tss:Source (a NamedNode)
+        // The embedded points (tss:points) are read as RDF once, here, for every tab
+        // (see readPoints in tss.js). Its Promise is never rejected: a problem with the
+        // points is part of the answer, and the tabs show it.
+        return readPoints(loaded.store, source).then((points) => {
+          if (ignore) return
+          // What every tab gets as its "rdf" prop
+          setRdf({
+            store: loaded.store,       // all the triples, in an N3 Store (ask it with the helpers in tss.js)
+            prefixes: loaded.prefixes, // the document's @prefix lines, to show IRIs short (tss:CSV)
+            text: loaded.text,         // the document as text, exactly as it was sent
+            url: loaded.url,           // where it was fetched from
+            source: source,            // the tss:Source (a NamedNode)
+            points: points,            // the embedded points read as RDF: null when the source is not
+                                       // embedded, else { store, rows, error } (see readPoints)
+          })
         })
       })
       .catch((err) => {
@@ -148,7 +137,10 @@ function App() {
       .catch((err) => {
         throw new Error(fetchErrorText(err))
       })
-      .then((response) => readCatalogAnswer(response))
+      // The answer is the new catalogue (Turtle), or an error as JSON (see readRdfAnswer in rdf.js).
+      // response.url is the full address we sent the request to: the base IRI for the Turtle.
+      .then((response) => readRdfAnswer(response, response.url))
+      .then((parsed) => readCatalog(parsed.store))
       .then((newEndpoints) => {
         setEndpoints(newEndpoints)
         selectEndpoint(null)
@@ -199,8 +191,9 @@ function App() {
       {selected !== null && rdf === null && !error && <p>Loading…</p>}
 
       {/* Every tab gets the same two props:
-            endpoint = { id, iri, downloadUrl, label, online }   the entry from the catalogue
-            rdf      = { store, prefixes, text, url, source }    its parsed metadata document
+            endpoint = { id, iri, downloadUrl, label, online }          the entry from the catalogue
+            rdf      = { store, prefixes, text, url, source, points }   its parsed metadata document
+                       (points: the embedded points as RDF, or null; see readPoints in tss.js)
           While another endpoint loads, rdf is null and all tabs disappear, so each tab
           starts fresh for every endpoint. */}
       {rdf !== null && (

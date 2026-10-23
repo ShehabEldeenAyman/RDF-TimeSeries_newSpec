@@ -5,12 +5,14 @@ file (N-Triples). The tests read the RDF back with rdflib and compare RDF terms 
 import unittest
 from datetime import datetime, timezone
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from rdflib import Graph, Namespace, RDF
 from rdflib.compare import isomorphic
 from rdflib.namespace import XSD
 
 import main
+import rdf_routes
 
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
 EX = "https://example.org/ex#"  # the series are identified by their field's full IRI
@@ -37,7 +39,7 @@ class RdfGeneration(unittest.TestCase):
                                                    "previewTruncated", "previewUrl", "series", "triples"])
 
     def test_embedded_points_become_observations(self):
-        result = main.generate_rdf(EMBEDDED)
+        result = rdf_routes.generate_rdf(EMBEDDED)
         self.assertEqual(result["observations"], 10)
         self.assertEqual([(s["field"], s["observations"]) for s in result["series"]],
                          [(EX + "zevenaarshaven-ec20-value-field", 5), (EX + "zevenaarshaven-quality-color-value-field", 5)])
@@ -58,7 +60,7 @@ class RdfGeneration(unittest.TestCase):
         self.assertTrue(isomorphic(everything, graph))
 
     def test_external_csv_preview_and_full_download(self):
-        result = main.generate_rdf(EXTERNAL_CSV)
+        result = rdf_routes.generate_rdf(EXTERNAL_CSV)
         self.assertEqual(result["observations"], 2 * 94853)  # Value and Quality Code Color per row
         self.assertTrue(result["previewTruncated"])
         self.assertEqual(result["previewObservations"], 200)
@@ -67,14 +69,14 @@ class RdfGeneration(unittest.TestCase):
 
         # The whole graph is an N-Triples file (rdflib writes it in batches, see tss2rdf.generate)
         token = result["downloadUrl"].rsplit("/", 1)[-1]
-        response = main.download_generated_rdf(EXTERNAL_CSV, token)
+        response = rdf_routes.download_generated_rdf(EXTERNAL_CSV, token)
         self.assertEqual(response.media_type, "application/n-triples")
         self.assertEqual(response.filename, "observations.nt")
         self.assertEqual(response.path.stat().st_size, result["bytes"])
         self.assertEqual(result["filename"], "observations.nt")
 
     def test_external_parquet(self):
-        result = main.generate_rdf(EXTERNAL_PARQUET)
+        result = rdf_routes.generate_rdf(EXTERNAL_PARQUET)
         self.assertEqual([(s["field"], s["observations"]) for s in result["series"]],
                          [(EX + "rodenhuizedok-quality-code-color-field", 158022), (EX + "rodenhuizedok-ec20-field", 158022)])
         # Read the preview as RDF and compare terms and values, not the Turtle text
@@ -89,10 +91,10 @@ class RdfGeneration(unittest.TestCase):
         self.assertIn((datetime(2021, 3, 3, 23, 15, tzinfo=timezone.utc), XSD.dateTime), times)
 
     def test_a_download_of_another_endpoint_is_refused(self):
-        token = main.generate_rdf(EMBEDDED)["downloadUrl"].rsplit("/", 1)[-1]
-        for route in (main.download_generated_rdf, main.preview_generated_rdf):
+        token = rdf_routes.generate_rdf(EMBEDDED)["downloadUrl"].rsplit("/", 1)[-1]
+        for route in (rdf_routes.download_generated_rdf, rdf_routes.preview_generated_rdf):
             with self.subTest(route=route.__name__):
-                with self.assertRaises(main.HTTPException) as caught:
+                with self.assertRaises(HTTPException) as caught:
                     route(EXTERNAL_CSV, token)
                 self.assertEqual(caught.exception.status_code, 404)
         self.assertEqual(self.client.get(f"/api/endpoints/{EMBEDDED}/rdf/preview/unknown").status_code, 404)

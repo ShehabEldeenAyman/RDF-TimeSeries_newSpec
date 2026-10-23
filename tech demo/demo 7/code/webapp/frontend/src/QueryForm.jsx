@@ -1,23 +1,14 @@
 import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
 import {
-  one, oneText, readFields, isEmbedded, shortName, dateTimeValue,
-  XSD, RDFS_LABEL, TSS_TIME_FIELD, TSS_FROM, TSS_UNTIL, TSS_DATA_FILE, TSS_FORMAT, TSS_CSV,
+  one, oneText, readFields, isEmbedded, isNumericDatatype, shortName, dateTimeValue,
+  TSS_TIME_FIELD, TSS_FROM, TSS_UNTIL, TSS_DATA_FILE, TSS_FORMAT, TSS_CSV,
   TSS_DELIMITER, TSS_DATATYPE, TSS_UNIT,
 } from './tss'
-import { firstField, fieldName, fieldText, isTimeField } from './fields'
+import { firstField, fieldName, fieldText, isTimeField, unitText } from './fields'
 
 // The words the form and the results use for the backend's options
 const RESAMPLE_NAMES = { '': 'every reading', hour: 'one value per hour', day: 'one value per day' }
-
-// The numeric XSD datatypes. Only a field whose tss:datatype is one of these has value
-// ranges and mean/min/max (the backend uses the same list: XSD_TO_DUCKDB in sql_box.py).
-const NUMERIC_DATATYPES = [
-  XSD + 'double', XSD + 'float', XSD + 'decimal',
-  XSD + 'integer', XSD + 'int', XSD + 'long', XSD + 'short', XSD + 'byte',
-  XSD + 'nonNegativeInteger', XSD + 'positiveInteger', XSD + 'nonPositiveInteger', XSD + 'negativeInteger',
-  XSD + 'unsignedLong', XSD + 'unsignedInt', XSD + 'unsignedShort', XSD + 'unsignedByte',
-]
 
 // The query form. Everything it says about the source and its fields comes from the
 // metadata (rdf.store, the parsed Turtle). The backend only reads the data and computes
@@ -415,11 +406,11 @@ function QueryResult({ result, request, rdf }) {
 // --- Reading the metadata -------------------------------------------------------
 // field may be an IRI (a string) or a NamedNode; the tss.js helpers accept both.
 
-// Is this field numeric? Only when its tss:datatype is one of the NUMERIC_DATATYPES.
+// Is this field numeric? Only when its tss:datatype is a numeric XSD datatype (isNumericDatatype
+// in tss.js). Only a numeric field has value ranges and mean/min/max.
 function isNumeric(store, field) {
   if (field === '' || field === null) return false
-  const datatype = one(store, field, TSS_DATATYPE)
-  return datatype !== null && NUMERIC_DATATYPES.includes(datatype.value)
+  return isNumericDatatype(one(store, field, TSS_DATATYPE))
 }
 
 // The series to show first: the one firstField (fields.js) picks, e.g. the first
@@ -429,14 +420,6 @@ function firstSeries(store, source, series) {
   const first = firstField(store, source)
   if (first !== null && !isTimeField(store, source, first)) return first.value
   return series.length > 0 ? series[0].value : ''
-}
-
-// A unit to show, e.g. unit:MicroS-PER-CentiM: its rdfs:label when the document gives
-// one, else its short name. '' when there is no unit.
-function unitText(store, unit, prefixes) {
-  if (unit === null) return ''
-  const label = oneText(store, unit, RDFS_LABEL)
-  return label !== '' ? label : shortName(unit, prefixes)
 }
 
 // A tss:from or tss:until literal as the text a datetime-local input wants, in UTC:

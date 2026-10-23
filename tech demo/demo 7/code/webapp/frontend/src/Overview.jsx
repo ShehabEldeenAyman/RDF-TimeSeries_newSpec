@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { roleText } from './fields'
 import {
   all,
@@ -8,8 +7,6 @@ import {
   isEmbedded,
   shortName,
   termText,
-  liftPoints,
-  pointRows,
   RDF_TYPE,
   RDFS_LABEL,
   RDFS_COMMENT,
@@ -165,33 +162,16 @@ function FieldRow({ rdf, field, hasIndexes }) {
 }
 
 // For embedded points: how the app reads tss:points, and how many points that gives
-function PointsNote({ rdf }) {
-  const [count, setCount] = useState(null)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    let ignore = false // see App.jsx: throw away an answer that arrives too late
-    liftPoints(rdf.store, rdf.source)
-      .then((lifted) => {
-        if (!ignore) setCount(pointRows(lifted, rdf.store, rdf.source).length)
-      })
-      .catch((err) => {
-        if (!ignore) setError(err.message)
-      })
-    return () => {
-      ignore = true
-    }
-  }, [rdf])
-
+//   points: rdf.points, the points App.jsx read as RDF: { store, rows, error } (see readPoints in tss.js)
+function PointsNote({ points }) {
   return (
     <>
       <p className="muted small">
         tss:points is read as JSON-LD, with a context made from the fields: a key (tss:columnName) becomes the
         field's IRI, its value gets the field's tss:datatype.
       </p>
-      {error && <p className="error small long-text">The points can't be read as RDF: {error}</p>}
-      {!error && count === null && <p className="small">Reading the points…</p>}
-      {count !== null && <p className="small">{count} points, one blank node each (the Files tab shows them as a table).</p>}
+      {points.error && <p className="error small long-text">The points can't be read as RDF: {points.error}</p>}
+      {!points.error && <p className="small">{points.rows.length} points, one blank node each (the Files tab shows them as a table).</p>}
     </>
   )
 }
@@ -224,7 +204,7 @@ function otherStatements(store, source, fields, shownSourceProperties) {
 
 // Everything one metadata endpoint says, read from its RDF store.
 //   endpoint: the catalogue entry ({ id, iri, online, ... })
-//   rdf:      the parsed document ({ store, prefixes, text, source }); rdf.source is its tss:Source
+//   rdf:      the parsed document ({ store, prefixes, text, source, points }); rdf.source is its tss:Source
 export function Overview({ endpoint, rdf }) {
   const store = rdf.store
   const source = rdf.source
@@ -296,7 +276,7 @@ export function Overview({ endpoint, rdf }) {
 
         <section className="card">
           <h3>Reading the data</h3>
-          {embedded === true && <PointsNote rdf={rdf} />}
+          {embedded === true && <PointsNote points={rdf.points} />}
           {csv && (
             <>
               <p className="muted small">How to split the CSV file into rows and columns.</p>

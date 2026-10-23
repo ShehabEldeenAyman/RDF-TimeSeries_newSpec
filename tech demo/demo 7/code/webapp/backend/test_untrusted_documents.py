@@ -15,17 +15,23 @@ from urllib.parse import urljoin
 import requests
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from rdflib import RDF, URIRef
+from rdflib import Graph, RDF, URIRef
 
 import main
+import paths
+import files
+import online_registry
+import documents
+import source_reading
+from rdf_generation import TSS
 from test_external_shacl import CUSTOM_SHAPES
 from test_rdf_documents import FakeResponse
 
 CSV = "waterinfo_289423042_tss2"
-LOCAL_DATA = urljoin(main.DEFAULT_BASE, "files/data/")  # http://localhost:5174/files/data/
-DEMO_IRI = main.DEMO_DIR.as_uri()  # file:///C:/Code%20exercises/.../demo%207
+LOCAL_DATA = urljoin(paths.DEFAULT_BASE, "files/data/")  # http://localhost:5174/files/data/
+DEMO_IRI = paths.DEMO_DIR.as_uri()  # file:///C:/Code%20exercises/.../demo%207
 # A file inside demo 7, but not in its data folder: the backend's own code
-NOT_DATA = main.DEMO_DIR / "code" / "webapp" / "backend" / "main.py"
+NOT_DATA = paths.DEMO_DIR / "code" / "webapp" / "backend" / "main.py"
 
 
 class DataFileLocations(unittest.TestCase):
@@ -33,7 +39,7 @@ class DataFileLocations(unittest.TestCase):
 
     def refused(self, iri, data_address):
         with self.assertRaises(HTTPException) as caught:
-            main.iri_to_location(URIRef(iri), data_address)
+            source_reading.iri_to_location(URIRef(iri), data_address)
         self.assertEqual(caught.exception.status_code, 400)
         return caught.exception.detail
 
@@ -43,7 +49,7 @@ class DataFileLocations(unittest.TestCase):
                               (DEMO_IRI + "/data/waterinfo_289423042.csv", "data/waterinfo_289423042.csv"),
                               ("https://example.org/data/x.csv", "https://example.org/data/x.csv")]:
             with self.subTest(iri=iri):
-                self.assertEqual(main.iri_to_location(URIRef(iri), LOCAL_DATA), location)
+                self.assertEqual(source_reading.iri_to_location(URIRef(iri), LOCAL_DATA), location)
 
     def test_a_local_endpoint_can_not_leave_the_data_folder(self):
         for iri in [DEMO_IRI + "/../../../../Windows/win.ini",            # the review's example
@@ -62,7 +68,7 @@ class DataFileLocations(unittest.TestCase):
                 self.assertIn("online endpoint", self.refused(iri, None))
         # The address of the (not served) data folder stays a web address: it is downloaded,
         # never read from the disk
-        self.assertEqual(main.iri_to_location(URIRef(LOCAL_DATA + "x.csv"), None), LOCAL_DATA + "x.csv")
+        self.assertEqual(source_reading.iri_to_location(URIRef(LOCAL_DATA + "x.csv"), None), LOCAL_DATA + "x.csv")
 
 
 class OnlineDocuments(unittest.TestCase):
@@ -72,11 +78,11 @@ class OnlineDocuments(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.folder = Path(temporary.name)
-        patcher = patch.object(main, "ONLINE_ENDPOINTS_FILE", self.folder / "online_endpoints.ttl")
+        patcher = patch.object(paths, "ONLINE_ENDPOINTS_FILE", self.folder / "online_endpoints.ttl")
         patcher.start()
         self.addCleanup(patcher.stop)
         self.web = {}  # address -> (Content-Type, text)
-        patcher = patch.object(main.requests, "get", side_effect=self.fake_get)
+        patcher = patch.object(files.requests, "get", side_effect=self.fake_get)
         patcher.start()
         self.addCleanup(patcher.stop)
         self.client = TestClient(main.app)
@@ -89,15 +95,15 @@ class OnlineDocuments(unittest.TestCase):
 
     def metadata_with_data_file(self, iri):
         """The grootdok endpoint's metadata (Turtle), with another tss:dataFile"""
-        graph = main.load_graph(CSV)
-        source = graph.value(predicate=RDF.type, object=main.TSS.Source)
-        graph.set((source, main.TSS.dataFile, URIRef(iri)))
+        graph = documents.load_graph(CSV)
+        source = graph.value(predicate=RDF.type, object=TSS.Source)
+        graph.set((source, TSS.dataFile, URIRef(iri)))
         return graph.serialize(format="turtle")
 
     def test_an_online_data_file_can_not_be_a_local_file(self):
         # The review's example: a file: IRI inside demo 7, followed by "..": C:\Windows\win.ini.
         # And a file that is in demo 7's data folder: an online endpoint may not read it either.
-        for iri in [DEMO_IRI + "/../../../../Windows/win.ini", (main.DEMO_DIR / "data" / "waterinfo_289423042.csv").as_uri()]:
+        for iri in [DEMO_IRI + "/../../../../Windows/win.ini", (paths.DEMO_DIR / "data" / "waterinfo_289423042.csv").as_uri()]:
             with self.subTest(iri=iri):
                 self.web["https://example.org/evil.ttl"] = ("text/turtle", self.metadata_with_data_file(iri))
                 response = self.client.post("/api/endpoints/online", params={"url": "https://example.org/evil.ttl"})
@@ -119,12 +125,12 @@ class OnlineDocuments(unittest.TestCase):
         for content_type in ["application/ld+json", "application/ld+json; charset=utf-8"]:
             with self.subTest(content_type=content_type):
                 self.web["https://example.org/x.jsonld"] = (content_type, document)
-                with patch.object(main.Graph, "parse") as parse:
+                with patch.object(Graph, "parse") as parse:
                     response = self.client.post("/api/endpoints/online", params={"url": "https://example.org/x.jsonld"})
                 self.assertEqual(response.status_code, 400)
                 self.assertIn("JSON-LD is not read here", response.json()["detail"])
                 parse.assert_not_called()  # refused before any parser saw it
-                self.assertEqual(main.load_online_endpoints(), {})
+                self.assertEqual(online_registry.load_online_endpoints(), {})
         # Sent without a type, it is read as Turtle, which it is not
         self.web["https://example.org/x.jsonld"] = ("text/plain", document)
         response = self.client.post("/api/endpoints/online", params={"url": "https://example.org/x.jsonld"})
@@ -133,9 +139,9 @@ class OnlineDocuments(unittest.TestCase):
 
     def test_a_registered_endpoint_that_turns_into_json_ld_is_refused(self):
         # Registered while it was Turtle (here: by hand); now its server sends JSON-LD
-        registry = main.read_registry()
-        main.register_online_endpoint(registry, "online-1", "https://example.org/x", [], "text/turtle")
-        main.save_registry(registry)
+        registry = online_registry.read_registry()
+        online_registry.register_online_endpoint(registry, "online-1", "https://example.org/x", [], "text/turtle")
+        online_registry.save_registry(registry)
         self.web["https://example.org/x"] = ("application/ld+json", "{}")
         for route in ["document", "rows", "shacl"]:
             response = self.client.get(f"/api/endpoints/online-1/{route}")

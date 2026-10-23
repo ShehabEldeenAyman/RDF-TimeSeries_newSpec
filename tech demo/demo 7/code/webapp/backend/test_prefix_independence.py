@@ -19,6 +19,10 @@ from rdflib import Graph, Namespace, RDF, RDFS, URIRef
 from rdflib.namespace import XSD
 
 import main
+import paths
+import documents
+import source_reading
+from rdf_generation import TSS
 
 CSV = "waterinfo_289423042_tss2"
 PARQUET = "waterinfo_289429042_tss2_parquet"
@@ -33,7 +37,7 @@ QUALITY_CODES = {CSV: "180", PARQUET: "100"}
 def other_prefixes(graph):
     """A copy of a graph with other prefixes: t: for tss:, x: for xsd:, ..."""
     copy = Graph(bind_namespaces="none")
-    copy.bind("t", main.TSS)
+    copy.bind("t", TSS)
     copy.bind("x", XSD)
     copy.bind("e", EX)
     copy.bind("r", RDFS)
@@ -58,10 +62,10 @@ class PrefixIndependence(unittest.TestCase):
             # The original is parsed with its address on this backend as base IRI (like the
             # browser does), so its tss:dataFile <../data/x.csv> is .../files/data/x.csv. The copies
             # name the real data file by its absolute file:/// IRI instead (a local endpoint may).
-            original = main.load_graph(endpoint_id)
-            source = original.value(predicate=RDF.type, object=main.TSS.Source)
-            location = main.read_source(original, main.local_data_address(endpoint_id, main.DEFAULT_BASE))["dataFile"]
-            original.set((source, main.TSS.dataFile, URIRef((main.DEMO_DIR / location).as_uri())))
+            original = documents.load_graph(endpoint_id)
+            source = original.value(predicate=RDF.type, object=TSS.Source)
+            location = source_reading.read_source(original, documents.local_data_address(endpoint_id, paths.DEFAULT_BASE))["dataFile"]
+            original.set((source, TSS.dataFile, URIRef((paths.DEMO_DIR / location).as_uri())))
             for way, write in [("other prefixes", other_prefixes), ("no prefixes", no_prefixes)]:
                 path = folder / f"{endpoint_id} {way}.ttl"
                 path.write_text(write(original), encoding="utf-8")
@@ -77,9 +81,9 @@ class PrefixIndependence(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
 
         def load_copy(asked_id, base=None):
-            return main.parse_document(text, "text/turtle", path.as_uri(), path.name)
+            return documents.parse_document(text, "text/turtle", path.as_uri(), path.name)
 
-        with patch.object(main, "load_graph", side_effect=load_copy):
+        with patch.object(documents, "load_graph", side_effect=load_copy):
             return self.ask(endpoint_id)
 
     def get(self, address, **params):
@@ -131,12 +135,12 @@ class PrefixIndependence(unittest.TestCase):
             self.assertNotIn("@prefix", plain)
             # The data file is the real one, as an absolute file:/// IRI
             copy = Graph().parse(self.copies[(endpoint_id, "no prefixes")], format="turtle")
-            source = copy.value(predicate=RDF.type, object=main.TSS.Source)
-            data_file = str(copy.value(source, main.TSS.dataFile))
+            source = copy.value(predicate=RDF.type, object=TSS.Source)
+            data_file = str(copy.value(source, TSS.dataFile))
             self.assertTrue(data_file.startswith("file:///"), data_file)
-            data_address = main.local_data_address(endpoint_id, main.DEFAULT_BASE)
-            graph, original = main.load_source(endpoint_id)
-            self.assertEqual(main.iri_to_location(data_file, data_address), original["dataFile"])
+            data_address = documents.local_data_address(endpoint_id, paths.DEFAULT_BASE)
+            graph, original = documents.load_source(endpoint_id)
+            self.assertEqual(source_reading.iri_to_location(data_file, data_address), original["dataFile"])
 
     def test_csv_answers_do_not_depend_on_prefixes(self):
         self.compare(CSV)

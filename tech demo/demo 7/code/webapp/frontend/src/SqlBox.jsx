@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { API_URL, errorText, fetchErrorText } from './config'
 import {
-  one, oneText, has, isEmbedded, shortName,
-  RDFS_LABEL, TSS_FORMAT, TSS_PARQUET, TSS_DATA_FILE,
+  one, has, isEmbedded,
+  TSS_FORMAT, TSS_PARQUET, TSS_DATA_FILE,
   TSS_UNIT, TSS_OBSERVED_PROPERTY, TSS_DESCRIBES_FIELD,
 } from './tss'
-import { fieldName, isTimeField } from './fields'
+import { fieldLabel, fieldName, isTimeField, unitText } from './fields'
 
 // The SQL box: type a SQL query, the backend runs it with DuckDB on the data of this
 // endpoint (one table with a column per field, plus the metadata tables) and sends the result back.
@@ -228,9 +228,8 @@ function exampleText(store, example, prefixes) {
   // No field (null): the title alone. (Never look up a missing field: a null subject
   // would match every subject in the store.)
   if (!example.field) return example.title
-  let label = oneText(store, example.field, RDFS_LABEL)
-  if (label === '') label = fieldName(store, example.field, prefixes) // no label: its column name
-  return example.title + ': ' + label
+  // Its rdfs:label, or its column name when it has no label (fieldLabel in fields.js)
+  return example.title + ': ' + fieldLabel(store, example.field, prefixes)
 }
 
 // Where the data table comes from, in words: the embedded points or the data file
@@ -252,17 +251,11 @@ function columnRole(store, source, fieldIri, prefixes) {
   if (described !== null) return 'describes ' + fieldName(store, described, prefixes)
 
   if (has(store, fieldIri, TSS_OBSERVED_PROPERTY, null)) {
-    let label = oneText(store, fieldIri, RDFS_LABEL)
-    if (label === '') label = fieldName(store, fieldIri, prefixes)
+    const label = fieldLabel(store, fieldIri, prefixes) // its rdfs:label, or its column name
     const unit = one(store, fieldIri, TSS_UNIT)
     if (unit === null) return 'value of: ' + label
+    // unitText (fields.js): the unit's rdfs:label, or its short name
     return 'value of: ' + label + ' (' + unitText(store, unit, prefixes) + ')'
   }
   return null
-}
-
-// A unit to show: its rdfs:label when the document gives one, else its short name
-function unitText(store, unit, prefixes) {
-  const label = oneText(store, unit, RDFS_LABEL)
-  return label !== '' ? label : shortName(unit, prefixes)
 }

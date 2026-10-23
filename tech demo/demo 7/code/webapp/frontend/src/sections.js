@@ -7,7 +7,7 @@
 // To show one more property, add a line here; Inspector.jsx reads it from the store.
 
 import {
-  TSS,
+  SOSA,
   RDF_TYPE,
   RDFS_LABEL,
   RDFS_COMMENT,
@@ -18,6 +18,7 @@ import {
   TSS_UNTIL,
   TSS_DATATYPE,
   TSS_LANGUAGE,
+  TSS_REQUIRED,
   TSS_MINIMUM,
   TSS_MAXIMUM,
   TSS_OBSERVED_PROPERTY,
@@ -58,7 +59,7 @@ export const FIELD_SECTIONS = [
     properties: [
       { name: 'datatype', iri: TSS_DATATYPE, on: 'field' },
       { name: 'language', iri: TSS_LANGUAGE, on: 'field' },
-      { name: 'required', iri: TSS + 'required', on: 'field' },
+      { name: 'required', iri: TSS_REQUIRED, on: 'field' },
       { name: 'minimum', iri: TSS_MINIMUM, on: 'field' },
       { name: 'maximum', iri: TSS_MAXIMUM, on: 'field' },
     ],
@@ -92,7 +93,8 @@ export const SHOWN_ELSEWHERE = [RDF_TYPE, RDFS_LABEL, RDFS_COMMENT, TSS_DESCRIBE
 export const SOURCE_PANEL_SKIPS = [RDF_TYPE, RDFS_LABEL, TSS_HAS_FIELD, TSS_POINTS]
 
 // IRIs that start like this open a real web page, so the inspector links to them
+// ('http://qudt.org/' covers all the QUDT namespaces: schema, unit, quantitykind, ...)
 export const LINKABLE_VOCABULARIES = [
   { start: 'http://qudt.org/', name: 'QUDT' },
-  { start: 'http://www.w3.org/ns/sosa/', name: 'SOSA' },
+  { start: SOSA, name: 'SOSA' },
 ]

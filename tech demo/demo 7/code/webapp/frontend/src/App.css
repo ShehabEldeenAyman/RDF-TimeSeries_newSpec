@@ -390,11 +390,7 @@ a.marker:hover {
   color: white;
 }
 
-.marked .line {
-  display: block; /* one line per row, so the background colour fills the whole width */
-}
-
-/* Marked lines (Turtle) and columns (first rows): this field blue, the time field green,
+/* Marked blocks (Turtle) and columns (first rows): this field blue, the time field green,
    its source yellow, the fields that describe this one grey */
 .mark-field {
   background: #ddf4ff;
@@ -500,12 +496,6 @@ a.marker:hover {
 
 .result {
   margin-top: 16px;
-}
-
-.messages li {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 13px;
-  margin-bottom: 4px;
 }
 
 .shacl-report {

@@ -5,7 +5,8 @@ Everything is read as RDF (rdflib): the metadata, the shapes, and for an embedde
 (code/TSS2RDF/tss2rdf.py) reads it as JSON-LD, with a context made from the source's
 fields, so each value becomes a triple the shapes can check:
     _:p1  ex:zevenaarshaven-ec20-value-field  "4797.72"^^xsd:double .
-This is the same check the dashboard's SHACL tab does (code/webapp/backend/main.py).
+The dashboard's SHACL tab runs this same code (code/webapp/backend/shacl_routes.py imports this
+file through rdf_generation.py).
 
 The report is the sh:ValidationReport graph pyshacl gives, saved as Turtle.
 A short summary is printed in the terminal.
@@ -31,7 +32,8 @@ from rdflib.namespace import DCTERMS, SH
 from rdflib.util import guess_format
 
 # The code directory (one folder up) contains the TSS2RDF converter. Its lift_points reads
-# embedded points as RDF, and TSS is the TSS vocabulary (tss:Source, tss:points, ...).
+# embedded points as RDF, TSS is the TSS vocabulary (tss:Source, tss:points, ...), and
+# embedded_mode reads a source's tss:embedded (the web app reads it with the same function).
 code_directory = str(Path(__file__).resolve().parents[1])
 if code_directory not in sys.path:
     sys.path.insert(0, code_directory)
@@ -39,7 +41,7 @@ if code_directory not in sys.path:
 # exact_turtle writes the report as Turtle with every literal's text exactly as it is
 # (rdflib's own short form would write a wrong "yes"^^xsd:boolean as yes, which is broken Turtle).
 # NORMALIZE_LOCK: pyshacl's validate() holds it, so it takes turns with lift_points (see validation_report).
-from TSS2RDF.tss2rdf import NORMALIZE_LOCK, TSS, exact_turtle, lift_points
+from TSS2RDF.tss2rdf import NORMALIZE_LOCK, TSS, embedded_mode, exact_turtle, lift_points
 
 # This file lives in demo 7/code/shacl_report/, so the SHACL folder is two folders up
 SHACL_DIR = Path(__file__).resolve().parents[2] / "SHACL"
@@ -61,18 +63,6 @@ def read_rdf(path):
     syntax = guess_format(str(path)) or "turtle"
     graph.parse(path, format=syntax, publicID=path.resolve().as_uri())
     return graph
-
-
-def embedded_mode(graph, source):
-    """The source's tss:embedded as True or False, read by rdflib.
-    None when it does not have exactly one boolean tss:embedded."""
-    values = list(graph.objects(source, TSS.embedded))
-    if len(values) != 1 or not isinstance(values[0], Literal):
-        return None
-    value = values[0].toPython()  # rdflib reads an xsd:boolean literal as True or False
-    if not isinstance(value, bool):
-        return None
-    return value
 
 
 def default_shapes(graph):
@@ -132,25 +122,31 @@ def add_points_problem(report, report_node, source, reason):
     report.set((report_node, SH.conforms, Literal(False)))
 
 
-def validation_report(graph, shapes, shapes_path):
+def validation_report(graph, shapes):
     """Validate the metadata (and its embedded points) with these shapes (pyshacl).
-    Gives the report as an RDF graph, its sh:ValidationReport node, and the number of point triples."""
+    Gives the report as an RDF graph, its sh:ValidationReport node, and the number of point triples.
+    The caller adds which shapes were used (dcterms:source): this command line their file:///
+    address, the web app their address on the backend.
+    Raises ValueError with pyshacl's message when the shapes can't be run."""
     data, point_triples, problems = data_graph(graph)
 
     # allow_warnings: warnings alone don't make the metadata fail; only violations do.
     # pyshacl gives (conforms, the report graph, the report as text); only the graph is used.
     # pyshacl switches rdflib.NORMALIZE_LITERALS off and on again while it reads the shapes, and
     # so does lift_points: the lock makes them take turns when they run in threads at the same
-    # time (the dashboard's backend does the same in main.validation_report).
-    with NORMALIZE_LOCK:
-        conforms, report, report_text = validate(data, shacl_graph=shapes, allow_warnings=True)
+    # time (the dashboard's SHACL tab calls this function too).
+    try:
+        with NORMALIZE_LOCK:
+            conforms, report, report_text = validate(data, shacl_graph=shapes, allow_warnings=True)
+    except Exception as error:
+        # One kind of error for the callers: the command line prints it, the web app answers 400
+        raise ValueError(str(error)) from error
+    if not isinstance(report, Graph):
+        raise ValueError(str(report))
     report_node = report.value(predicate=RDF.type, object=SH.ValidationReport)
 
     for source, reason in problems:
         add_points_problem(report, report_node, source, reason)
-
-    # Which shapes were used: the file:/// address of the shapes file
-    report.add((report_node, DCTERMS.source, URIRef(shapes_path.resolve().as_uri())))
 
     # The metadata's prefixes (tss:, ex:, ...), so the Turtle of the report is easier to read
     for prefix, namespace in graph.namespaces():
@@ -267,9 +263,11 @@ def main():
         parser.exit(1, f"Could not read {shapes_path}: {error}\n")
 
     try:
-        report, report_node, point_triples = validation_report(graph, shapes, shapes_path)
+        report, report_node, point_triples = validation_report(graph, shapes)
     except Exception as error:  # for example a SPARQL check in the shapes that pyshacl can't run
         parser.exit(1, f"Could not validate with {shapes_path}: {error}\n")
+    # Which shapes were used: the file:/// address of the shapes file
+    report.add((report_node, DCTERMS.source, URIRef(shapes_path.resolve().as_uri())))
 
     if args.out:
         out_path = Path(args.out)

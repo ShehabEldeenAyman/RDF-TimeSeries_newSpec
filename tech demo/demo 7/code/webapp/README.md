@@ -30,11 +30,11 @@ JSON is used only for computed tabular results (rows, previews, filter values, r
 
 | Tab | What it shows | Where it comes from |
 |---|---|---|
-| Overview | The source and how to read its data (literals written as in Turtle), the fields table (role, datatype, unit, observed property, range, ...), every other statement in the document, the number of embedded points, and the document as it was sent | The store; the point count from `liftPoints` |
-| Series inspector | Pick a field: each of its properties, marked as stated on the field, on its source, or missing; the source's own statements; the Turtle of the field and its source; the first 10 rows of the data | The store. Rows: `GET /rows` for CSV and Parquet; for embedded points, `liftPoints` in the browser (no request) |
-| SHACL | Conformance with the default shapes (picked from `tss:embedded`) or uploaded shapes: conforms or not, counts per severity, one row per result, and the report as Turtle | The backend's report (Turtle), parsed in the browser; labels of focus nodes from the store |
+| Overview | The source and how to read its data (literals written as in Turtle), the fields table (role, datatype, unit, observed property, range, ...), every other statement in the document, the number of embedded points, and the document as it was sent | The store; the point count from `rdf.points` (App.jsx reads the points once with `readPoints`, which calls `liftPoints`) |
+| Series inspector | Pick a field: each of its properties, marked as stated on the field, on its source, or missing; the source's own statements; the Turtle of the field and its source; the first 10 rows of the data | The store. Rows: `GET /rows` for CSV and Parquet; for embedded points, `rdf.points` (read in the browser, no request) |
+| SHACL | Conformance with the default shapes (picked by the backend from `tss:embedded`) or uploaded shapes: conforms or not, counts per severity, one row per result, and the report as Turtle | The backend's report (Turtle), parsed in the browser; labels of focus nodes from the store |
 | RDF generation | Observations and triples per field, a preview of the first 200 observations, and a download of the whole graph | `POST /rdf` (counts and links, JSON); the preview fetched and parsed in the browser; field names from the store |
-| Files | External source: the first lines of `tss:dataFile` (Parquet as CSV text) and a download of the original file. Embedded source: the `tss:points` literal, the points read as RDF (a table, and the triples as Turtle), and a warning for undeclared keys. Both: the metadata document as it was sent | `GET /data` (JSON) for data files; the store and `liftPoints` for points |
+| Files | External source: the first lines of `tss:dataFile` (Parquet as CSV text) and a download of the original file. Embedded source: the `tss:points` literal, the points read as RDF (a table, and the triples as Turtle), and a warning for undeclared keys. Both: the metadata document as it was sent | `GET /data` (JSON) for data files; the store and `rdf.points` for points |
 | Query | Pick a field: time, value and column filters, summary, gaps, and hourly/daily aggregation for numeric fields | `/filter-columns` and `/query` (JSON); time window, unit and datatype from the store |
 | SQL (DuckDB) | One data table with a column per field, plus the `source` and `fields` metadata tables (IRIs in full), example queries and a list of the tables | `/sql/tables` and `POST /sql` (JSON); what each column means, and the labels in the example names, from the store |
 
@@ -54,7 +54,7 @@ The points are never read as plain JSON. Python (`lift_points` in `code/TSS2RDF/
 
 ## SHACL
 
-The SHACL tab picks its default shapes from the source's `tss:embedded`:
+The backend picks the default shapes from the source's `tss:embedded` (`default_shapes` in `code/shacl_report/shacl_report.py`, the one validation that both the SHACL tab and the command line run). After a run, the SHACL tab names the file from the report's `dcterms:source`:
 
 | TSS declaration | Default shapes |
 |---|---|
@@ -90,6 +90,12 @@ rdflib writes all of it: the whole graph as N-Triples (`observations.nt`, in bat
 ## API
 
 All routes are served on port 8001; Vite proxies `/api` and `/files` to it. The interactive API documentation is at <http://localhost:8001/docs>. `{id}` is a catalogue id (`dcterms:identifier`): a local file name without `.ttl`, or `online-1`, `online-2`, ...
+
+The code, in `backend/` (the docstring of `main.py` lists every module with one line each):
+
+- `main.py` makes the FastAPI app and adds the routes of the five `*_routes.py` modules (one `APIRouter` each): `catalog_routes.py`, `rdf_routes.py`, `shacl_routes.py`, `data_routes.py` and `sql_routes.py`.
+- What the routes share: `paths.py` (folders and addresses), `files.py` (local or online files), `online_registry.py` (the online endpoints), `documents.py` (reading the RDF documents with the browser's base IRI), `source_reading.py`, `value_reading.py` and `data_reading.py` (the source, one value, the data), `query_helpers.py` (the query form's summary, gaps and hourly/daily values) and `sql_box.py`.
+- `rdf_generation.py` is the only door to the shared code in `code/`: the converter (`TSS2RDF/tss2rdf.py`) and the SHACL command line (`shacl_report/shacl_report.py`), whose validation the SHACL tab runs.
 
 RDF answers (Turtle, `text/turtle; charset=utf-8`, unless noted):
 

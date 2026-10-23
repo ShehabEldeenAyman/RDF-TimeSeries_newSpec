@@ -8,8 +8,6 @@ import {
   oneText,
   readFields,
   isEmbedded,
-  liftPoints,
-  pointRows,
   termText,
   RDFS_LABEL,
   TSS_COLUMN_NAME,
@@ -36,9 +34,11 @@ export function SourceFiles({ endpoint, rdf, fieldIri }) {
   const [view, setView] = useState('turtle')
   const [turtle, setTurtle] = useState(null) // { field, source }: two Turtle texts
   const [turtleError, setTurtleError] = useState(null)
-  // The first rows: { columns: [field IRIs], rows: [[text or null]] }, from /rows or from the points
+  // The first rows of a CSV or Parquet file, from GET /rows: { columns: [field IRIs], rows: [[text or null]] }
   const [rows, setRows] = useState(null)
   const [rowsError, setRowsError] = useState(null)
+  // Are the readings embedded in the metadata (tss:points)? Then the rows come from rdf.points.
+  const embedded = isEmbedded(rdf.store, rdf.source) === true
 
   // Every time another field is picked: write what the store says about the field, and
   // about its source, as Turtle. (These are the parsed triples, not the lines of the file:
@@ -67,37 +67,35 @@ export function SourceFiles({ endpoint, rdf, fieldIri }) {
   }, [rdf, fieldIri])
 
   // Once per endpoint: the first rows of the data, with each column named by the IRI of its field.
-  //   - Embedded points (tss:points) are in the metadata itself, so the browser reads them:
-  //     liftPoints turns them into RDF, and embeddedRows makes the rows (see below).
-  //   - A CSV or Parquet file is read by the backend: we ask it for the first rows (GET /rows).
+  // A CSV or Parquet file is read by the backend: we ask it for the first rows (GET /rows).
+  // (Embedded points are in the metadata itself: App.jsx already read them, see below.)
   useEffect(() => {
+    if (embedded) return
     let ignore = false
 
-    if (isEmbedded(rdf.store, rdf.source) === true) {
-      liftPoints(rdf.store, rdf.source)
-        .then((lifted) => {
-          if (!ignore) setRows(embeddedRows(lifted, rdf))
-        })
-        .catch((err) => {
-          if (!ignore) setRowsError("The points can't be read as RDF: " + err.message)
-        })
-    } else {
-      fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/rows?limit=${ROW_COUNT}`)
-        .then((response) => response.json())
-        .then((data) => {
-          if (ignore) return
-          if (data.detail) setRowsError(errorText(data.detail)) // FastAPI puts its error message in "detail"
-          else setRows(data)
-        })
-        .catch((err) => {
-          if (!ignore) setRowsError(fetchErrorText(err))
-        })
-    }
+    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/rows?limit=${ROW_COUNT}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (ignore) return
+        if (data.detail) setRowsError(errorText(data.detail)) // FastAPI puts its error message in "detail"
+        else setRows(data)
+      })
+      .catch((err) => {
+        if (!ignore) setRowsError(fetchErrorText(err))
+      })
 
     return () => {
       ignore = true
     }
-  }, [endpoint.id, rdf])
+  }, [endpoint.id, rdf, embedded])
+
+  // Embedded points (tss:points): App.jsx read them as RDF once (rdf.points), so the rows are made
+  // here while drawing, by embeddedRows (see below). No state is needed for them: they are known
+  // as soon as the tab is drawn.
+  let shownRows = rows
+  let shownError = rowsError
+  if (embedded && rdf.points.error) shownError = "The points can't be read as RDF: " + rdf.points.error
+  if (embedded && !rdf.points.error) shownRows = embeddedRows(rdf.points.rows, rdf)
 
   return (
     <section className="card">
@@ -106,26 +104,27 @@ export function SourceFiles({ endpoint, rdf, fieldIri }) {
           Turtle
         </button>
         <button className={view === 'rows' ? 'source-tab active' : 'source-tab'} onClick={() => setView('rows')}>
-          First {rows !== null && rows.rows.length > 0 ? rows.rows.length + ' ' : ''}rows of the data
+          First {shownRows !== null && shownRows.rows.length > 0 ? shownRows.rows.length + ' ' : ''}rows of the data
         </button>
       </div>
 
       {view === 'turtle' && <TurtleView endpoint={endpoint} turtle={turtle} error={turtleError} />}
 
-      {view === 'rows' && <DataRows rdf={rdf} fieldIri={fieldIri} rows={rows} error={rowsError} />}
+      {view === 'rows' && <DataRows rdf={rdf} fieldIri={fieldIri} rows={shownRows} error={shownError} />}
     </section>
   )
 }
 
 // The first ROW_COUNT embedded points as table rows, in the same shape as the answer of
 // /rows: { columns: [field IRIs], rows: [[text or null, ...], ...] }
-//   lifted:  the points as RDF (the store from liftPoints)
+//   pointRowList: the points as rows, in time order (rdf.points.rows: pointRows of the points
+//                 App.jsx read as RDF)
 //   columns: the fields with a tss:columnName (only those can be keys in the points), in
 //            the order of readFields. The other fields are shown as "not found".
-//   rows:    the points in time order (pointRows); each cell is the text of the field's
-//            literal, or null when the point has no value. A value written as a JSON string
-//            keeps its text exactly; a JSON number is written by the parser (4797.72 -> 4.79772E3).
-function embeddedRows(lifted, rdf) {
+//   rows:    each cell is the text of the field's literal, or null when the point has no
+//            value. A value written as a JSON string keeps its text exactly; a JSON number is
+//            written by the parser (4797.72 -> 4.79772E3).
+function embeddedRows(pointRowList, rdf) {
   const columns = []
   for (const field of readFields(rdf.store, rdf.source)) {
     if (has(rdf.store, field, TSS_COLUMN_NAME, null)) columns.push(field.value)
@@ -133,7 +132,7 @@ function embeddedRows(lifted, rdf) {
 
   const rows = []
   // slice(0, ROW_COUNT): only the first ROW_COUNT points
-  for (const point of pointRows(lifted, rdf.store, rdf.source).slice(0, ROW_COUNT)) {
+  for (const point of pointRowList.slice(0, ROW_COUNT)) {
     const cells = []
     for (const iri of columns) {
       // point.values has one term per field IRI; no value: no entry

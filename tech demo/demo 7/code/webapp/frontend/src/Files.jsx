@@ -1,12 +1,13 @@
 import { API_URL } from './config'
 import { one, isEmbedded, TSS_DATA_FILE, TSS_FORMAT, TSS_PARQUET } from './tss'
-import { FileViewer, PointsViewer } from './FileViewer'
+import { FileViewer } from './FileViewer'
+import { PointsViewer } from './PointsViewer'
 
 // The Files tab: the files behind the picked metadata endpoint, so nothing is hidden.
-//   external source (tss:embedded false): its data file (tss:dataFile), previewed and downloadable
-//   embedded source (tss:embedded true):  the points inside the metadata (tss:points)
+//   external source (tss:embedded false): its data file (tss:dataFile), previewed and downloadable (FileViewer)
+//   embedded source (tss:embedded true):  the points inside the metadata (tss:points) (PointsViewer)
 //   both:                                 the metadata document itself
-//   endpoint: the catalogue entry ({ id, iri, ... }); rdf: the parsed document ({ store, text, source, ... })
+//   endpoint: the catalogue entry ({ id, iri, ... }); rdf: the parsed document ({ store, text, source, points, ... })
 export function Files({ endpoint, rdf }) {
   const embedded = isEmbedded(rdf.store, rdf.source) // true, false, or null (not stated)
   const format = one(rdf.store, rdf.source, TSS_FORMAT)

@@ -15,6 +15,11 @@ from rdflib import Graph, Literal, URIRef, RDF
 from rdflib.namespace import DCTERMS, SH, XSD
 
 import main
+import paths
+import documents
+import shacl_routes
+import rdf_generation
+from rdf_generation import TSS
 # The SHACL command line (code/shacl_report/shacl_report.py); importing main made code/ importable
 from shacl_report import shacl_report
 from test_external_shacl import BASE, CUSTOM_SHAPES, checks, conforms, read_report, result_of
@@ -42,12 +47,12 @@ class EmbeddedShacl(unittest.TestCase):
     def validate(self, points=None, change=None):
         """The SHACL report (a graph) of the embedded endpoint with other tss:points
         (the text of an rdf:JSON literal), and/or another change to its metadata"""
-        graph = main.load_graph(EMBEDDED)
+        graph = documents.load_graph(EMBEDDED)
         if points is not None:
-            graph.set((SOURCE, main.TSS.points, Literal(points, datatype=RDF.JSON)))
+            graph.set((SOURCE, TSS.points, Literal(points, datatype=RDF.JSON)))
         if change is not None:
             change(graph)
-        with patch.object(main, "load_graph", return_value=graph):
+        with patch.object(documents, "load_graph", return_value=graph):
             response = self.client.get(f"/api/endpoints/{EMBEDDED}/shacl")
         self.assertEqual(response.status_code, 200, response.text)
         self.report_text = response.text  # the Turtle itself, for tests that look at how a value is written
@@ -74,12 +79,12 @@ class EmbeddedShacl(unittest.TestCase):
         # The backend adds this result itself: SHACL can't look inside the rdf:JSON literal
         result = result_of(report, "S6")
         self.assertEqual(report.value(result, SH.focusNode), SOURCE)
-        self.assertEqual(report.value(result, SH.resultPath), main.TSS.points)
+        self.assertEqual(report.value(result, SH.resultPath), TSS.points)
         self.assertEqual(report.value(result, SH.sourceConstraintComponent), SH.SPARQLConstraintComponent)
 
     def test_points_typed_xsd_string_are_an_s6_violation(self):
-        text = str(main.load_graph(EMBEDDED).value(SOURCE, main.TSS.points))
-        report = self.validate(change=lambda graph: graph.set((SOURCE, main.TSS.points, Literal(text, datatype=XSD.string))))
+        text = str(documents.load_graph(EMBEDDED).value(SOURCE, TSS.points))
+        report = self.validate(change=lambda graph: graph.set((SOURCE, TSS.points, Literal(text, datatype=XSD.string))))
         self.assertFalse(conforms(report))
         # Twice S6: the shapes (sh:datatype rdf:JSON), and the backend, which can't read them as JSON-LD
         self.assertEqual(checks(report), [(SH.Violation, "S6"), (SH.Violation, "S6")])
@@ -94,9 +99,9 @@ class EmbeddedShacl(unittest.TestCase):
         report = self.validate(f'[{POINT}, 42, "ec20"]')
         self.assertTrue(conforms(report))
         self.assertEqual(checks(report), [])
-        graph = main.load_graph(EMBEDDED)
-        graph.set((SOURCE, main.TSS.points, Literal(f'[{POINT}, 42, "ec20"]', datatype=RDF.JSON)))
-        self.assertEqual(len(set(main.rdf_generation.lift_points(graph, SOURCE).subjects())), 1)
+        graph = documents.load_graph(EMBEDDED)
+        graph.set((SOURCE, TSS.points, Literal(f'[{POINT}, 42, "ec20"]', datatype=RDF.JSON)))
+        self.assertEqual(len(set(rdf_generation.lift_points(graph, SOURCE).subjects())), 1)
 
     # --- the points: P1-P6 ---------------------------------------------------
 
@@ -128,7 +133,7 @@ class EmbeddedShacl(unittest.TestCase):
 
     def test_a_key_of_two_fields_needs_both_values_to_repeat(self):
         def two_keys(graph):
-            graph.add((SOURCE, main.TSS.key, COLOR))
+            graph.add((SOURCE, TSS.key, COLOR))
         # The same time, another colour: a different key
         report = self.validate(f'[{POINT}, {POINT.replace("green", "red")}]', two_keys)
         self.assertEqual(checks(report), [])
@@ -151,7 +156,7 @@ class EmbeddedShacl(unittest.TestCase):
     def test_a_date_with_a_timezone_is_a_valid_xsd_date(self):
         # rdflib's xsd:dateTime("2021-03-04Z") gives no value, but "2021-03-04Z" is a valid xsd:date
         def date_color(graph):
-            graph.set((COLOR, main.TSS.datatype, XSD.date))
+            graph.set((COLOR, TSS.datatype, XSD.date))
         report = self.validate('[{"time": "2021-03-03T23:15:00Z", "ec20": "1", "qualityColor": "2021-03-04Z"},'
                                ' {"time": "2021-03-03T23:30:00Z", "ec20": "1", "qualityColor": "2021-03-04+02:00"},'
                                ' {"time": "2021-03-03T23:45:00Z", "ec20": "1", "qualityColor": "2021-03-04"}]', date_color)
@@ -166,7 +171,7 @@ class EmbeddedShacl(unittest.TestCase):
     def test_a_time_typed_xsd_date_time_stamp_needs_a_timezone(self):
         # xsd:dateTimeStamp is an xsd:dateTime with a timezone that can't be left out
         def stamp_time(graph):
-            graph.set((TIME, main.TSS.datatype, XSD.dateTimeStamp))
+            graph.set((TIME, TSS.datatype, XSD.dateTimeStamp))
         report = self.validate(f'[{POINT}, {LATER.replace("2021-03-03T23:30:00Z", "2021-03-04T00:30:00+01:00")}]', stamp_time)
         self.assertEqual(checks(report), [])
         # Without a timezone it is no xsd:dateTimeStamp: P4. (P2 reports such a time too, for any
@@ -199,7 +204,7 @@ class EmbeddedShacl(unittest.TestCase):
     def test_yes_as_an_xsd_boolean_is_a_p4_violation(self):
         # rdflib would make "yes"^^xsd:boolean "false" (a valid boolean)
         def boolean_color(graph):
-            graph.set((COLOR, main.TSS.datatype, XSD.boolean))
+            graph.set((COLOR, TSS.datatype, XSD.boolean))
         report = self.validate(f'[{POINT.replace("green", "yes")}, {LATER.replace("green", "true")}]', boolean_color)
         self.assertEqual(checks(report), [(SH.Violation, "P4")])
         result = result_of(report, "P4")
@@ -277,16 +282,16 @@ class EmbeddedShacl(unittest.TestCase):
 
     def test_a_field_missing_from_the_points_is_only_a_warning(self):
         # The ec20 field now reads the key "ec25", which no point has; their "ec20" is unknown now
-        report = self.validate(change=lambda graph: graph.set((VALUE, main.TSS.columnName, Literal("ec25"))))
+        report = self.validate(change=lambda graph: graph.set((VALUE, TSS.columnName, Literal("ec25"))))
         self.assertTrue(conforms(report))
         self.assertEqual(checks(report), [(SH.Warning, "F9"), (SH.Warning, "P6")])
         self.assertEqual(report.value(result_of(report, "F9"), SH.focusNode), VALUE)
 
     def test_an_embedded_source_cannot_have_a_data_file(self):
-        report = self.validate(change=lambda graph: graph.add((SOURCE, main.TSS.dataFile, URIRef("https://example.org/data.csv"))))
+        report = self.validate(change=lambda graph: graph.add((SOURCE, TSS.dataFile, URIRef("https://example.org/data.csv"))))
         self.assertFalse(conforms(report))
         self.assertEqual(checks(report), [(SH.Violation, "S12")])
-        self.assertEqual(report.value(result_of(report, "S12"), SH.resultPath), main.TSS.dataFile)
+        self.assertEqual(report.value(result_of(report, "S12"), SH.resultPath), TSS.dataFile)
 
 
 class ShaclAndLiftsTakeTurns(unittest.TestCase):
@@ -297,24 +302,24 @@ class ShaclAndLiftsTakeTurns(unittest.TestCase):
     def looking_validate(self, validate, held):
         """A validate() that notes whether the lock is held when it is called, then validates"""
         def validate_and_look(*arguments, **options):
-            held.append(main.NORMALIZE_LOCK.locked())
+            held.append(rdf_generation.NORMALIZE_LOCK.locked())
             return validate(*arguments, **options)
         return validate_and_look
 
     def test_the_backend_validates_while_holding_the_lock(self):
         held = []
-        with patch.object(main, "shacl_validate", side_effect=self.looking_validate(main.shacl_validate, held)):
+        with patch.object(shacl_report, "validate", side_effect=self.looking_validate(shacl_report.validate, held)):
             response = TestClient(main.app).get(f"/api/endpoints/{EMBEDDED}/shacl")
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(held, [True])
-        self.assertFalse(main.NORMALIZE_LOCK.locked())  # and lets it go afterwards
+        self.assertFalse(rdf_generation.NORMALIZE_LOCK.locked())  # and lets it go afterwards
 
     def test_the_command_line_validates_while_holding_the_lock(self):
         held = []
-        shapes_path = main.SHACL_DIR / "embedded_shapes.ttl"
+        shapes_path = paths.SHACL_DIR / "embedded_shapes.ttl"
         with patch.object(shacl_report, "validate", side_effect=self.looking_validate(shacl_report.validate, held)):
             report, node, point_triples = shacl_report.validation_report(
-                main.load_graph(EMBEDDED), shacl_report.read_rdf(shapes_path), shapes_path)
+                documents.load_graph(EMBEDDED), shacl_report.read_rdf(shapes_path))
         self.assertEqual(held, [True])
         self.assertTrue(report.value(node, SH.conforms).toPython())
 
@@ -325,15 +330,15 @@ class ShaclAndLiftsTakeTurns(unittest.TestCase):
         points = []
         for number in range(400):
             points.append(f'{{"time": "2021-03-04T{number // 60:02d}:{number % 60:02d}:00Z", "ec20": " 12 "}}')
-        graph = main.load_graph(EMBEDDED)
-        graph.set((SOURCE, main.TSS.points, Literal("[" + ", ".join(points) + "]", datatype=RDF.JSON)))
+        graph = documents.load_graph(EMBEDDED)
+        graph.set((SOURCE, TSS.points, Literal("[" + ", ".join(points) + "]", datatype=RDF.JSON)))
         shapes = Graph().parse(data=CUSTOM_SHAPES, format="turtle")
 
         stop = threading.Event()
 
         def validate_again_and_again():
             while not stop.is_set():
-                main.validation_report(Graph(), shapes, "the test shapes")
+                shacl_routes.run_validation(Graph(), shapes, "the test shapes")
 
         threads = [threading.Thread(target=validate_again_and_again) for number in range(2)]
         for thread in threads:
@@ -342,7 +347,7 @@ class ShaclAndLiftsTakeTurns(unittest.TestCase):
         try:
             for number in range(60):
                 texts = set()
-                for value in main.rdf_generation.lift_points(graph, SOURCE).objects():
+                for value in rdf_generation.lift_points(graph, SOURCE).objects():
                     texts.add(str(value))
                 if " 12 " not in texts or any(text.endswith("+00:00") for text in texts):
                     changed += 1

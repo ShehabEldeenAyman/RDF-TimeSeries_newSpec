@@ -1,5 +1,5 @@
 // fields.js: small helpers about the fields of a source, read from the metadata store.
-// Several tabs use them (Overview, Series inspector, Query, Files).
+// Several tabs use them (Overview, Series inspector, Query, SQL, Files).
 //
 // A field is an RDF term, usually a NamedNode such as ex:grootdok-ec20-field.
 // What a field does in its source is said by the SOURCE, not by the field:
@@ -9,13 +9,15 @@
 //   ex:grootdok-quality-code-field  tss:describesField  ex:grootdok-ec20-field .
 // So every helper here asks the store, and compares fields by their full IRI.
 //
-// Usage (rdf is the prop every tab gets from App: { store, prefixes, text, url, source }):
-//   import { firstField, fieldText, roleText, findField } from './fields'
+// Usage (rdf is the prop every tab gets from App: { store, prefixes, text, url, source, points }):
+//   import { firstField, fieldText, fieldLabel, roleText, findField, unitText } from './fields'
 //
 //   const first = firstField(rdf.store, rdf.source)            // a NamedNode, or null
 //   fieldText(rdf.store, first, rdf.prefixes)                  // 'Value: Electrical conductivity ...'
+//   fieldLabel(rdf.store, first, rdf.prefixes)                 // 'Electrical conductivity ...' (or 'Value')
 //   roleText(rdf.store, rdf.source, first, rdf.prefixes)       // '—', 'time, key' or 'describes Value'
 //   findField(rdf.store, rdf.source, 'https://example.org/ex#grootdok-ec20-field')  // the field, or null
+//   unitText(rdf.store, one(rdf.store, first, TSS_UNIT), rdf.prefixes)   // 'unit:MicroS-PER-CentiM', or ''
 
 import {
   all,
@@ -56,6 +58,22 @@ export function fieldText(store, field, prefixes) {
   const label = oneText(store, field, RDFS_LABEL)
   if (label !== '' && label !== name) return name + ': ' + label
   return name
+}
+
+// The label of a field for people: its rdfs:label, or its name (see fieldName) when it has
+// none, e.g. 'Electrical conductivity at 20 °C, ...' or 'Value'
+export function fieldLabel(store, field, prefixes) {
+  const label = oneText(store, field, RDFS_LABEL)
+  if (label !== '') return label
+  return fieldName(store, field, prefixes)
+}
+
+// A unit to show, e.g. unit:MicroS-PER-CentiM: its rdfs:label when the document gives
+// one, else its short name. '' when there is no unit (null).
+export function unitText(store, unit, prefixes) {
+  if (unit === null) return ''
+  const label = oneText(store, unit, RDFS_LABEL)
+  return label !== '' ? label : shortName(unit, prefixes)
 }
 
 // What a field does in its source, e.g. 'time, key' or 'describes Value', or '—'

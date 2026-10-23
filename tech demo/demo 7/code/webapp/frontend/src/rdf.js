@@ -29,6 +29,11 @@
 //
 //   // Show quads as Turtle:
 //   writeTurtle(store.getQuads(null, null, null, null), prefixes).then((turtle) => ...)
+//
+//   // A POST or DELETE whose answer is Turtle (or an error as JSON): read it like loadRdf does
+//   fetch(url, { method: 'DELETE' })
+//     .then((response) => readRdfAnswer(response, response.url))
+//     .then(({ store, prefixes, text }) => ...)
 
 import { rdfParser } from 'rdf-parse'
 import { Store, Writer } from 'n3'
@@ -122,6 +127,30 @@ export function parseRdf(text, contentType, baseIRI, moreOptions) {
     })
     quadStream.on('error', (err) => reject(new Error(`Could not parse the ${contentType} document ${baseIRI}: ${err.message}`)))
     quadStream.on('end', () => resolve({ store: store, prefixes: prefixes }))
+  })
+}
+
+// A backend answer that is RDF (Turtle) when it went well, and an error as JSON when not:
+// { "detail": "..." }. Gives a Promise of { store, prefixes, text }, like loadRdf, or a rejected
+// Promise with the backend's message. Reading the error as JSON is fine: it is not RDF.
+//   response: what fetch gave;  baseIRI: the IRI of the answer (e.g. response.url, the full
+//             address the request went to)
+// (Used for the answers of adding and removing an online endpoint, and of a SHACL test with
+// uploaded shapes.)
+export function readRdfAnswer(response, baseIRI) {
+  if (!response.ok) {
+    const statusText = `${response.status} ${response.statusText}`
+    return response
+      .json()
+      .catch(() => ({})) // the error was not JSON: use the status text
+      .then((body) => {
+        throw new Error(body.detail ? errorText(body.detail) : statusText)
+      })
+  }
+  return response.text().then((text) => {
+    return parseRdf(text, 'text/turtle', baseIRI).then((parsed) => {
+      return { store: parsed.store, prefixes: parsed.prefixes, text: text }
+    })
   })
 }
 

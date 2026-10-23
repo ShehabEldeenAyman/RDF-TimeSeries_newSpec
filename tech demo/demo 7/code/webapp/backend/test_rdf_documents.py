@@ -10,13 +10,18 @@ from unittest.mock import patch
 
 import requests
 from requests.structures import CaseInsensitiveDict
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from rdflib import Graph, Literal, URIRef, RDF, RDFS
 from rdflib.namespace import DCAT, DCTERMS
 
 import main
+import paths
+import files
+import online_registry
+import documents
+from rdf_generation import TSS
 
-TSS = main.TSS
 BASE = "http://testserver/"  # the address TestClient gives the backend
 LOCAL_IDS = [
     "factory_conductivity_tss2",
@@ -81,14 +86,14 @@ class RdfDocuments(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.registry = Path(temporary.name) / "online_endpoints.ttl"
-        patcher = patch.object(main, "ONLINE_ENDPOINTS_FILE", self.registry)
+        patcher = patch.object(paths, "ONLINE_ENDPOINTS_FILE", self.registry)
         patcher.start()
         self.addCleanup(patcher.stop)
 
         # A fake web: address -> (final address after redirects, status, Content-Type, text)
         self.web = {}
         self.requested = []  # every address the backend asked the fake web for
-        patcher = patch.object(main.requests, "get", side_effect=self.fake_get)
+        patcher = patch.object(files.requests, "get", side_effect=self.fake_get)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -104,7 +109,7 @@ class RdfDocuments(unittest.TestCase):
         self.web[url] = (final_url or url, 200, content_type, text)
 
     def endpoint_text(self, endpoint_id):
-        return (main.METADATA_DIR / f"{endpoint_id}.ttl").read_text(encoding="utf-8")
+        return (paths.METADATA_DIR / f"{endpoint_id}.ttl").read_text(encoding="utf-8")
 
     def catalog(self):
         response = self.client.get("/api/catalog")
@@ -138,7 +143,7 @@ class RdfDocuments(unittest.TestCase):
                 self.assertEqual(download_url, dataset)
                 self.assertEqual(media_type, TURTLE)
                 # The label is the tss:Source's rdfs:label, with its language tag
-                metadata = main.load_graph(endpoint_id)
+                metadata = documents.load_graph(endpoint_id)
                 source = metadata.value(predicate=RDF.type, object=TSS.Source)
                 self.assertEqual(catalog.value(dataset, RDFS.label), metadata.value(source, RDFS.label))
                 self.assertEqual(catalog.value(dataset, RDFS.label).language, "en")
@@ -146,14 +151,14 @@ class RdfDocuments(unittest.TestCase):
 
     def test_an_unreadable_endpoint_gets_a_comment_and_does_not_break_the_catalogue(self):
         # The CSV endpoint's file can't be read (the others can)
-        read_document = main.read_document
+        read_document = documents.read_document
 
         def broken_csv(location):
             if location == f"metadata endpoint/{CSV}.ttl":
-                raise main.HTTPException(status_code=500, detail=f"Could not read {location}: Bad syntax")
+                raise HTTPException(status_code=500, detail=f"Could not read {location}: Bad syntax")
             return read_document(location)
 
-        with patch.object(main, "read_document", side_effect=broken_csv):
+        with patch.object(documents, "read_document", side_effect=broken_csv):
             catalog = self.catalog()
         self.assertEqual(sorted(self.datasets(catalog)), LOCAL_IDS)
         dataset = local_address(CSV)
@@ -166,9 +171,9 @@ class RdfDocuments(unittest.TestCase):
         self.publish(url, self.endpoint_text(CSV))
         self.assertEqual(self.client.post("/api/endpoints/online", params={"url": url}).status_code, 200)
         # One registered by hand, without a label (e.g. by an older backend)
-        registry = main.read_registry()
-        main.register_online_endpoint(registry, "online-2", "https://example.org/unnamed.ttl", [], "text/turtle")
-        main.save_registry(registry)
+        registry = online_registry.read_registry()
+        online_registry.register_online_endpoint(registry, "online-2", "https://example.org/unnamed.ttl", [], "text/turtle")
+        online_registry.save_registry(registry)
 
         # The other servers are gone now: the catalogue does not need them
         self.web.clear()
@@ -177,7 +182,7 @@ class RdfDocuments(unittest.TestCase):
         self.assertEqual(self.requested, [])
         self.assertEqual(sorted(self.datasets(catalog)), sorted(LOCAL_IDS + ["online-1", "online-2"]))
         # The source's label, with its language tag, as it was when the endpoint was added
-        metadata = main.load_graph(CSV)
+        metadata = documents.load_graph(CSV)
         source = metadata.value(predicate=RDF.type, object=TSS.Source)
         label = catalog.value(URIRef(url), RDFS.label)
         self.assertEqual(label, metadata.value(source, RDFS.label))
@@ -194,7 +199,7 @@ class RdfDocuments(unittest.TestCase):
         response = self.client.get(address)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["content-type"], "text/turtle; charset=utf-8")
-        self.assertEqual(response.content, (main.METADATA_DIR / f"{CSV}.ttl").read_bytes())
+        self.assertEqual(response.content, (paths.METADATA_DIR / f"{CSV}.ttl").read_bytes())
         # Parsed with its own address as base IRI, like the browser does
         metadata = read_turtle(response, address)
         source = metadata.value(predicate=RDF.type, object=TSS.Source)
@@ -215,7 +220,7 @@ class RdfDocuments(unittest.TestCase):
         response = self.client.get(f"/api/endpoints/{CSV}/document")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers["content-type"], "text/turtle; charset=utf-8")
-        self.assertEqual(response.content, (main.METADATA_DIR / f"{CSV}.ttl").read_bytes())
+        self.assertEqual(response.content, (paths.METADATA_DIR / f"{CSV}.ttl").read_bytes())
         self.assertEqual(self.client.get("/api/endpoints/nothing-here/document").status_code, 404)
 
     # --- online endpoints ---------------------------------------------------
@@ -251,14 +256,14 @@ class RdfDocuments(unittest.TestCase):
         self.assertEqual(document.headers["content-type"], "text/turtle; charset=utf-8")
         self.assertEqual(document.text, self.endpoint_text(CSV))
         self.assertEqual(document.headers["content-location"], url)
-        graph, source = main.load_source("online-1")
+        graph, source = documents.load_source("online-1")
         self.assertEqual(source["dataFile"], "https://w3id.example.org/data/waterinfo_289423042.csv")
 
         # Removing it gives the catalogue without it
         response = self.client.delete("/api/endpoints/online-1")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(sorted(self.datasets(read_turtle(response, BASE + "api/catalog"))), LOCAL_IDS)
-        self.assertEqual(main.load_online_endpoints(), {})
+        self.assertEqual(online_registry.load_online_endpoints(), {})
         self.assertEqual(len(Graph().parse(self.registry, format="turtle")), 0)  # its distribution went too
 
     def test_online_ids_are_the_first_free_number(self):
@@ -268,21 +273,21 @@ class RdfDocuments(unittest.TestCase):
             self.assertEqual(self.client.post("/api/endpoints/online", params={"url": f"https://example.org/{name}.ttl"}).status_code, 200)
         self.assertEqual(self.client.delete("/api/endpoints/online-1").status_code, 200)
         self.assertEqual(self.client.post("/api/endpoints/online", params={"url": "https://example.org/c.ttl"}).status_code, 200)
-        self.assertEqual(main.load_online_endpoints(), {"online-1": "https://example.org/c.ttl",
-                                                        "online-2": "https://example.org/b.ttl"})
+        self.assertEqual(online_registry.load_online_endpoints(), {"online-1": "https://example.org/c.ttl",
+                                                                   "online-2": "https://example.org/b.ttl"})
 
     def test_an_online_document_is_parsed_by_its_content_type(self):
         # The same metadata as RDF/XML (written by rdflib), sent as application/rdf+xml.
         # (JSON-LD is refused: see test_untrusted_documents.)
         url = "https://example.org/grootdok.rdf"
-        self.publish(url, main.load_graph(CSV).serialize(format="xml"), content_type="application/rdf+xml")
+        self.publish(url, documents.load_graph(CSV).serialize(format="xml"), content_type="application/rdf+xml")
         response = self.client.post("/api/endpoints/online", params={"url": url})
         self.assertEqual(response.status_code, 200, response.text)
         dataset, download_url, media_type = self.datasets(read_turtle(response, BASE))["online-1"]
         self.assertEqual(media_type, URIRef("https://www.iana.org/assignments/media-types/application/rdf+xml"))
         document = self.client.get("/api/endpoints/online-1/document")
         self.assertEqual(document.headers["content-type"], "application/rdf+xml")
-        graph, source = main.load_source("online-1")
+        graph, source = documents.load_source("online-1")
         self.assertEqual(source["format"], TSS.CSV)
 
     def test_bad_online_endpoints_are_refused(self):
@@ -306,7 +311,7 @@ class RdfDocuments(unittest.TestCase):
                 self.assertEqual(response.status_code, 400)
                 self.assertIn(message, response.json()["detail"])
         # Nothing was added for them
-        self.assertEqual(list(main.load_online_endpoints()), ["online-1"])
+        self.assertEqual(list(online_registry.load_online_endpoints()), ["online-1"])
 
     def test_a_local_endpoints_own_address_is_no_online_endpoint(self):
         # The address the browser reads a local endpoint from is that endpoint's IRI in the
@@ -318,7 +323,7 @@ class RdfDocuments(unittest.TestCase):
         self.assertIn("This is a local endpoint", response.json()["detail"])
         self.assertIn(CSV, response.json()["detail"])
         self.assertEqual(self.requested, [])  # refused before anything was downloaded
-        self.assertEqual(main.load_online_endpoints(), {})
+        self.assertEqual(online_registry.load_online_endpoints(), {})
         # Every dataset of the catalogue still has exactly one id and one distribution
         catalog = self.catalog()
         for dataset in catalog.objects(URIRef(BASE + "api/catalog"), DCAT.dataset):
