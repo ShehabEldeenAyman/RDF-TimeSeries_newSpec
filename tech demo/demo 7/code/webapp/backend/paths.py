@@ -2,6 +2,7 @@
 Every module reads these as paths.X, so a test can point one somewhere else with patch.object(paths, ...).
 Constants only, no functions."""
 from pathlib import Path
+import tempfile
 
 
 # This file lives in demo 7/code/webapp/backend/, so demo 7/ is three folders up
@@ -26,9 +27,10 @@ DATA_FILES_PATH = "/files/data/"
 # without changing their Host. See documents.browser_base.
 DEFAULT_BASE = "http://localhost:5174/"
 
-# The online endpoints the user adds are remembered in this file, as RDF (see online_registry.py):
-#   <https://.../x_tss2.ttl> a dcat:Dataset ; dcterms:identifier "online-1" ; rdfs:label "..."@en ; ...
-ONLINE_ENDPOINTS_FILE = Path(__file__).parent / "online_endpoints.ttl"
+# The RDF generation tab writes the generated observations to files in this one folder, to
+# preview and download them (see rdf_routes.py). It is emptied when the backend starts and stops,
+# and each endpoint keeps only its latest export in it, so no generated data is left behind.
+RDF_EXPORT_DIR = Path(tempfile.gettempdir()) / "demo7-rdf-exports"
 
 # The built frontend (npm run build): main.py serves it at "/" when it is there
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"

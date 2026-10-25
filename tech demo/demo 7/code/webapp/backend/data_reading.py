@@ -130,9 +130,9 @@ def data_location(source):
 
 def parquet_head(location, count):
     """The column names and the first rows of a Parquet file, each value as text (see cell_text)"""
-    with duckdb.connect() as connection:
+    with sql_box.in_memory_database() as connection:
         result = connection.execute(
-            "SELECT * FROM read_parquet(?, hive_partitioning = false) LIMIT ?", [str(files.local_copy(location)), count]
+            "SELECT * FROM read_parquet(?, hive_partitioning = false) LIMIT ?", [str(files.local_path(location)), count]
         )
         names = [column[0] for column in result.description]
         found = result.fetchall()
@@ -168,9 +168,9 @@ def data_rows(graph, source, only=None):
 
     if source["format"] == TSS.Parquet:
         try:
-            with duckdb.connect() as connection:
+            with sql_box.in_memory_database() as connection:
                 result = connection.execute(
-                    "SELECT * FROM read_parquet(?, hive_partitioning = false)", [str(files.local_copy(location))]
+                    "SELECT * FROM read_parquet(?, hive_partitioning = false)", [str(files.local_path(location))]
                 )
                 names = [column[0] for column in result.description]
                 positions = column_positions(source, names, only)

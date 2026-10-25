@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { API_URL, errorText, fetchErrorText } from './config'
 import {
   one, oneText, readFields, isEmbedded, isNumericDatatype, shortName, dateTimeValue,
   TSS_TIME_FIELD, TSS_FROM, TSS_UNTIL, TSS_DATA_FILE, TSS_FORMAT, TSS_CSV,
@@ -12,9 +11,10 @@ import { SummaryCheck } from './SummaryCheck'
 const RESAMPLE_NAMES = { '': 'every reading', hour: 'one value per hour', day: 'one value per day' }
 
 // The query form. Everything it says about the source and its fields comes from the
-// metadata (rdf.store, the parsed Turtle). The backend only reads the data and computes
-// the readings, the summary and the gaps.
-export function QueryForm({ endpoint, rdf }) {
+// metadata (rdf.store, the parsed Turtle). The api (dataApi.js) only reads the data and
+// computes the readings, the summary and the gaps: the backend for a bundled endpoint, this
+// browser tab for your own endpoint.
+export function QueryForm({ rdf, api }) {
   const store = rdf.store
   const source = rdf.source
   const from = one(store, source, TSS_FROM)   // a literal like "2021-03-03T23:45:00Z"^^xsd:dateTime, or null
@@ -39,12 +39,12 @@ export function QueryForm({ endpoint, rdf }) {
   const [aggregate, setAggregate] = useState('mean')   // 'mean', 'min' or 'max'
   const [limit, setLimit] = useState(100)
 
-  // The fields this series can be filtered on (e.g. a quality code), from the backend:
+  // The fields this series can be filtered on (e.g. a quality code), from the api:
   // [{ field: '<IRI>', values: ['100', '180'] }, ...]
   const [filterFields, setFilterFields] = useState(null) // null = still loading
   const [filterNote, setFilterNote] = useState('')
 
-  // The answer from the backend, and what we asked (to explain the answer)
+  // The answer from the api, and what we asked (to explain the answer)
   const [result, setResult] = useState(null)
   const [request, setRequest] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -61,28 +61,23 @@ export function QueryForm({ endpoint, rdf }) {
     if (fieldIri === '') return
     let ignore = false // see App.jsx: throw away an answer that arrives too late
 
-    const params = new URLSearchParams({ field: fieldIri })
-    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/filter-columns?${params}`)
-      .then((response) => response.json())
+    api.filterColumns(fieldIri)
       .then((data) => {
         if (ignore) return
-        if (data.detail) {
-          // Not a real error for the form: there is just nothing to filter on
-          setFilterFields([])
-          setFilterNote(errorText(data.detail))
-        } else {
-          setFilterFields(data)
-          setFilterNote('')
-        }
+        setFilterFields(data)
+        setFilterNote('')
       })
       .catch((err) => {
-        if (!ignore) setError(fetchErrorText(err))
+        if (ignore) return
+        // Not a real error for the form: there is just nothing to filter on
+        setFilterFields([])
+        setFilterNote(err.message)
       })
 
     return () => {
       ignore = true
     }
-  }, [endpoint.id, fieldIri])
+  }, [api, fieldIri])
 
   function pickField(iri) {
     setFieldIri(iri)
@@ -128,22 +123,19 @@ export function QueryForm({ endpoint, rdf }) {
     }
     // Number(limit) turns what was typed (e.g. "1e3") into a plain number (1000)
     params.set('limit', Number(limit))
-    const url = `${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/query?${params}`
 
     // Remember what we asked: the answer only holds numbers, and the explanation
-    // under it reads the fields of this request from the metadata
-    setRequest({ url: url, field: fieldIri, filterField: filterField })
+    // under it reads the fields of this request from the metadata.
+    //   url: the address of the request for a bundled endpoint; null for your own endpoint
+    //        (the browser computes the answer, nothing is sent anywhere)
+    setRequest({ url: api.queryAddress(params), params: params.toString(), field: fieldIri, filterField: filterField })
     setLoading(true)
     setResult(null)
     setError(null)
 
-    fetch(url)
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.detail) setError(errorText(data.detail))
-        else setResult(data)
-      })
-      .catch((err) => setError(fetchErrorText(err)))
+    api.query(params)
+      .then((data) => setResult(data))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }
 
@@ -265,11 +257,11 @@ export function QueryForm({ endpoint, rdf }) {
       </section>
 
       {/* key: a new check for each picked field, so an answer for another field is never shown */}
-      <SummaryCheck key={fieldIri} endpoint={endpoint} rdf={rdf} fieldIri={fieldIri} />
+      <SummaryCheck key={fieldIri} rdf={rdf} api={api} fieldIri={fieldIri} />
 
       {error && <p className="error long-text">Error: {error}</p>}
       {result && <Summary result={result} request={request} rdf={rdf} />}
-      {result && <QueryResult result={result} request={request} rdf={rdf} />}
+      {result && <QueryResult result={result} request={request} rdf={rdf} inBrowser={api.inBrowser} />}
     </>
   )
 }
@@ -336,13 +328,14 @@ function Stat({ name, value, note }) {
   )
 }
 
-function QueryResult({ result, request, rdf }) {
+// inBrowser: true when this browser tab computed the answer (your own endpoint)
+function QueryResult({ result, request, rdf, inBrowser }) {
   const store = rdf.store
   const source = rdf.source
   const grouped = result.resample !== ''
   const aggregateName = { mean: 'mean', min: 'minimum', max: 'maximum' }[result.aggregate]
 
-  // How the backend read the data: the metadata says it, so we read it from there
+  // How the data was read: the metadata says it, so we read it from there
   const embedded = isEmbedded(store, source) === true
   const format = one(store, source, TSS_FORMAT)
   const isCsv = format !== null && format.value === TSS_CSV
@@ -361,11 +354,18 @@ function QueryResult({ result, request, rdf }) {
         {result.limitReached && ` (showing the first ${result.readings.length}: see "Max rows")`}
       </h3>
 
-      <p className="muted small long-text">
-        Request sent: <a href={request.url} target="_blank" rel="noreferrer">{request.url}</a>
-      </p>
+      {request.url !== null ? (
+        <p className="muted small long-text">
+          Request sent: <a href={request.url} target="_blank" rel="noreferrer">{request.url}</a>
+        </p>
+      ) : (
+        <p className="muted small long-text">
+          Computed in this browser tab (nothing was sent anywhere), with the same parameters as the
+          server's <code>/query</code>: <code>{request.params}</code>
+        </p>
+      )}
       <p className="muted small">
-        How the backend answered: it{' '}
+        {inBrowser ? 'How your browser answered' : 'How the backend answered'}: it{' '}
         {embedded && <>read the points embedded in the Turtle file (<code>tss:points</code>) as RDF</>}
         {!embedded && isCsv && <>opened <code>{dataFileText}</code> (CSV{delimiter !== '' && <>, delimiter <code>{delimiter}</code></>})</>}
         {!embedded && !isCsv && <>opened <code>{dataFileText}</code> ({format ? shortName(format, rdf.prefixes) : 'no tss:format'})</>},

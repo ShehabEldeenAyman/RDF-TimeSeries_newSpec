@@ -13,8 +13,8 @@
 // Usage:
 //   import { loadRdf, parseRdf, writeTurtle } from './rdf.js'
 //
-//   // Fetch a document and parse it. The base IRI is the URL we fetched from,
-//   // unless we pass the document's real IRI (needed for proxied online documents).
+//   // Fetch a document from our own server and parse it. The base IRI is the URL we
+//   // fetched from, unless we pass the document's real IRI.
 //   loadRdf('/files/metadata%20endpoint/waterinfo_289423042_tss2.ttl')
 //     .then((rdf) => {
 //       console.log(rdf.store.size, 'quads')   // rdf.store is an N3 Store
@@ -30,10 +30,15 @@
 //   // Show quads as Turtle:
 //   writeTurtle(store.getQuads(null, null, null, null), prefixes).then((turtle) => ...)
 //
-//   // A POST or DELETE whose answer is Turtle (or an error as JSON): read it like loadRdf does
-//   fetch(url, { method: 'DELETE' })
-//     .then((response) => readRdfAnswer(response, response.url))
+//   // A POST whose answer is Turtle (or an error as JSON): read it like loadRdf does
+//   fetch(url, { method: 'POST', body: shapes })
+//     .then((response) => readRdfAnswer(response, url))
 //     .then(({ store, prefixes, text }) => ...)
+//
+//   // Your own metadata document (a user endpoint), read by the browser only:
+//   fetchRdfDocument('https://example.org/my_series_tss2.ttl')   // from the web, by this browser
+//   readRdfFile(file, 'file:///uploaded/my_series_tss2.ttl')      // a File picked with <input type="file">
+//     .then(({ store, prefixes, text, baseIRI, contentType }) => ...)
 
 import { rdfParser } from 'rdf-parse'
 import { Store, Writer } from 'n3'
@@ -45,17 +50,43 @@ import { errorText } from './config.js'
 const DEFAULT_CONTENT_TYPE = 'text/turtle'
 const UNTYPED_CONTENT_TYPES = ['', 'text/plain', 'application/octet-stream']
 
+// The RDF syntaxes a user's own metadata document may have (the same list as the backend's
+// documents.RDF_FORMATS). application/x-turtle is an old name for Turtle.
+const USER_DOCUMENT_TYPES = ['text/turtle', 'application/n-triples', 'text/n3', 'application/rdf+xml']
+
+// What the browser asks a web server for when it fetches a user's metadata document: Turtle
+// first, but the other syntaxes we read are fine too. An Accept header this short is
+// "CORS-safelisted": the browser sends the request straight away, without first asking the
+// server for permission (a "preflight" OPTIONS request, which some hosts refuse).
+export const RDF_ACCEPT = 'text/turtle, application/rdf+xml;q=0.8, application/n-triples;q=0.8, text/n3;q=0.5, */*;q=0.1'
+
+// Why we don't read JSON-LD documents: the parser would download whatever its @context names
+const JSON_LD_REFUSED = 'JSON-LD is not read here: its @context can make the parser download other ' +
+  'addresses. Use Turtle, N-Triples, N3 or RDF/XML instead.'
+
+// The syntax of an uploaded file, by the end of its name (the browser does not know the type
+// of a .ttl file: it gives the type "")
+const FILE_EXTENSIONS = {
+  '.ttl': 'text/turtle',
+  '.nt': 'application/n-triples',
+  '.n3': 'text/n3',
+  '.rdf': 'application/rdf+xml',
+  '.owl': 'application/rdf+xml',
+  '.xml': 'application/rdf+xml',
+}
+
 // Fetch an RDF document and parse it into a new N3 Store.
 //   url:     where to fetch it, e.g. '/api/catalog' (a path on our own server is fine)
 //   baseIRI: the IRI of the document itself. Relative IRIs in the document, like
 //            <../data/waterinfo_289423042.csv>, are resolved against it. Leave it out
 //            to use the URL we fetch from.
-// Gives a Promise of { store, prefixes, text, url, baseIRI }:
-//   store    the quads, in an N3 Store
-//   prefixes the @prefix lines of the document, e.g. { tss: 'https://w3id.org/tss#' }
-//   text     the document text exactly as the server sent it (to show it)
-//   url      the absolute URL we fetched from
-//   baseIRI  the base IRI the relative IRIs were resolved against
+// Gives a Promise of { store, prefixes, text, url, baseIRI, contentType }:
+//   store       the quads, in an N3 Store
+//   prefixes    the @prefix lines of the document, e.g. { tss: 'https://w3id.org/tss#' }
+//   text        the document text exactly as the server sent it (to show it)
+//   url         the absolute URL we fetched from
+//   baseIRI     the base IRI the relative IRIs were resolved against
+//   contentType the syntax it was parsed as, e.g. 'text/turtle'
 export function loadRdf(url, baseIRI) {
   // fetch accepts a path like '/api/catalog', but a base IRI must be a full IRI.
   // new URL(path, page address) makes 'http://localhost:5174/api/catalog' from it.
@@ -83,9 +114,85 @@ export function loadRdf(url, baseIRI) {
     })
     .then((text) => {
       return parseRdf(text, contentType, base).then((parsed) => {
-        return { store: parsed.store, prefixes: parsed.prefixes, text: text, url: absoluteUrl, baseIRI: base }
+        return { store: parsed.store, prefixes: parsed.prefixes, text: text, url: absoluteUrl, baseIRI: base, contentType: contentType }
       })
     })
+}
+
+// Fetch a user's own metadata document from the web, here in the browser (the demo's server
+// never sees it), and parse it into a new N3 Store. Gives a Promise of
+// { store, prefixes, text, url, baseIRI, contentType }, like loadRdf.
+//   url: the address the user typed. It is also the document's base IRI (also when the server
+//        redirects us elsewhere), so <../data/x.csv> means the same as for the document's author.
+// The server must allow a browser to read its files (CORS). When it does not, the browser only
+// says "Failed to fetch", so the message says what the user can do instead.
+export function fetchRdfDocument(url) {
+  let contentType = DEFAULT_CONTENT_TYPE
+
+  // cache: 'no-store': always ask the server again, so a document that was just edited is read
+  // as it is now. Only the Accept header is set (see RDF_ACCEPT).
+  return fetch(url, { cache: 'no-store', headers: { Accept: RDF_ACCEPT } })
+    .catch((err) => {
+      throw new Error(`Your browser could not download ${url} (${err.message}). This host does not let a browser ` +
+        'download the file (it does not allow CORS), or the address can not be reached. Download the file and ' +
+        'upload it here instead ("From your computer").')
+    })
+    .then((response) => {
+      if (!response.ok) throw new Error(`Could not load ${url}: ${response.status} ${response.statusText}`.trim())
+      contentType = userDocumentType(response.headers.get('Content-Type'), url)
+      return response.text()
+    })
+    .then((text) => {
+      return parseRdf(text, contentType, url).then((parsed) => {
+        return { store: parsed.store, prefixes: parsed.prefixes, text: text, url: url, baseIRI: url, contentType: contentType }
+      })
+    })
+}
+
+// Read a metadata file the user picked on their computer (a File from <input type="file">),
+// and parse it into a new N3 Store. Nothing is sent anywhere: the browser reads the file itself.
+//   baseIRI: the document's IRI: where it is published, or a made-up file:///uploaded/<name>
+// Gives a Promise of { store, prefixes, text, url: null, baseIRI, contentType }.
+export function readRdfFile(file, baseIRI) {
+  let contentType
+  try {
+    contentType = fileType(file.name)
+  } catch (err) {
+    return Promise.reject(err)
+  }
+  return file.text().then((text) => {
+    return parseRdf(text, contentType, baseIRI).then((parsed) => {
+      return { store: parsed.store, prefixes: parsed.prefixes, text: text, url: null, baseIRI: baseIRI, contentType: contentType }
+    })
+  })
+}
+
+// The syntax of a user's document, from the Content-Type its server sent. Throws an Error for
+// JSON-LD, an HTML page, and any other type that is not an RDF syntax we read.
+//   'text/turtle; charset=utf-8' -> 'text/turtle'
+//   'application/octet-stream, application/octet-stream' (Zenodo sends it twice) -> 'text/turtle'
+function userDocumentType(contentTypeHeader, url) {
+  const header = contentTypeHeader ? contentTypeHeader : ''
+  const type = mediaType(header.split(',')[0]) // only the first of a doubled value
+  if (type === 'application/x-turtle') return 'text/turtle'
+  if (type === 'application/ld+json') throw new Error(`${url} is JSON-LD. ${JSON_LD_REFUSED}`)
+  if (type === 'text/html') {
+    throw new Error(`${url} is an HTML page, not RDF. Is it the address of the file itself (for example its "raw" link)?`)
+  }
+  if (!USER_DOCUMENT_TYPES.includes(type)) {
+    throw new Error(`${url} is ${type}, which is not an RDF syntax this dashboard reads (Turtle, RDF/XML, N-Triples or N3)`)
+  }
+  return type
+}
+
+// The syntax of an uploaded file, by the end of its name: 'my_series.ttl' -> 'text/turtle'
+function fileType(fileName) {
+  const name = fileName.toLowerCase()
+  if (name.endsWith('.jsonld') || name.endsWith('.json')) throw new Error(`${fileName} is JSON-LD. ${JSON_LD_REFUSED}`)
+  for (const extension of Object.keys(FILE_EXTENSIONS)) {
+    if (name.endsWith(extension)) return FILE_EXTENSIONS[extension]
+  }
+  throw new Error(`${fileName}: the name must end in .ttl (Turtle), .nt (N-Triples), .n3 (N3) or .rdf, .owl, .xml (RDF/XML)`)
 }
 
 // Parse RDF text into a new N3 Store, without fetching anything.
@@ -135,8 +242,7 @@ export function parseRdf(text, contentType, baseIRI, moreOptions) {
 // Promise with the backend's message. Reading the error as JSON is fine: it is not RDF.
 //   response: what fetch gave;  baseIRI: the IRI of the answer (e.g. response.url, the full
 //             address the request went to)
-// (Used for the answers of adding and removing an online endpoint, and of a SHACL test with
-// uploaded shapes.)
+// (Used for the answer of a SHACL test with uploaded shapes, see dataApi.js.)
 export function readRdfAnswer(response, baseIRI) {
   if (!response.ok) {
     const statusText = `${response.status} ${response.statusText}`

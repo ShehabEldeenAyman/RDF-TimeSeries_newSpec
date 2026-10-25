@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { API_URL, errorText, fetchErrorText } from './config'
 import { writeTurtle } from './rdf'
 import { fieldName, findField } from './fields'
 import {
@@ -28,9 +27,9 @@ const BOUND_TEXT = {
 
 // What is behind the series inspector, so nothing is hidden: the RDF statements about the
 // picked field and its source, and the first rows of the data.
-//   endpoint, rdf: the props every tab gets (see App.jsx)
-//   fieldIri:      the full IRI of the picked field
-export function SourceFiles({ endpoint, rdf, fieldIri }) {
+//   endpoint, rdf, api: the props every tab gets (see App.jsx)
+//   fieldIri:           the full IRI of the picked field
+export function SourceFiles({ endpoint, rdf, api, fieldIri }) {
   const [view, setView] = useState('turtle')
   const [turtle, setTurtle] = useState(null) // { field, source }: two Turtle texts
   const [turtleError, setTurtleError] = useState(null)
@@ -67,27 +66,25 @@ export function SourceFiles({ endpoint, rdf, fieldIri }) {
   }, [rdf, fieldIri])
 
   // Once per endpoint: the first rows of the data, with each column named by the IRI of its field.
-  // A CSV or Parquet file is read by the backend: we ask it for the first rows (GET /rows).
+  // A CSV or Parquet file is read by the backend (GET /rows), or for your own endpoint here in
+  // the browser: api.rows asks the right one (see dataApi.js).
   // (Embedded points are in the metadata itself: App.jsx already read them, see below.)
   useEffect(() => {
     if (embedded) return
     let ignore = false
 
-    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/rows?limit=${ROW_COUNT}`)
-      .then((response) => response.json())
+    api.rows(ROW_COUNT)
       .then((data) => {
-        if (ignore) return
-        if (data.detail) setRowsError(errorText(data.detail)) // FastAPI puts its error message in "detail"
-        else setRows(data)
+        if (!ignore) setRows(data)
       })
       .catch((err) => {
-        if (!ignore) setRowsError(fetchErrorText(err))
+        if (!ignore) setRowsError(err.message)
       })
 
     return () => {
       ignore = true
     }
-  }, [endpoint.id, rdf, embedded])
+  }, [api, embedded])
 
   // Embedded points (tss:points): App.jsx read them as RDF once (rdf.points), so the rows are made
   // here while drawing, by embeddedRows (see below). No state is needed for them: they are known

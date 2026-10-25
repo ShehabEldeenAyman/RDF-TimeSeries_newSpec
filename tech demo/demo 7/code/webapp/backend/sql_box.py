@@ -81,7 +81,7 @@ TYPE_WORDS = {
 METADATA_TABLES = {
     "source": {
         "explanation": "The TSS source: one row, with what holds for every field. IRIs are written in full; "
-                       "modified_at is when the metadata document was last edited (tss:modifiedAt).",
+                       "modified_at is when the source's metadata was last edited (its tss:modifiedAt).",
         "columns": [
             ("source", "VARCHAR"),
             ("label", "VARCHAR"),
@@ -286,6 +286,16 @@ def load_table(con, table):
         raise ValueError(f"Could not load table {table['name']}: {message}")
 
 
+def in_memory_database():
+    """A new, empty DuckDB database that only lives in memory (no file name). The backend reads
+    the Parquet files and runs the SQL box with these, so no data is ever written to disk:
+    without temp_directory = '', DuckDB would put data that does not fit in memory in a scratch
+    folder on disk (.tmp, in the folder the backend runs in), and those files would stay readable."""
+    con = duckdb.connect()
+    con.execute("SET temp_directory = ''")
+    return con
+
+
 def open_database(tables, metadata_rows):
     """A new in-memory DuckDB with our tables in it, locked down.
     Returns (the database, the tables that could not be loaded and why).
@@ -293,11 +303,9 @@ def open_database(tables, metadata_rows):
     tables: the data tables (see load_table)
     metadata_rows: {"source": [row], "fields": [row, ...], "summaries": [row, ...]}, each row
                    a dict with the columns of METADATA_TABLES"""
-    con = duckdb.connect()  # no file name: the database only lives in memory
+    con = in_memory_database()  # no scratch folder on disk
     try:
         con.execute("SET TimeZone = 'UTC'")
-        # No scratch folder on disk: otherwise the files in it would stay readable
-        con.execute("SET temp_directory = ''")
 
         # 1. The data. A table that can't be loaded is skipped (with the reason),
         #    so the metadata tables can still be used. (duckdb.Error too: e.g. two embedded

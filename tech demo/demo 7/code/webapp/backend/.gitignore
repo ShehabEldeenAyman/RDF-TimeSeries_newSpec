@@ -1,3 +1,1 @@
 __pycache__/
-# the online endpoints added from the dashboard (local to this computer), as RDF (Turtle)
-online_endpoints.ttl

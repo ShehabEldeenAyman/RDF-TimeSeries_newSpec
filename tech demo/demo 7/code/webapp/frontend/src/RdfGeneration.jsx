@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react'
-import { API_URL, errorText, fetchErrorText } from './config'
-import { loadRdf, writeTurtle } from './rdf'
+import { writeTurtle } from './rdf'
 import { one, oneText, isEmbedded, RDFS_LABEL, TSS_DATA_FILE } from './tss'
 import { fieldName } from './fields'
 
-// The RDF generation tab: the backend turns the source's data into SOSA observations
-// (code/TSS2RDF/tss2rdf.py). We show a preview, and a link to download the whole graph.
+// The RDF generation tab: the source's data becomes SOSA observations (code/TSS2RDF/tss2rdf.py
+// in the backend for a bundled endpoint; for your own endpoint the same rules in a Web Worker in
+// this browser tab, see dataApi.js). We show a preview, and a link to download the whole graph.
 // The preview is Turtle: we parse it here in the browser and write it out again.
-export function RdfGeneration({ endpoint, rdf }) {
-  const [result, setResult] = useState(null)   // the numbers and links from the backend
+export function RdfGeneration({ rdf, api }) {
+  const [result, setResult] = useState(null)   // the numbers and links (from api.generateRdf)
   const [preview, setPreview] = useState(null) // { turtle, triples }: the parsed preview
   const [previewError, setPreviewError] = useState(null)
   const [error, setError] = useState(null)
@@ -31,30 +31,26 @@ export function RdfGeneration({ endpoint, rdf }) {
     setPreviewError(null)
     setError(null)
 
-    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/rdf`, { method: 'POST' })
-      .then((response) => response.json())
+    api.generateRdf()
       .then((data) => {
         if (thisRun !== runNumber.current) return
-        if (data.detail) {
-          setError(errorText(data.detail))
-        } else {
-          setResult(data)
-          loadPreview(data.previewUrl, thisRun)
-        }
+        setResult(data)
+        loadPreview(data, thisRun)
       })
       .catch((err) => {
-        if (thisRun === runNumber.current) setError(fetchErrorText(err))
+        if (thisRun === runNumber.current) setError(err.message)
       })
       .finally(() => {
         if (thisRun === runNumber.current) setRunning(false)
       })
   }
 
-  // Fetch the preview (Turtle with the first observations), parse it into a store, and
-  // write the store out again as Turtle. So the page shows what an RDF parser read.
-  function loadPreview(previewUrl, thisRun) {
+  // Get the preview (Turtle with the first observations) parsed into a store (data.preview(),
+  // see dataApi.js), and write the store out again as Turtle. So the page shows what an RDF
+  // parser read.
+  function loadPreview(data, thisRun) {
     let triples = 0
-    loadRdf(previewUrl)
+    data.preview()
       .then((loaded) => {
         triples = loaded.store.size
         // getQuads(null, null, null, null): every quad; the prefixes keep the text short (sosa:, xsd:, ...)
@@ -74,6 +70,7 @@ export function RdfGeneration({ endpoint, rdf }) {
       <p>
         Turn {embedded ? 'the points embedded in the Turtle file' : <>the data file <code>{dataFile ? dataFile.value : '(no tss:dataFile)'}</code></>} into
         SOSA observations, then view them (a Turtle preview) or download them (N-Triples).
+        {api.inBrowser && ' This runs here, in this browser tab: the observations are not sent anywhere.'}
       </p>
       <p className="muted small">
         Every row gives one <code>sosa:Observation</code> for each field with a <code>tss:observedProperty</code>: its
@@ -94,7 +91,7 @@ export function RdfGeneration({ endpoint, rdf }) {
           </p>
           <table className="facts">
             <tbody>
-              {/* One line per field: the backend sends its IRI and a count; its column name and label are in the metadata */}
+              {/* One line per field: the answer has its IRI and a count; its column name and label are in the metadata */}
               {result.series.map((series) => {
                 // series.field is the field's full IRI: we look it up in the metadata store
                 const label = oneText(rdf.store, series.field, RDFS_LABEL)

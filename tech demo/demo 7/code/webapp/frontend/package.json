@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fetch-browser-assets": "node scripts/fetch-duckdb-extensions.mjs && node scripts/fetch-pyodide-packages.mjs"
   },
   "dependencies": {
+    "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "n3": "2.13.12",
+    "pyodide": "314.0.7",
     "rdf-parse": "5.0.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

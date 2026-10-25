@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { API_URL, errorText, fetchErrorText } from './config'
 import { fieldLabel } from './fields'
 import { SummaryValue } from './SummaryTable'
 import { one, readSummary, numberValue, timeValue, isNumericDatatype, TSS_FROM, TSS_UNTIL, TSS_DATATYPE } from './tss'
 
 // The query that puts a field's stored summary (tss:summary in the metadata) next to the same
 // numbers computed from the data now, and says for each one whether it is still the same.
-// The stored numbers come from the metadata (rdf.store); the backend's /query computes the others.
+// The stored numbers come from the metadata (rdf.store); the api's query (dataApi.js: the backend's
+// /query, or the same computed in this browser tab) computes the others.
 
 // The numbers a summary and /query both have:
 //   key:     the attribute of the summary (see SUMMARY_ATTRIBUTES in tss.js)
@@ -54,8 +54,8 @@ function sameWindowAsSource(store, source, summary) {
 
 // The query, for one field. QueryForm.jsx gives it key={fieldIri}, so picking another field
 // starts it again with an empty answer.
-//   endpoint, rdf: as for every tab   fieldIri: the field picked in the query form
-export function SummaryCheck({ endpoint, rdf, fieldIri }) {
+//   rdf, api: as for every tab   fieldIri: the field picked in the query form
+export function SummaryCheck({ rdf, api, fieldIri }) {
   const [answer, setAnswer] = useState(null) // the summary /query computed, or null
   const [note, setNote] = useState('')
   const [loading, setLoading] = useState(false)
@@ -79,13 +79,9 @@ export function SummaryCheck({ endpoint, rdf, fieldIri }) {
     setLoading(true)
     setAnswer(null)
     setError(null)
-    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/query?${params}`)
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.detail) setError(errorText(data.detail))
-        else setAnswer(data.summary)
-      })
-      .catch((err) => setError(fetchErrorText(err)))
+    api.query(params)
+      .then((data) => setAnswer(data.summary))
+      .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }
 

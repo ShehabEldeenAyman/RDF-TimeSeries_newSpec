@@ -64,7 +64,7 @@ class PrefixIndependence(unittest.TestCase):
             # name the real data file by its absolute file:/// IRI instead (a local endpoint may).
             original = documents.load_graph(endpoint_id)
             source = original.value(predicate=RDF.type, object=TSS.Source)
-            location = source_reading.read_source(original, documents.local_data_address(endpoint_id, paths.DEFAULT_BASE))["dataFile"]
+            location = source_reading.read_source(original, documents.local_data_address(paths.DEFAULT_BASE))["dataFile"]
             original.set((source, TSS.dataFile, URIRef((paths.DEMO_DIR / location).as_uri())))
             for way, write in [("other prefixes", other_prefixes), ("no prefixes", no_prefixes)]:
                 path = folder / f"{endpoint_id} {way}.ttl"
@@ -138,7 +138,7 @@ class PrefixIndependence(unittest.TestCase):
             source = copy.value(predicate=RDF.type, object=TSS.Source)
             data_file = str(copy.value(source, TSS.dataFile))
             self.assertTrue(data_file.startswith("file:///"), data_file)
-            data_address = documents.local_data_address(endpoint_id, paths.DEFAULT_BASE)
+            data_address = documents.local_data_address(paths.DEFAULT_BASE)
             graph, original = documents.load_source(endpoint_id)
             self.assertEqual(source_reading.iri_to_location(data_file, data_address), original["dataFile"])
 

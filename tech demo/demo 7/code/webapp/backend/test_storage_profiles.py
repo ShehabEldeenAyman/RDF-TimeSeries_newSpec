@@ -21,6 +21,7 @@ import data_routes
 import rdf_routes
 import sql_routes
 from rdf_generation import TSS
+from test_rdf_generation import use_a_test_export_folder
 
 EMBEDDED = "waterinfo_289441042_tss2_points_embedded"
 EXTERNAL = "waterinfo_289423042_tss2"
@@ -219,6 +220,9 @@ class StorageProfiles(unittest.TestCase):
 class EmbeddedPointsAsRdf(unittest.TestCase):
     """The embedded points are read as RDF (JSON-LD with a context made from the fields),
     so they follow the RDF rules: no order, "" is no value, other keys are not fields."""
+
+    def setUp(self):
+        use_a_test_export_folder(self)  # generate_rdf writes its files in a folder of this test
 
     def with_points(self, points):
         """The embedded endpoint, with other tss:points (an rdf:JSON literal)"""

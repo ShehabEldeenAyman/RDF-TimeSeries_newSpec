@@ -1,5 +1,6 @@
-// Where the FastAPI backend's data and computed routes are. Every component imports
-// this, so if the backend moves you only change it here.
+// Where the FastAPI backend's data and computed routes are. App.jsx and dataApi.js (which
+// asks the backend for the tabs of a bundled endpoint) import this, so if the backend moves
+// you only change it here. (Your own endpoints never use it: the browser answers for them.)
 // It is a path on the page's own server: Vite (port 5174) passes /api/... and
 // /files/... on to the backend on port 8001 (see vite.config.js).
 // The RDF documents themselves (catalogue, metadata endpoints, SHACL shapes) are

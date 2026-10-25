@@ -33,8 +33,9 @@ const MARKERS = {
 // metadata says about it, with, for every value, where it is stated: on the field, or on
 // its source. Everything is read from the parsed metadata document (rdf.store), and for
 // embedded data from the points App.jsx read as RDF (rdf.points).
-//   endpoint = { id, iri, downloadUrl, label, online }   rdf = { store, prefixes, text, url, source, points }
-export function Inspector({ endpoint, rdf }) {
+//   endpoint = { id, iri, label, ... }   rdf = { store, prefixes, text, url, source, points }
+//   api = the endpoint's data questions (dataApi.js): the first rows of the data come from it
+export function Inspector({ endpoint, rdf, api }) {
   const fields = readFields(rdf.store, rdf.source)
   const first = firstField(rdf.store, rdf.source)
   // The picked field, by its full IRI (an RDF term is a new object every time we ask the store)
@@ -66,7 +67,7 @@ export function Inspector({ endpoint, rdf }) {
       </section>
 
       <FieldPanel rdf={rdf} fields={fields} field={field} onPick={setFieldIri} />
-      <SourceFiles endpoint={endpoint} rdf={rdf} fieldIri={fieldIri} />
+      <SourceFiles endpoint={endpoint} rdf={rdf} api={api} fieldIri={fieldIri} />
       <SourcePanel endpoint={endpoint} rdf={rdf} fields={fields} field={field} onPick={setFieldIri} />
     </>
   )
@@ -153,8 +154,10 @@ function FieldPanel({ rdf, fields, field, onPick }) {
 function FieldLinks({ rdf, fields, links, onPick }) {
   return links.map((link, index) => {
     const isOurField = fields.some((field) => field.equals(link))
+    // The key is the kind of term plus its text: an IRI and a literal can have the same text
+    // (tss:describesField <X>, "X"), and React needs a different key for each item of a list
     return (
-      <span key={link.value}>
+      <span key={link.termType + ' ' + link.value}>
         {index > 0 && ', '}
         {isOurField ? (
           <a href="#inspector-top" title={link.value} onClick={() => onPick(link.value)}>

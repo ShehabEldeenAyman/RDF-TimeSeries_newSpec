@@ -2,9 +2,8 @@
 IRIs in it, like <#value> or <../data/probe.csv>, are the same IRIs on both sides.
 Run from backend/: python -B -m unittest -v test_base_iri.
 
-The browser (frontend/src/App.jsx) parses a document with the IRI the catalogue gives it:
-- a local endpoint: its address on this backend, {base}files/metadata%20endpoint/<id>.ttl;
-- an online endpoint: the address it was registered with, also when its server redirects.
+The browser (frontend/src/App.jsx) parses a bundled document with the IRI the catalogue gives it:
+its address on this backend, {base}files/metadata%20endpoint/<id>.ttl.
 These tests read the probe document below the way the browser does (rdflib, with the
 catalogue's IRI as base IRI), and check that the field IRIs in the answers of /query,
 /filter-columns, /rows, /sql/tables, POST /rdf and the SHACL report are those IRIs."""
@@ -13,36 +12,31 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import requests
 from fastapi.testclient import TestClient
 from rdflib import Graph, Literal, RDF, URIRef
-from rdflib.namespace import DCAT, DCTERMS, SH
+from rdflib.namespace import DCTERMS, SH
 
 import main
 import paths
-import files
 import documents
 from rdf_generation import TSS
-from test_rdf_documents import FakeResponse
+from test_rdf_generation import use_a_test_export_folder
 
 SOSA_OBSERVED_PROPERTY = URIRef("http://www.w3.org/ns/sosa/observedProperty")
 BASE = "http://testserver/"  # the address TestClient gives the backend
 
 # A metadata document whose source and fields have relative IRIs. Its data file is
-# <../data/probe.csv>: next to the "metadata endpoint" folder for a local endpoint.
+# <../data/probe.csv>: next to the "metadata endpoint" folder.
 PROBE = """
 @prefix tss: <https://w3id.org/tss#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 
-# The document's own last edit, as in every metadata endpoint (SHACL D1 wants exactly one).
-# <> is the document itself, so it is relative too.
-<> tss:modifiedAt "2026-10-22T14:13:56Z"^^xsd:dateTime .
-
 <#source> a tss:Source ;
     rdfs:label "Probe with relative IRIs"@en ;
     tss:embedded false ;
     tss:mutable false ;
+    tss:modifiedAt "2026-10-22T14:13:56Z"^^xsd:dateTime ;
     tss:format tss:CSV ;
     tss:dataFile <../data/probe.csv> ;
     tss:timeField <#time> ;
@@ -53,11 +47,6 @@ PROBE = """
 <#code> a tss:Field ; tss:columnName "code" ; tss:datatype xsd:integer ; tss:describesField <#value> .
 """
 PROBE_CSV = "time,value,code\n2021-03-03T23:15:00Z,1.5,1\n2021-03-03T23:30:00Z,2.5,2\n2021-03-03T23:45:00Z,3.5,1\n"
-
-# The online copy: registered at a w3id-like address that redirects to a mirror
-REGISTERED = "https://w3id.example.org/tss/probe"
-MIRROR = "https://mirror.example.org/x/y/probe.ttl"
-ONLINE_DATA = "https://w3id.example.org/data/probe.csv"  # <../data/probe.csv> read against REGISTERED
 
 
 class SameIrisAsTheBrowser(unittest.TestCase):
@@ -70,24 +59,12 @@ class SameIrisAsTheBrowser(unittest.TestCase):
         (root / "data").mkdir()
         (root / "metadata endpoint" / "probe.ttl").write_text(PROBE, encoding="utf-8")
         (root / "data" / "probe.csv").write_text(PROBE_CSV, encoding="utf-8")
-        for name, value in [("DEMO_DIR", root), ("METADATA_DIR", root / "metadata endpoint"),
-                            ("ONLINE_ENDPOINTS_FILE", root / "online_endpoints.ttl")]:
+        for name, value in [("DEMO_DIR", root), ("METADATA_DIR", root / "metadata endpoint")]:
             patcher = patch.object(paths, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
-
-        # A fake web: address -> (final address after redirects, Content-Type, text)
-        self.web = {REGISTERED: (MIRROR, "text/turtle", PROBE), ONLINE_DATA: (ONLINE_DATA, "text/csv", PROBE_CSV)}
-        patcher = patch.object(files.requests, "get", side_effect=self.fake_get)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        use_a_test_export_folder(self)  # POST /rdf writes its files in a folder of this test
         self.client = TestClient(main.app)
-
-    def fake_get(self, url, **options):
-        if url not in self.web:
-            raise requests.ConnectionError(f"No route to {url}")
-        final_url, content_type, text = self.web[url]
-        return FakeResponse(final_url, 200, content_type, text)
 
     def get(self, address, **params):
         response = self.client.get(address, params=params)
@@ -155,25 +132,11 @@ class SameIrisAsTheBrowser(unittest.TestCase):
         self.assertIn(URIRef("http://localhost:5174/files/data/probe.csv"), set(graph.objects(None, TSS.dataFile)))
         self.assertEqual(source["dataFile"], "data/probe.csv")
 
-    def test_an_online_endpoint_is_read_with_its_registered_address(self):
-        response = self.client.post("/api/endpoints/online", params={"url": REGISTERED})
-        self.assertEqual(response.status_code, 200, response.text)
-        fields, browser = self.browser_reads("online-1")
-        self.assertEqual(fields["value"], REGISTERED + "#value")
-        self.check_answers("online-1")
-        # Its data file is read against the registered address too, and stays a web address
-        graph, source = documents.load_source("online-1")
-        self.assertEqual(source["dataFile"], ONLINE_DATA)
-        # The IRI against the mirror (where the redirect ends) is no field of this source
-        response = self.client.get("/api/endpoints/online-1/query", params={"field": MIRROR + "#value"})
+    def test_a_field_iri_read_against_another_address_is_unknown(self):
+        # The same <#value>, read against another base IRI, is another IRI: no field of this source
+        response = self.client.get("/api/endpoints/probe/query", params={"field": "https://example.org/probe.ttl#value"})
         self.assertEqual(response.status_code, 404)
         self.assertIn("Unknown field", response.json()["detail"])
-        # The document route names its IRI in Content-Location
-        document = self.client.get("/api/endpoints/online-1/document")
-        self.assertEqual(document.headers["content-location"], REGISTERED)
-        # The catalogue's dataset IRI is the registered address (the browser's base IRI)
-        catalog = Graph().parse(data=self.client.get("/api/catalog").text, format="turtle")
-        self.assertIn((URIRef(REGISTERED), RDF.type, DCAT.Dataset), catalog)
 
 
 if __name__ == "__main__":

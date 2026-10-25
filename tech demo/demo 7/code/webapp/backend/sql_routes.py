@@ -111,15 +111,15 @@ def summarized_fields(graph, source):
     return summarized
 
 
-def document_modified_at(graph):
-    """When the metadata document was last edited: its tss:modifiedAt, as a datetime, or None.
-    The document states it about itself (<> in Turtle, read as the document's own IRI), and only
-    the document has one (SHACL's check D1), so the one subject with a tss:modifiedAt is the document.
-    None when there is no such statement, or more than one."""
-    values = list(graph.subject_objects(TSS.modifiedAt))
-    if len(values) != 1 or not isinstance(values[0][1], Literal):
+def source_modified_at(graph, source):
+    """When the source's metadata was last edited: the tss:modifiedAt of the tss:Source, as a
+    datetime, read like every other time (see value_reading.literal_time). None when the source
+    does not state it, or not as an xsd:dateTime (SHACL reports that). (It used to be stated about
+    the document itself, <> in Turtle; a tss:modifiedAt anywhere else than on the source is not read.)"""
+    value = graph.value(source, TSS.modifiedAt)
+    if not isinstance(value, Literal):
         return None
-    return value_reading.literal_time(values[0][1])
+    return value_reading.literal_time(value)
 
 
 def sql_table(graph, source):
@@ -152,11 +152,11 @@ def sql_table(graph, source):
             table["name"] = sql_box.table_name(location)
             if not files.file_exists(location):
                 raise ValueError(f"Data file not found: {location}")
-            table["path"] = files.local_copy(location).as_posix()
+            table["path"] = files.local_path(location).as_posix()
 
             if source["format"] == TSS.Parquet:
                 table["kind"] = "parquet"
-                with duckdb.connect() as connection:
+                with sql_box.in_memory_database() as connection:
                     described = connection.execute(
                         "DESCRIBE SELECT * FROM read_parquet(?, hive_partitioning = false)", [table["path"]]
                     ).fetchall()
@@ -275,7 +275,7 @@ def run_sql(endpoint_id, query: SqlQuery, request: Request = None):
         "until_time": value_reading.window_moment(graph, node, "until"),
         "produced_by": text_or_none(graph.value(node, TSS.producedBy)),
         "mutable": source_reading.boolean_value(graph, node, TSS.mutable),
-        "modified_at": document_modified_at(graph),
+        "modified_at": source_modified_at(graph, node),
     }
     field_rows = []
     for field in source["fields"]:

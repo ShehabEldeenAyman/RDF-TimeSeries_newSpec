@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { DataFactory } from 'n3'
-import { API_URL, fetchErrorText } from './config'
-import { loadRdf, parseRdf, readRdfAnswer } from './rdf'
+import { parseRdf } from './rdf'
 import {
   one, all, oneText, isEmbedded, booleanValue, shortName, termText,
   RDF_TYPE, RDFS_LABEL, TSS_FORMAT,
@@ -18,12 +17,14 @@ const MAX_SHAPES_BYTES = 5000000
 // The severities of SHACL, worst first (to sort the table)
 const SEVERITIES = [SH_VIOLATION, SH_WARNING, SH_INFO]
 
-// The SHACL tab: the backend validates the metadata (and, for embedded points, the points
-// read as RDF) with pyshacl and answers with the validation report as Turtle. We parse
-// that report here and show what it says.
-export function Shacl({ endpoint, rdf }) {
+// The SHACL tab: pyshacl validates the metadata (and, for embedded points, the points read as
+// RDF) and answers with the validation report as Turtle. For a bundled endpoint pyshacl runs in
+// the backend; for your own endpoint it runs in this browser tab (Python in WebAssembly, Pyodide).
+// The api (dataApi.js) asks the right one. We parse the report here and show what it says.
+export function Shacl({ rdf, api }) {
   const [report, setReport] = useState(null)             // the report, read by readReport
   const [running, setRunning] = useState(false)
+  const [loadingPython, setLoadingPython] = useState(false) // the first check in this tab loads Python first
   const [error, setError] = useState(null)
   const [customShapes, setCustomShapes] = useState(null) // { name, text, triples } of an uploaded file
   const [reading, setReading] = useState(false)
@@ -33,15 +34,15 @@ export function Shacl({ endpoint, rdf }) {
   // it arrived) is thrown away, like the "ignore" trick in App.jsx.
   const runNumber = useRef(0)
 
-  // The backend picks the default shapes by tss:embedded (embedded points, or an external data
-  // file), so it can only do that when the source states tss:embedded true or false
+  // The default shapes are picked by tss:embedded (embedded points, or an external data
+  // file), so that only works when the source states tss:embedded true or false
   const embedded = isEmbedded(rdf.store, rdf.source) // true, false, or null when not stated
   const known = embedded !== null
   const format = one(rdf.store, rdf.source, TSS_FORMAT)
 
-  // The full address of the SHACL route. It is also the base IRI for the report and for
-  // uploaded shapes (the backend reads relative IRIs in uploaded shapes against it too).
-  const shaclUrl = new URL(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/shacl`, window.location.href).href
+  // The base IRI for uploaded shapes: the relative IRIs in them are read against it (the same
+  // IRI the validation uses, see shaclBase in dataApi.js)
+  const shapesBase = api.shaclBase
 
   function selectFile(event) {
     const file = event.target.files[0]
@@ -61,7 +62,7 @@ export function Shacl({ endpoint, rdf }) {
     file.text()
       .then((text) => {
         if (text.trim() === '') throw new Error('the file is empty')
-        return parseRdf(text, 'text/turtle', shaclUrl).then((parsed) => {
+        return parseRdf(text, 'text/turtle', shapesBase).then((parsed) => {
           setCustomShapes({ name: file.name, text: text, triples: parsed.store.size })
         })
       })
@@ -85,18 +86,18 @@ export function Shacl({ endpoint, rdf }) {
     const started = performance.now() // to measure, here in the browser, how long it takes
     const shapesName = customShapes ? customShapes.name : null
     setRunning(true)
+    setLoadingPython(api.shaclStarting())
     setReport(null)
     setError(null)
 
-    // Custom shapes are sent along (POST); without them the backend uses its own (GET)
-    const answer = customShapes ? postShapes(shaclUrl, customShapes.text) : loadRdf(shaclUrl)
-    answer
+    // Your own shapes go along (their text); null means: the default shapes
+    api.shacl(customShapes ? customShapes.text : null, shapesName)
       .then((loaded) => {
         if (thisRun !== runNumber.current) return // a newer run started: this answer is old
         const read = readReport(loaded.store)
         setReport({
           store: loaded.store, // the report as RDF, to look up blank nodes in it
-          text: loaded.text,   // the report as the backend sent it
+          text: loaded.text,   // the report as Turtle, as pyshacl wrote it
           // To show IRIs short: the metadata's prefixes (ex:, tss:, ...) plus the report's own (sh:, ...)
           prefixes: mergePrefixes(rdf.prefixes, loaded.prefixes),
           conforms: read.conforms,
@@ -157,11 +158,18 @@ export function Shacl({ endpoint, rdf }) {
           </button>
         </p>
       )}
-      {/* The backend picks the default shapes file; after a run, the report names it (dcterms:source) */}
+      {/* The default shapes file is picked by tss:embedded; after a run, the report names it (dcterms:source) */}
       {!customShapes && known && (
         <p>
-          Using the default shapes for this source: the backend picks them by <code>tss:embedded</code>, and the
-          report names the file it used.
+          Using the default shapes for this source: {api.inBrowser ? 'they are picked' : 'the backend picks them'} by{' '}
+          <code>tss:embedded</code>, and the report names the file it used.
+        </p>
+      )}
+      {api.inBrowser && (
+        <p className="muted small">
+          The check runs here, in this browser tab: pyshacl in Python, which the browser loads the first time
+          (a few seconds). The metadata and its points are not sent anywhere; only the bundled shapes and
+          Python's files come from the demo's server.
         </p>
       )}
       <p className="muted small">
@@ -171,14 +179,17 @@ export function Shacl({ endpoint, rdf }) {
       <button disabled={running || reading || (!known && !customShapes)} onClick={runValidation}>
         {running ? 'Checking…' : 'Run conformance test'}
       </button>
+      {/* The first check of your own endpoint in this tab loads Python first: say why it takes a while */}
+      {running && loadingPython && <p role="status">Loading Python for the SHACL check (first time in this tab)…</p>}
       {error && <p className="error long-text" role="alert">{error}</p>}
-      {report && <ShaclReport report={report} rdf={rdf} />}
+      {report && <ShaclReport report={report} rdf={rdf} inBrowser={api.inBrowser} />}
     </section>
   )
 }
 
 // What the report says: conforms or not, the counts, and one table row per result
-function ShaclReport({ report, rdf }) {
+//   inBrowser: true when the check ran in this browser tab
+function ShaclReport({ report, rdf, inBrowser }) {
   let conformsText = 'sh:conforms not stated'
   if (report.conforms === true) conformsText = 'Conforms'
   if (report.conforms === false) conformsText = 'Does not conform'
@@ -207,7 +218,9 @@ function ShaclReport({ report, rdf }) {
       </p>
       <p className="muted small long-text">Shapes: {shapesText}</p>
       <p className="muted small">
-        The time is measured in the browser: the request, the validation and reading the report.
+        {inBrowser
+          ? 'The time is measured in the browser: the validation in this tab (the first time also loading Python) and reading the report.'
+          : 'The time is measured in the browser: the request, the validation and reading the report.'}
       </p>
 
       {report.results.length > 0 && (
@@ -267,19 +280,6 @@ function ResultRow({ result, report, rdf }) {
 }
 
 // --- Reading the report -----------------------------------------------------------
-
-// POST the shapes (Turtle text) as the body, and parse the report the backend answers.
-// Gives a Promise of { store, prefixes, text }, like loadRdf.
-function postShapes(url, turtle) {
-  return fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/turtle' }, body: turtle })
-    // fetch fails only when there is no answer at all (the backend is not running)
-    .catch((err) => {
-      throw new Error(fetchErrorText(err))
-    })
-    // The report as Turtle, or FastAPI's error as JSON: { "detail": "..." } (see readRdfAnswer in rdf.js).
-    // The report is read with the address of the SHACL route as its base IRI.
-    .then((response) => readRdfAnswer(response, url))
-}
 
 // Read the parts of a SHACL validation report (an N3 Store) that the page shows:
 //   conforms      true, false, or null when the report does not say

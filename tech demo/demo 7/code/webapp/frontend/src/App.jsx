@@ -1,35 +1,44 @@
-import { useState, useEffect } from 'react'
-import { API_URL, fetchErrorText } from './config'
-import { loadRdf, readRdfAnswer } from './rdf'
-import { findSource, readCatalog, readPoints } from './tss'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { API_URL } from './config'
+import { loadRdf } from './rdf'
+import { findSource, isEmbedded, readCatalog, readPoints } from './tss'
+import { makeDataApi } from './dataApi'
+import { forgetDataFiles } from './browser/dataSource'
+import { loadFromUrl, makeUserEndpoint, storedUrls, storeUrls } from './userEndpoints'
 import { Overview } from './Overview'
 import { Inspector } from './Inspector'
 import { Files } from './Files'
 import { QueryForm } from './QueryForm'
-import { OnlineEndpointForm } from './OnlineEndpointForm'
+import { AddEndpointForm } from './AddEndpointForm'
+import { DataFileCard } from './DataFileCard'
 import { SqlBox } from './SqlBox'
 import { Shacl } from './Shacl'
 import { RdfGeneration } from './RdfGeneration'
 
-// App is the whole page. It does three things:
-//   1. load the catalogue of metadata endpoints (an RDF document) and list them in a drop down
+// App is the whole page. It does four things:
+//   1. load the catalogue of the bundled metadata endpoints (an RDF document) and list them in a
+//      drop down, followed by your own endpoints (uploaded or added by web address, kept in this tab)
 //   2. load the metadata document of the endpoint you pick, and parse it into an RDF store
 //      (and, for embedded points, read those as RDF too: once, here, for every tab)
-//   3. show the tabs; every tab reads what it needs from that store
+//   3. make the endpoint's "api" (dataApi.js): the object every tab asks for the data. For a
+//      bundled endpoint it asks the backend; for your own endpoint it computes everything here,
+//      in the browser, so its data never goes to the server
+//   4. show the tabs; every tab reads what it needs from that store and that api
 
-// The tabs of the dashboard: an id we use in the code, and the text on the button
+// The tabs of the dashboard: an id we use in the code, the text on the button, and whether the
+// tab needs the data itself (not only the metadata)
 const tabs = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'inspector', label: 'Series inspector' },
-  { id: 'shacl', label: 'SHACL' },
-  { id: 'rdf', label: 'RDF generation' },
-  { id: 'files', label: 'Files' },
-  { id: 'query', label: 'Query' },
-  { id: 'sql', label: 'SQL (DuckDB)' },
+  { id: 'overview', label: 'Overview', data: false },
+  { id: 'inspector', label: 'Series inspector', data: true },
+  { id: 'shacl', label: 'SHACL', data: false },
+  { id: 'rdf', label: 'RDF generation', data: true },
+  { id: 'files', label: 'Files', data: true },
+  { id: 'query', label: 'Query', data: true },
+  { id: 'sql', label: 'SQL (DuckDB)', data: true },
 ]
 
-// The catalogue: the list of metadata endpoints, itself an RDF document (DCAT).
-// The backend makes it from the files in "metadata endpoint/" and the online endpoints you added.
+// The catalogue: the list of the bundled metadata endpoints, itself an RDF document (DCAT).
+// The backend makes it from the files in "metadata endpoint/".
 const CATALOG_URL = `${API_URL}/catalog`
 
 // The text of an endpoint in the drop down: its label (the source's rdfs:label, copied
@@ -38,24 +47,87 @@ const CATALOG_URL = `${API_URL}/catalog`
 function optionText(endpoint) {
   let text = endpoint.label ? endpoint.label : endpoint.id
   if (endpoint.comment) text = endpoint.id + ' (' + endpoint.comment + ')'
-  if (endpoint.online) text = text + ' (online)'
+  if (endpoint.user) text = text + ' (in this tab)'
   return text
 }
 
+// Does this tab show the data card of your own endpoint (DataFileCard)? Only a tab that needs
+// the data, for an endpoint whose data is in a file (not embedded points).
+function needsDataFile(tabId, endpoint, rdf) {
+  const tab = tabs.find((t) => t.id === tabId)
+  return endpoint.user === true && tab.data && isEmbedded(rdf.store, rdf.source) !== true
+}
+
 function App() {
-  const [endpoints, setEndpoints] = useState(null) // the catalogue, as a list for the drop down
-  const [selected, setSelected] = useState(null)   // the endpoint the user picked (one entry of endpoints)
-  const [rdf, setRdf] = useState(null)             // its metadata document, parsed into an RDF store
-  const [tab, setTab] = useState('overview')       // the tab that is open
+  const [endpoints, setEndpoints] = useState(null)       // the catalogue, as a list for the drop down
+  const [userEndpoints, setUserEndpoints] = useState([]) // your own endpoints, in this tab (see userEndpoints.js)
+  const [selected, setSelected] = useState(null)         // the endpoint the user picked (an entry of one of the lists)
+  const [rdf, setRdf] = useState(null)                   // its metadata document, parsed into an RDF store
+  const [tab, setTab] = useState('overview')             // the tab that is open
+  const [opened, setOpened] = useState(['overview'])     // the tabs opened for this endpoint (see below)
+  const [pickedFiles, setPickedFiles] = useState({})     // endpoint id -> the data file picked in a data tab
   const [error, setError] = useState(null)
 
+  // Your endpoints added by web address before a reload of this tab (sessionStorage), read once
+  // when the page opens. They are added again, one by one: restoring is true until then.
+  const [restoreUrls] = useState(() => storedUrls())
+  const [restoring, setRestoring] = useState(restoreUrls.length > 0)
+  const [restoreProblems, setRestoreProblems] = useState([])
+  // The number of the next user endpoint (user-1, user-2, ...). A ref: it changes without redrawing.
+  const nextNumber = useRef(1)
+
   // When the page opens: load the catalogue and read the list of endpoints from it.
-  // Each entry is { id, iri, downloadUrl, label, comment, online } (see readCatalog in tss.js).
+  // Each entry is { id, iri, downloadUrl, label, comment } (see readCatalog in tss.js).
   useEffect(() => {
     loadRdf(CATALOG_URL)
       .then((catalog) => setEndpoints(readCatalog(catalog.store)))
       .catch((err) => setError(err.message))
   }, [])
+
+  // When the page opens after a reload: add your endpoints of before again (the browser downloads
+  // them again). An address that does not work any more is left out, and the page says why.
+  useEffect(() => {
+    if (restoreUrls.length === 0) return
+    let ignore = false // see below: throw away answers that arrive too late
+    const problems = []
+
+    // One after the other (each .then waits for the one before), so they keep their order
+    let chain = Promise.resolve()
+    for (const url of restoreUrls) {
+      chain = chain.then(() => {
+        return loadFromUrl(url)
+          .then((document) => {
+            if (ignore) return
+            const endpoint = makeUserEndpoint(nextNumber.current, document, { url: url, fileName: null, dataFiles: [] })
+            nextNumber.current += 1
+            setUserEndpoints((list) => list.concat([endpoint]))
+          })
+          .catch((err) => {
+            problems.push(`Could not add ${url} again: ${err.message}`)
+          })
+      })
+    }
+    chain.then(() => {
+      if (ignore) return
+      setRestoreProblems(problems)
+      setRestoring(false)
+    })
+
+    return () => {
+      ignore = true
+    }
+  }, [restoreUrls])
+
+  // Remember the web addresses of your endpoints for a reload of this tab (not while the ones
+  // of before are still being added: that would forget them)
+  useEffect(() => {
+    if (restoring) return
+    const urls = []
+    for (const endpoint of userEndpoints) {
+      if (endpoint.url !== null) urls.push(endpoint.url)
+    }
+    storeUrls(urls)
+  }, [userEndpoints, restoring])
 
   // Every time another endpoint is picked: load its metadata document and parse it
   useEffect(() => {
@@ -66,10 +138,16 @@ function App() {
     // late answer is thrown away instead of being shown for the new endpoint.
     let ignore = false
 
-    // downloadUrl: where the browser fetches the document (an online one comes through our backend)
-    // iri:         the document's own IRI. Relative IRIs in it, like <../data/x.csv>, are
-    //              resolved against it, so they mean the same as for the document's author.
-    loadRdf(selected.downloadUrl, selected.iri)
+    // A bundled endpoint: fetch its document from our server.
+    //   downloadUrl: where the browser fetches the document
+    //   iri:         the document's own IRI. Relative IRIs in it, like <../data/x.csv>, are
+    //                resolved against it, so they mean the same as for the document's author.
+    // Your own endpoint: the browser already read the document when it was added.
+    let loading
+    if (selected.user) loading = Promise.resolve(selected.document)
+    else loading = loadRdf(selected.downloadUrl, selected.iri)
+
+    loading
       .then((loaded) => {
         if (ignore) return
         // Every tab is about the one tss:Source of the document: find it once, here
@@ -87,8 +165,8 @@ function App() {
           setRdf({
             store: loaded.store,       // all the triples, in an N3 Store (ask it with the helpers in tss.js)
             prefixes: loaded.prefixes, // the document's @prefix lines, to show IRIs short (tss:CSV)
-            text: loaded.text,         // the document as text, exactly as it was sent
-            url: loaded.url,           // where it was fetched from
+            text: loaded.text,         // the document as text, exactly as it was sent (or uploaded)
+            url: loaded.url,           // where it was fetched from (null for an upload)
             source: source,            // the tss:Source (a NamedNode)
             points: points,            // the embedded points read as RDF: null when the source is not
                                        // embedded, else { store, rows, error } (see readPoints)
@@ -104,48 +182,82 @@ function App() {
     }
   }, [selected])
 
-  // Pick an endpoint: an entry of endpoints, or null for none
+  // The api of the picked endpoint (see dataApi.js): made again when the endpoint, its document
+  // or the data file picked for it changes. useMemo keeps the same object between redraws, so the
+  // tabs don't ask their questions again on every redraw.
+  const pickedFile = selected !== null && pickedFiles[selected.id] ? pickedFiles[selected.id] : null
+  const api = useMemo(() => {
+    if (selected === null || rdf === null) return null
+    return makeDataApi(selected, rdf, pickedFile)
+  }, [selected, rdf, pickedFile])
+
+  // When the api is replaced (another endpoint, or a picked data file) or the page closes:
+  // close the old one. For your own endpoint that stops its DuckDB (about 400 MB of memory)
+  // and frees its downloads (blob: addresses).
+  useEffect(() => {
+    if (api === null) return
+    return () => api.close()
+  }, [api])
+
+  // Pick an endpoint: an entry of endpoints or userEndpoints, or null for none
   function selectEndpoint(endpoint) {
     // The same endpoint as before: nothing to do. (Without this line we would clear
     // rdf, but the useEffect would not run again to load it.)
     if (endpoint === selected) return
     setSelected(endpoint)
-    setRdf(null) // forget the old document while the new one loads
+    setRdf(null)       // forget the old document while the new one loads
+    setOpened([tab])   // only the open tab is drawn for the new endpoint (see openTab)
     setError(null)
   }
 
-  // The drop down gives the id of the picked endpoint: find its entry in the list
+  // The drop down gives the id of the picked endpoint: find its entry in the lists
   // (find gives undefined for the "-- pick --" line, whose id is '')
   function handleSelect(event) {
-    const endpoint = endpoints.find((entry) => entry.id === event.target.value)
+    const all = endpoints.concat(userEndpoints)
+    const endpoint = all.find((entry) => entry.id === event.target.value)
     selectEndpoint(endpoint ? endpoint : null)
   }
 
-  // OnlineEndpointForm added an endpoint: show the new catalogue and pick the new entry.
-  // (added is null when the form could not find it in the new catalogue: then the
-  // endpoint you were looking at stays open.)
-  function handleAdded(newEndpoints, added) {
-    setEndpoints(newEndpoints)
-    if (added !== null) selectEndpoint(added)
+  // A tab is drawn the first time it is opened, and then kept (hidden when another tab is open),
+  // so its results are still there when you come back. So nothing that needs the data (the data
+  // file, DuckDB) starts before you open a tab that needs it.
+  function openTab(id) {
+    setTab(id)
+    if (!opened.includes(id)) setOpened(opened.concat([id]))
   }
 
-  // Take the picked online endpoint out of the catalogue again
+  // AddEndpointForm read a document: make it an endpoint of this tab, and pick it.
+  // An address that is already in the list is only picked again.
+  function handleAdded(document, how) {
+    const known = userEndpoints.find((entry) => how.url !== null && entry.url === how.url)
+    if (known) {
+      selectEndpoint(known)
+      return
+    }
+    const endpoint = makeUserEndpoint(nextNumber.current, document, how)
+    nextNumber.current += 1
+    // (list) => ...: the list as it is now (endpoints of before a reload may have been added
+    // while the form was busy)
+    setUserEndpoints((list) => list.concat([endpoint]))
+    selectEndpoint(endpoint)
+  }
+
+  // Take the picked user endpoint out of the list. Its api is closed by the useEffect above
+  // (the api becomes null); the data file the browser downloaded for it is forgotten here.
   function removeSelected() {
-    // method: 'DELETE' asks the backend to remove something; it answers with the new catalogue
-    fetch(`${API_URL}/endpoints/${encodeURIComponent(selected.id)}`, { method: 'DELETE' })
-      // fetch itself fails only when there is no answer at all (the backend is not running)
-      .catch((err) => {
-        throw new Error(fetchErrorText(err))
-      })
-      // The answer is the new catalogue (Turtle), or an error as JSON (see readRdfAnswer in rdf.js).
-      // response.url is the full address we sent the request to: the base IRI for the Turtle.
-      .then((response) => readRdfAnswer(response, response.url))
-      .then((parsed) => readCatalog(parsed.store))
-      .then((newEndpoints) => {
-        setEndpoints(newEndpoints)
-        selectEndpoint(null)
-      })
-      .catch((err) => setError(err.message))
+    const removed = selected
+    setUserEndpoints((list) => list.filter((entry) => entry.id !== removed.id))
+    forgetDataFiles(removed.id)
+    const rest = Object.assign({}, pickedFiles)
+    delete rest[removed.id]
+    setPickedFiles(rest)
+    selectEndpoint(null)
+  }
+
+  // A data file was picked in a data tab (DataFileCard): keep it for this endpoint. The api is
+  // made again with it, and the tabs start again with the new api (see key={api.key} below).
+  function handlePickedFile(file) {
+    setPickedFiles(Object.assign({}, pickedFiles, { [selected.id]: file }))
   }
 
   if (error && endpoints === null) {
@@ -167,69 +279,80 @@ function App() {
             Data source{' '}
             <select value={selected ? selected.id : ''} onChange={handleSelect}>
               <option value="">-- pick a metadata endpoint --</option>
-              {endpoints.map((endpoint) => (
+              {endpoints.concat(userEndpoints).map((endpoint) => (
                 <option key={endpoint.id} value={endpoint.id}>
                   {optionText(endpoint)}
                 </option>
               ))}
             </select>
           </label>
-          {selected && selected.online && (
-            <button className="secondary" onClick={removeSelected} title={'Remove ' + selected.iri + ' from the list'}>
+          {selected && selected.user && (
+            <button className="secondary" onClick={removeSelected} title={'Remove ' + selected.iri + ' from this tab'}>
               Remove
             </button>
           )}
         </div>
       </header>
 
-      <OnlineEndpointForm onAdded={handleAdded} />
+      <AddEndpointForm onAdded={handleAdded} />
+
+      {restoring && <p className="muted small">Adding your endpoints of before the reload again…</p>}
+      {restoreProblems.map((problem) => (
+        <p key={problem} className="error small long-text">{problem}</p>
+      ))}
 
       {error && <p className="error long-text">Error: {error}</p>}
 
       {selected === null && <p className="muted">Pick a data source in the drop down to start.</p>}
 
+      {selected !== null && selected.user && (
+        <p className="privacy-note">
+          This endpoint and its data stay in this browser tab. Nothing is sent to the demo's server.
+        </p>
+      )}
+
       {selected !== null && rdf === null && !error && <p>Loading…</p>}
 
-      {/* Every tab gets the same two props:
-            endpoint = { id, iri, downloadUrl, label, online }          the entry from the catalogue
-            rdf      = { store, prefixes, text, url, source, points }   its parsed metadata document
+      {/* Every tab gets the same three props:
+            endpoint = { id, iri, label, ... }                              the endpoint (bundled, or your own: user true)
+            rdf      = { store, prefixes, text, url, source, points }       its parsed metadata document
                        (points: the embedded points as RDF, or null; see readPoints in tss.js)
+            api      = the endpoint's data questions (dataApi.js)
           While another endpoint loads, rdf is null and all tabs disappear, so each tab
           starts fresh for every endpoint. */}
-      {rdf !== null && (
+      {rdf !== null && api !== null && (
         <>
           <nav className="tabs">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 className={t.id === tab ? 'tab active' : 'tab'}
-                onClick={() => setTab(t.id)}
+                onClick={() => openTab(t.id)}
               >
                 {t.label}
               </button>
             ))}
           </nav>
 
-          {tab === 'overview' && <Overview endpoint={selected} rdf={rdf} />}
+          {/* key: a new api (a data file was picked) draws every tab again, from the start */}
+          <div key={api.key}>
+            {needsDataFile(tab, selected, rdf) && <DataFileCard api={api} onPick={handlePickedFile} />}
 
-          {tab === 'inspector' && <Inspector endpoint={selected} rdf={rdf} />}
-
-          {/* SHACL, RDF generation and SQL stay on the page (only hidden), so a result
-              is still there when you come back to the tab */}
-          <div style={{ display: tab === 'shacl' ? 'block' : 'none' }}>
-            <Shacl endpoint={selected} rdf={rdf} />
-          </div>
-
-          <div style={{ display: tab === 'rdf' ? 'block' : 'none' }}>
-            <RdfGeneration endpoint={selected} rdf={rdf} />
-          </div>
-
-          {tab === 'files' && <Files endpoint={selected} rdf={rdf} />}
-
-          {tab === 'query' && <QueryForm endpoint={selected} rdf={rdf} />}
-
-          <div style={{ display: tab === 'sql' ? 'block' : 'none' }}>
-            <SqlBox endpoint={selected} rdf={rdf} />
+            {/* Only the tabs opened so far are drawn; the open one is shown, the others hidden */}
+            {tabs.map((t) => {
+              if (!opened.includes(t.id)) return null
+              return (
+                <div key={t.id} style={{ display: t.id === tab ? 'block' : 'none' }}>
+                  {t.id === 'overview' && <Overview endpoint={selected} rdf={rdf} />}
+                  {t.id === 'inspector' && <Inspector endpoint={selected} rdf={rdf} api={api} />}
+                  {t.id === 'shacl' && <Shacl rdf={rdf} api={api} />}
+                  {t.id === 'rdf' && <RdfGeneration rdf={rdf} api={api} />}
+                  {t.id === 'files' && <Files endpoint={selected} rdf={rdf} api={api} />}
+                  {t.id === 'query' && <QueryForm rdf={rdf} api={api} />}
+                  {t.id === 'sql' && <SqlBox rdf={rdf} api={api} />}
+                </div>
+              )
+            })}
           </div>
         </>
       )}

@@ -8,7 +8,6 @@ import csv
 import io
 import duckdb
 
-import paths
 import files
 import source_reading
 import value_reading
@@ -66,14 +65,10 @@ def get_data_file(endpoint_id, lines: int = 20, request: Request = None):
         if len(first_lines) == lines:
             break
 
-    if files.is_url(location):
-        note = f"first {len(first_lines)} lines of the online file"
-    else:
-        size_mb = round((paths.DEMO_DIR / location).stat().st_size / 1_000_000, 1)
-        note = f"first {len(first_lines)} lines of a {size_mb} MB file"
+    size_mb = round(files.local_path(location).stat().st_size / 1_000_000, 1)
     return {
         "found": True,
-        "note": note,
+        "note": f"first {len(first_lines)} lines of a {size_mb} MB file",
         "text": "\n".join(first_lines),
     }
 

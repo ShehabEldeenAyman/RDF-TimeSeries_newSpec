@@ -106,26 +106,56 @@ button.secondary {
   color: #1f2328;
 }
 
-/* ---------- Adding an online endpoint ---------- */
+/* ---------- Adding your own endpoint ---------- */
 
-.online-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.add-endpoint {
   margin-top: 8px;
   font-size: 14px;
 }
 
-.online-form input {
+.add-endpoint summary {
+  cursor: pointer;
+  color: #0969da;
+}
+
+.add-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+}
+
+.add-form input[type='url'] {
   flex: 1;             /* the address box takes the free space */
   min-width: 200px;
 }
 
-.online-form .error {
-  width: 100%;
+.add-form p {
+  width: 100%;         /* the explanation goes on a line of its own */
   margin: 0;
+}
+
+.add-endpoint .error {
   overflow-wrap: anywhere;
+}
+
+/* Under the drop down, for your own endpoint */
+.privacy-note {
+  background: #ddf4ff;
+  border: 1px solid #54aeff;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+/* The data file of your own endpoint could not be found: the card with the file picker */
+.data-file-missing {
+  border-color: #cf222e;
 }
 
 /* ---------- Tabs ---------- */

@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Files for running user endpoints in the browser (DuckDB extensions, Pyodide packages),
+# downloaded by "npm run fetch-browser-assets" (checked by sha256), so not in git
+public/vendor/

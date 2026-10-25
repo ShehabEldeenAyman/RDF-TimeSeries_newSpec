@@ -120,7 +120,8 @@ export const TSS_UNIT = TSS + 'unit'
 export const TSS_SENSOR = TSS + 'sensor'
 export const TSS_FEATURE_OF_INTEREST = TSS + 'featureOfInterest'
 export const TSS_DESCRIBES_FIELD = TSS + 'describesField'
-// When the metadata document was last edited (the document says it about itself: <> in Turtle)
+// When the source's metadata was last edited (stated on the tss:Source; older documents
+// stated it on the document itself: <> in Turtle)
 export const TSS_MODIFIED_AT = TSS + 'modifiedAt'
 // A field's stored summary: a blank node with numbers computed from the data when the metadata
 // was made (they are not refreshed by themselves). Every attribute is optional.
@@ -346,9 +347,16 @@ export function readSummary(store, field) {
   return { node: node, values: values }
 }
 
-// When the metadata document was last edited: its tss:modifiedAt literal, or null.
-// The document says it about itself (<> in Turtle), and the parser reads <> as the
-// document's own IRI: the base IRI it was parsed with (endpoint.iri, see App.jsx).
+// When the source's metadata was last edited: the tss:modifiedAt literal of the tss:Source,
+// or null when the source does not say.
+export function sourceModifiedAt(store, source) {
+  return one(store, source, TSS_MODIFIED_AT)
+}
+
+// The same, the older way: the document says it about itself (<> tss:modifiedAt ... in Turtle).
+// The parser reads <> as the document's own IRI: the base IRI it was parsed with (endpoint.iri,
+// see App.jsx). The Overview falls back to this for documents written before the property
+// moved to the tss:Source.
 export function documentModifiedAt(store, documentIri) {
   return one(store, documentIri, TSS_MODIFIED_AT)
 }
@@ -428,26 +436,21 @@ function quoteText(text) {
 
 // --- The catalogue of endpoints -----------------------------------------------
 
-// The endpoints in the catalogue (the store of GET /api/catalog), as plain objects
-// for the drop down: [{ id, iri, downloadUrl, label, comment, online }, ...]
-//   id          its dcterms:identifier, e.g. 'waterinfo_289423042_tss2' or 'online-1'
+// The bundled endpoints in the catalogue (the store of GET /api/catalog), as plain objects
+// for the drop down: [{ id, iri, downloadUrl, label, comment }, ...], sorted by id
+//   id          its dcterms:identifier, e.g. 'waterinfo_289423042_tss2'
 //   iri         the dataset IRI: the document's own IRI (its base IRI when parsing)
 //   downloadUrl where the browser fetches the Turtle (dcat:downloadURL)
 //   label       its rdfs:label text, or null when the document could not be read
 //   comment     why the document could not be read (rdfs:comment), or null
-//   online      true for a registered online endpoint: its IRI is not its download URL
-// Local endpoints come first (sorted by id), then online ones (online-1, online-2, ...).
+// (The user's own endpoints are not in the catalogue: the browser keeps those itself, see App.jsx.)
 export function readCatalog(store) {
-  const local = []
-  const online = []
+  const endpoints = []
   for (const dataset of store.getSubjects(namedNode(RDF_TYPE), namedNode(DCAT_DATASET_CLASS), null)) {
-    const endpoint = readCatalogEntry(store, dataset)
-    if (endpoint.online) online.push(endpoint)
-    else local.push(endpoint)
+    endpoints.push(readCatalogEntry(store, dataset))
   }
-  local.sort((a, b) => a.id.localeCompare(b.id, 'en'))
-  online.sort((a, b) => onlineNumber(a.id) - onlineNumber(b.id))
-  return local.concat(online)
+  endpoints.sort((a, b) => a.id.localeCompare(b.id, 'en'))
+  return endpoints
 }
 
 function readCatalogEntry(store, dataset) {
@@ -463,14 +466,7 @@ function readCatalogEntry(store, dataset) {
     downloadUrl: url,
     label: label ? label.value : null,
     comment: comment ? comment.value : null,
-    online: url !== dataset.value,
   }
-}
-
-// 'online-12' -> 12, to sort online endpoints by number (online-2 before online-10)
-function onlineNumber(id) {
-  const number = Number(id.slice(id.lastIndexOf('-') + 1))
-  return Number.isNaN(number) ? Infinity : number
 }
 
 // --- Embedded points: from the tss:points JSON to RDF -------------------------

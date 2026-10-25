@@ -1,15 +1,18 @@
-"""The stored summaries (tss:summary on a field) and the document's tss:modifiedAt: the SQL box's
+"""The stored summaries (tss:summary on a field) and the source's tss:modifiedAt: the SQL box's
 "summaries" table and example queries, and the query form's summary numbers that the Query tab
 compares with them. Run from backend/: python -B -m unittest -v test_summaries."""
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-from rdflib import Literal, URIRef
+from rdflib import Literal, RDF, URIRef
 from rdflib.namespace import XSD
+import paths
 import documents
 import data_routes
 import query_helpers
+import value_reading
+import sql_box
 import sql_routes
 from rdf_generation import TSS
 
@@ -77,9 +80,29 @@ class SqlSummaries(unittest.TestCase):
         self.assertEqual(ec20["generated_at"], "2026-10-22T14:02:30Z")
         self.assertIsNone(by_column["qualityColor"]["mean"])  # no numbers for a text field
 
-    def test_the_source_table_has_the_document_s_modified_at(self):
-        result = sql_routes.run_sql(EMBEDDED, sql_routes.SqlQuery(sql="SELECT modified_at FROM source"))
-        self.assertEqual(result["rows"], [["2026-10-22T14:13:56Z"]])
+    def test_the_source_table_has_the_source_s_modified_at(self):
+        for endpoint in (EMBEDDED, EXTERNAL):
+            with self.subTest(endpoint=endpoint):
+                # The tss:modifiedAt the metadata file states on its tss:Source, as the SQL box writes a time
+                graph = documents.load_graph(endpoint)
+                source = graph.value(predicate=RDF.type, object=TSS.Source)
+                stated = graph.value(source, TSS.modifiedAt)
+                self.assertIsNotNone(stated)
+                expected = sql_box.to_json_value(value_reading.literal_time(stated))
+                self.assertIsNotNone(expected)
+                result = sql_routes.run_sql(endpoint, sql_routes.SqlQuery(sql="SELECT modified_at FROM source"))
+                self.assertEqual(result["rows"], [[expected]])
+
+    def test_a_modified_at_that_is_not_on_the_source_is_not_read(self):
+        # Where it used to be: on the document itself (<> in Turtle), not on the source
+        graph = documents.load_graph(EMBEDDED)
+        source = graph.value(predicate=RDF.type, object=TSS.Source)
+        stated = graph.value(source, TSS.modifiedAt)
+        graph.remove((source, TSS.modifiedAt, None))
+        graph.add((URIRef(documents.local_document_address(EMBEDDED, paths.DEFAULT_BASE)), TSS.modifiedAt, stated))
+        with patch.object(documents, "load_graph", return_value=graph):
+            result = sql_routes.run_sql(EMBEDDED, sql_routes.SqlQuery(sql="SELECT modified_at FROM source"))
+        self.assertEqual(result["rows"], [[None]])
 
     def test_every_summary_of_the_demo_is_up_to_date(self):
         for endpoint in (EMBEDDED, EXTERNAL):

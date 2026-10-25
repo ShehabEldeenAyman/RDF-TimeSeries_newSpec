@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { API_URL, errorText, fetchErrorText } from './config'
 import {
   one, has, isEmbedded,
   TSS_FORMAT, TSS_PARQUET, TSS_DATA_FILE,
@@ -7,11 +6,12 @@ import {
 } from './tss'
 import { fieldLabel, fieldName, isTimeField, unitText } from './fields'
 
-// The SQL box: type a SQL query, the backend runs it with DuckDB on the data of this
-// endpoint (one table with a column per field, plus the metadata tables) and sends the result back.
-// The backend tells us the tables and their columns; what each column means (its field,
-// label, unit) we read from the metadata (rdf.store), by the field's IRI.
-export function SqlBox({ endpoint, rdf }) {
+// The SQL box: type a SQL query, DuckDB runs it on the data of this endpoint (one table with a
+// column per field, plus the metadata tables) and gives the result. For a bundled endpoint DuckDB
+// runs in the backend; for your own endpoint it runs in this browser tab (DuckDB-WASM). The api
+// (dataApi.js) asks the right one. It tells us the tables and their columns; what each column
+// means (its field, label, unit) we read from the metadata (rdf.store), by the field's IRI.
+export function SqlBox({ rdf, api }) {
   const [schema, setSchema] = useState(null) // the tables, their columns, and example queries
   const [sql, setSql] = useState('')
   const [result, setResult] = useState(null)
@@ -23,47 +23,34 @@ export function SqlBox({ endpoint, rdf }) {
   const format = one(rdf.store, rdf.source, TSS_FORMAT)
   const isParquet = format !== null && format.value === TSS_PARQUET
 
-  // When the tab opens: ask which tables there are, and start with the first example
+  // When the tab opens: ask which tables there are, and start with the first example.
+  // (For your own endpoint this starts DuckDB in the browser: a few seconds the first time.)
   useEffect(() => {
     let ignore = false // see App.jsx: throw away an answer that arrives too late
 
-    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/sql/tables`)
-      .then((response) => response.json())
+    api.sqlTables()
       .then((data) => {
         if (ignore) return
-        if (data.detail) {
-          setError(errorText(data.detail))
-        } else {
-          setSchema(data)
-          if (data.examples.length > 0) setSql(data.examples[0].sql)
-        }
+        setSchema(data)
+        if (data.examples.length > 0) setSql(data.examples[0].sql)
       })
       .catch((err) => {
-        if (!ignore) setError(fetchErrorText(err))
+        if (!ignore) setError(err.message)
       })
 
     return () => {
       ignore = true
     }
-  }, [endpoint.id])
+  }, [api])
 
   function runQuery() {
     setRunning(true)
     setResult(null)
     setError(null)
 
-    // POST, with the query in the body as JSON (a query can be too long for the address)
-    fetch(`${API_URL}/endpoints/${encodeURIComponent(endpoint.id)}/sql`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sql: sql }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.detail) setError(errorText(data.detail))
-        else setResult(data)
-      })
-      .catch((err) => setError(fetchErrorText(err)))
+    api.sql(sql)
+      .then((data) => setResult(data))
+      .catch((err) => setError(err.message))
       .finally(() => setRunning(false))
   }
 
@@ -80,7 +67,9 @@ export function SqlBox({ endpoint, rdf }) {
     setSql(schema.examples[Number(index)].sql)
   }
 
-  if (schema === null && error === null) return <p>Loading…</p>
+  if (schema === null && error === null) {
+    return <p>{api.inBrowser ? 'Starting DuckDB in this browser tab and loading the data (a few seconds)…' : 'Loading…'}</p>
+  }
 
   return (
     <div className="sql-layout">
@@ -91,6 +80,7 @@ export function SqlBox({ endpoint, rdf }) {
             Read-only SQL on {embedded ? 'the points embedded in the Turtle file' : 'the data file of this source'}: one table, with one column per field.
             {isParquet ? ' The columns keep the types of the Parquet file.' : ' Each column has the type of its field (tss:datatype).'}
             {' '}The <code>source</code> and <code>fields</code> tables hold the TSS metadata, so you can join it with the data.
+            {api.inBrowser && ' DuckDB runs here, in this browser tab: the data and your queries are not sent anywhere.'}
             {schema && <> Only one SELECT, at most {schema.maxRows} rows back, stopped after {schema.maxSeconds} seconds.</>}
           </p>
 

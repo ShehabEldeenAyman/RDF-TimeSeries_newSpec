@@ -10,7 +10,6 @@ from urllib.parse import urlparse, unquote
 from urllib.request import url2pathname
 
 import paths
-import files
 from rdf_generation import TSS, column_index, embedded_mode
 
 # The backend never compares prefixed names like "tss:CSV": a document may use any
@@ -116,35 +115,30 @@ def field_order(field):
 
 
 def iri_to_location(iri, data_address):
-    """Where a data file (tss:dataFile) is: a file in demo 7's data folder ("data/x.csv"), or a web address.
-    rdflib read <../data/x.csv> against the document's IRI (see documents.document_iri), so:
-    - a local endpoint gives   http://localhost:5174/files/data/x.csv     -> "data/x.csv"
+    """Where a data file (tss:dataFile) is: a file in demo 7's data folder, as "data/x.csv".
+    rdflib read <../data/x.csv> against the document's IRI (see documents.local_document_address), so:
+    - a document gives          http://localhost:5174/files/data/x.csv     -> "data/x.csv"
       (data_address is http://localhost:5174/files/data/; that folder is not served, the backend reads the file)
-    - a local endpoint may name file:///C:/.../demo%207/data/x.csv        -> "data/x.csv"
-    - an online endpoint gives https://.../data/x.csv                     -> the web address
-      (data_address is None: an online document can't name a file on this computer)
+    - a document may also name  file:///C:/.../demo%207/data/x.csv          -> "data/x.csv"
+    Anything else is refused (400). A web address (https://.../x.csv) too: this backend never
+    downloads anything, the data of a user endpoint is read by the browser.
     Only files inside demo 7's data folder are read. The path is resolved first (resolve()
     follows "..", and links), so data/../../x can't get out of it."""
     if iri is None:
         return None
     iri = str(iri)
     parts = urlparse(iri)
-    path = None
-    if data_address is not None:
-        # A local endpoint: {base}files/data/x.csv, or a file:/// IRI, is a file on this computer
-        folder = urlparse(data_address)
-        same_server = parts.scheme == folder.scheme and parts.netloc.lower() == folder.netloc.lower()
-        if same_server and parts.path.startswith(folder.path):
-            path = paths.DEMO_DIR / "data" / unquote(parts.path[len(folder.path):])  # unquote: %20 -> a space, ...
-        elif parts.scheme == "file":
-            path = Path(url2pathname(parts.path))
-    if path is None:
-        if files.is_url(iri):
-            return iri  # downloaded from the web (see files.download)
-        if data_address is None and parts.scheme == "file":
-            raise HTTPException(status_code=400, detail=f"tss:dataFile <{iri}> is a file on this computer, "
-                                                        "but an online endpoint can only name web addresses.")
-        raise HTTPException(status_code=400, detail=f"tss:dataFile <{iri}> is not a web address or a file in demo 7's data folder.")
+    folder = urlparse(data_address)
+    same_server = parts.scheme == folder.scheme and parts.netloc.lower() == folder.netloc.lower()
+    if same_server and parts.path.startswith(folder.path):
+        path = paths.DEMO_DIR / "data" / unquote(parts.path[len(folder.path):])  # unquote: %20 -> a space, ...
+    elif parts.scheme == "file":
+        path = Path(url2pathname(parts.path))
+    elif parts.scheme in ("http", "https"):
+        raise HTTPException(status_code=400, detail=f"tss:dataFile <{iri}> is a web address: this backend reads only "
+                                                    "the demo's own data files; user endpoints are read by the browser.")
+    else:
+        raise HTTPException(status_code=400, detail=f"tss:dataFile <{iri}> is not a file in demo 7's data folder.")
 
     data_folder = (paths.DEMO_DIR / "data").resolve()
     path = path.resolve()
@@ -156,8 +150,8 @@ def iri_to_location(iri, data_address):
 def read_source(graph, data_address):
     """What the data routes need to know about the endpoint's tss:Source and its fields,
     read from the graph as RDF terms and Python values.
-    data_address: where demo 7's data folder is for this document (see documents.local_data_address),
-    or None for an online endpoint (see iri_to_location).
+    data_address: where demo 7's data folder is for this document (see documents.local_data_address
+    and iri_to_location).
     (The converter has its own read_source, in code/TSS2RDF/tss2rdf.py: it raises ValueError, and
     refuses a property stated twice, where graph.value here takes one of the values.)"""
     source = find_source(graph)

@@ -6,6 +6,7 @@ import {
   one,
   readFields,
   readSummary,
+  sourceModifiedAt,
   documentModifiedAt,
   isEmbedded,
   shortName,
@@ -185,7 +186,8 @@ function PointsNote({ points }) {
 // Is this statement (quad) one of those the cards of the Overview show?
 //   shownSourceProperties: the properties of the source the "Source" and "Reading the data" cards show
 //   summaryNodes: the fields' tss:summary nodes (the "Stored summaries" card shows what they say)
-//   documentIri: the IRI of the metadata document (<>): the top card shows its tss:modifiedAt
+//   documentIri: the IRI of the metadata document (<>): for an older document, the top card shows
+//                its tss:modifiedAt
 function isShown(quad, source, fields, shownSourceProperties, summaryNodes, documentIri) {
   const predicate = quad.predicate.value
   if (quad.subject.equals(source)) {
@@ -217,8 +219,21 @@ function otherStatements(store, source, fields, shownSourceProperties, documentI
   return others
 }
 
+// Where the metadata document is: a bundled file, or your own endpoint (by web address, or uploaded)
+function DocumentOrigin({ endpoint }) {
+  const link = <a href={endpoint.iri} target="_blank" rel="noreferrer">{endpoint.iri}</a>
+  if (!endpoint.user) return <>Metadata endpoint file: {link}</>
+  if (endpoint.url !== null) return <>Your own endpoint, downloaded by your browser from: {link}</>
+  return (
+    <>
+      Your own endpoint, uploaded from your computer: <strong>{endpoint.fileName}</strong> (read with the base
+      IRI <code>{endpoint.iri}</code>)
+    </>
+  )
+}
+
 // Everything one metadata endpoint says, read from its RDF store.
-//   endpoint: the catalogue entry ({ id, iri, online, ... })
+//   endpoint: the endpoint ({ id, iri, ... }; for your own endpoint also user, url, fileName)
 //   rdf:      the parsed document ({ store, prefixes, text, source, points }); rdf.source is its tss:Source
 export function Overview({ endpoint, rdf }) {
   const store = rdf.store
@@ -239,15 +254,21 @@ export function Overview({ endpoint, rdf }) {
   // The properties of the source that the "Source" and "Reading the data" cards show
   // (tss:hasField: the fields table; tss:points: the points note and the Files tab)
   const shownSourceProperties = [
-    RDF_TYPE, RDFS_LABEL, TSS_EMBEDDED, TSS_MUTABLE, TSS_PRODUCED_BY,
+    RDF_TYPE, RDFS_LABEL, TSS_MODIFIED_AT, TSS_EMBEDDED, TSS_MUTABLE, TSS_PRODUCED_BY,
     TSS_FROM, TSS_UNTIL, TSS_TIME_FIELD, TSS_KEY, TSS_HAS_FIELD,
   ]
   if (embedded === true) shownSourceProperties.push(TSS_POINTS)
   else shownSourceProperties.push(TSS_FORMAT, TSS_DATA_FILE)
   if (csv) shownSourceProperties.push(TSS_DELIMITER, TSS_HEADER, TSS_ENCODING)
   const others = otherStatements(store, source, fields, shownSourceProperties, endpoint.iri)
-  // When the document was last edited (it says so about itself: <> tss:modifiedAt ...)
-  const modifiedAt = documentModifiedAt(store, endpoint.iri)
+  // When the source's metadata was last edited: tss:modifiedAt on the tss:Source. Documents
+  // written before that moved there say it about themselves (<> tss:modifiedAt ...).
+  let modifiedAt = sourceModifiedAt(store, source)
+  let modifiedOn = 'on the source'
+  if (modifiedAt === null) {
+    modifiedAt = documentModifiedAt(store, endpoint.iri)
+    modifiedOn = 'on the document itself, the older way'
+  }
   const summaryCount = fields.filter((field) => readSummary(store, field) !== null).length
 
   return (
@@ -255,13 +276,12 @@ export function Overview({ endpoint, rdf }) {
       <section className="card">
         <h2>{labels.length > 0 ? labels.map((label) => label.value).join(' / ') : endpoint.id}</h2>
         <p className="muted long-text">
-          {endpoint.online ? 'Online metadata endpoint: ' : 'Metadata endpoint file: '}
-          <a href={endpoint.iri} target="_blank" rel="noreferrer">{endpoint.iri}</a>
+          <DocumentOrigin endpoint={endpoint} />
         </p>
         <p className="muted small">
           {modifiedAt
-            ? <>Metadata last edited: <Term term={modifiedAt} prefixes={prefixes} plain /> (<code>tss:modifiedAt</code> on the document itself)</>
-            : 'The document does not say when it was last edited (no tss:modifiedAt).'}
+            ? <>Metadata last edited: <Term term={modifiedAt} prefixes={prefixes} plain /> (<code>tss:modifiedAt</code> {modifiedOn})</>
+            : 'The metadata does not say when it was last edited (no tss:modifiedAt).'}
         </p>
       </section>
 
@@ -280,6 +300,7 @@ export function Overview({ endpoint, rdf }) {
                 <td>{source.value}</td>
               </tr>
               <PropertyRow rdf={rdf} property={RDF_TYPE} />
+              <PropertyRow rdf={rdf} property={TSS_MODIFIED_AT} />
               <PropertyRow rdf={rdf} property={TSS_EMBEDDED} />
               {embedded !== true && <PropertyRow rdf={rdf} property={TSS_FORMAT} />}
               {embedded !== true && <PropertyRow rdf={rdf} property={TSS_DATA_FILE} />}
