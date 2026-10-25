@@ -33,12 +33,15 @@ export default defineConfig({
     },
     // The dev server only serves files from these places. Besides this frontend folder, the
     // browser's SHACL check (src/browser/shaclWorker.js) imports two of the server's own Python
-    // files with "?raw", and they are outside it (in code/). Only those two files are added.
+    // files and the two default shapes files with "?raw", and they are outside it (in code/ and
+    // SHACL/). Only those four files are added.
     fs: {
       allow: [
         pathHere('.'),
         pathHere('../../shacl_report/shacl_report.py'),
         pathHere('../../TSS2RDF/tss2rdf.py'),
+        pathHere('../../../SHACL/external_shapes.ttl'),
+        pathHere('../../../SHACL/embedded_shapes.ttl'),
       ],
     },
   },

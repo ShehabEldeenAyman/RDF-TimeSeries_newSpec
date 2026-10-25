@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { DataFactory } from 'n3'
 import { parseRdf } from './rdf'
+import { MAX_SHAPES_BYTES } from './browser/shacl'
 import {
   one, all, oneText, isEmbedded, booleanValue, shortName, termText,
   RDF_TYPE, RDFS_LABEL, TSS_FORMAT,
@@ -10,9 +11,6 @@ import {
 } from './tss'
 
 const { namedNode } = DataFactory
-
-// The backend refuses bigger shapes files, so we check this before sending one
-const MAX_SHAPES_BYTES = 5000000
 
 // The severities of SHACL, worst first (to sort the table)
 const SEVERITIES = [SH_VIOLATION, SH_WARNING, SH_INFO]
@@ -50,8 +48,10 @@ export function Shacl({ rdf, api }) {
     setError(null)
     setCustomShapes(null)
     if (!file) return
+    // The backend refuses bigger shapes files (MAX_SHAPES_BYTES, see browser/shacl.js), so we
+    // check this before sending one
     if (file.size > MAX_SHAPES_BYTES) {
-      setError('The shapes file must be at most 5 MB.')
+      setError(`The shapes file must be at most ${MAX_SHAPES_BYTES / 1000000} MB.`)
       event.target.value = ''
       return
     }

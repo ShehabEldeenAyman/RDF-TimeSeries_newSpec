@@ -105,7 +105,9 @@ export function AddEndpointForm({ onAdded }) {
         />
         <button type="submit" disabled={adding || metadataFile === null}>{adding ? 'Adding…' : 'Add'}</button>
         <p className="muted small">
-          A data file is found by its name: the last part of the <code>tss:dataFile</code> IRI. "Published at" is the
+          A data file is found by its name: the last part of the <code>tss:dataFile</code> IRI (upper or lower case
+          does not matter; for an address that ends in a word like <code>/content</code> or <code>/download</code>, the
+          part before it). A CSV file's header line is checked against the fields' column names before it is used. "Published at" is the
           document's address on the web, if it has one: relative IRIs in it, like <code>&lt;../data/x.csv&gt;</code>,
           are read against it (without it: <code>file:///uploaded/&lt;file name&gt;</code>). Uploaded files are kept
           in this tab's memory only: a reload of the page forgets them. Endpoints added by web address come back

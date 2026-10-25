@@ -10,12 +10,15 @@
 // for your own endpoints no tab ever calls /api.
 //
 // Usage (App.jsx makes one per endpoint, and every tab gets it as its "api" prop):
-//   const api = makeDataApi(endpoint, rdf, pickedFile)
+//   const api = makeDataApi(endpoint, rdf, picked)
 //
 //   api.dataPreview().then(({ found, note, text }) => ...)   // the first lines of the data file
-//   api.dataFileInfo().then((info) => ...)                   // { downloadUrl, fileName, origin, iri }
+//   api.dataFileInfo().then((info) => ...)                   // { downloadUrl, fileName, origin, iri,
+//                                                            //   note, warning } (see dataSource.js)
 //   api.rows(10).then(({ columns, rows }) => ...)            // the first rows (series inspector)
 //   api.filterColumns(fieldIri).then((list) => ...)          // [{ field, values }] (query form)
+//   api.queryAddress(params)                                 // the /query address to show, or null in
+//                                                            // the browser (nothing is sent anywhere)
 //   api.query(params).then((answer) => ...)                  // the query form's readings and summary
 //   api.sqlTables().then((schema) => ...)                    // the SQL box's tables and examples
 //   api.sql('SELECT ...').then((result) => ...)              // one SQL query
@@ -23,9 +26,13 @@
 //                                                            // and result.preview() (parsed Turtle)
 //   api.shacl(null, null).then(({ store, prefixes, text }) => ...)        // the report, default shapes
 //   api.shacl(shapesText, 'my_shapes.ttl').then(...)                        // ... or your own shapes
+//   api.shaclBase      // the base IRI for relative IRIs in uploaded shapes
+//   api.shaclStarting() // true when the next SHACL check loads Python first (browser, first time)
 //   api.close()   // when the endpoint is left: stops DuckDB and the RDF generation, frees the
 //                 // downloads (browser only). A closed api answers nothing any more.
 //   api.inBrowser // true for your own endpoint (the answers are computed in this tab)
+//   api.key       // a number of its own for every new api: App.jsx draws the tabs again for a
+//                 // new one (key={api.key})
 //
 // Every method gives a Promise. A problem rejects it with an Error whose message says why: the
 // server's "detail", or the same text computed in the browser. (So: .catch((err) => setError(err.message)))
@@ -47,11 +54,12 @@ let shaclReady = false
 let lastKey = 0
 
 // The api object for an endpoint.
-//   endpoint:   a bundled endpoint (from the catalogue) or a user endpoint (endpoint.user is true)
-//   rdf:        its parsed metadata, the "rdf" prop of every tab (see App.jsx)
-//   pickedFile: only for a user endpoint: the data file picked in a data tab, or null
-export function makeDataApi(endpoint, rdf, pickedFile) {
-  const api = endpoint.user ? browserApi(endpoint, rdf, pickedFile) : serverApi(endpoint)
+//   endpoint: a bundled endpoint (from the catalogue) or a user endpoint (endpoint.user is true)
+//   rdf:      its parsed metadata, the "rdf" prop of the tabs (see App.jsx)
+//   picked:   only for a user endpoint: the data file picked in a data tab, or null:
+//             { file, anyway } (anyway: use it even though it does not fit the metadata)
+export function makeDataApi(endpoint, rdf, picked) {
+  const api = endpoint.user ? browserApi(endpoint, rdf, picked) : serverApi(endpoint)
   lastKey += 1
   api.key = lastKey
   return api
@@ -76,7 +84,7 @@ function serverApi(endpoint) {
     // The download link of the original data file: a normal link is enough (no fetch), the
     // backend answers with the file and tells the browser to save it
     dataFileInfo() {
-      return Promise.resolve({ downloadUrl: `${base}/data/download`, fileName: null, origin: 'server', iri: null })
+      return Promise.resolve({ downloadUrl: `${base}/data/download`, fileName: null, origin: 'server', iri: null, note: null, warning: null })
     },
 
     // GET /rows: { columns: [field IRIs], rows: [[text or null]] }
@@ -168,7 +176,7 @@ function getJson(url, options) {
 
 // --- Your own endpoint: this browser tab answers --------------------------------------
 
-function browserApi(endpoint, rdf, pickedFile) {
+function browserApi(endpoint, rdf, picked) {
   // Each of these is made once, the first time a tab needs it (so nothing is downloaded and
   // DuckDB does not start until you open a tab that needs the data)
   let dataFilePromise = null // the data file (see dataSource.js)
@@ -189,10 +197,11 @@ function browserApi(endpoint, rdf, pickedFile) {
     return new Error('This endpoint was closed.')
   }
 
-  // The data file: a Promise of { blob, name, origin, iri }, or of null for embedded points
+  // The data file: a Promise of { blob, name, origin, iri, note, warning }, or of null for
+  // embedded points
   function dataFile() {
     if (dataFilePromise === null) {
-      dataFilePromise = findDataFile({ endpoint: endpoint, rdf: rdf, pickedFile: pickedFile })
+      dataFilePromise = findDataFile({ endpoint: endpoint, rdf: rdf, picked: picked })
     }
     return dataFilePromise
   }
@@ -258,7 +267,14 @@ function browserApi(endpoint, rdf, pickedFile) {
         if (closed) throw closedError()
         if (found === null) return null
         if (fileUrl === null) fileUrl = URL.createObjectURL(found.blob)
-        return { downloadUrl: fileUrl, fileName: found.name, origin: found.origin, iri: found.iri }
+        return {
+          downloadUrl: fileUrl,
+          fileName: found.name,
+          origin: found.origin,
+          iri: found.iri,
+          note: found.note,
+          warning: found.warning,
+        }
       })
     },
 

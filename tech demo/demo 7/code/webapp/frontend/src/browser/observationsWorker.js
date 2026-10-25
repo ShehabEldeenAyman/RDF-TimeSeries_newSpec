@@ -62,20 +62,10 @@ import {
   liftPoints,
   pointRows,
 } from '../tss.js'
-import {
-  CsvReader,
-  columnIndex,
-  compareCodePoints,
-  eachLine,
-  hasForm,
-  isoMoment,
-  parseFormTime,
-  pyRepr,
-  pythonBoolean,
-  rdflibPrefixes,
-  readSource,
-  termTextWith,
-} from './query.js'
+import { compareCodePoints, pyRepr, rdflibPrefixes, termTextWith } from './python.js'
+import { hasForm, isoMoment, parseFormTime, pythonBoolean } from './values.js'
+import { columnIndex, readSource } from './sourceReading.js'
+import { CsvReader, eachLine } from './csvFile.js'
 
 const { namedNode, blankNode, literal } = DataFactory
 

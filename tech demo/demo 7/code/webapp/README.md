@@ -21,7 +21,7 @@ The source's `tss:timeField` names the time field. Its time window includes `tss
 | SHACL shapes (`/files/SHACL/*.ttl`) and validation reports | Turtle | pyshacl and rdflib; the browser parses the report with rdf-parse |
 | Generated observations | N-Triples download and Turtle preview, written by rdflib (bundled endpoints) or by n3 in a Web Worker (your own endpoints) | the browser parses the preview with rdf-parse |
 | Embedded points (`tss:points`) | an `rdf:JSON` literal inside the metadata | a JSON-LD parser (rdflib, rdf-parse) with a context made from the fields |
-| Data files (`tss:dataFile`) | CSV or Parquet: raw data, described by the RDF | as the `tss:format` IRI says: the backend (Python's csv module, DuckDB) for bundled endpoints; the browser (`src/browser/query.js`, DuckDB-WASM) for your own |
+| Data files (`tss:dataFile`) | CSV or Parquet: raw data, described by the RDF | as the `tss:format` IRI says: the backend (Python's csv module, DuckDB) for bundled endpoints; the browser (`src/browser/csvFile.js` and `dataReading.js` for CSV, DuckDB-WASM for Parquet and SQL) for your own |
 | Computed results and errors | JSON | `response.json()` |
 
 JSON is used only for computed tabular results (rows, previews, filter values, readings, summaries, SQL results, counts) and for error messages (`{"detail": "..."}`). No code reads RDF as JSON (no `JSON.parse` or `json.loads` of RDF). The JSON answers don't repeat what the metadata says (labels, units, datatypes, formats, column names, paths): they name fields by their full IRI, and the browser looks those up in the store.
@@ -57,38 +57,49 @@ Under the drop down, **Add your own endpoint** adds a metadata document of your 
 | Files, Series inspector (first rows), Query | `query.js`: ports of `GET /data`, `/rows`, `/filter-columns` and `/query` (with "Check the stored summary") |
 | SQL (DuckDB) | `duck.js` and `sqlBox.js`: DuckDB-WASM in a Web Worker, with the same tables, examples, limits and lock-down as the backend |
 | RDF generation | `observations.js` and `observationsWorker.js`: the rules of `tss2rdf.py`, in a Web Worker with n3; the download is a `blob:` address |
-| SHACL | `shacl.js` and `shaclWorker.js`: pyshacl in Pyodide (Python in WebAssembly) in a Web Worker, running the server's own `shacl_report.py` and `tss2rdf.py`; the default shapes come from `/files/SHACL/` |
+| SHACL | `shacl.js` and `shaclWorker.js`: pyshacl in Pyodide (Python in WebAssembly) in a Web Worker, running the server's own `shacl_report.py` and `tss2rdf.py`; both default shapes files are part of the app (imported with `?raw`), so nothing is fetched for them |
 
-No `/api` route is ever called for your endpoint. The only requests to the demo's server are for the app's static files (the page and its scripts, DuckDB's WebAssembly and extensions and Pyodide's files under `/vendor/`) and the bundled shapes (`/files/SHACL/`); none of them carries your metadata or data. The dev server does not receive the page's console output either (`forwardConsole: false` in `vite.config.js`; Vite turns it on by itself when a coding agent starts it), because an error message could quote your metadata or data.
+No `/api` route is ever called for your endpoint. The only requests to the demo's server are for the app's static files (the page and its scripts, DuckDB's WebAssembly and extensions and Pyodide's files under `/vendor/`); none of them carries your metadata or data. (The default SHACL shapes are inside the SHACL worker's script, so no request tells the server which shapes your metadata needs; the report still names them by their address, `/files/SHACL/<file>`, as the server's report does.) The dev server does not receive the page's console output either (`forwardConsole: false` in `vite.config.js`; Vite turns it on by itself when a coding agent starts it), because an error message could quote your metadata or data.
 
 **The same rules in two languages.** Except for SHACL, the browser modules are JavaScript ports of the backend's Python, written to give the same JSON, character for character. Nothing in the repository checks that: when you change one side, change the other too.
 
 | Browser file (`frontend/src/browser/`) | The Python it ports (change both together) |
 |---|---|
-| `query.js` | `backend/data_routes.py` (`GET /data`, `/rows`, `/filter-columns`, `/query`), `query_helpers.py`, `source_reading.py`, `data_reading.py` and `value_reading.py` |
-| `duck.js` | `backend/sql_box.py` (`open_database`, `column_expression`, `load_table`, `run_query`, `to_json_value`) and `sql_routes.py` (`sql_table`, `run_sql`) |
+| `query.js` | `backend/data_routes.py` (`GET /data`, `/rows`, `/filter-columns`, `/query`) |
+| `queryHelpers.js` | `backend/query_helpers.py` (the summary, the gaps, the hourly and daily values) |
+| `dataReading.js` | `backend/data_reading.py` (the rows of a CSV file, a Parquet file or the embedded points) |
+| `sourceReading.js` | `backend/source_reading.py`, with `column_index` and `embedded_mode` of `tss2rdf.py` |
+| `values.js` | `backend/value_reading.py`, with `parse_time`, `parse_number` and `time_text` of `query_helpers.py`, `LEXICAL_FORMS` of `tss2rdf.py` and `XSD_TO_DUCKDB` of `sql_box.py` |
+| `csvFile.js` | `backend/files.py` (`read_lines`) and Python's own `csv` reader |
+| `python.js` | no backend module: how Python and rdflib write, round, add, read and sort values (`repr`, `round`, `sum`, `int`, rdflib's names in messages), so the answers have the same text |
+| `duck.js` | `backend/sql_box.py` (`open_database`, `column_expression`, `load_table`, `run_query`) and `sql_routes.py` (`sql_table`, `run_sql`) |
+| `arrowValues.js` | `backend/sql_box.py` (`to_json_value`), `data_reading.py` (`cell_text`) and `tss2rdf.py` (`cell_text`) |
+| `sqlCheck.js` | `backend/sql_box.py` (`run_query`: exactly one reading query) |
 | `sqlBox.js` | `backend/sql_box.py` (`example_queries`, the limits) and `sql_routes.py` (`GET /sql/tables`) |
 | `observationsWorker.js` | `code/TSS2RDF/tss2rdf.py` (`generate`) |
-| `shacl.js`, `shaclWorker.js` | none: they run the server's own `shacl_report.py` and `tss2rdf.py` in Pyodide (imported with `?raw`), so there is only one copy |
+| `shacl.js`, `shaclWorker.js` | none: they run the server's own `shacl_report.py` and `tss2rdf.py` in Pyodide, with the server's own `SHACL/*_shapes.ttl` (all imported with `?raw`), so there is only one copy |
 
 (`liftPoints` in `src/tss.js` and `lift_points` in `tss2rdf.py` are such a pair too, see [Embedded points](#embedded-points-tsspoints).)
 
 **The data file** (for `tss:embedded false`; embedded points need none), found by `frontend/src/browser/dataSource.js`:
 
-1. a data file you picked, matched by name: the last part of the `tss:dataFile` IRI, decoded (`waterinfo_289423042.csv` for `<../data/waterinfo_289423042.csv>`);
-2. else, for an `http://` or `https://` IRI, your browser downloads it, once per endpoint;
-3. else (a `file:` IRI, or a download that failed: a host without CORS, a 404, an `http://` file on an `https://` page) the data tabs say why and show **Pick <file name> from your computer**. After you pick it, the tabs work.
+1. a file you picked in a data tab (**Pick <file name> from your computer**, or **Pick another file** to replace the one in use);
+2. else a data file you uploaded with the metadata, matched by name: the last part of the `tss:dataFile` IRI, decoded (`waterinfo_289423042.csv` for `<../data/waterinfo_289423042.csv>`). Upper and lower case do not matter, and when the last part is a word like `content`, `download`, `raw`, `file` or `data` (Zenodo's API: `.../files/x.csv/content`), the part before it is the name;
+3. else, for an `http://` or `https://` IRI, your browser downloads it, once per endpoint;
+4. else (a `file:` IRI, or a download that failed: a host without CORS, a 404, an `http://` file on an `https://` page) the data tabs say why and show **Pick <file name> from your computer**. When you uploaded exactly one data file and its name matched nothing, they also offer **Use <that file>**. After you choose a file, the tabs work.
 
-The Files tab says where the data came from ("Downloaded by your browser from ..." or "Picked from your computer: ...") and the download icon gives the browser's own copy.
+A file from your computer (1 and 2) is checked before it is used: for a CSV file with `tss:header true` (the default), its first line must name every field's `tss:columnName` (only the first 64 kB of the file are read for this). When it does not, the data tabs name the missing columns and offer **Pick another file** or **Use <file> anyway**; the file is never used without a word. A Parquet file's columns are not checked beforehand (only DuckDB reads Parquet here); a picked file with another name than the metadata's gets a warning.
 
-**Storage: this tab only.** Your endpoints, their files and everything computed from them stay in the tab's memory. Only the web addresses of the endpoints you added by address are kept, in `sessionStorage` (the tab's own storage, emptied when the tab closes), so a reload of the page adds them again, downloading them again. Uploaded files are not kept anywhere: a reload forgets them, as the form says. Nothing goes into `localStorage` or IndexedDB. Leaving an endpoint stops its DuckDB and its RDF generation and frees its `blob:` addresses, also when a download or a start was still under way (what finishes later is thrown away); **Remove** also forgets its downloaded data file.
+The data tabs and the Files tab say where the data came from ("Data file downloaded by your browser from ..." or "Data file picked from your computer: ..."), and the download icon gives the browser's own copy.
+
+**Storage: this tab only.** Your endpoints, their files and everything computed from them stay in the tab's memory. Only the web addresses of the endpoints you added by address are kept, in `sessionStorage` (the tab's own storage, emptied when the tab closes), each address once, so a reload of the page adds them again, downloading them again (an address you add with the form while that is still under way is not added twice). Uploaded files are not kept anywhere: a reload forgets them, as the form says. Nothing goes into `localStorage` or IndexedDB. Leaving an endpoint stops its DuckDB and its RDF generation and frees its `blob:` addresses, also when a download or a start was still under way (what finishes later is thrown away); **Remove** also forgets its downloaded data file.
 
 **Details.**
 
-- *By web address*: your browser downloads the document itself: `fetch` with `cache: 'no-store'` and only one header, `Accept: text/turtle, application/rdf+xml;q=0.8, application/n-triples;q=0.8, text/n3;q=0.5, */*;q=0.1` (short enough to need no CORS preflight). Redirects are followed, and the address you typed is the document's base IRI. The `Content-Type` gives the syntax: Turtle (also `application/x-turtle`; no type, `text/plain` and `application/octet-stream` are read as Turtle), N-Triples, N3 or RDF/XML; of a doubled value such as Zenodo's `application/octet-stream, application/octet-stream` the first one counts. JSON-LD and HTML pages are refused.
+- *By web address*: your browser downloads the document itself: `fetch` with `cache: 'no-store'` and only one header, `Accept: text/turtle, application/rdf+xml;q=0.8, application/n-triples;q=0.8, text/n3;q=0.5, */*;q=0.1` (short enough to need no CORS preflight). Redirects are followed, and the address you typed is the document's base IRI. The `Content-Type` gives the syntax: Turtle (also `application/x-turtle`), N-Triples, N3 or RDF/XML; of a doubled value such as Zenodo's `application/octet-stream, application/octet-stream` the first one counts. When the server does not say (no type, `text/plain` or `application/octet-stream`, as raw.githubusercontent.com sends every file), the end of the address decides, with the same rules as for an upload (`.ttl`, `.nt`, `.n3`, `.rdf`/`.owl`/`.xml`; `.jsonld`/`.json` are refused), and Turtle when it ends in none of them. JSON-LD and HTML pages are refused.
 - *From your computer*: the metadata file may be `.ttl`, `.nt`, `.n3`, `.rdf`, `.owl` or `.xml` (not JSON-LD). "Published at" (optional) is the document's address on the web, used as its base IRI; without it the document is read as `file:///uploaded/<file name>`.
 - *CORS*: a browser may read a file from another host only when the host allows it (`Access-Control-Allow-Origin`). raw.githubusercontent.com, GitHub Pages, gists, Hugging Face, Zenodo's API, GitLab's API, figshare and dl.dropboxusercontent.com do; github.com `/raw/` and `?raw=true` links, GitHub releases, GitLab `/-/raw/` links, Zenodo `?download=1`, Google Drive and www.dropbox.com share links do not. When a host refuses, the app says so ("This host does not let a browser download the file ..."): download the file and add it from your computer (a data file: pick it in the data tab). There is no server relay.
-- *Costs*: DuckDB-WASM starts in about 3 seconds and uses about 400 MB of memory while an endpoint is open. The first SHACL check in a tab loads Python (about 9 MB from the demo's own server, a few seconds; the tab says "Loading Python for the SHACL check (first time in this tab)…"); later checks take under a second. Generated RDF is a Blob in the tab's memory (the 10 MB grootdok CSV gives 112 MB of N-Triples).
+- *Costs*: DuckDB-WASM starts in about 3 seconds and uses about 400 MB of memory while an endpoint is open. The first SHACL check in a tab loads Python (about 9 MB downloaded from the demo's own server, a few seconds; `public/vendor/pyodide/` holds 16 MB on disk; the tab says "Loading Python for the SHACL check (first time in this tab)…"); later checks take under a second. Generated RDF is a Blob in the tab's memory (the 10 MB grootdok CSV gives 112 MB of N-Triples).
 
 DuckDB's extensions and Pyodide's packages do not come with `npm install`: run `npm run fetch-browser-assets` once after it (see [Running](#running)).
 
@@ -122,6 +133,8 @@ The backend picks the default shapes from the source's `tss:embedded` (`default_
 | `tss:embedded false` (a CSV or Parquet `tss:dataFile`) | `demo 7/SHACL/external_shapes.ttl` |
 | `tss:embedded true` (the readings in `tss:points`) | `demo 7/SHACL/embedded_shapes.ttl` |
 | missing or not a boolean | none: the tab asks for custom shapes |
+
+For your own endpoint the browser uses the same two files, built into the app (`?raw` imports in `frontend/src/browser/shaclWorker.js`), so checking it fetches no shapes: after editing a shapes file, build the frontend again (the dev server picks up the change by itself).
 
 `external_shapes.ttl` checks the metadata only (S1-S15, F1-F8), not the data file. `embedded_shapes.ttl` checks the metadata (S1-S12, F1-F8, and the F9 warning: some point has a value for the field) together with the lifted points. Its SPARQL checks join each point with the field metadata:
 

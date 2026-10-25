@@ -219,8 +219,9 @@ function otherStatements(store, source, fields, shownSourceProperties, documentI
   return others
 }
 
-// Where the metadata document is: a bundled file, or your own endpoint (by web address, or uploaded)
-function DocumentOrigin({ endpoint }) {
+// Where the metadata document is: a bundled file, or your own endpoint (by web address, or uploaded).
+// The Files tab says it with the same words (Files.jsx uses this one too).
+export function DocumentOrigin({ endpoint }) {
   const link = <a href={endpoint.iri} target="_blank" rel="noreferrer">{endpoint.iri}</a>
   if (!endpoint.user) return <>Metadata endpoint file: {link}</>
   if (endpoint.url !== null) return <>Your own endpoint, downloaded by your browser from: {link}</>

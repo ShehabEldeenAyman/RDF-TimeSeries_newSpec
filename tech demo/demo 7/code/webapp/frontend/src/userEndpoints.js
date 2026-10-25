@@ -70,25 +70,31 @@ export function makeUserEndpoint(number, document, how) {
   }
 }
 
-// The remembered web addresses (a list of texts), or [] when there are none. sessionStorage can
-// be switched off (private windows, strict settings): then nothing is remembered.
+// The remembered web addresses (a list of texts, each address once), or [] when there are none.
+// sessionStorage can be switched off (private windows, strict settings): then nothing is remembered.
 export function storedUrls() {
   try {
     const text = window.sessionStorage.getItem(STORAGE_KEY)
     if (text === null) return []
     const list = JSON.parse(text) // a plain list of addresses (not RDF)
     if (!Array.isArray(list)) return []
-    return list.filter((url) => typeof url === 'string')
+    return withoutDuplicates(list.filter((url) => typeof url === 'string'))
   } catch {
     return []
   }
 }
 
-// Remember these web addresses for a reload of this tab
+// Remember these web addresses for a reload of this tab (each address once)
 export function storeUrls(urls) {
   try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(urls))
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(withoutDuplicates(urls)))
   } catch {
     // sessionStorage is switched off: a reload will not add them again, that is all
   }
+}
+
+// The same list, with every text only once (in the order they first appear). A Set keeps each
+// value once; Array.from makes it a list again.
+function withoutDuplicates(list) {
+  return Array.from(new Set(list))
 }

@@ -65,7 +65,8 @@ function App() {
   const [rdf, setRdf] = useState(null)                   // its metadata document, parsed into an RDF store
   const [tab, setTab] = useState('overview')             // the tab that is open
   const [opened, setOpened] = useState(['overview'])     // the tabs opened for this endpoint (see below)
-  const [pickedFiles, setPickedFiles] = useState({})     // endpoint id -> the data file picked in a data tab
+  const [pickedFiles, setPickedFiles] = useState({})     // endpoint id -> the data file picked in a data tab:
+                                                         // { file, anyway } (see handlePickedFile)
   const [error, setError] = useState(null)
 
   // Your endpoints added by web address before a reload of this tab (sessionStorage), read once
@@ -75,6 +76,27 @@ function App() {
   const [restoreProblems, setRestoreProblems] = useState([])
   // The number of the next user endpoint (user-1, user-2, ...). A ref: it changes without redrawing.
   const nextNumber = useRef(1)
+  // Your endpoints as they are now. A function that waits for a download (the add form's, the
+  // restore below) was made in an older redraw, and its userEndpoints is the list of back then;
+  // this ref is always the list of now. Every change of the list sets both: the ref and the state
+  // (addUserEndpoint, removeSelected).
+  const userList = useRef([])
+
+  // Your endpoint with this web address, if it is in the list already (an upload has none: null)
+  function knownEndpoint(url) {
+    if (url === null) return null
+    const known = userList.current.find((entry) => entry.url === url)
+    return known ? known : null
+  }
+
+  // Add one of your endpoints to the list, with the next number. Gives the new endpoint.
+  function addUserEndpoint(document, how) {
+    const endpoint = makeUserEndpoint(nextNumber.current, document, how)
+    nextNumber.current += 1
+    userList.current = userList.current.concat([endpoint])
+    setUserEndpoints(userList.current)
+    return endpoint
+  }
 
   // When the page opens: load the catalogue and read the list of endpoints from it.
   // Each entry is { id, iri, downloadUrl, label, comment } (see readCatalog in tss.js).
@@ -86,6 +108,7 @@ function App() {
 
   // When the page opens after a reload: add your endpoints of before again (the browser downloads
   // them again). An address that does not work any more is left out, and the page says why.
+  // An address you added with the form in the meantime is not added twice.
   useEffect(() => {
     if (restoreUrls.length === 0) return
     let ignore = false // see below: throw away answers that arrive too late
@@ -98,9 +121,8 @@ function App() {
         return loadFromUrl(url)
           .then((document) => {
             if (ignore) return
-            const endpoint = makeUserEndpoint(nextNumber.current, document, { url: url, fileName: null, dataFiles: [] })
-            nextNumber.current += 1
-            setUserEndpoints((list) => list.concat([endpoint]))
+            if (knownEndpoint(url) !== null) return // added with the form while this one downloaded
+            addUserEndpoint(document, { url: url, fileName: null, dataFiles: [] })
           })
           .catch((err) => {
             problems.push(`Could not add ${url} again: ${err.message}`)
@@ -185,11 +207,11 @@ function App() {
   // The api of the picked endpoint (see dataApi.js): made again when the endpoint, its document
   // or the data file picked for it changes. useMemo keeps the same object between redraws, so the
   // tabs don't ask their questions again on every redraw.
-  const pickedFile = selected !== null && pickedFiles[selected.id] ? pickedFiles[selected.id] : null
+  const picked = selected !== null && pickedFiles[selected.id] ? pickedFiles[selected.id] : null
   const api = useMemo(() => {
     if (selected === null || rdf === null) return null
-    return makeDataApi(selected, rdf, pickedFile)
-  }, [selected, rdf, pickedFile])
+    return makeDataApi(selected, rdf, picked)
+  }, [selected, rdf, picked])
 
   // When the api is replaced (another endpoint, or a picked data file) or the page closes:
   // close the old one. For your own endpoint that stops its DuckDB (about 400 MB of memory)
@@ -227,26 +249,23 @@ function App() {
   }
 
   // AddEndpointForm read a document: make it an endpoint of this tab, and pick it.
-  // An address that is already in the list is only picked again.
+  // An address that is already in the list is only picked again. (knownEndpoint looks in the list
+  // of now: the restore after a reload may have added it while the form was downloading.)
   function handleAdded(document, how) {
-    const known = userEndpoints.find((entry) => how.url !== null && entry.url === how.url)
-    if (known) {
+    const known = knownEndpoint(how.url)
+    if (known !== null) {
       selectEndpoint(known)
       return
     }
-    const endpoint = makeUserEndpoint(nextNumber.current, document, how)
-    nextNumber.current += 1
-    // (list) => ...: the list as it is now (endpoints of before a reload may have been added
-    // while the form was busy)
-    setUserEndpoints((list) => list.concat([endpoint]))
-    selectEndpoint(endpoint)
+    selectEndpoint(addUserEndpoint(document, how))
   }
 
   // Take the picked user endpoint out of the list. Its api is closed by the useEffect above
   // (the api becomes null); the data file the browser downloaded for it is forgotten here.
   function removeSelected() {
     const removed = selected
-    setUserEndpoints((list) => list.filter((entry) => entry.id !== removed.id))
+    userList.current = userList.current.filter((entry) => entry.id !== removed.id)
+    setUserEndpoints(userList.current)
     forgetDataFiles(removed.id)
     const rest = Object.assign({}, pickedFiles)
     delete rest[removed.id]
@@ -254,10 +273,12 @@ function App() {
     selectEndpoint(null)
   }
 
-  // A data file was picked in a data tab (DataFileCard): keep it for this endpoint. The api is
+  // A data file was chosen in a data tab (DataFileCard): keep it for this endpoint. The api is
   // made again with it, and the tabs start again with the new api (see key={api.key} below).
-  function handlePickedFile(file) {
-    setPickedFiles(Object.assign({}, pickedFiles, { [selected.id]: file }))
+  //   anyway: true when you said "Use it anyway" for a file that does not fit the metadata
+  //           (else the file is checked first, see browser/dataSource.js)
+  function handlePickedFile(file, anyway) {
+    setPickedFiles(Object.assign({}, pickedFiles, { [selected.id]: { file: file, anyway: anyway === true } }))
   }
 
   if (error && endpoints === null) {
@@ -313,11 +334,12 @@ function App() {
 
       {selected !== null && rdf === null && !error && <p>Loading…</p>}
 
-      {/* Every tab gets the same three props:
+      {/* The props of the tabs (each tab gets only those it needs, see the list below):
             endpoint = { id, iri, label, ... }                              the endpoint (bundled, or your own: user true)
-            rdf      = { store, prefixes, text, url, source, points }       its parsed metadata document
+                       (Overview, Series inspector, Files)
+            rdf      = { store, prefixes, text, url, source, points }       its parsed metadata document (every tab)
                        (points: the embedded points as RDF, or null; see readPoints in tss.js)
-            api      = the endpoint's data questions (dataApi.js)
+            api      = the endpoint's data questions (dataApi.js)           (every tab but Overview)
           While another endpoint loads, rdf is null and all tabs disappear, so each tab
           starts fresh for every endpoint. */}
       {rdf !== null && api !== null && (

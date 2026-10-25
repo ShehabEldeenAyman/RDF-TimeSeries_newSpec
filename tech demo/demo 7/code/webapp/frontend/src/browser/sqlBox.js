@@ -14,7 +14,8 @@
 //     .catch((error) => setError(error.message))   // DuckDB's own message, like the backend's "detail"
 
 import { one, TSS_SUMMARY } from '../tss.js'
-import { NUMERIC_TYPES, readSource } from './query.js'
+import { NUMERIC_TYPES } from './values.js'
+import { readSource } from './sourceReading.js'
 
 export const MAX_ROWS = 1000          // rows in an answer
 export const MAX_BYTES = 5000000      // about 5 MB of values in an answer
@@ -116,7 +117,7 @@ export function tableName(location, reservedWords) {
 }
 
 // The IRIs of the fields that have a stored summary (sql_routes.summarized_fields)
-//   source: from readSource in query.js
+//   source: from readSource in sourceReading.js
 export function summarizedFields(store, source) {
   const summarized = []
   for (const field of source.fields) {

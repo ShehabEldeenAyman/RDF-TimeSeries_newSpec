@@ -45,14 +45,25 @@ import { Store, Writer } from 'n3'
 import { Readable } from 'readable-stream'
 import { errorText } from './config.js'
 
-// The syntax we assume when a server does not say what it sent. Many simple servers
-// (for example raw files on GitHub) send Turtle as text/plain or as plain bytes.
-const DEFAULT_CONTENT_TYPE = 'text/turtle'
-const UNTYPED_CONTENT_TYPES = ['', 'text/plain', 'application/octet-stream']
+// The RDF syntaxes the app reads, in one place. rdf.js uses them for your own metadata documents,
+// and browser/shacl.js for the SHACL check of those documents in the browser.
 
-// The RDF syntaxes a user's own metadata document may have (the same list as the backend's
-// documents.RDF_FORMATS). application/x-turtle is an old name for Turtle.
-const USER_DOCUMENT_TYPES = ['text/turtle', 'application/n-triples', 'text/n3', 'application/rdf+xml']
+// The syntax we assume when nothing says what a document is. Many simple servers (for example
+// raw files on GitHub) send Turtle as text/plain or as plain bytes.
+const DEFAULT_CONTENT_TYPE = 'text/turtle'
+// The Content-Types that do not say which syntax a document has
+export const UNTYPED_CONTENT_TYPES = ['', 'text/plain', 'application/octet-stream']
+
+// The RDF syntaxes a user's own metadata document may have, by media type, with the name of
+// rdflib's parser for each (the SHACL check reads the document with rdflib, see browser/shacl.js).
+// The same list as the backend's documents.RDF_FORMATS.
+export const RDFLIB_FORMATS = {
+  'text/turtle': 'turtle',
+  'application/x-turtle': 'turtle',
+  'text/n3': 'n3',
+  'application/n-triples': 'nt',
+  'application/rdf+xml': 'xml',
+}
 
 // What the browser asks a web server for when it fetches a user's metadata document: Turtle
 // first, but the other syntaxes we read are fine too. An Accept header this short is
@@ -61,11 +72,12 @@ const USER_DOCUMENT_TYPES = ['text/turtle', 'application/n-triples', 'text/n3', 
 export const RDF_ACCEPT = 'text/turtle, application/rdf+xml;q=0.8, application/n-triples;q=0.8, text/n3;q=0.5, */*;q=0.1'
 
 // Why we don't read JSON-LD documents: the parser would download whatever its @context names
-const JSON_LD_REFUSED = 'JSON-LD is not read here: its @context can make the parser download other ' +
+export const JSON_LD_REFUSED = 'JSON-LD is not read here: its @context can make the parser download other ' +
   'addresses. Use Turtle, N-Triples, N3 or RDF/XML instead.'
 
-// The syntax of an uploaded file, by the end of its name (the browser does not know the type
-// of a .ttl file: it gives the type "")
+// The syntax of a file by the end of its name: for an uploaded file (the browser does not know
+// the type of a .ttl file: it gives the type ""), and for a web address whose server does not
+// say what it sent (see userDocumentType)
 const FILE_EXTENSIONS = {
   '.ttl': 'text/turtle',
   '.nt': 'application/n-triples',
@@ -170,29 +182,59 @@ export function readRdfFile(file, baseIRI) {
 // The syntax of a user's document, from the Content-Type its server sent. Throws an Error for
 // JSON-LD, an HTML page, and any other type that is not an RDF syntax we read.
 //   'text/turtle; charset=utf-8' -> 'text/turtle'
-//   'application/octet-stream, application/octet-stream' (Zenodo sends it twice) -> 'text/turtle'
+//   'application/x-turtle' -> 'text/turtle' (an old name for Turtle)
+//   'application/octet-stream, application/octet-stream' (Zenodo sends it twice): the first one counts
+//   no type, text/plain or application/octet-stream: the server does not say (raw.githubusercontent.com
+//     sends every file as text/plain), so the end of the address decides, with the same rules as
+//     for an uploaded file: '.../series.rdf' -> 'application/rdf+xml' (see addressType)
 function userDocumentType(contentTypeHeader, url) {
   const header = contentTypeHeader ? contentTypeHeader : ''
-  const type = mediaType(header.split(',')[0]) // only the first of a doubled value
+  const type = bareType(header.split(',')[0]) // only the first of a doubled value
+  if (UNTYPED_CONTENT_TYPES.includes(type)) return addressType(url)
   if (type === 'application/x-turtle') return 'text/turtle'
   if (type === 'application/ld+json') throw new Error(`${url} is JSON-LD. ${JSON_LD_REFUSED}`)
   if (type === 'text/html') {
     throw new Error(`${url} is an HTML page, not RDF. Is it the address of the file itself (for example its "raw" link)?`)
   }
-  if (!USER_DOCUMENT_TYPES.includes(type)) {
+  if (!Object.keys(RDFLIB_FORMATS).includes(type)) {
     throw new Error(`${url} is ${type}, which is not an RDF syntax this dashboard reads (Turtle, RDF/XML, N-Triples or N3)`)
   }
   return type
 }
 
+// The syntax of a file by the end of its name (FILE_EXTENSIONS), or null when the end is none of
+// those. Throws an Error for JSON-LD (.jsonld, .json).
+//   name: the file name, or the path of a web address;  what: how the error calls the file
+function typeByName(name, what) {
+  const lower = name.toLowerCase()
+  if (lower.endsWith('.jsonld') || lower.endsWith('.json')) throw new Error(`${what} is JSON-LD. ${JSON_LD_REFUSED}`)
+  for (const extension of Object.keys(FILE_EXTENSIONS)) {
+    if (lower.endsWith(extension)) return FILE_EXTENSIONS[extension]
+  }
+  return null
+}
+
 // The syntax of an uploaded file, by the end of its name: 'my_series.ttl' -> 'text/turtle'
 function fileType(fileName) {
-  const name = fileName.toLowerCase()
-  if (name.endsWith('.jsonld') || name.endsWith('.json')) throw new Error(`${fileName} is JSON-LD. ${JSON_LD_REFUSED}`)
-  for (const extension of Object.keys(FILE_EXTENSIONS)) {
-    if (name.endsWith(extension)) return FILE_EXTENSIONS[extension]
+  const type = typeByName(fileName, fileName)
+  if (type === null) {
+    throw new Error(`${fileName}: the name must end in .ttl (Turtle), .nt (N-Triples), .n3 (N3) or .rdf, .owl, .xml (RDF/XML)`)
   }
-  throw new Error(`${fileName}: the name must end in .ttl (Turtle), .nt (N-Triples), .n3 (N3) or .rdf, .owl, .xml (RDF/XML)`)
+  return type
+}
+
+// The syntax of a document whose server does not say, by the end of its address (without its
+// ?query and #fragment): 'https://example.org/series.nt?raw=1' -> 'application/n-triples'.
+// Turtle when the end is none of FILE_EXTENSIONS (an address need not end in a file name).
+function addressType(url) {
+  let path = url
+  try {
+    path = new URL(url).pathname
+  } catch {
+    // not a full address: use the text as it is
+  }
+  const type = typeByName(path, url)
+  return type !== null ? type : DEFAULT_CONTENT_TYPE
 }
 
 // Parse RDF text into a new N3 Store, without fetching anything.
@@ -277,9 +319,15 @@ export function writeTurtle(quads, prefixes) {
 }
 
 // 'text/turtle; charset=utf-8' -> 'text/turtle'. The part after ";" are parameters,
-// which the parser does not need. No (or a vague) Content-Type -> Turtle.
+// which the parser does not need.
+function bareType(contentTypeHeader) {
+  return contentTypeHeader ? contentTypeHeader.split(';')[0].trim().toLowerCase() : ''
+}
+
+// The syntax of a document from our own server: its bare type, and Turtle when it has none (or
+// a vague one). (A user's document from the web: see userDocumentType.)
 function mediaType(contentTypeHeader) {
-  const type = contentTypeHeader ? contentTypeHeader.split(';')[0].trim().toLowerCase() : ''
+  const type = bareType(contentTypeHeader)
   if (UNTYPED_CONTENT_TYPES.includes(type)) return DEFAULT_CONTENT_TYPE
   return type
 }

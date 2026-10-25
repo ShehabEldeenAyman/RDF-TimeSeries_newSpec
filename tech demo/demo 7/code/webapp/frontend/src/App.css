@@ -158,6 +158,20 @@ button.secondary {
   border-color: #cf222e;
 }
 
+/* Its buttons (pick a file, use a file), side by side */
+.data-file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The line that says where the data file came from: a small "Pick another file" button in it */
+.data-file-line button {
+  margin-left: 4px;
+  padding: 2px 8px;
+  font-size: 13px;
+}
+
 /* ---------- Tabs ---------- */
 
 .tabs {

@@ -13,8 +13,12 @@
 //      imported: code/shacl_report/shacl_report.py and code/TSS2RDF/tss2rdf.py. So the browser
 //      runs exactly the validation of the server (validation_report, default_shapes,
 //      lift_points) and writes the report with the same exact_turtle.
+//   4. The default shapes (SHACL/external_shapes.ttl and embedded_shapes.ttl) are part of the app
+//      too: both are imported below, so picking one of them by the metadata's tss:embedded
+//      fetches nothing.
 // Nothing is sent anywhere: the metadata, its embedded points and the report stay in this tab.
-// The only requests are for Pyodide's files and the default shapes, all on our own server.
+// The only requests are for Pyodide's files, on our own server, and they do not depend on the
+// metadata.
 //
 // Messages:
 //   in:  { id, job }  job = { metadataText, metadataFormat, baseIRI, shapesText, shapesFormat,
@@ -22,9 +26,18 @@
 //   out: { id, turtle }  or  { id, error, loadFailed }
 
 // "?raw" makes Vite give the file's text as a string (at build time), instead of running it.
-// These are the server's own files, not copies: a change there reaches the browser too.
+// These are the server's own files, not copies: a change there reaches the browser too (at the
+// next build; the dev server reloads them by itself). vite.config.js allows these four files.
 import shaclReportSource from '../../../../shacl_report/shacl_report.py?raw'
 import tss2rdfSource from '../../../../TSS2RDF/tss2rdf.py?raw'
+import externalShapesText from '../../../../../SHACL/external_shapes.ttl?raw'
+import embeddedShapesText from '../../../../../SHACL/embedded_shapes.ttl?raw'
+
+// The default shapes, by the file name shacl_report.default_shapes picks
+const DEFAULT_SHAPES = {
+  'external_shapes.ttl': externalShapesText,
+  'embedded_shapes.ttl': embeddedShapesText,
+}
 
 // Where Pyodide's files are: the public/vendor/pyodide/ folder, served at /vendor/pyodide/.
 // Pyodide needs the full address (with http://...), not just a path.
@@ -181,28 +194,6 @@ function shortError(error) {
   return lines[lines.length - 1]
 }
 
-// The default shapes file, from the server's /files/SHACL/ folder (shapes are not data)
-function fetchShapes(url) {
-  // no-cache: ask the server each time (cheap when unchanged), so an edited shapes file
-  // is used at once, like the server reads its file for every check
-  return fetch(url, { cache: 'no-cache' })
-    .catch((error) => {
-      throw new Error(`Could not reach ${url} (${error.message}). Is the backend running?`)
-    })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`Could not load the default shapes ${url}: ${response.status} ${response.statusText}`)
-      }
-      // The Vite dev server answers a path it does not know with the app's index.html
-      const contentType = response.headers.get('Content-Type') || ''
-      if (contentType.startsWith('text/html')) {
-        throw new Error(`Could not load the default shapes ${url}: the server sent an HTML page, not Turtle. ` +
-          'Is the backend running?')
-      }
-      return response.text()
-    })
-}
-
 // Python answers in JSON: the report's Turtle, or an error message
 function readAnswer(answerJson) {
   const answer = JSON.parse(answerJson)
@@ -210,33 +201,33 @@ function readAnswer(answerJson) {
   return answer
 }
 
-// One job: pick and fetch the default shapes when none were given, then validate.
+// The job with the default shapes in it: the file for this metadata's tss:embedded, picked by
+// the server's code (shacl_report.default_shapes), from the two files imported above
+function withDefaultShapes(python, job) {
+  const picked = readAnswer(python.pickDefaultShapes(JSON.stringify(job)))
+  const text = DEFAULT_SHAPES[picked.name]
+  if (text === undefined) throw new Error(`Unknown default shapes file: ${picked.name}`)
+  // Its address on our server (http://.../files/SHACL/external_shapes.ttl): the same IRI the
+  // server's report names, so the SHACL tab shows the same file. It is only a name here.
+  const url = new URL(picked.name, job.shapesFolder).href
+  return {
+    ...job,
+    shapesText: text,
+    shapesFormat: 'turtle',
+    shapesBase: url,         // relative IRIs in the shapes, like the server reads them
+    shapesName: picked.name, // how error messages call the shapes
+    shapesSource: url,       // the report names the shapes file (dcterms:source)
+  }
+}
+
+// One job: take the default shapes when none were given, then validate.
 // Gives a Promise of the report as Turtle.
 function validate(job) {
-  return loadPython()
-    .then((python) => {
-      if (job.shapesText !== null) {
-        return { python: python, job: job } // custom shapes: nothing to fetch
-      }
-      // The bundled shapes for this metadata's tss:embedded, picked by the server's code
-      const picked = readAnswer(python.pickDefaultShapes(JSON.stringify(job)))
-      const url = new URL(picked.name, job.shapesFolder).href
-      return fetchShapes(url).then((text) => {
-        const withShapes = {
-          ...job,
-          shapesText: text,
-          shapesFormat: 'turtle',
-          shapesBase: url,
-          shapesName: picked.name, // how error messages call the shapes
-          shapesSource: url,       // the report names the shapes file (dcterms:source)
-        }
-        return { python: python, job: withShapes }
-      })
-    })
-    .then(({ python, job }) => {
-      const answer = readAnswer(python.makeReport(JSON.stringify(job)))
-      return answer.turtle
-    })
+  return loadPython().then((python) => {
+    const full = job.shapesText !== null ? job : withDefaultShapes(python, job)
+    const answer = readAnswer(python.makeReport(JSON.stringify(full)))
+    return answer.turtle
+  })
 }
 
 self.onmessage = (event) => {

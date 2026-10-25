@@ -10,8 +10,8 @@
 //     metadataText: rdf.text,          // the metadata document, as text
 //     contentType: 'text/turtle',      // its syntax
 //     baseIRI: endpoint.iri,           // the document's IRI (relative IRIs in it are read against it)
-//     dataFile: file,                  // the tss:dataFile contents (File/Blob), or null for embedded points
-//     points: rdf.points,              // not needed: the worker reads the embedded points itself
+//     dataFile: file,                  // the tss:dataFile contents (File/Blob), or null for embedded
+//                                      // points (the worker reads those from metadataText itself)
 //     getDatabase: getDatabase,        // optional, for a Parquet file: a function giving a Promise of
 //                                      // the endpoint's db (duck.js). Without it DuckDB is started
 //                                      // just to read the file, and stopped again.
@@ -47,7 +47,8 @@ export function generateObservations({ metadataText, contentType, baseIRI, dataF
       reject(new Error('The RDF generation was stopped.'))
       return
     }
-    // A module worker: it imports n3, rdf.js, tss.js and query.js like the page does
+    // A module worker: it imports n3, rdf.js, tss.js and the engine's helpers (python.js,
+    // values.js, sourceReading.js, csvFile.js) like the page does
     const worker = new Worker(new URL('./observationsWorker.js', import.meta.url), { type: 'module' })
 
     // Stop the worker (its memory is freed now) and stop listening for an abort

@@ -1,6 +1,7 @@
 import { one, isEmbedded, TSS_DATA_FILE, TSS_FORMAT, TSS_PARQUET } from './tss'
 import { FileViewer } from './FileViewer'
 import { PointsViewer } from './PointsViewer'
+import { DocumentOrigin } from './Overview'
 
 // The Files tab: the files behind the picked metadata endpoint, so nothing is hidden.
 //   external source (tss:embedded false): its data file (tss:dataFile), previewed and downloadable (FileViewer)
@@ -35,19 +36,12 @@ export function Files({ endpoint, rdf, api }) {
 
       <section className="card">
         <h3>Metadata document</h3>
+        {/* Where the document is, in the Overview's words (DocumentOrigin) */}
         <p className="muted small long-text">
-          <DocumentText endpoint={endpoint} />, exactly as {endpoint.user ? 'your browser read it' : 'it was sent'}:
+          <DocumentOrigin endpoint={endpoint} />, exactly as {endpoint.user ? 'your browser read it' : 'it was sent'}:
         </p>
         <pre>{rdf.text}</pre>
       </section>
     </>
   )
-}
-
-// Where the metadata document is, in words: its address, or the file you uploaded
-function DocumentText({ endpoint }) {
-  if (endpoint.user && endpoint.url === null) {
-    return <>Uploaded from your computer: <strong>{endpoint.fileName}</strong> (read with the base IRI <code>{endpoint.iri}</code>)</>
-  }
-  return <a href={endpoint.iri} target="_blank" rel="noreferrer">{endpoint.iri}</a>
 }

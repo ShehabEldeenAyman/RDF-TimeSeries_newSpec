@@ -19,17 +19,18 @@ function DownloadLink({ url, fileName, label }) {
   )
 }
 
-// Where the data file came from, in words
+// Where the data file came from, in words. The Files tab (below) and the data file line above the
+// data tabs (DataFileCard.jsx) both use it, so they say it the same way.
 //   info:     api.dataFileInfo(): { origin, fileName, iri, ... }
 //   location: the tss:dataFile IRI from the metadata store
-function DataFileOrigin({ info, location }) {
+export function DataFileOrigin({ info, location }) {
   // The file's IRI as text: for a bundled endpoint the browser can't open it (data/ is not served)
   const iri = location ? <code>{location}</code> : <span>(the source has no tss:dataFile)</span>
   if (info !== null && info.origin === 'fetched') {
-    return <>Downloaded by your browser from <a href={info.iri} target="_blank" rel="noreferrer">{info.iri}</a></>
+    return <>Data file downloaded by your browser from <a href={info.iri} target="_blank" rel="noreferrer">{info.iri}</a></>
   }
   if (info !== null && info.origin === 'picked') {
-    return <>Picked from your computer: <strong>{info.fileName}</strong> (for the tss:dataFile {iri})</>
+    return <>Data file picked from your computer: <strong>{info.fileName}</strong> (for the tss:dataFile {iri})</>
   }
   return iri
 }

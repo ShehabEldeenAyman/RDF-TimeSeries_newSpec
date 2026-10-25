@@ -27,7 +27,8 @@ const BOUND_TEXT = {
 
 // What is behind the series inspector, so nothing is hidden: the RDF statements about the
 // picked field and its source, and the first rows of the data.
-//   endpoint, rdf, api: the props every tab gets (see App.jsx)
+//   endpoint, rdf, api: from the Inspector, which gets them from App.jsx (see the list of
+//                       which props each tab gets there)
 //   fieldIri:           the full IRI of the picked field
 export function SourceFiles({ endpoint, rdf, api, fieldIri }) {
   const [view, setView] = useState('turtle')
