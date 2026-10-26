@@ -6,6 +6,7 @@ never sees it.)"""
 from fastapi import HTTPException
 from fastapi.responses import Response
 from rdflib import Graph
+from pathlib import PurePosixPath
 from urllib.parse import quote, urljoin
 
 import paths
@@ -59,10 +60,19 @@ def rdf_media_type(content_type):
     return None
 
 
+def document_path(location):
+    """Where a bundled document is on disk: location is "metadata endpoint/<id>.ttl" (see
+    endpoint_file), and the file is <id>.ttl in paths.METADATA_DIR. Every reader goes through
+    paths.METADATA_DIR (not DEMO_DIR / location), and so does the "Add data" tab, which writes
+    the file (points_routes.py): a test or a script that points METADATA_DIR at a copy of the
+    folder reads and writes that copy only."""
+    return paths.METADATA_DIR / PurePosixPath(location).name
+
+
 def read_document(location):
-    """An endpoint's RDF document, a Turtle file inside demo 7 (see endpoint_file):
-    (its text, its media type)."""
-    path = paths.DEMO_DIR / location
+    """An endpoint's RDF document, a Turtle file in "metadata endpoint/" (see endpoint_file and
+    document_path): (its text, its media type)."""
+    path = document_path(location)
     # read_bytes + decode keeps the text exactly as it is in the file
     # (read_text would change the line endings)
     try:

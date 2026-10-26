@@ -1,19 +1,11 @@
 import { useRef, useState } from 'react'
-import { DataFactory } from 'n3'
 import { parseRdf } from './rdf'
 import { MAX_SHAPES_BYTES } from './browser/shacl'
+import { readReport, mergePrefixes } from './shaclReport'
 import {
-  one, all, oneText, isEmbedded, booleanValue, shortName, termText,
-  RDF_TYPE, RDFS_LABEL, TSS_FORMAT,
-  SH_VALIDATION_REPORT, SH_CONFORMS, SH_RESULT, SH_FOCUS_NODE, SH_RESULT_PATH, SH_VALUE,
-  SH_RESULT_SEVERITY, SH_RESULT_MESSAGE, SH_SOURCE_SHAPE, SH_VIOLATION, SH_WARNING, SH_INFO,
-  SH_NAME, DCTERMS_SOURCE,
+  one, oneText, isEmbedded, shortName, termText,
+  RDFS_LABEL, TSS_FORMAT, SH_VIOLATION, SH_NAME,
 } from './tss'
-
-const { namedNode } = DataFactory
-
-// The severities of SHACL, worst first (to sort the table)
-const SEVERITIES = [SH_VIOLATION, SH_WARNING, SH_INFO]
 
 // The SHACL tab: pyshacl validates the metadata (and, for embedded points, the points read as
 // RDF) and answers with the validation report as Turtle. For a bundled endpoint pyshacl runs in
@@ -187,9 +179,14 @@ export function Shacl({ rdf, api }) {
   )
 }
 
-// What the report says: conforms or not, the counts, and one table row per result
+// What the report says: conforms or not, the counts, and one table row per result.
+// Also used by the "Add data" tab (AddPointForm.jsx), for the check of a new point.
+//   report:    { store, text, prefixes, conforms, shapesSource, results, counts, shapesName, seconds }
+//              (store and text: the report as RDF and as Turtle; prefixes: see mergePrefixes;
+//              conforms ... counts: see readReport in shaclReport.js)
+//   rdf:       the endpoint's metadata (the labels of the focus nodes)
 //   inBrowser: true when the check ran in this browser tab
-function ShaclReport({ report, rdf, inBrowser }) {
+export function ShaclReport({ report, rdf, inBrowser }) {
   let conformsText = 'sh:conforms not stated'
   if (report.conforms === true) conformsText = 'Conforms'
   if (report.conforms === false) conformsText = 'Does not conform'
@@ -279,73 +276,8 @@ function ResultRow({ result, report, rdf }) {
   )
 }
 
-// --- Reading the report -----------------------------------------------------------
-
-// Read the parts of a SHACL validation report (an N3 Store) that the page shows:
-//   conforms      true, false, or null when the report does not say
-//   shapesSource  the IRI of the shapes file (dcterms:source), or null
-//   results       one object per sh:ValidationResult, worst severity first
-//   counts        { violations, warnings, infos }
-function readReport(store) {
-  const reports = store.getSubjects(namedNode(RDF_TYPE), namedNode(SH_VALIDATION_REPORT), null)
-  if (reports.length !== 1) {
-    throw new Error(`The answer holds ${reports.length} sh:ValidationReport nodes, not one.`)
-  }
-  const reportNode = reports[0]
-
-  const results = []
-  const counts = { violations: 0, warnings: 0, infos: 0 }
-  for (const node of all(store, reportNode, SH_RESULT)) {
-    const result = {
-      node: node,
-      severity: one(store, node, SH_RESULT_SEVERITY),
-      focusNode: one(store, node, SH_FOCUS_NODE),
-      path: one(store, node, SH_RESULT_PATH),
-      value: one(store, node, SH_VALUE),
-      message: oneText(store, node, SH_RESULT_MESSAGE),
-      sourceShape: one(store, node, SH_SOURCE_SHAPE),
-    }
-    results.push(result)
-
-    // Count the severities by their full IRI
-    const severity = result.severity ? result.severity.value : ''
-    if (severity === SH_VIOLATION) counts.violations += 1
-    if (severity === SH_WARNING) counts.warnings += 1
-    if (severity === SH_INFO) counts.infos += 1
-  }
-  // RDF gives the results in no particular order: violations first, then by message
-  results.sort((a, b) => {
-    const bySeverity = severityRank(a.severity) - severityRank(b.severity)
-    if (bySeverity !== 0) return bySeverity
-    return a.message.localeCompare(b.message, 'en')
-  })
-
-  return {
-    conforms: booleanValue(one(store, reportNode, SH_CONFORMS)),
-    shapesSource: one(store, reportNode, DCTERMS_SOURCE),
-    results: results,
-    counts: counts,
-  }
-}
-
-// The prefixes to show the report with: all of the metadata's own, plus those of the
-// report for namespaces the metadata has no prefix for. (The backend's rdflib may call
-// https://example.org/ex# "ex1:" in the report; we want "ex:", the name the metadata uses.)
-function mergePrefixes(metadataPrefixes, reportPrefixes) {
-  const merged = Object.assign({}, metadataPrefixes)
-  const known = Object.values(metadataPrefixes) // the namespaces that already have a prefix
-  for (const prefix of Object.keys(reportPrefixes)) {
-    const namespace = reportPrefixes[prefix]
-    if (!known.includes(namespace) && !(prefix in merged)) merged[prefix] = namespace
-  }
-  return merged
-}
-
-// 0 for sh:Violation, 1 for sh:Warning, 2 for sh:Info, 3 for anything else
-function severityRank(severity) {
-  const rank = severity ? SEVERITIES.indexOf(severity.value) : -1
-  return rank === -1 ? SEVERITIES.length : rank
-}
+// --- Showing the report's terms ---------------------------------------------------
+// (Reading the report itself, readReport and mergePrefixes, is in shaclReport.js.)
 
 // A term of the report as text, for display only. A blank node has no name, so we
 // show what the report says about it instead, e.g. the point of a P1 result:

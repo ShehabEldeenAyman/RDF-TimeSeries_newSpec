@@ -18,6 +18,7 @@ The routes (the addresses the browser calls) are in the *_routes.py modules:
 - shacl_routes.py     /api/endpoints/{id}/shacl: the SHACL validation report
 - data_routes.py      /api/endpoints/{id}/data, /data/download, /rows, /filter-columns and /query
 - sql_routes.py       /api/endpoints/{id}/sql/tables and /sql
+- points_routes.py    /api/endpoints/{id}/points: add a point to a bundled endpoint's embedded points (the only route that changes a bundled file)
 
 How the modules use each other: each one is imported whole (import documents) and used as
 documents.load_graph(...), so you always see which file a function lives in, and a test that
@@ -27,7 +28,9 @@ Never name a local variable like a module (no variable called documents or paths
 will mix them up.
 
 This backend only serves the bundled endpoints (the .ttl files in "metadata endpoint/") and reads
-only the files in demo 7's data folder. It never downloads anything. The user's own endpoints
+only the files in demo 7's data folder. It never downloads anything. The one file it writes (besides
+the RDF generation's exports) is a bundled endpoint whose source is tss:embedded true and
+tss:mutable true, when the "Add data" tab adds a point to it (points_routes.py). The user's own endpoints
 (an uploaded or online metadata file) are read by the browser, and their data never reaches here.
 """
 from contextlib import asynccontextmanager
@@ -44,6 +47,7 @@ import rdf_routes
 import shacl_routes
 import data_routes
 import sql_routes
+import points_routes
 
 # rdflib logs a long traceback for every value that does not fit its datatype; bad values are reported by SHACL instead
 logging.getLogger("rdflib.term").setLevel(logging.ERROR)
@@ -91,6 +95,7 @@ app.include_router(rdf_routes.router)      # the RDF generation tab
 app.include_router(shacl_routes.router)    # the SHACL tab
 app.include_router(data_routes.router)     # the data file, the inspector's rows and the query form
 app.include_router(sql_routes.router)      # the SQL box
+app.include_router(points_routes.router)   # the "Add data" tab: add a point to embedded points
 
 # The RDF documents as plain files, for the browser to fetch and parse (frontend/src/rdf.js):
 #   /files/metadata%20endpoint/<id>.ttl   the local metadata endpoints (the catalogue lists them)

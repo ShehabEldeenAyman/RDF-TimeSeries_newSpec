@@ -561,3 +561,49 @@ a.marker:hover {
   border: 1px solid #0969da;
   border-radius: 6px;
 }
+
+/* ---------- Add data (AddPointForm.jsx) ---------- */
+
+/* One field per line: its label above its box */
+.point-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.point-field label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* The box and, for the time, the "now" button next to it */
+.point-input {
+  display: flex;
+  gap: 8px;
+}
+
+.point-input input {
+  flex: 1;
+  min-width: 0;        /* may shrink on a phone, instead of making the form wider than the screen */
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+/* One SPARQL update that ran: its text, then the values of its variables */
+.sparql-update {
+  margin-bottom: 16px;
+}
+
+.sparql-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-bottom: 4px;
+}
+
+/* A value can be long and have line breaks (the tss:points literal): keep them */
+.sparql-binding {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+}

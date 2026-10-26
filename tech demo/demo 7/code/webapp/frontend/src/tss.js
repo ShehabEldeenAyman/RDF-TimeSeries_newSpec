@@ -97,6 +97,7 @@ export const TSS_MUTABLE = TSS + 'mutable'
 export const TSS_PRODUCED_BY = TSS + 'producedBy'
 export const TSS_FROM = TSS + 'from'
 export const TSS_UNTIL = TSS + 'until'
+export const TSS_COMMITTED_UNTIL = TSS + 'committedUntil'  // the readings before it are final
 // Where the readings are: in a data file, or embedded in the metadata
 export const TSS_EMBEDDED = TSS + 'embedded'
 export const TSS_POINTS = TSS + 'points'
@@ -332,6 +333,12 @@ function compareFields(store, a, b) {
 // tss:embedded is missing or not an xsd:boolean
 export function isEmbedded(store, source) {
   return booleanValue(one(store, source, TSS_EMBEDDED))
+}
+
+// May the source's data change (tss:mutable true)? true, false, or null when tss:mutable is
+// missing or not an xsd:boolean. Only a source that says true accepts new points ("Add data" tab).
+export function isMutable(store, source) {
+  return booleanValue(one(store, source, TSS_MUTABLE))
 }
 
 // A field's stored summary (its tss:summary node), or null when the field has none:

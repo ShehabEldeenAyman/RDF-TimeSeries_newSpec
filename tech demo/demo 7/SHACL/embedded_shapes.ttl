@@ -38,6 +38,9 @@
 #
 # The source (tss:Source)
 #   Required:  S16 modified at (one xsd:dateTime timestamp with a timezone)
+#              S17 committed until (one xsd:dateTime with a timezone: the readings
+#                  before it are final and will not change)
+#              S18 committed until lies in the window (not before tss:from, not after tss:until)
 #   Required:     S1 the source (exactly one)    S4 time field
 #                 S2 mutable                     S5 has field (at least one)
 #                 S3 embedded (true)             S6 points (one rdf:JSON literal, readable as JSON-LD)
@@ -146,6 +149,16 @@ emb:SourceShape a sh:NodeShape ;
         sh:datatype xsd:dateTime ;
         sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ;
         sh:message "The source needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime with a timezone (preferably Z for UTC)." ;
+    ] ;
+    sh:property [
+        sh:name "S17 committed until" ;
+        sh:group emb:Required ;
+        sh:path tss:committedUntil ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ;
+        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime with a timezone: the readings before it are final." ;
     ] ;
     sh:property [
         sh:name "S2 mutable" ;
@@ -309,6 +322,22 @@ emb:SourceShape a sh:NodeShape ;
             SELECT $this ?value WHERE {
                 $this tss:from ?from ; tss:until ?value .
                 FILTER (?value <= ?from)
+            }""" ;
+    ] ;
+
+    # S18: the committed part lies in the time window
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S18 committed until: tss:committedUntil must lie in the time window: not before tss:from, not after tss:until." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:committedUntil ?value .
+                # only a value with a timezone is compared (without one, S17 already reports it)
+                FILTER (REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"))
+                OPTIONAL { $this tss:from ?from }
+                OPTIONAL { $this tss:until ?until }
+                FILTER ((BOUND(?from) && ?value < ?from) || (BOUND(?until) && ?value > ?until))
             }""" ;
     ] .
 

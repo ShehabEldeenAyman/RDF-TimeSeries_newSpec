@@ -92,6 +92,8 @@ const FILE_EXTENSIONS = {
 //   baseIRI: the IRI of the document itself. Relative IRIs in the document, like
 //            <../data/waterinfo_289423042.csv>, are resolved against it. Leave it out
 //            to use the URL we fetch from.
+//   fetchOptions: optional, passed on to fetch, e.g. { cache: 'no-store' } to always ask the
+//            server (App.jsx does that for the bundled documents, which the "Add data" tab can change)
 // Gives a Promise of { store, prefixes, text, url, baseIRI, contentType }:
 //   store       the quads, in an N3 Store
 //   prefixes    the @prefix lines of the document, e.g. { tss: 'https://w3id.org/tss#' }
@@ -99,14 +101,14 @@ const FILE_EXTENSIONS = {
 //   url         the absolute URL we fetched from
 //   baseIRI     the base IRI the relative IRIs were resolved against
 //   contentType the syntax it was parsed as, e.g. 'text/turtle'
-export function loadRdf(url, baseIRI) {
+export function loadRdf(url, baseIRI, fetchOptions) {
   // fetch accepts a path like '/api/catalog', but a base IRI must be a full IRI.
   // new URL(path, page address) makes 'http://localhost:5174/api/catalog' from it.
   const absoluteUrl = new URL(url, window.location.href).href
   const base = baseIRI ? baseIRI : absoluteUrl
   let contentType = DEFAULT_CONTENT_TYPE
 
-  return fetch(absoluteUrl)
+  return fetch(absoluteUrl, fetchOptions)
     // fetch itself fails only when there is no answer at all (server down, no network).
     // The browser then only says "Failed to fetch", so we add where we tried to go.
     .catch((err) => {

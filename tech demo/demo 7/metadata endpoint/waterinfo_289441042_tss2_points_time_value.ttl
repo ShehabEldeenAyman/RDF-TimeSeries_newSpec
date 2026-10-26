@@ -27,7 +27,7 @@
 ex:zevenaarshaven-tv-source
     a tss:Source ;
     # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-10-26T09:03:01Z"^^xsd:dateTime ;
+    tss:modifiedAt "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time and value points"@en ;
     # Optional tss:source_description; publishers may use any RDF vocabulary and properties.
     tss:source_description [
@@ -36,13 +36,15 @@ ex:zevenaarshaven-tv-source
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
         ]
     ] ;
-    tss:mutable false ;
+    tss:mutable true ;
     tss:producedBy ex:289441042 ;
     tss:embedded true ;
     tss:timeField ex:zevenaarshaven-tv-time-field ;
     tss:key ex:zevenaarshaven-tv-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    # Committed: the readings before this time are final; the newest reading may still change.
+    tss:committedUntil "2021-03-04T01:00:00Z"^^xsd:dateTime ;
     tss:hasField ex:zevenaarshaven-tv-time-field,
         ex:zevenaarshaven-tv-value-field ;
     tss:points """[

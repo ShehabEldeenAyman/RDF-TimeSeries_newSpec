@@ -28,6 +28,14 @@
 //   api.shacl(shapesText, 'my_shapes.ttl').then(...)                        // ... or your own shapes
 //   api.shaclBase      // the base IRI for relative IRIs in uploaded shapes
 //   api.shaclStarting() // true when the next SHACL check loads Python first (browser, first time)
+//   api.addPoint({ '<field IRI>': '<text>', ... })          // add one point to the embedded points
+//     .then((answer) => ...)   // answer.conforms true:  saved; { points, from, until, modifiedAt,
+//                              //                          sparql, report } (see points_routes.py)
+//                              // answer.conforms false: SHACL said no, NOTHING was saved;
+//                              //                          { report, sparql } (the report as Turtle)
+//     .catch((err) => ...)     // refused before the check (a duplicate time, a wrong value, ...):
+//                              // err.message says why. Nothing was saved either.
+//                              // (Your own endpoints are never changed: their addPoint always refuses.)
 //   api.close()   // when the endpoint is left: stops DuckDB and the RDF generation, frees the
 //                 // downloads (browser only). A closed api answers nothing any more.
 //   api.inBrowser // true for your own endpoint (the answers are computed in this tab)
@@ -133,6 +141,19 @@ function serverApi(endpoint) {
     shaclBase: shaclUrl,
     shaclStarting() {
       return false // the server is always ready
+    },
+
+    // POST /points: add one point (the "Add data" tab). The backend checks the new data with SHACL
+    // and writes the file only when it conforms. Its answer is JSON in both cases, without "detail",
+    // so getJson gives it to us (a SHACL failure is status 422 with conforms false: we resolve with
+    // it, so the tab can show the report). Any other refusal (400, 404, 409) has a "detail": getJson
+    // rejects with it.
+    addPoint(values) {
+      return getJson(`${base}/points`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: values }),
+      })
     },
 
     // GET /shacl (default shapes) or POST /shacl (your shapes as the body): the report as Turtle,
@@ -336,6 +357,13 @@ function browserApi(endpoint, rdf, picked) {
             preview: () => parseRdf(result.previewTurtle, 'text/turtle', endpoint.iri),
           }
         })
+    },
+
+    // Your own endpoint is never changed: its document and data stay in this tab, and the
+    // "Add data" tab is only shown for bundled endpoints
+    addPoint() {
+      return Promise.reject(new Error('Points can only be added to the bundled endpoints. Your own endpoints are ' +
+        'never changed by the dashboard.'))
     },
 
     // Relative IRIs in your own shapes are read against the metadata's IRI

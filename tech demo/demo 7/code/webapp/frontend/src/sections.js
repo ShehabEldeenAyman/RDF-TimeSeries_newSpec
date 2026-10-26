@@ -16,6 +16,7 @@ import {
   TSS_COLUMN_INDEX,
   TSS_FROM,
   TSS_UNTIL,
+  TSS_COMMITTED_UNTIL,
   TSS_DATATYPE,
   TSS_LANGUAGE,
   TSS_REQUIRED,
@@ -48,10 +49,12 @@ export const FIELD_SECTIONS = [
   },
   {
     title: 'Time window',
-    explanation: 'The stretch of time the source covers: from is included, until is not.',
+    explanation: 'The stretch of time the source covers: from is included, until is not. ' +
+      'The readings before committed until are final: they will not change.',
     properties: [
       { name: 'from', iri: TSS_FROM, on: 'source' },
       { name: 'until', iri: TSS_UNTIL, on: 'source' },
+      { name: 'committed until', iri: TSS_COMMITTED_UNTIL, on: 'source' },
     ],
   },
   {

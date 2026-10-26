@@ -24,6 +24,7 @@ import {
   TSS_PRODUCED_BY,
   TSS_FROM,
   TSS_UNTIL,
+  TSS_COMMITTED_UNTIL,
   TSS_TIME_FIELD,
   TSS_KEY,
   TSS_HAS_FIELD,
@@ -256,7 +257,7 @@ export function Overview({ endpoint, rdf }) {
   // (tss:hasField: the fields table; tss:points: the points note and the Files tab)
   const shownSourceProperties = [
     RDF_TYPE, RDFS_LABEL, TSS_MODIFIED_AT, TSS_EMBEDDED, TSS_MUTABLE, TSS_PRODUCED_BY,
-    TSS_FROM, TSS_UNTIL, TSS_TIME_FIELD, TSS_KEY, TSS_HAS_FIELD,
+    TSS_FROM, TSS_UNTIL, TSS_COMMITTED_UNTIL, TSS_TIME_FIELD, TSS_KEY, TSS_HAS_FIELD,
   ]
   if (embedded === true) shownSourceProperties.push(TSS_POINTS)
   else shownSourceProperties.push(TSS_FORMAT, TSS_DATA_FILE)
@@ -309,12 +310,14 @@ export function Overview({ endpoint, rdf }) {
               <PropertyRow rdf={rdf} property={TSS_PRODUCED_BY} />
               <PropertyRow rdf={rdf} property={TSS_FROM} />
               <PropertyRow rdf={rdf} property={TSS_UNTIL} />
+              <PropertyRow rdf={rdf} property={TSS_COMMITTED_UNTIL} />
               <PropertyRow rdf={rdf} property={TSS_TIME_FIELD} />
               <PropertyRow rdf={rdf} property={TSS_KEY} />
             </tbody>
           </table>
           <p className="muted small">
             The readings lie in the window [tss:from, tss:until): from is included, until is not.
+            The readings before tss:committedUntil are final: they will not change.
             {embedded !== true && ' The tss:dataFile IRI is resolved against the IRI of this document.'}
           </p>
         </section>
