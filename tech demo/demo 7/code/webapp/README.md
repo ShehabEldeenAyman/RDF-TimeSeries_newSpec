@@ -256,7 +256,7 @@ The backend tests cover the catalogue of bundled endpoints, `/files` and the rem
 
 [ldfetch](https://github.com/pietercolpaert/ldfetch), which follows links between RDF documents, was evaluated next to rdf-parse. The app uses rdf-parse: it is the production-grade parser, it bundles with Vite and runs in the browser without polyfills, and `loadRdf` checks each answer's status itself. ldfetch 1.3.6 is a 180 MB install (616 packages), ends a 404 with exit code 0 and no triples (only `404` on stderr), and, used as a library in a long-running process, keeps a page without `Cache-Control` for about 69 days (it gives milliseconds to a cache that counts seconds). It was not tried with Vite.
 
-It is still a handy command-line tool to look at the RDF. These commands were checked against this backend from a scratch install; following `dcat:dataset` from the catalogue gives the same 497 triples as rdflib (the catalogue plus the five local documents):
+It is still a handy command-line tool to look at the RDF. These commands were checked against this backend from a scratch install; following `dcat:dataset` from the catalogue gives the same triples as rdflib (the catalogue plus every local document):
 
 ```powershell
 # in an empty folder

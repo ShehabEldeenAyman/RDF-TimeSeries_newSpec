@@ -24,6 +24,7 @@ LOCAL_IDS = [
     "waterinfo_289429042_tss2_parquet",
     "waterinfo_289435042_tss2",
     "waterinfo_289441042_tss2_points_embedded",
+    "waterinfo_289441042_tss2_points_time_value",
 ]
 CSV = "waterinfo_289423042_tss2"
 TURTLE = URIRef("https://www.iana.org/assignments/media-types/text/turtle")
