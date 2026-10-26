@@ -76,7 +76,7 @@ ex:zevenaarshaven-tv-source
     tss:key ex:zevenaarshaven-tv-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    tss:committedUntil "2021-03-04T01:00:00Z"^^xsd:dateTime ;
+    tss:committedUntil "2026-10-26T09:03:01Z"^^xsd:dateTime ;
     tss:hasField ex:zevenaarshaven-tv-time-field,
         ex:zevenaarshaven-tv-value-field ;
     tss:points """[
@@ -264,12 +264,17 @@ class AddPoint(unittest.TestCase):
         self.assertGreater(value_reading.literal_time(modified), old_modified)
         for summary in (value, time):
             self.assertEqual(graph.value(summary, PROV.generatedAtTime), modified)
+        # tss:committedUntil: the time of this write too (one value), not the new point's time,
+        # so here it lies after tss:until
+        self.assertEqual(list(graph.objects(SOURCE, TSS.committedUntil)), [modified])
+        self.assertEqual(answer["committedUntil"], answer["modifiedAt"])
 
         # The SPARQL updates that ran: the points, the source, and one per summary
         updates = [update["update"] for update in answer["sparql"]]
         self.assertEqual(len(updates), 4)
         self.assertIn("DELETE { ?source tss:points ?old }\nINSERT { ?source tss:points ?new }", updates[0])
         self.assertIn("tss:modifiedAt ?modifiedAt", updates[1])
+        self.assertIn("tss:committedUntil ?committedUntil", updates[1])
         self.assertIn("tss:mean ?mean", updates[3])
         bindings = {binding["variable"]: binding["value"] for binding in answer["sparql"][0]["bindings"]}
         self.assertEqual(bindings["?source"], "ex:zevenaarshaven-tv-source")

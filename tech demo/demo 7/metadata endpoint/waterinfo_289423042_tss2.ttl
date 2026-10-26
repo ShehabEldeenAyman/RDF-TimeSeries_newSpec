@@ -33,8 +33,8 @@ ex:grootdok-source
     tss:producedBy ex:station-grootdok ;
     tss:from "2021-03-03T23:45:00Z"^^xsd:dateTime ;
     tss:until "2025-12-18T23:15:00Z"^^xsd:dateTime ;
-    # Committed: the readings before this time are final and will not change.
-    tss:committedUntil "2025-12-18T23:15:00Z"^^xsd:dateTime ;
+    # Committed until: the time of the last write to the data.
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289423042.csv> ;
     tss:format tss:CSV ;

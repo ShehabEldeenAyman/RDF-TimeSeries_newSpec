@@ -19,9 +19,8 @@
 #
 # The source (tss:Source)
 #   Required:  S16 modified at (one xsd:dateTime timestamp with a timezone)
-#              S17 committed until (one xsd:dateTime with a timezone: the readings
-#                  before it are final and will not change)
-#              S18 committed until lies in the window (not before tss:from, not after tss:until)
+#              S17 committed until (one xsd:dateTime with a timezone: the time of the
+#                  last write to the data)
 #   Required:  S1 the source (exactly one)      S7  embedded (false)
 #              S2 from                          S8  data file
 #              S3 mutable                       S9  format (tss:CSV or tss:Parquet)
@@ -122,7 +121,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
         sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ;
-        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime with a timezone: the readings before it are final." ;
+        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime with a timezone: the time of the last write to the data." ;
     ] ;
     sh:property [
         sh:name "S2 from" ;
@@ -301,22 +300,6 @@ ext:SourceShape a sh:NodeShape ;
             SELECT $this ?value WHERE {
                 $this tss:from ?from ; tss:until ?value .
                 FILTER (?value <= ?from)
-            }""" ;
-    ] ;
-
-    # S18: the committed part lies in the time window
-    sh:sparql [
-        a sh:SPARQLConstraint ;
-        sh:message "S18 committed until: tss:committedUntil must lie in the time window: not before tss:from, not after tss:until." ;
-        sh:prefixes <https://w3id.org/tss/shapes/external> ;
-        sh:select """
-            SELECT $this ?value WHERE {
-                $this tss:committedUntil ?value .
-                # only a value with a timezone is compared (without one, S17 already reports it)
-                FILTER (REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"))
-                OPTIONAL { $this tss:from ?from }
-                OPTIONAL { $this tss:until ?until }
-                FILTER ((BOUND(?from) && ?value < ?from) || (BOUND(?until) && ?value > ?until))
             }""" ;
     ] .
 

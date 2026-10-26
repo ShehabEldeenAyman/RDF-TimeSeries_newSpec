@@ -29,7 +29,7 @@
 //   api.shaclBase      // the base IRI for relative IRIs in uploaded shapes
 //   api.shaclStarting() // true when the next SHACL check loads Python first (browser, first time)
 //   api.addPoint({ '<field IRI>': '<text>', ... })          // add one point to the embedded points
-//     .then((answer) => ...)   // answer.conforms true:  saved; { points, from, until, modifiedAt,
+//     .then((answer) => ...)   // answer.conforms true:  saved; { points, from, until, modifiedAt, committedUntil,
 //                              //                          sparql, report } (see points_routes.py)
 //                              // answer.conforms false: SHACL said no, NOTHING was saved;
 //                              //                          { report, sparql } (the report as Turtle)

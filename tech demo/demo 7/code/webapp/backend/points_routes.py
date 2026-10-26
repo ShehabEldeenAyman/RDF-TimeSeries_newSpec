@@ -15,7 +15,8 @@ What happens, step by step (add_point, all of it while holding POINTS_LOCK):
     point is added: a point with the same key (the same time) is refused. The new tss:points
     text is written: one JSON object per point, in time order, each value a JSON string.
  4. The graph is changed with SPARQL Update (graph.update): tss:points, the source's window
-    (tss:from, tss:until) and tss:modifiedAt, and every stored summary (tss:summary).
+    (tss:from, tss:until), tss:modifiedAt and tss:committedUntil (both: the time of this write,
+    not the time of the new point), and every stored summary (tss:summary).
  5. SHACL (the SHACL tab's own validation, with SHACL/embedded_shapes.ttl) checks the result.
     No conformance: nothing is written, the answer is 422 with the report. Conformance: the
     graph is written as Turtle (exact_turtle) to a temporary file in the same folder, read back
@@ -497,8 +498,9 @@ def write_document(graph, path, base, name):
 def add_point(endpoint_id, body: NewPoint, request: Request = None):
     """Add one point to the embedded points of a bundled endpoint (see the top of this file).
     Answers (JSON):
-      200 {"conforms": true, "points": the number of points now, "from", "until", "modifiedAt"
-           (the source's new tss:from, tss:until and tss:modifiedAt, as text; null when not stated),
+      200 {"conforms": true, "points": the number of points now, "from", "until", "modifiedAt",
+           "committedUntil" (the source's new tss:from, tss:until, tss:modifiedAt and
+           tss:committedUntil, as text; from and until are null when not stated),
            "sparql": the updates that ran, "report": the SHACL report as Turtle}
       422 {"conforms": false, "report": the SHACL report as Turtle, "sparql": the updates that ran
            on the graph in memory}: nothing was written
@@ -563,7 +565,7 @@ def append_point(endpoint_id, values, base):
     except ValueError as error:
         raise HTTPException(status_code=500, detail=f"The new points can't be read: {error}")
 
-    # ... then the source's window and tss:modifiedAt ...
+    # ... then the source's window, tss:modifiedAt and tss:committedUntil ...
     now = datetime.now(timezone.utc).replace(microsecond=0)
     window_from, window_until = new_window(graph, source, rows)
     properties = []
@@ -576,6 +578,9 @@ def append_point(endpoint_id, values, base):
         bindings["until"] = window_until
     properties.append(("tss:modifiedAt", "modifiedAt", True))
     bindings["modifiedAt"] = time_literal(now)
+    # tss:committedUntil moves with the write, not with the new point's time
+    properties.append(("tss:committedUntil", "committedUntil", True))
+    bindings["committedUntil"] = time_literal(now)
     sparql.append(run_update(graph, replace_values_update("source", "  ?source a tss:Source .\n", properties),
                              bindings, {}))
 
@@ -610,6 +615,7 @@ def append_point(endpoint_id, values, base):
         "from": str(window_from) if window_from is not None else None,
         "until": str(window_until) if window_until is not None else None,
         "modifiedAt": query_helpers.time_text(now),
+        "committedUntil": query_helpers.time_text(now),
         "sparql": sparql,
         "report": report_text,
     }

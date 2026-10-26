@@ -43,8 +43,8 @@ ex:zevenaarshaven-tv-source
     tss:key ex:zevenaarshaven-tv-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    # Committed: the readings before this time are final; the newest reading may still change.
-    tss:committedUntil "2021-03-04T01:00:00Z"^^xsd:dateTime ;
+    # Committed until: the time of the last write to the data.
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:hasField ex:zevenaarshaven-tv-time-field,
         ex:zevenaarshaven-tv-value-field ;
     tss:points """[

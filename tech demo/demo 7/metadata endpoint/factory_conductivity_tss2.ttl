@@ -35,8 +35,8 @@ ex:factory-source
     tss:producedBy ex:system1 ;
     tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    # Committed: the readings before this time are final and will not change.
-    tss:committedUntil "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    # Committed until: the time of the last write to the data.
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:embedded false ;
     tss:dataFile <../data/factory_conductivity.csv> ;
     tss:format tss:CSV ;

@@ -97,7 +97,7 @@ export const TSS_MUTABLE = TSS + 'mutable'
 export const TSS_PRODUCED_BY = TSS + 'producedBy'
 export const TSS_FROM = TSS + 'from'
 export const TSS_UNTIL = TSS + 'until'
-export const TSS_COMMITTED_UNTIL = TSS + 'committedUntil'  // the readings before it are final
+export const TSS_COMMITTED_UNTIL = TSS + 'committedUntil'  // the time of the last write to the data
 // Where the readings are: in a data file, or embedded in the metadata
 export const TSS_EMBEDDED = TSS + 'embedded'
 export const TSS_POINTS = TSS + 'points'

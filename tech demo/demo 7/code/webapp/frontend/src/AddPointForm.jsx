@@ -5,7 +5,7 @@ import { readReport, mergePrefixes } from './shaclReport'
 import { fieldLabel } from './fields'
 import {
   one, oneText, readFields, isNumericDatatype, shortName,
-  TSS_COLUMN_NAME, TSS_DATATYPE, TSS_TIME_FIELD, TSS_FROM, TSS_UNTIL, TSS_MODIFIED_AT,
+  TSS_COLUMN_NAME, TSS_DATATYPE, TSS_TIME_FIELD, TSS_FROM, TSS_UNTIL, TSS_MODIFIED_AT, TSS_COMMITTED_UNTIL,
 } from './tss'
 
 // The "Add data" tab: a form to add one point (a time, and a value for each other field) to the
@@ -16,7 +16,8 @@ import {
 //   1. the backend checks the values (a time with a timezone, the XSD form of each datatype, no
 //      second point at the same time),
 //   2. changes the metadata with SPARQL Update: tss:points (the old points plus the new one), the
-//      source's window (tss:from, tss:until) and tss:modifiedAt, and every stored summary,
+//      source's window (tss:from, tss:until), tss:modifiedAt and tss:committedUntil (both become the
+//      time of the write, not the time of the new point), and every stored summary,
 //   3. checks the result with SHACL (the default shapes for embedded points), and writes the file
 //      only when it conforms.
 // After a save, App.jsx loads the endpoint again, so every tab shows the new data. That draws this
@@ -87,8 +88,9 @@ export function AddPointForm({ rdf, api, saved, onSaved }) {
       <h3>Add a point</h3>
       <p className="small">
         Adds one point to the embedded points (<code>tss:points</code>) of this endpoint's file. The backend
-        changes the metadata with SPARQL Update (the points, the source's window and{' '}
-        <code>tss:modifiedAt</code>, and the stored summaries) and checks the result with SHACL. Only when it
+        changes the metadata with SPARQL Update (the points, the source's window,{' '}
+        <code>tss:modifiedAt</code> and <code>tss:committedUntil</code> (both become the time of the write), and
+        the stored summaries) and checks the result with SHACL. Only when it
         conforms is the file written; it is written again by rdflib, so its comments are lost.
       </p>
       <p className="small">
@@ -177,7 +179,7 @@ function PointAnswer({ answer, rdf }) {
         <p>
           <span className="badge ok">Saved</span> The new point is in the file. SHACL: conforms. Now {answer.points}{' '}
           points, window [{answer.from ?? 'open'}, {answer.until ?? 'open'}), <code>tss:modifiedAt</code>{' '}
-          {answer.modifiedAt}. Every tab shows the new data.
+          {answer.modifiedAt}, <code>tss:committedUntil</code> {answer.committedUntil}. Every tab shows the new data.
         </p>
       ) : (
         <p>
@@ -263,8 +265,10 @@ function windowText(rdf) {
   const from = one(rdf.store, rdf.source, TSS_FROM)
   const until = one(rdf.store, rdf.source, TSS_UNTIL)
   const modified = one(rdf.store, rdf.source, TSS_MODIFIED_AT)
+  const committed = one(rdf.store, rdf.source, TSS_COMMITTED_UNTIL)
   let text = '[' + (from ? from.value : 'open') + ', ' + (until ? until.value : 'open') + ')'
   if (modified) text += ', metadata last edited ' + modified.value + ' (tss:modifiedAt)'
+  if (committed) text += ', data last written ' + committed.value + ' (tss:committedUntil)'
   return text
 }
 
