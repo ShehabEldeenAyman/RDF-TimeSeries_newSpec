@@ -3,7 +3,6 @@
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
@@ -20,14 +19,16 @@
 # The source and its fields have their own IRIs (ex:zevenaarshaven-tv-...), so the two documents
 # never describe the same node in two ways; the sensor, the feature of interest and the station
 # are the same real-world things, so they keep their IRIs.
-# tss:points is read as JSON-LD with a context derived from the fields:
+# The points are in a JSON Lines data file (tss:dataFile, tss:format tss:JSONLines), not here:
+# one point per line, a JSON object keyed by the fields' tss:columnName.
+# Each line is read as JSON-LD with a context derived from the fields:
 # tss:columnName -> the field IRI, tss:datatype -> @type; values are JSON strings.
-# "" or a missing key means no value; the points are unordered (sort by tss:timeField).
+# "" or a missing key means no value; the lines are unordered (sort by tss:timeField).
 
 ex:zevenaarshaven-tv-source
     a tss:Source ;
     # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:modifiedAt "2026-10-26T13:34:08Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time and value points"@en ;
     # Optional tss:source_description; publishers may use any RDF vocabulary and properties.
     tss:source_description [
@@ -38,7 +39,9 @@ ex:zevenaarshaven-tv-source
     ] ;
     tss:mutable true ;
     tss:producedBy ex:289441042 ;
-    tss:embedded true ;
+    tss:embedded false ;
+    tss:dataFile <../data/waterinfo_289441042_time_value_points.jsonl> ;
+    tss:format tss:JSONLines ;
     tss:timeField ex:zevenaarshaven-tv-time-field ;
     tss:key ex:zevenaarshaven-tv-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
@@ -46,14 +49,7 @@ ex:zevenaarshaven-tv-source
     # Committed until: the time of the last write to the data.
     tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:hasField ex:zevenaarshaven-tv-time-field,
-        ex:zevenaarshaven-tv-value-field ;
-    tss:points """[
-        { "time": "2021-03-03T23:15:00Z", "value": "4797.72"},
-        { "time": "2021-03-03T23:30:00Z", "value": "4717.8"},
-        { "time": "2021-03-03T23:45:00Z", "value": "4745.36"},
-        { "time": "2021-03-04T00:30:00Z", "value": "4716.1"},
-        { "time": "2021-03-04T01:00:00Z", "value": "4775.96"}
-      ]"""^^rdf:JSON .
+        ex:zevenaarshaven-tv-value-field .
 
 # Generated column summaries (calculated from the actual data, not example values).
 # Each summary covers existing rows/points in [tss:from, tss:until) only.
@@ -64,7 +60,7 @@ ex:zevenaarshaven-tv-source
 # Numeric aggregates are for the conductivity field, in its declared unit.
 # Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
 # Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
-# For embedded data these summaries describe only the supplied sample points.
+# These summaries describe only the five sample points in the data file.
 # prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
 
 ex:zevenaarshaven-tv-time-field
