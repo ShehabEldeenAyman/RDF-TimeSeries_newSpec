@@ -63,7 +63,7 @@ ex:zevenaarshaven-tv-source
     a tss:Source ;
     tss:modifiedAt "2026-10-26T09:03:01Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time and value points"@en ;
-    tss:source_description [
+    tss:sourceDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
@@ -92,7 +92,7 @@ ex:zevenaarshaven-tv-time-field
     tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Observation time"@en
     ] ;
     tss:summary [
@@ -117,7 +117,7 @@ ex:zevenaarshaven-tv-value-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-zevenaarshaven-ec20 ;
     tss:featureOfInterest ex:water-zevenaarshaven ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven

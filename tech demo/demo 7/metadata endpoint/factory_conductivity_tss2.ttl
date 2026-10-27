@@ -23,8 +23,8 @@ ex:factory-source
     # Last edit of the source metadata; summary calculation times are separate.
     tss:modifiedAt "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     rdfs:label "Factory water conductivity, 2025"@en ;
-    # Optional tss:source_description; publishers may use any RDF vocabulary and properties.
-    tss:source_description [
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
         dcterms:spatial [
             a s4inma:Factory ;
             # Illustrative site description: the factory name and coordinates were not supplied.
@@ -35,7 +35,7 @@ ex:factory-source
     tss:producedBy ex:system1 ;
     tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    # Committed until: the time of the last write to the data.
+    # Committed until: the last time the source and its data were checked to be up to date.
     tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:embedded false ;
     tss:dataFile <../data/factory_conductivity.csv> ;
@@ -61,7 +61,7 @@ ex:factory-source
     tss:encoding "utf-8" .
 
 # Field definitions include measurement meaning, units, sensor and feature.
-# Optional tss:field_description records use Dublin Core here; any RDF vocabulary may be used.
+# Optional tss:fieldDescription records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
 # Each summary covers existing rows/points in [tss:from, tss:until) only.
@@ -83,7 +83,7 @@ ex:factory-time-field
     rdfs:label "datetime"@en ;
     tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC), 15-minute resolution"@en ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Observation time (UTC), 15-minute resolution"@en
     ] ;
     tss:summary [
@@ -111,7 +111,7 @@ ex:factory-ro1_a_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_a_permeate ;
     tss:featureOfInterest ex:ro1_a_permeate ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Permeate conductivity of reverse-osmosis unit RO1 train A"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1_a_permeate, ex:ro1_a_permeate
@@ -145,7 +145,7 @@ ex:factory-ro1_b_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_b_permeate ;
     tss:featureOfInterest ex:ro1_b_permeate ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Permeate conductivity of reverse-osmosis unit RO1 train B"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1_b_permeate, ex:ro1_b_permeate
@@ -179,7 +179,7 @@ ex:factory-ro1_c_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro1_c_permeate ;
     tss:featureOfInterest ex:ro1_c_permeate ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Permeate conductivity of reverse-osmosis unit RO1 train C"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1_c_permeate, ex:ro1_c_permeate
@@ -213,7 +213,7 @@ ex:factory-ro2_a_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro2_a_permeate ;
     tss:featureOfInterest ex:ro2_a_permeate ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Permeate conductivity of reverse-osmosis unit RO2 train A"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro2_a_permeate, ex:ro2_a_permeate
@@ -247,7 +247,7 @@ ex:factory-ro2_b_permeate_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-ro2_b_permeate ;
     tss:featureOfInterest ex:ro2_b_permeate ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Permeate conductivity of reverse-osmosis unit RO2 train B"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro2_b_permeate, ex:ro2_b_permeate
@@ -281,7 +281,7 @@ ex:factory-cooling_water_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-cooling_water ;
     tss:featureOfInterest ex:cooling_water ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Conductivity of the cooling water supply (including drinking-water blend)"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-cooling_water, ex:cooling_water
@@ -315,7 +315,7 @@ ex:factory-boiler_feed_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-boiler_feed ;
     tss:featureOfInterest ex:boiler_feed ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Conductivity of the boiler feed water"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-boiler_feed, ex:boiler_feed
@@ -349,7 +349,7 @@ ex:factory-boiler_water_delivery_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-boiler_water_delivery ;
     tss:featureOfInterest ex:boiler_water_delivery ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Conductivity of the boiler water delivered to the customer"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-boiler_water_delivery, ex:boiler_water_delivery
@@ -383,7 +383,7 @@ ex:factory-dockwater_blowdown_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-dockwater_blowdown ;
     tss:featureOfInterest ex:dockwater_blowdown ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Conductivity of combined dock water and blowdown"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-dockwater_blowdown, ex:dockwater_blowdown
@@ -417,7 +417,7 @@ ex:factory-venturi_reject_conductivity-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-venturi_reject ;
     tss:featureOfInterest ex:venturi_reject ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Conductivity of the venturi drain reject stream"@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-venturi_reject, ex:venturi_reject
@@ -449,7 +449,7 @@ ex:factory-ro1de_feed_conductivity-field
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1de_feed ;
     tss:featureOfInterest ex:ro1de_feed ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Feed conductivity to RO1D and RO1E combined"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1de_feed, ex:ro1de_feed
@@ -481,7 +481,7 @@ ex:factory-ro1d_feed_conductivity-field
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1d_feed ;
     tss:featureOfInterest ex:ro1d_feed ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Feed conductivity to RO1D (after chemical injection)"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1d_feed, ex:ro1d_feed
@@ -513,7 +513,7 @@ ex:factory-ro1e_feed_conductivity-field
     rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1e_feed ;
     tss:featureOfInterest ex:ro1e_feed ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Feed conductivity to RO1E"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1e_feed, ex:ro1e_feed

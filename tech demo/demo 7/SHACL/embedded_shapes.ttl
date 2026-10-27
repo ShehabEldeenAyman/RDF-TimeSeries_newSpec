@@ -38,11 +38,13 @@
 #
 # The source (tss:Source)
 #   Required:  S16 modified at (one xsd:dateTime)
-#              S17 committed until (one xsd:dateTime: the time of the last write to the data)
+#              S17 committed until (one xsd:dateTime: the last time the source and its
+#                  data were checked to be up to date)
 #   Required:     S1 the source (exactly one)    S4 time field
 #                 S2 mutable                     S5 has field (at least one)
 #                 S3 embedded (true)             S6 points (one rdf:JSON literal, readable as JSON-LD)
-#   Optional:     S7 label    S8 produced by    S9 key    S10 from    S11 until (after from)
+#                 S9 key (at least one)
+#   Optional:     S7 label    S8 produced by    S10 from    S11 until (after from)
 #   Not allowed:  S12 tss:dataFile, tss:format, tss:delimiter, tss:encoding, tss:header:
 #                 they describe an external data file
 #
@@ -154,7 +156,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the time of the last write to the data." ;
+        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the last time the source and its data were checked to be up to date." ;
     ] ;
     sh:property [
         sh:name "S2 mutable" ;
@@ -228,10 +230,11 @@ emb:SourceShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:name "S9 key" ;
-        sh:group emb:Optional ;
+        sh:group emb:Required ;
         sh:path tss:key ;
+        sh:minCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "tss:key must point to a field (the field(s) whose values identify a point)." ;
+        sh:message "The source needs at least one tss:key: the field(s) whose values identify a point." ;
     ] ;
     sh:property [
         sh:name "S10 from" ;

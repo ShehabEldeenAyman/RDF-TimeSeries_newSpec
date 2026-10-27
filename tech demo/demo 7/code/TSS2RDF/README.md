@@ -29,8 +29,8 @@ The output folder is created when needed. `output/` is ignored by Git, so full g
 Data:         the points embedded in the TSS file (tss:points)
 Output:       ...\output\embedded.nt
 Observations: 10
-Triples:      55
-Size:         5,813 bytes
+Triples:      65
+Size:         6,588 bytes
 Observations per field:
   https://example.org/ex#zevenaarshaven-ec20-value-field: 5
   https://example.org/ex#zevenaarshaven-quality-color-value-field: 5
@@ -50,6 +50,7 @@ Every row of the data gives one `sosa:Observation` for each field that has a `ts
 
 ```turtle
 _:o1 rdf:type sosa:Observation ;
+    dcterms:source ex:grootdok-source ;                          # the tss:Source (when it has an IRI)
     sosa:observedProperty quantitykind:ElectricConductivity ;   # tss:observedProperty
     sosa:madeBySensor ex:sensor-grootdok-ec20 ;                 # tss:sensor (when stated)
     sosa:hasFeatureOfInterest ex:water-grootdok ;               # tss:featureOfInterest (when stated)
@@ -58,7 +59,7 @@ _:o1 rdf:type sosa:Observation ;
     sosa:hasSimpleResult "902.27"^^xsd:double .                 # the value, with the field's tss:datatype
 ```
 
-In the output file, the same observation is seven lines of N-Triples, every IRI in full:
+In the output file, the same observation is eight lines of N-Triples, every IRI in full:
 
 ```text
 _:o1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/sosa/Observation> .
@@ -76,8 +77,9 @@ _:o1 <http://www.w3.org/ns/sosa/hasSimpleResult> "902.27"^^<http://www.w3.org/20
 - Observations are blank nodes (`_:o1`, `_:o2`, ...), numbered over the whole file, so two observations never merge, also not across batches. Blank nodes copied from the metadata's descriptions get new labels (rdflib's `BNode()`, like `_:N3f2a...`), so they never merge with an observation either, even when the metadata gave them a label like `o1`. N-Triples writes every literal in full (`"3.0E1"^^<...#double>`), so its text stays exactly as it is.
 - `generate()` (used by the dashboard) also gives a preview: the first 200 observations and the copied descriptions, as one small graph written by rdflib's Turtle serializer (`exact_turtle`). rdflib writes the observations there as anonymous blank nodes (`[] a sosa:Observation ; ...`).
 - Why N-Triples and not Turtle: rdflib's Turtle serializer, run once per batch, took about 110 s instead of about 22 s for `factory_conductivity_tss2.ttl` (its Turtle file is half the size). Before this change the converter wrote the Turtle syntax itself, as text (about 15 s, 153 MB). The table below has the N-Triples sizes.
+- Every observation links back to its source with `dcterms:source`: the IRI of the `tss:Source` (a source that is a blank node gets no link). Only the link: what the metadata says about the source is not copied.
 - The TSS vocabulary and the source and field nodes are not in the output. What the metadata says about the IRIs the observations use (a sensor, a feature, ...) is copied along, without TSS terms: each IRI's concise bounded description (`graph.cbd`), so blank nodes inside a description come along too.
-- The data is read as `tss:format` says: `tss:CSV` with `tss:delimiter` (default `,`), `tss:header` (default `true`; without a header line, columns are matched by `tss:columnIndex`) and `tss:encoding` (default `utf-8`); `tss:Parquet` with its own column types; or, with `tss:embedded true`, the points in `tss:points`.
+- The data is read as `tss:format` says: `tss:CSV` with `tss:delimiter` (optional, default `,`), `tss:header` (optional, default `true`; without a header line, columns are matched by `tss:columnIndex`) and `tss:encoding` (optional, default `utf-8`); `tss:Parquet` with its own column types; or, with `tss:embedded true`, the points in `tss:points`.
 - The output is written to a temporary file and only replaces the output file when the whole conversion worked, so errors never leave half a graph or overwrite an earlier result. The output cannot be the TSS file or the data file.
 
 Exit codes: `0` for success, `1` for conversion or input errors, `2` for wrong command-line arguments. No SHACL validation is done before converting.
@@ -130,7 +132,7 @@ python -B -m unittest -v test_tss2rdf
 
 The tests build their metadata with rdflib, write everything in a temporary folder, and parse the output back with rdflib to check its triples and values. They cover:
 
-- a CSV source: the time window, empty cells, the describing field with its own observed property, a field without one, kept value text, the copied sensor description with nested blank nodes (also blank nodes labelled `o1` or `o001` in the metadata, which must not merge with observations), and a headerless CSV;
+- a CSV source: the link back to the source on every observation, `,` and `utf-8` when `tss:delimiter` and `tss:encoding` are not stated, the time window, empty cells, the describing field with its own observed property, a field without one, kept value text, the copied sensor description with nested blank nodes (also blank nodes labelled `o1` or `o001` in the metadata, which must not merge with observations), and a headerless CSV;
 - the N-Triples output: exactly the expected triples (texts as in the CSV file), one triple per line, the same triples with one observation per batch (no blank nodes merged across batches), and the Turtle preview;
 - Parquet files, also with DECIMAL, TIME and BLOB columns;
 - a bad value, a bad time and an untyped `tss:from` (the old output stays);
@@ -142,8 +144,8 @@ Demo conversions (the N-Triples output; the Turtle the converter wrote before wa
 
 | Input | Observations | RDF triples | Output size (N-Triples) |
 |---|---:|---:|---:|
-| `waterinfo_289441042_tss2_points_embedded.ttl` | 10 | 55 | 6 kB |
-| `waterinfo_289423042_tss2.ttl` (CSV) | 189,706 | 1,043,383 | 112 MB |
-| `waterinfo_289429042_tss2_parquet.ttl` (Parquet) | 316,044 | 1,738,242 | 188 MB |
-| `waterinfo_289435042_tss2.ttl` (CSV) | 279,856 | 1,539,208 | 166 MB |
-| `factory_conductivity_tss2.ttl` (CSV) | 441,923 | 2,991,483 | 321 MB |
+| `waterinfo_289441042_tss2_points_embedded.ttl` | 10 | 65 | 7 kB |
+| `waterinfo_289423042_tss2.ttl` (CSV) | 189,706 | 1,233,089 | 128 MB |
+| `waterinfo_289429042_tss2_parquet.ttl` (Parquet) | 316,044 | 2,054,286 | 217 MB |
+| `waterinfo_289435042_tss2.ttl` (CSV) | 279,856 | 1,819,064 | 192 MB |
+| `factory_conductivity_tss2.ttl` (CSV) | 441,923 | 3,433,406 | 358 MB |

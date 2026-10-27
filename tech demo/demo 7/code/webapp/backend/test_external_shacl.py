@@ -128,20 +128,36 @@ class ExternalShacl(unittest.TestCase):
                 self.assertEqual(report.value(node, DCTERMS.source), URIRef(BASE + "files/SHACL/external_shapes.ttl"))
 
     def test_a_missing_required_property_is_a_violation(self):
+        # tss:key is required (at least one): the field(s) whose values identify a row
         source = URIRef(EX + "grootdok-source")
-        report = self.validate(CSV, lambda graph: graph.remove((source, TSS["from"], None)))
+        report = self.validate(CSV, lambda graph: graph.remove((source, TSS.key, None)))
         self.assertFalse(conforms(report))
-        self.assertEqual(checks(report), [(SH.Violation, "S2")])
-        result = result_of(report, "S2")
+        self.assertEqual(checks(report), [(SH.Violation, "S5")])
+        result = result_of(report, "S5")
         self.assertEqual(report.value(result, SH.focusNode), source)
-        self.assertEqual(report.value(result, SH.resultPath), TSS["from"])
+        self.assertEqual(report.value(result, SH.resultPath), TSS.key)
         self.assertEqual(report.value(result, SH.sourceConstraintComponent), SH.MinCountConstraintComponent)
 
-    def test_a_csv_source_needs_its_delimiter(self):
+    def test_tss_from_is_optional(self):
+        # Without tss:from the window is open at its start
         source = URIRef(EX + "grootdok-source")
-        report = self.validate(CSV, lambda graph: graph.remove((source, TSS.delimiter, None)))
+        report = self.validate(CSV, lambda graph: graph.remove((source, TSS["from"], None)))
+        self.assertTrue(conforms(report))
+        self.assertEqual(checks(report), [])
+
+    def test_a_csv_source_may_leave_out_its_delimiter_and_encoding(self):
+        # They default to "," and "utf-8"
+        source = URIRef(EX + "grootdok-source")
+
+        def without_both(graph):
+            graph.remove((source, TSS.delimiter, None))
+            graph.remove((source, TSS.encoding, None))
+        report = self.validate(CSV, without_both)
+        self.assertTrue(conforms(report))
+        self.assertEqual(checks(report), [])
+        # When stated, the delimiter must still be one character
+        report = self.validate(CSV, lambda graph: graph.set((source, TSS.delimiter, Literal(";;"))))
         self.assertEqual(checks(report), [(SH.Violation, "S10")])
-        self.assertEqual(report.value(result_of(report, "S10"), SH.focusNode), source)
 
     def test_a_field_without_a_column_name_is_a_violation(self):
         field = URIRef(EX + "grootdok-ec20-field")

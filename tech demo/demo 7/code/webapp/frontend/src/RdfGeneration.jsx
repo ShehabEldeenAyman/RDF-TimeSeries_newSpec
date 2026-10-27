@@ -73,9 +73,10 @@ export function RdfGeneration({ rdf, api }) {
         {api.inBrowser && ' This runs here, in this browser tab: the observations are not sent anywhere.'}
       </p>
       <p className="muted small">
-        Every row gives one <code>sosa:Observation</code> for each field with a <code>tss:observedProperty</code>: its
-        observed property, sensor, feature of interest and unit, the row's time as <code>sosa:resultTime</code>, and the
-        value as <code>sosa:hasSimpleResult</code>, typed with the field's <code>tss:datatype</code>. Only rows inside the
+        Every row gives one <code>sosa:Observation</code> for each field with a <code>tss:observedProperty</code>: a link
+        back to the source (<code>dcterms:source</code>), its observed property, sensor, feature of interest and unit, the
+        row's time as <code>sosa:resultTime</code>, and the value as <code>sosa:hasSimpleResult</code>, typed with the
+        field's <code>tss:datatype</code>. Only rows inside the
         source's time window are used, and an empty cell gives no observation. Fields without an observed property (such
         as an id or a quality code) are not in the RDF.
       </p>

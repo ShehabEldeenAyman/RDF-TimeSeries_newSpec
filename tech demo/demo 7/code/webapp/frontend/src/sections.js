@@ -50,7 +50,8 @@ export const FIELD_SECTIONS = [
   {
     title: 'Time window',
     explanation: 'The stretch of time the source covers: from is included, until is not. ' +
-      'Committed until is the time of the last write to the data, not a bound of the window.',
+      'Committed until is the last time the source and its data were checked to be up to date, ' +
+      'not a bound of the window.',
     properties: [
       { name: 'from', iri: TSS_FROM, on: 'source' },
       { name: 'until', iri: TSS_UNTIL, on: 'source' },

@@ -6,6 +6,7 @@ Every row of the data gives one sosa:Observation for each field that has a
 tss:observedProperty (except the time field). An observation says (here in Turtle):
 
     _:o1 rdf:type sosa:Observation ;
+        dcterms:source            <the tss:Source> ;                     (when it has an IRI)
         sosa:observedProperty     <the field's tss:observedProperty> ;
         sosa:madeBySensor         <the field's tss:sensor> ;             (when stated)
         sosa:hasFeatureOfInterest <the field's tss:featureOfInterest> ;  (when stated)
@@ -13,6 +14,8 @@ tss:observedProperty (except the time field). An observation says (here in Turtl
         sosa:resultTime           "<the row's time (tss:timeField)>"^^xsd:dateTime ;
         sosa:hasSimpleResult      "<the value>"^^<the field's tss:datatype> .
 
+- Every observation links back to its source (dcterms:source): only the link, not what the
+  metadata says about the source.
 - Only rows inside the source's time window are used: tss:from included, tss:until not.
 - An empty value gives no observation.
 - A value that does not fit its field's tss:datatype stops the conversion, and says where it is.
@@ -47,7 +50,7 @@ from urllib.request import url2pathname
 
 import rdflib
 from rdflib import BNode, Graph, Literal, Namespace, RDF, URIRef
-from rdflib.namespace import XSD
+from rdflib.namespace import DCTERMS, XSD
 from rdflib.plugins.serializers.turtle import TurtleSerializer
 
 TSS = Namespace("https://w3id.org/tss#")
@@ -625,8 +628,12 @@ def generate(graph, data_path, target, preview_limit=200):
                 referenced.add(field[key])
     description = describe(graph, referenced)
 
-    # Every IRI in the output (and every datatype), to choose the prefixes
+    # Every IRI in the output (and every datatype), to choose the prefixes: the source's too,
+    # which every observation links back to (a blank node source gets no link)
     used = set(referenced)
+    source_link = source["node"] if isinstance(source["node"], URIRef) else None
+    if source_link is not None:
+        used.add(source_link)
     for field in measured:
         if isinstance(field["datatype"], URIRef):
             used.add(field["datatype"])
@@ -638,10 +645,11 @@ def generate(graph, data_path, target, preview_limit=200):
                 used.add(term.datatype)
 
     # The preview is a small graph of its own, written as Turtle at the end. Its prefixes:
-    # rdf, sosa, qudt and xsd, plus the metadata's own prefixes that these IRIs use.
+    # rdf, dcterms, sosa, qudt and xsd, plus the metadata's own prefixes that these IRIs use.
     # (rdflib writes only the prefixes the preview really uses.)
     preview = Graph(bind_namespaces="none")
     preview.bind("rdf", RDF)
+    preview.bind("dcterms", DCTERMS)
     preview.bind("sosa", SOSA)
     preview.bind("qudt", QUDT)
     preview.bind("xsd", XSD)
@@ -655,10 +663,12 @@ def generate(graph, data_path, target, preview_limit=200):
     manager = preview.namespace_manager  # for the prefixed names in error messages (xsd:double)
 
     # What every observation of a field says, whatever the row: made once per field,
-    # as (predicate, object) pairs
+    # as (predicate, object) pairs. The first ones: its type, and the link back to its source.
     fixed = {}
     for field in measured:
         pairs = [(RDF.type, SOSA.Observation)]
+        if source_link is not None:
+            pairs.append((DCTERMS.source, source_link))
         for prop, key in [(SOSA.observedProperty, "observedProperty"), (SOSA.madeBySensor, "sensor"),
                           (SOSA.hasFeatureOfInterest, "featureOfInterest"), (QUDT.hasUnit, "unit")]:
             if field[key] is not None:

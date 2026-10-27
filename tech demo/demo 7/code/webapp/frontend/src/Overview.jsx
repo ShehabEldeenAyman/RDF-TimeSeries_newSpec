@@ -317,7 +317,7 @@ export function Overview({ endpoint, rdf }) {
           </table>
           <p className="muted small">
             The readings lie in the window [tss:from, tss:until): from is included, until is not.
-            tss:committedUntil is the time of the last write to the data.
+            tss:committedUntil is the last time the source and its data were checked to be up to date.
             {embedded !== true && ' The tss:dataFile IRI is resolved against the IRI of this document.'}
           </p>
         </section>

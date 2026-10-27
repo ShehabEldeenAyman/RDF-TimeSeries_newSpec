@@ -19,14 +19,16 @@
 #
 # The source (tss:Source)
 #   Required:  S16 modified at (one xsd:dateTime)
-#              S17 committed until (one xsd:dateTime: the time of the last write to the data)
+#              S17 committed until (one xsd:dateTime: the last time the source and its
+#                  data were checked to be up to date)
 #   Required:  S1 the source (exactly one)      S7  embedded (false)
-#              S2 from                          S8  data file
-#              S3 mutable                       S9  format (tss:CSV or tss:Parquet)
-#              S4 time field                    S10 delimiter  (for tss:CSV)
-#              S5 key                           S11 encoding   (for tss:CSV)
+#              S3 mutable                       S8  data file
+#              S4 time field                    S9  format (tss:CSV or tss:Parquet)
+#              S5 key (at least one)
 #              S6 has field (at least one)
-#   Optional:  S12 label    S13 produced by    S14 until
+#   Optional:  S2 from    S12 label    S13 produced by    S14 until
+#              S10 delimiter (one character; "," when not stated)
+#              S11 encoding ("utf-8" when not stated)
 #   Not used:  S15 delimiter and encoding on a tss:Parquet source (warning)
 #
 # The fields (tss:Field, and every object of tss:hasField)
@@ -118,16 +120,15 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the time of the last write to the data." ;
+        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the last time the source and its data were checked to be up to date." ;
     ] ;
     sh:property [
         sh:name "S2 from" ;
-        sh:group ext:Required ;
+        sh:group ext:Optional ;
         sh:path tss:from ;
-        sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "The source needs exactly one tss:from, an xsd:dateTime: the start of its time window." ;
+        sh:message "tss:from must be one xsd:dateTime: the start of the time window." ;
     ] ;
     sh:property [
         sh:name "S3 mutable" ;
@@ -198,10 +199,10 @@ ext:SourceShape a sh:NodeShape ;
         sh:message "The source needs exactly one tss:format: tss:CSV or tss:Parquet." ;
     ] ;
 
-    # S10 and S11: required for tss:CSV (the SPARQL checks below); when present, well-formed
+    # S10 and S11: optional (a CSV file without them is read with "," and "utf-8"); when present, well-formed
     sh:property [
         sh:name "S10 delimiter" ;
-        sh:group ext:Required ;
+        sh:group ext:Optional ;
         sh:path tss:delimiter ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
@@ -211,7 +212,7 @@ ext:SourceShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:name "S11 encoding" ;
-        sh:group ext:Required ;
+        sh:group ext:Optional ;
         sh:path tss:encoding ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
@@ -263,28 +264,6 @@ ext:SourceShape a sh:NodeShape ;
             SELECT $this ?value WHERE {
                 $this tss:key ?value .
                 FILTER NOT EXISTS { $this tss:hasField ?value }
-            }""" ;
-    ] ;
-
-    # S10 and S11: a CSV file can't be read without its delimiter and encoding
-    sh:sparql [
-        a sh:SPARQLConstraint ;
-        sh:message "S10 delimiter: a tss:CSV source needs a tss:delimiter." ;
-        sh:prefixes <https://w3id.org/tss/shapes/external> ;
-        sh:select """
-            SELECT $this WHERE {
-                $this tss:format tss:CSV .
-                FILTER NOT EXISTS { $this tss:delimiter ?delimiter }
-            }""" ;
-    ] ;
-    sh:sparql [
-        a sh:SPARQLConstraint ;
-        sh:message "S11 encoding: a tss:CSV source needs a tss:encoding." ;
-        sh:prefixes <https://w3id.org/tss/shapes/external> ;
-        sh:select """
-            SELECT $this WHERE {
-                $this tss:format tss:CSV .
-                FILTER NOT EXISTS { $this tss:encoding ?encoding }
             }""" ;
     ] ;
 

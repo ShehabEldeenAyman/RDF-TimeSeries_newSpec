@@ -23,8 +23,8 @@ ex:rodenhuizedok-source
     # Last edit of the source metadata; summary calculation times are separate.
     tss:modifiedAt "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
-    # Optional tss:source_description; publishers may use any RDF vocabulary and properties.
-    tss:source_description [
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en
@@ -34,7 +34,7 @@ ex:rodenhuizedok-source
     tss:producedBy ex:station-rodenhuizedok ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    # Committed until: the time of the last write to the data.
+    # Committed until: the last time the source and its data were checked to be up to date.
     tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289429042.parquet> ;
@@ -51,7 +51,7 @@ ex:rodenhuizedok-source
         ex:rodenhuizedok-quality-code-color-field .
 
 # Field definitions include measurement meaning, units, sensor and feature.
-# Optional tss:field_description records use Dublin Core here; any RDF vocabulary may be used.
+# Optional tss:fieldDescription records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
 # Each summary covers existing rows/points in [tss:from, tss:until) only.
@@ -72,7 +72,7 @@ ex:rodenhuizedok-ts_id-field
     rdfs:label "ts_id"@en ;
     tss:datatype xsd:integer ;
     rdfs:comment "Waterinfo time series identifier (the same on every row)."@en ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Waterinfo time series identifier (the same on every row)."@en
     ] ;
     tss:summary [
@@ -92,7 +92,7 @@ ex:rodenhuizedok-time-field
     rdfs:label "Timestamp"@en ;
     tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC)."@en ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Observation time (UTC)."@en
     ] ;
     tss:summary [
@@ -119,7 +119,7 @@ ex:rodenhuizedok-ec20-field
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-rodenhuizedok-ec20 ;
     tss:featureOfInterest ex:water-rodenhuizedok ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Electrical conductivity corrected to 20 degrees Celsius."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-rodenhuizedok-ec20, ex:water-rodenhuizedok
@@ -146,7 +146,7 @@ ex:rodenhuizedok-interpolation-type-field
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS interpolation type code of the value."@en ;
     tss:describesField ex:rodenhuizedok-ec20-field ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "KiWIS interpolation type code of the value."@en ;
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
@@ -168,7 +168,7 @@ ex:rodenhuizedok-quality-code-field
     tss:datatype xsd:integer ;
     rdfs:comment "KiWIS quality code of the value."@en ;
     tss:describesField ex:rodenhuizedok-ec20-field ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "KiWIS quality code of the value."@en ;
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
@@ -190,7 +190,7 @@ ex:rodenhuizedok-quality-code-name-field
     tss:datatype xsd:string ;
     rdfs:comment "Short name of the quality code."@en ;
     tss:describesField ex:rodenhuizedok-ec20-field ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Short name of the quality code."@en ;
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
@@ -213,7 +213,7 @@ ex:rodenhuizedok-quality-code-description-field
     rdfs:comment "Description of the quality code."@en ;
     tss:language "en" ;
     tss:describesField ex:rodenhuizedok-ec20-field ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Description of the quality code."@en ;
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
@@ -236,7 +236,7 @@ ex:rodenhuizedok-quality-code-color-field
     rdfs:comment "Display colour of the quality code (RGBA)."@en ;
     tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:rodenhuizedok-ec20-field ;
-    tss:field_description [
+    tss:fieldDescription [
         dcterms:description "Display colour of the quality code (RGBA)."@en ;
         dcterms:subject ex:qualityCodeColor ;
         dcterms:relation ex:rodenhuizedok-ec20-field

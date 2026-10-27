@@ -268,7 +268,7 @@ function windowText(rdf) {
   const committed = one(rdf.store, rdf.source, TSS_COMMITTED_UNTIL)
   let text = '[' + (from ? from.value : 'open') + ', ' + (until ? until.value : 'open') + ')'
   if (modified) text += ', metadata last edited ' + modified.value + ' (tss:modifiedAt)'
-  if (committed) text += ', data last written ' + committed.value + ' (tss:committedUntil)'
+  if (committed) text += ', checked up to date ' + committed.value + ' (tss:committedUntil)'
   return text
 }
 

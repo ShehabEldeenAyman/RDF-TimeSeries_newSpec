@@ -6,6 +6,7 @@
 // one sosa:Observation for each field with a tss:observedProperty (except the time field):
 //
 //     _:o001 a sosa:Observation ;
+//         dcterms:source            <the tss:Source> ;                     (when it has an IRI)
 //         sosa:observedProperty     <the field's tss:observedProperty> ;
 //         sosa:madeBySensor         <the field's tss:sensor> ;             (when stated)
 //         sosa:hasFeatureOfInterest <the field's tss:featureOfInterest> ;  (when stated)
@@ -13,6 +14,7 @@
 //         sosa:resultTime           "<the row's time>"^^xsd:dateTime ;
 //         sosa:hasSimpleResult      "<the value>"^^<the field's tss:datatype> .
 //
+// - Every observation links back to its source (dcterms:source), not to what the metadata says about it.
 // - Only rows inside the source's time window: tss:from included, tss:until not.
 // - An empty value gives no observation; a value that does not fit its datatype stops the work.
 // - CSV values keep their text exactly as it is in the file.
@@ -31,6 +33,7 @@
 import { DataFactory, Store, Writer } from 'n3'
 import { parseRdf } from '../rdf.js'
 import {
+  DCTERMS,
   QUDT,
   RDF,
   RDF_LANG_STRING,
@@ -430,8 +433,11 @@ async function generate({ metadataText, contentType, baseIRI, dataFile }) {
   }
   const description = describe(store, referenced)
 
-  // Every IRI in the output (and every datatype), to choose the prefixes of the preview
+  // Every IRI in the output (and every datatype), to choose the prefixes of the preview: the
+  // source's too, which every observation links back to (a blank node source gets no link)
   const used = new Set(referenced)
+  const sourceLink = source.node.termType === 'NamedNode' ? source.node : null
+  if (sourceLink !== null) used.add(sourceLink.value)
   for (const field of measured) {
     if (field.datatype !== null && field.datatype.termType === 'NamedNode') used.add(field.datatype.value)
   }
@@ -441,9 +447,9 @@ async function generate({ metadataText, contentType, baseIRI, dataFile }) {
       if (term.termType === 'Literal') used.add(term.datatype.value)
     }
   }
-  // The preview's prefixes: rdf, sosa, qudt and xsd, plus the metadata's own prefixes (and
-  // rdflib's, which the backend's graph knows too) that these IRIs use
-  const previewPrefixes = { rdf: RDF, sosa: SOSA, qudt: QUDT, xsd: XSD }
+  // The preview's prefixes: rdf, dcterms, sosa, qudt and xsd, plus the metadata's own prefixes
+  // (and rdflib's, which the backend's graph knows too) that these IRIs use
+  const previewPrefixes = { rdf: RDF, dcterms: DCTERMS, sosa: SOSA, qudt: QUDT, xsd: XSD }
   const known = rdflibPrefixes(parsed.prefixes)
   for (const prefix of Object.keys(known)) {
     const namespace = known[prefix]
@@ -456,10 +462,12 @@ async function generate({ metadataText, contentType, baseIRI, dataFile }) {
     }
   }
 
-  // What every observation of a field says, whatever the row: (predicate, object) pairs
+  // What every observation of a field says, whatever the row: (predicate, object) pairs.
+  // The first ones: its type, and the link back to its source.
   const fixed = new Map()
   for (const field of measured) {
     const pairs = [[namedNode(RDF_TYPE), namedNode(SOSA + 'Observation')]]
+    if (sourceLink !== null) pairs.push([namedNode(DCTERMS + 'source'), sourceLink])
     for (const [property, key] of [['observedProperty', 'observedProperty'], ['madeBySensor', 'sensor'],
       ['hasFeatureOfInterest', 'featureOfInterest']]) {
       if (field[key] !== null) pairs.push([namedNode(SOSA + property), field[key]])

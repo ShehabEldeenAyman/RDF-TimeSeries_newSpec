@@ -15,7 +15,7 @@ from unittest.mock import patch
 import duckdb
 import rdflib
 from rdflib import BNode, Graph, Literal, Namespace, RDF, RDFS, URIRef
-from rdflib.namespace import XSD
+from rdflib.namespace import DCTERMS, XSD
 
 import tss2rdf
 
@@ -177,11 +177,28 @@ class CsvAndParquet(TempFolder):
             self.assertEqual(graph.value(observation, QUDT.hasUnit), EX.degree)
         for observation in graph.subjects(SOSA.observedProperty, EX.flagColour):
             self.assertIsNone(graph.value(observation, SOSA.madeBySensor))
+        # every observation links back to its source (the tss:Source's IRI)
+        for observation in graph.subjects(RDF.type, SOSA.Observation):
+            self.assertEqual(list(graph.objects(observation, DCTERMS.source)), [EX.source])
         # a field without tss:observedProperty (code) is not in the RDF
         self.assertEqual(set(graph.objects(None, SOSA.observedProperty)), {EX.temperature, EX.flagColour})
         for value in graph.objects(None, SOSA.hasSimpleResult):
             self.assertNotIn(str(value), ["100", "200"])
         self.assertEqual(len(graph), stats["triples"])
+
+    def test_a_csv_without_delimiter_and_encoding_is_read_with_comma_and_utf8(self):
+        # tss:delimiter and tss:encoding are optional: "," and "utf-8" when not stated
+        lines = ["time,value,flag,code"]
+        for row in ROWS:
+            lines.append(",".join(row))
+        data = self.root / "data.csv"
+        data.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        graph = metadata_graph(False, data, TSS.CSV)
+        graph.remove((EX.source, TSS.delimiter, None))
+        self.assertIsNone(graph.value(EX.source, TSS.encoding))
+        stats = tss2rdf.convert(self.save(graph), self.output)
+        self.assertEqual(stats["observations"], 4)
+        self.assertEqual(per_field(stats), [(str(EX.value), 2), (str(EX.flag), 2)])
 
     def test_values_keep_their_text(self):
         # (rdflib's Turtle parser rewrites "3.0E1" as "30.0", so look at the literals the converter makes)
@@ -205,16 +222,18 @@ class CsvAndParquet(TempFolder):
         graph = parse_exactly(self.output)
 
         def value_observation(when, value):
-            """The pairs of an observation of the value field (with its sensor, feature and unit)"""
-            return frozenset([(RDF.type, SOSA.Observation), (SOSA.observedProperty, EX.temperature),
+            """The pairs of an observation of the value field (its source, sensor, feature and unit)"""
+            return frozenset([(RDF.type, SOSA.Observation), (DCTERMS.source, EX.source),
+                              (SOSA.observedProperty, EX.temperature),
                               (SOSA.madeBySensor, EX.sensor), (SOSA.hasFeatureOfInterest, EX.river),
                               (QUDT.hasUnit, EX.degree),
                               (SOSA.resultTime, Literal(when, datatype=XSD.dateTime, normalize=False)),
                               (SOSA.hasSimpleResult, Literal(value, datatype=XSD.double, normalize=False))])
 
         def flag_observation(when, colour):
-            """The pairs of an observation of the flag field (only its own observed property)"""
-            return frozenset([(RDF.type, SOSA.Observation), (SOSA.observedProperty, EX.flagColour),
+            """The pairs of an observation of the flag field (its source and its own observed property)"""
+            return frozenset([(RDF.type, SOSA.Observation), (DCTERMS.source, EX.source),
+                              (SOSA.observedProperty, EX.flagColour),
                               (SOSA.resultTime, Literal(when, datatype=XSD.dateTime, normalize=False)),
                               (SOSA.hasSimpleResult, Literal(colour, datatype=XSD.string, normalize=False))])
 
@@ -230,13 +249,13 @@ class CsvAndParquet(TempFolder):
             if triple[0] not in observations:
                 rest.append(triple)
         self.assertEqual(len(rest), 5)
-        self.assertEqual(len(graph), 2 * 7 + 2 * 4 + 5)  # 2 value observations (7 triples), 2 flags (4), the description
+        self.assertEqual(len(graph), 2 * 8 + 2 * 5 + 5)  # 2 value observations (8 triples), 2 flags (5), the description
         self.assertEqual(len(graph), stats["triples"])
 
     def test_the_output_is_n_triples(self):
         tss2rdf.convert(self.write_csv(ROWS), self.output)
         lines = self.output.read_text(encoding="utf-8").splitlines()
-        self.assertEqual(len(lines), 27)  # one triple per line
+        self.assertEqual(len(lines), 31)  # one triple per line
         for line in lines:
             self.assertTrue(line.endswith(" ."), line)
         self.assertIn('_:o1 <http://www.w3.org/ns/sosa/resultTime> '
@@ -442,13 +461,13 @@ class EmbeddedPoints(TempFolder):
 
     def test_the_demo_file_converts_and_parses_back(self):
         stats = tss2rdf.convert(EMBEDDED_DEMO, self.output)
-        self.assertEqual((stats["observations"], stats["triples"]), (10, 55))
+        self.assertEqual((stats["observations"], stats["triples"]), (10, 65))
         self.assertIsNone(stats["data"])  # the points embedded in the TSS file
         self.assertEqual(per_field(stats), [(str(EX["zevenaarshaven-ec20-value-field"]), 5),
                                             (str(EX["zevenaarshaven-quality-color-value-field"]), 5)])
         graph, found = observations_in(self.output)
         self.assertEqual(len(found), 10)
-        self.assertEqual(len(graph), 55)
+        self.assertEqual(len(graph), 65)  # 5 EC20 observations (8 triples each), 5 colour ones (5 each)
         # The output keeps the times as they are in the points: ...Z, not ...+00:00
         text = self.output.read_text(encoding="utf-8")
         self.assertIn('<http://www.w3.org/ns/sosa/resultTime> '
@@ -682,7 +701,9 @@ class DemoCsvFile(TempFolder):
         preview = Graph().parse(data=result["preview"], format="turtle")
         observations = list(preview.subjects(RDF.type, SOSA.Observation))
         self.assertEqual(len(observations), 200)
-        self.assertEqual(len(preview), 100 * 7 + 100 * 4)  # 100 rows: a value (7 triples) and a colour (4)
+        self.assertEqual(len(preview), 100 * 8 + 100 * 5)  # 100 rows: a value (8 triples) and a colour (5)
+        # each observation links back to the source
+        self.assertEqual(set(preview.objects(None, DCTERMS.source)), {EX["grootdok-source"]})
         first = None
         for observation in observations:
             if preview.value(observation, SOSA.observedProperty) != EX.qualityCodeColor:

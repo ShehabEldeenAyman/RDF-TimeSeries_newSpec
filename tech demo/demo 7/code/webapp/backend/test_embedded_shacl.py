@@ -190,6 +190,13 @@ class EmbeddedShacl(unittest.TestCase):
         at_until = LATER.replace("2021-03-03T23:30:00Z", "2026-01-01T00:00:00")
         self.assertEqual(checks(self.validate(f'[{POINT}, {at_until}]')), [(SH.Violation, "P2")])
 
+    def test_a_source_without_a_key_is_a_violation(self):
+        # tss:key is required for embedded sources too (S9), as for external ones
+        report = self.validate(change=lambda graph: graph.remove((SOURCE, TSS.key, None)))
+        self.assertFalse(conforms(report))
+        self.assertEqual(checks(report), [(SH.Violation, "S9")])
+        self.assertEqual(report.value(result_of(report, "S9"), SH.sourceConstraintComponent), SH.MinCountConstraintComponent)
+
     def test_a_wrong_lexical_form_for_xsd_double_is_a_p4_violation(self):
         report = self.validate(f'[{POINT.replace("4797.72", "4,5")}, {LATER}]')
         self.assertEqual(checks(report), [(SH.Violation, "P4")])
