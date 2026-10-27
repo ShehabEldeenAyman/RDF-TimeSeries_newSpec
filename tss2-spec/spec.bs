@@ -1,5 +1,5 @@
 <pre class="metadata">
-Title: RDF Time Series Snippets 2
+Title: RDF Time Series Snippets
 Warning: Not Ready
 Shortname: RDF-TS-Snippets
 Level: none
@@ -8,8 +8,8 @@ Repository: KNowledgeOnWebScale/rdf-timeseriessnippets
 URL: https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/
 Editor: Dylan Van Assche, https://dylanvanassche.be/#me
 Editor: Pieter Colpaert, https://pietercolpaert.be
-Editor: ShehabEldeenAyman, https://github.com/ShehabEldeenAyman
-Abstract: RDF Time Series Snippets 2 describes a source of time series data with RDF. The readings stay compact: inside the metadata as one JSON literal, or in an external CSV or Parquet file. RDF describes the source (where its readings are, which period they cover, whether they still change) and each of its fields (the column name and datatype of its values, and what they observe, in which unit, with which sensor). The readings can be read as RDF, checked with SHACL, summarised, and expanded into SOSA observations. This draft describes the version implemented in demo 7 of the RDF time series work, as input for the next version of RDF Time Series Snippets.
+Editor: Shehab Abdelfatah, https://www.linkedin.com/in/shehabeldeen-abdelfatah-289123365/
+Abstract: RDF Time Series Snippets describes a source of time series data with RDF. The readings stay compact: inside the metadata as one JSON literal, or in an external source. RDF describes the source (where its readings are, which period they cover, whether they still change) and each of its fields (the column name and datatype of its values, and what they observe, in which unit, with which sensor). The readings can be read as RDF, checked with SHACL, summarised, and expanded into observations.
 Markup Shorthands: markdown yes, css no
 </pre>
 
@@ -17,40 +17,25 @@ Markup Shorthands: markdown yes, css no
 
 Sensor observations, positioning data, measurements, mobility information... are commonly published as time series: a timestamp with one or more values.
 Representing time series in RDF drastically raises the verbosity, as each reading is often given its own identifier, for which contextual information is repeated on all readings.
-<a href="https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/">RDF Time Series Snippets 0.1.0</a> compacts the data points of one time series into a single JSON literal.
+With RDF Time Series Snippets, a publisher keeps the readings compact and describes them with RDF:
 
-This version generalises that idea in three ways:
-
-- A [=Source=] describes a table of readings: every [=Point=] has one time and values for one or more [=Fields=]. Series that are measured together, such as a conductivity value and its quality code, share one [=Time Field=].
-- The readings are either embedded in the metadata (`tss:points`, as in 0.1.0) or kept in an external CSV or Parquet file (`tss:dataFile`). The same field descriptions read both.
-- The meaning of the values moves from a JSON-LD context and a point template to the fields themselves: each field states its column name and datatype, and optionally what it observes, in which unit, with which sensor, of which feature of interest.
+- A [=Source=] describes a table of readings: every [=Point=] has one time and values for one or more [=Fields=]. Series that are measured together share one [=Time Field=].
+- The readings are either embedded in the metadata, as one JSON literal (`tss:points`), or kept in an external data file (`tss:dataFile`). The same field descriptions read both.
+- Each field states the column name and datatype of its values and, optionally, what they observe, in which unit, with which sensor, of which feature of interest.
 
 The metadata also states the [=Time Window=] of the readings, whether they may still change, when the metadata and the data were last written, and an optional [=Stored Summary=] of each field.
 
-Note: This draft describes the specification as implemented in demo 7 of the RDF time series work: its metadata files, its SHACL shapes, its converter to RDF and its dashboard. Where a choice is still open, an issue says so. [[#changes]] lists the differences with RDF Time Series Snippets 0.1.0.
-
 ## Namespaces ## {#namespaces}
 
-The vocabulary keeps the namespace of RDF Time Series Snippets 0.1.0. The examples in this document use these prefixes:
+RDF Time Series Snippets use the following prefix and namespace:
 
 ```turtle
 @prefix tss: <https://w3id.org/tss#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
-@prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix dcat: <http://www.w3.org/ns/dcat#> .
-@prefix sosa: <http://www.w3.org/ns/sosa/> .
-@prefix qudt: <http://qudt.org/schema/qudt/> .
-@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
-@prefix unit: <http://qudt.org/vocab/unit/> .
-@prefix ex: <https://example.org/ex#> .
 ```
 
-## A first example ## {#first-example}
+## Embedded example ## {#embedded-example}
 
-The first example is a complete [=Embedded Source=]: five readings of the electrical conductivity of a canal, embedded in the metadata.
+This example is a complete [=Embedded Source=]: five readings of the electrical conductivity of a canal, embedded in the metadata.
 
 <div class="example" id="example-embedded-source">
 ```turtle
@@ -300,7 +285,7 @@ An `rdf:langString` field states the language of its values with `tss:language`.
 
 ## What a field observes ## {#meaning}
 
-`tss:observedProperty`, `tss:unit`, `tss:sensor` and `tss:featureOfInterest` say what the values of a field mean. They replace the point template (`tss:about`) of 0.1.0, field by field, so the fields of one source can observe different properties, with different sensors, in different units. They map one-to-one onto SOSA and QUDT when the source is expanded ([[#expanding]]).
+`tss:observedProperty`, `tss:unit`, `tss:sensor` and `tss:featureOfInterest` say what the values of a field mean. They are stated field by field, so the fields of one source can observe different properties, with different sensors, in different units. They map one-to-one onto SOSA and QUDT when the source is expanded ([[#expanding]]).
 
 `tss:minimum` and `tss:maximum` are the allowed range of a numeric field, not the range of the values that occur: those are in the stored summary (`tss:observedMinimum`, `tss:observedMaximum`).
 
@@ -381,11 +366,11 @@ An [=Embedded Source=] MUST have exactly one `tss:points`: a literal with dataty
 - Every key SHOULD be the column name of a field. Values under other keys are not read as values of the source.
 - The points have no order. A consumer orders them by the time field.
 
-Unlike 0.1.0, a point has no `time`, `value` or `id` key with a fixed meaning: the fields say what each key means. A point has no identifier: it is read as a blank node.
+No key has a meaning of its own: the fields say what each key means. A point has no identifier: it is read as a blank node.
 
 ## Reading the points as RDF ## {#reading-points}
 
-The points are read as RDF, by a JSON-LD processor [[JSON-LD11-API]], with a context that is derived from the fields of the source. There is no `tss:context`: the context follows from the field descriptions, so a field reads a key of the points as it reads a column of a data file.
+The points are read as RDF, by a JSON-LD processor [[JSON-LD11-API]], with a context that is derived from the fields of the source. The context follows from the field descriptions, so a field reads a key of the points as it reads a column of a data file.
 
 To read the points of a source:
 
@@ -423,9 +408,6 @@ Note: A field's IRI is the predicate of its values. In the graph of the points, 
 Note: The point triples are what the SHACL shapes for embedded sources check ([[#validation]]): the validator adds them to the metadata graph before it validates.
 
 Issue: JSON-LD skips an array item that is not an object, such as the `42` in `[ { ... }, 42 ]`, so no check sees it.
-
-Issue: The browser implementation of demo 7 (rdf-parse) leaves out a key that cannot be an IRI instead of percent-encoding it.
-
 # External data files # {#data-files}
 
 An [=External Source=] keeps its points in the file `tss:dataFile`, an IRI that is resolved against the IRI of the metadata document, so it may be relative (`<../data/waterinfo_289423042.csv>`). `tss:format` says how to read it: `tss:CSV` or `tss:Parquet`. The metadata does not change the file: the file keeps its own column names and types, and the fields say how to read them.
@@ -499,7 +481,7 @@ ts_id,Timestamp,Value,Interpolation Type,Quality Code,Quality Code Name,Quality 
 ```
 </div>
 
-Issue: The SHACL shapes require `tss:delimiter` and `tss:encoding` for a CSV file, while the readers of demo 7 fall back to `","` and `"utf-8"` when they are missing. Are these defaults part of the specification? (The demo's dashboard reads only UTF-8.)
+Issue: Should `tss:delimiter` and `tss:encoding` have defaults, `","` and `"utf-8"`, so that a CSV source need not state them?
 
 ## Parquet ## {#parquet}
 
@@ -562,9 +544,6 @@ ex:zevenaarshaven-tv-value-field
 </div>
 
 A summary is not refreshed by itself. Its `prov:generatedAtTime` says when it was computed, and a consumer can compute the same numbers from the data to check it. A [=Write=] that adds a point recomputes the summaries ([[#updating]]).
-
-Issue: A summary node reuses `tss:from` and `tss:until`, which 0.1.0 gives the domain `tss:Snippet` ([[#open-points]]).
-
 # Expanding a source into observations # {#expanding}
 
 A source can be expanded into SOSA observations [[VOCAB-SSN]]. Every value of a [=Measured Field=] becomes one `sosa:Observation`:
@@ -586,13 +565,13 @@ The output holds no TSS vocabulary, and neither the source nor its fields. The o
 
 <a href="#example-observations">The third example</a> shows two observations of <a href="#example-embedded-source">the first example</a>. In <a href="#example-describing-field">the example with two series</a>, each point gives two observations at the same time: one of the conductivity, and one of the quality code colour, which has no sensor, feature of interest or unit.
 
-Note: Reading the points as RDF ([[#reading-points]]) keeps every value. The expansion does not: a field without `tss:observedProperty`, such as an identifier or a quality code number, gives no observations, and the observations do not say which other observation a describing field describes. 0.1.0 aimed at a lossless expansion of the points.
+Note: Reading the points as RDF ([[#reading-points]]) keeps every value. The expansion does not: a field without `tss:observedProperty`, such as an identifier or a quality code number, gives no observations, and the observations do not say which other observation a describing field describes.
 
-Issue: Should the expansion stay fixed to `sosa:Observation`, or keep a configurable point type, like `tss:pointType` in 0.1.0?
+Issue: Should the type of the observations be configurable, instead of always `sosa:Observation`?
 
 # Adding points to a mutable source # {#updating}
 
-The points of an [=Embedded Source=] with `tss:mutable true` may change. Demo 7 adds one point at a time; a [=Write=] of one point:
+The points of an [=Embedded Source=] with `tss:mutable true` may change. A [=Write=] that adds one point:
 
 1. Checks the new point: its time is an `xsd:dateTime` with a timezone, every value is in the lexical form of its field's datatype, and no other point has the same [=Key=] (compared as moments, so `...Z` and `...+00:00` are the same time).
 2. Writes the new `tss:points`: the points read as RDF plus the new one, in time order, every value a JSON string with its text as it was.
@@ -601,7 +580,7 @@ The points of an [=Embedded Source=] with `tss:mutable true` may change. Demo 7 
 5. Recomputes every [=Stored Summary=] of the source from the points in the new window: its `tss:from` and `tss:until` become the window of the source, `prov:generatedAtTime` the time of the write, and every number it states is computed again. Its `tss:missingValuePolicy` stays.
 6. Validates the result with the SHACL shapes for embedded sources ([[#validation]]), and keeps the change only when it conforms.
 
-The changes are made with SPARQL Update [[SPARQL11-UPDATE]], with the new values bound to the variables. The update of the source:
+The changes can be made with SPARQL Update [[SPARQL11-UPDATE]], with the new values bound to the variables. For example, the update of the source:
 
 <div class="example" id="example-update">
 ```sparql
@@ -698,7 +677,7 @@ Issue: P3 compares RDF terms, so one moment written as `...Z` and as `...+00:00`
 
 *This section is informative.*
 
-The dashboard of demo 7 lists its metadata documents in a DCAT catalogue [[VOCAB-DCAT-3]]: a `dcat:Catalog` with one `dcat:Dataset` per document, identified by `dcterms:identifier` and named by the `rdfs:label` of its source, with a `dcat:Distribution` that gives the address of the document and its media type.
+A publisher can list its metadata documents in a DCAT catalogue [[VOCAB-DCAT-3]]: a `dcat:Catalog` with one `dcat:Dataset` per document, identified by `dcterms:identifier` and named by the `rdfs:label` of its source, with a `dcat:Distribution` that gives the address of the document and its media type.
 
 <div class="example" id="example-catalog">
 ```turtle
@@ -744,56 +723,3 @@ The dashboard of demo 7 lists its metadata documents in a DCAT catalogue [[VOCAB
 </table>
 
 The vocabulary reuses `rdfs:label`, `rdfs:comment`, `prov:generatedAtTime` [[PROV-O]] and the datatype `rdf:JSON` [[JSON-LD11]]. Keys of embedded points that are no field's column name are read as predicates in the namespace `urn:tss:unmapped:`.
-
-# Changes from RDF Time Series Snippets 0.1.0 # {#changes}
-
-*This section is informative.* It compares this draft with the 0.1.0 specification and its ontology (`tss.ttl`, version 0.1.0).
-
-## Kept ## {#changes-kept}
-
-- `tss:from` and `tss:until`, with the same meaning: the period [from, until). They are stated on the source, and also on a stored summary.
-- `tss:points`, an `rdf:JSON` literal holding a JSON array of objects, one per point. It is now used only by an embedded source, its keys are the fields' column names, and its values should be JSON strings.
-
-## Replaced ## {#changes-replaced}
-
-<table class="data">
-<thead>
-<tr><th>0.1.0</th><th>This draft</th></tr>
-</thead>
-<tbody>
-<tr><td><code>tss:Snippet</code>: one time series</td><td><code>tss:Source</code>: one or more series that share a time field, with their points embedded or in a data file</td></tr>
-<tr><td><code>tss:context</code>: a JSON-LD context written by the publisher</td><td>a context derived from the fields: <code>tss:columnName</code>, <code>tss:datatype</code>, <code>tss:language</code> ([[#reading-points]])</td></tr>
-<tr><td>the keys <code>time</code> and <code>value</code>, and the default context with <code>tss:time</code> and <code>tss:value</code></td><td><code>tss:timeField</code>, and one <code>tss:Field</code> per column, keyed by its column name</td></tr>
-<tr><td><code>tss:about</code> with a <code>tss:PointTemplate</code>: statements added to every point</td><td><code>tss:observedProperty</code>, <code>tss:unit</code>, <code>tss:sensor</code> and <code>tss:featureOfInterest</code> on each field</td></tr>
-<tr><td><code>tss:pointType</code>: the type of every point</td><td>the expansion always makes <code>sosa:Observation</code>s, one per value of a measured field</td></tr>
-<tr><td><code>tss:timePath</code>, <code>tss:valuePath</code> (in the ontology only)</td><td><code>tss:timeField</code> and the fields</td></tr>
-<tr><td>the key <code>id</code>: the IRI of a point</td><td>none: points are blank nodes, and a key may not start with <code>@</code></td></tr>
-</tbody>
-</table>
-
-## Added ## {#changes-added}
-
-- `tss:Field`, `tss:hasField`, `tss:columnName`, `tss:columnIndex`, `tss:datatype`, `tss:language`, `tss:minimum` and `tss:maximum`: the fields of a source.
-- `tss:observedProperty`, `tss:unit`, `tss:sensor`, `tss:featureOfInterest`, `tss:describesField` and `tss:field_description`: what a field means.
-- `tss:timeField` and `tss:key`: the time and the identity of a point.
-- `tss:embedded`, `tss:dataFile`, `tss:format` with `tss:CSV` and `tss:Parquet`, `tss:delimiter`, `tss:header` and `tss:encoding`: where the points are, and how to read a data file.
-- `tss:mutable`, `tss:modifiedAt` and `tss:committedUntil`: whether and when the metadata and the data change.
-- `tss:producedBy` and `tss:source_description`: provenance and description of the source.
-- `tss:summary`, `tss:missingValuePolicy` with `tss:ExcludeEmptyValues`, `tss:count`, `tss:missing`, `tss:firstTime`, `tss:lastTime`, `tss:observedMinimum`, `tss:observedMaximum`, `tss:mean` and `tss:median`: stored summaries.
-- SHACL shapes for external and embedded sources ([[#validation]]), the expansion into SOSA observations ([[#expanding]]), and the rules for adding points ([[#updating]]).
-
-## Removed ## {#changes-removed}
-
-`tss:Snippet`, `tss:PointTemplate`, `tss:about`, `tss:pointType`, `tss:context`, `tss:timePath` and `tss:valuePath` are not used by this draft.
-
-Issue: Should these terms be deprecated, or stay as an alternative way to describe one series?
-
-## Points to settle in the pull request ## {#open-points}
-
-Besides the issues in this document, the 0.1.0 files have inconsistencies that the update must settle:
-
-- In `tss.ttl`, `tss:from`, `tss:until` and `tss:points` have `rdfs:domain tss:Snippet`. An RDFS reasoner would then type every `tss:Source`, and every summary node, as a `tss:Snippet`. Their domains need to change or go.
-- In `tss.ttl`, the range of `tss:points` is `cdt:Map`; the specification and this draft use `rdf:JSON`.
-- In `tss.ttl`, the range of `tss:about` is `tss:About`, a class that does not exist (`tss:PointTemplate` is meant).
-- `tss.ttl` lacks `tss:context`, which the 0.1.0 specification uses, and has `tss:timePath` and `tss:valuePath`, which it does not mention.
-- In the 0.1.0 specification, the prefix declaration ends in `;` instead of `.`, the `tss:context` literal of Example 1 lacks its outer braces (it is not valid JSON), and Example 1 does not expand to Example 2: the third point is at `08:00:00Z` in one and `08:00:02Z` in the other.
