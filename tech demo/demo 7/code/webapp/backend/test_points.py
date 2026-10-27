@@ -333,12 +333,29 @@ class AddPoint(unittest.TestCase):
         before = self.file_bytes()
         self.refused(self.post({TIME: "2021-03-04T01:15:00Z", VALUE: "abc"}), 400, "'abc' is not a valid xsd:double", before=before)
 
-    def test_a_time_without_timezone_or_without_time_is_refused(self):
+    def test_a_time_that_is_no_valid_date_time_or_no_time_is_refused(self):
         before = self.file_bytes()
-        self.refused(self.post({TIME: "2021-03-04T01:15:00", VALUE: "1"}), 400, "with a timezone", before=before)
-        self.refused(self.post({TIME: "2021-02-30T01:15:00Z", VALUE: "1"}), 400, "with a timezone", before=before)
+        self.refused(self.post({TIME: "2021-02-30T01:15:00Z", VALUE: "1"}), 400, "not a valid xsd:dateTime", before=before)
+        self.refused(self.post({TIME: "yesterday", VALUE: "1"}), 400, "not a valid xsd:dateTime", before=before)
         self.refused(self.post({VALUE: "1"}), 400, "needs a time", before=before)
         self.refused(self.post({TIME: "", VALUE: "1"}), 400, "needs a time", before=before)
+
+    def test_a_time_without_a_timezone_is_added_as_written(self):
+        # No timezone needed: the time is read as UTC (to sort, to compare keys, for the window and
+        # the summaries) and written into the points exactly as it was typed; SHACL (P2) agrees
+        response = self.post({TIME: "2021-03-04T01:15:00", VALUE: "4760.0"})
+        self.assertEqual(response.status_code, 200, response.text)
+        answer = response.json()
+        self.assertTrue(answer["conforms"])
+        self.assertEqual((answer["from"], answer["until"]), ("2021-03-03T23:15:00Z", "2026-01-01T00:00:00Z"))
+        points = self.point_texts()
+        self.assertEqual(points[-1][TIME], "2021-03-04T01:15:00")
+        self.assertIn('{ "time": "2021-03-04T01:15:00", "value": "4760.0"}', self.file_bytes().decode("utf-8"))
+        graph = self.exact_graph()
+        self.assertEqual(str(graph.value(self.summary(graph, VALUE), TSS.lastTime)), "2021-03-04T01:15:00Z")
+        # The same moment with a timezone is the same time: a duplicate
+        before = self.file_bytes()
+        self.refused(self.post({TIME: "2021-03-04T01:15:00Z", VALUE: "1"}), 409, "already a point", before=before)
 
     def test_a_value_above_the_maximum_fails_shacl_and_nothing_is_written(self):
         before = self.file_bytes()

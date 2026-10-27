@@ -37,9 +37,8 @@
 # things that look wrong; with -w (allow warnings) they don't fail the run.
 #
 # The source (tss:Source)
-#   Required:  S16 modified at (one xsd:dateTime timestamp with a timezone)
-#              S17 committed until (one xsd:dateTime with a timezone: the time of the
-#                  last write to the data)
+#   Required:  S16 modified at (one xsd:dateTime)
+#              S17 committed until (one xsd:dateTime: the time of the last write to the data)
 #   Required:     S1 the source (exactly one)    S4 time field
 #                 S2 mutable                     S5 has field (at least one)
 #                 S3 embedded (true)             S6 points (one rdf:JSON literal, readable as JSON-LD)
@@ -146,8 +145,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ;
-        sh:message "The source needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime with a timezone (preferably Z for UTC)." ;
+        sh:message "The source needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime." ;
     ] ;
     sh:property [
         sh:name "S17 committed until" ;
@@ -156,8 +154,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ;
-        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime with a timezone: the time of the last write to the data." ;
+        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the time of the last write to the data." ;
     ] ;
     sh:property [
         sh:name "S2 mutable" ;
@@ -506,7 +503,9 @@ emb:PointsShape a sh:NodeShape ;
 
     # P2: every time is inside the window [tss:from, tss:until).
     # xsd:dateTime(...) gives no value for a time that is not a valid date-time;
-    # P4 reports those, so they are skipped here.
+    # P4 reports those, so they are skipped here. A time without a timezone (of a point, or
+    # tss:from / tss:until) is read as UTC, as everything that reads the points does: it gets
+    # a "Z" before it is compared. (Otherwise SPARQL would take it as before every tss:from.)
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "P2 time window: the point at {?value} is before tss:from." ;
@@ -515,8 +514,11 @@ emb:PointsShape a sh:NodeShape ;
             SELECT $this ?value WHERE {
                 $this tss:timeField ?timeField ; tss:from ?from .
                 ?point ?timeField ?value .
-                BIND (xsd:dateTime(STR(?value)) AS ?moment)
-                FILTER (BOUND(?moment) && ?moment < ?from)
+                BIND (IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z")) AS ?time)
+                BIND (IF(REGEX(STR(?from), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?from), CONCAT(STR(?from), "Z")) AS ?start)
+                BIND (xsd:dateTime(?time) AS ?moment)
+                BIND (xsd:dateTime(?start) AS ?bound)
+                FILTER (BOUND(?moment) && BOUND(?bound) && ?moment < ?bound)
             }""" ;
     ] ;
     sh:sparql [
@@ -527,8 +529,11 @@ emb:PointsShape a sh:NodeShape ;
             SELECT $this ?value WHERE {
                 $this tss:timeField ?timeField ; tss:until ?until .
                 ?point ?timeField ?value .
-                BIND (xsd:dateTime(STR(?value)) AS ?moment)
-                FILTER (BOUND(?moment) && ?moment >= ?until)
+                BIND (IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z")) AS ?time)
+                BIND (IF(REGEX(STR(?until), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?until), CONCAT(STR(?until), "Z")) AS ?end)
+                BIND (xsd:dateTime(?time) AS ?moment)
+                BIND (xsd:dateTime(?end) AS ?bound)
+                FILTER (BOUND(?moment) && BOUND(?bound) && ?moment >= ?bound)
             }""" ;
     ] ;
 

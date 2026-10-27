@@ -7,8 +7,8 @@ main.py adds this router to the app.
 What happens, step by step (add_point, all of it while holding POINTS_LOCK):
  1. Checks: a bundled endpoint (a .ttl file in "metadata endpoint/"), whose tss:Source states
     tss:embedded true and tss:mutable true (tss:mutable false means: this data never changes);
-    every value names a field of the source (by its IRI) that has a tss:columnName; the time is
-    an xsd:dateTime with a timezone; every value has the XSD form of its field's datatype.
+    every value names a field of the source (by its IRI) that has a tss:columnName; every value,
+    the time too, has the XSD form of its field's datatype (a time without a timezone is UTC).
  2. The file is read with rdflib, every literal keeping its text exactly (read_exactly). A
     document with relative IRIs is refused: they would be written back as absolute IRIs.
  3. The points already there are read as RDF (lift_points, like every other tab), and the new
@@ -157,9 +157,12 @@ def check_values(graph, source, values):
     if time_text == "":
         raise HTTPException(status_code=400, detail=f"The new point needs a time: a value for "
                                                     f"'{fields[str(time_field)]['columnName']}' (the tss:timeField).")
-    # Always an xsd:dateTime with a timezone (the form of xsd:dateTimeStamp), so it is one moment
-    if value_reading.data_time(time_text, XSD.dateTimeStamp) is None:
-        raise HTTPException(status_code=400, detail=f"The time {time_text!r} is not a valid xsd:dateTime with a timezone, "
+    # A valid value of the time field's datatype (a real day too); without a timezone it is read as
+    # UTC, as every reader of the points does (an xsd:dateTimeStamp time must have one: that is XSD)
+    time_datatype = fields[str(time_field)]["datatype"]
+    if value_reading.data_time(time_text, time_datatype) is None:
+        shown = source_reading.message_text(graph, time_datatype if time_datatype is not None else XSD.dateTime)
+        raise HTTPException(status_code=400, detail=f"The time {time_text!r} is not a valid {shown}, "
                                                     "like 2021-03-04T01:15:00Z.")
 
     row = {}

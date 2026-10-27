@@ -13,8 +13,8 @@ import {
 // endpoint whose source says tss:embedded true and tss:mutable true.
 //
 // What happens when you click "Add the point" (see backend/points_routes.py):
-//   1. the backend checks the values (a time with a timezone, the XSD form of each datatype, no
-//      second point at the same time),
+//   1. the backend checks the values (the XSD form of each datatype, the time too; no second
+//      point at the same time),
 //   2. changes the metadata with SPARQL Update: tss:points (the old points plus the new one), the
 //      source's window (tss:from, tss:until), tss:modifiedAt and tss:committedUntil (both become the
 //      time of the write, not the time of the new point), and every stored summary,
@@ -149,7 +149,7 @@ function FieldInput({ field, text, prefixes, disabled, onChange, onNow }) {
       </label>
       <div className="point-input">
         {/* A number field gets a number box (step="any": any decimals); the time and any other
-            field a text box. The time is typed as an xsd:dateTime with a timezone, like the points. */}
+            field a text box. The time is typed as an xsd:dateTime, like the points. */}
         <input
           id={inputId}
           type={field.numeric ? 'number' : 'text'}

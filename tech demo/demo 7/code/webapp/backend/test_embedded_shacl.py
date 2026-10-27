@@ -174,11 +174,21 @@ class EmbeddedShacl(unittest.TestCase):
             graph.set((TIME, TSS.datatype, XSD.dateTimeStamp))
         report = self.validate(f'[{POINT}, {LATER.replace("2021-03-03T23:30:00Z", "2021-03-04T00:30:00+01:00")}]', stamp_time)
         self.assertEqual(checks(report), [])
-        # Without a timezone it is no xsd:dateTimeStamp: P4. (P2 reports such a time too, for any
-        # datatype: rdflib's SPARQL takes a time without a timezone as before every tss:from.)
+        # Without a timezone it is no xsd:dateTimeStamp: P4 (and only P4: P2 reads the time as UTC,
+        # so it lies in the window)
         report = self.validate(f'[{POINT}, {LATER.replace("23:30:00Z", "23:30:00")}]', stamp_time)
-        self.assertIn((SH.Violation, "P4"), checks(report))
+        self.assertEqual(checks(report), [(SH.Violation, "P4")])
         self.assertIn("P4 datatype: 2021-03-03T23:30:00 (the point", str(report.value(result_of(report, "P4"), SH.resultMessage)))
+
+    def test_p2_reads_a_time_without_a_timezone_as_utc(self):
+        # The window is [2021-03-03T23:15:00Z, 2026-01-01T00:00:00Z). A time without a timezone is
+        # read as UTC, as every reader of the points does: inside the window it is fine ...
+        self.assertEqual(checks(self.validate(f'[{POINT}, {LATER.replace("23:30:00Z", "23:30:00")}]')), [])
+        # ... before tss:from, or at tss:until, it is outside it
+        before = LATER.replace("2021-03-03T23:30:00Z", "2021-03-03T23:00:00")
+        self.assertEqual(checks(self.validate(f'[{POINT}, {before}]')), [(SH.Violation, "P2")])
+        at_until = LATER.replace("2021-03-03T23:30:00Z", "2026-01-01T00:00:00")
+        self.assertEqual(checks(self.validate(f'[{POINT}, {at_until}]')), [(SH.Violation, "P2")])
 
     def test_a_wrong_lexical_form_for_xsd_double_is_a_p4_violation(self):
         report = self.validate(f'[{POINT.replace("4797.72", "4,5")}, {LATER}]')

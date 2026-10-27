@@ -18,9 +18,8 @@
 # These shapes only look at the metadata, not at the data file itself.
 #
 # The source (tss:Source)
-#   Required:  S16 modified at (one xsd:dateTime timestamp with a timezone)
-#              S17 committed until (one xsd:dateTime with a timezone: the time of the
-#                  last write to the data)
+#   Required:  S16 modified at (one xsd:dateTime)
+#              S17 committed until (one xsd:dateTime: the time of the last write to the data)
 #   Required:  S1 the source (exactly one)      S7  embedded (false)
 #              S2 from                          S8  data file
 #              S3 mutable                       S9  format (tss:CSV or tss:Parquet)
@@ -110,8 +109,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ;
-        sh:message "The source needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime with a timezone (preferably Z for UTC)." ;
+        sh:message "The source needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime." ;
     ] ;
     sh:property [
         sh:name "S17 committed until" ;
@@ -120,8 +118,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:pattern "(Z|[+-][0-9]{2}:[0-9]{2})$" ;
-        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime with a timezone: the time of the last write to the data." ;
+        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the time of the last write to the data." ;
     ] ;
     sh:property [
         sh:name "S2 from" ;
