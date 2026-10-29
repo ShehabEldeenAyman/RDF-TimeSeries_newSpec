@@ -1,0 +1,538 @@
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix tss:  <https://w3id.org/tss#> .
+@prefix ext:  <https://w3id.org/tss/shapes/external#> .
+
+# =============================================================================
+# TSS conformance shapes for EXTERNAL data: a tss:Source whose readings are in a
+# data file (tss:dataFile), a CSV file (tss:CSV) or a Parquet file (tss:Parquet),
+# with one tss:Field node per column of that file.
+#
+# Run:   pyshacl -s external_shapes.ttl "<metadata file>.ttl"
+# The metadata conforms when the report holds no sh:Violation. Warnings point at
+# statements that have no effect; with -w (allow warnings) they don't fail the run.
+# These shapes only look at the metadata, not at the data file itself.
+#
+# The source (tss:Source)
+#   Required:  S16 modified at (one xsd:dateTime)
+#              S17 committed until (one xsd:dateTime: the last time the source and its
+#                  data were checked to be up to date)
+#   Required:  S1 the source (exactly one)      S7  embedded (false)
+#              S3 mutable                       S8  data file
+#              S4 time field                    S9  format (tss:CSV or tss:Parquet)
+#              S5 key (at least one)
+#              S6 has field (at least one)
+#   Optional:  S2 from    S12 label    S13 produced by    S14 until
+#              S10 delimiter (one character; "," when not stated)
+#              S11 encoding ("utf-8" when not stated)
+#   Not used:  S15 delimiter and encoding on a tss:Parquet source (warning)
+#
+# The fields (tss:Field, and every object of tss:hasField)
+#   Required:  F1 the field: typed tss:Field, and a field of exactly one source
+#              F2 column name (unique within the source)
+#              F3 datatype
+#   Optional:  F4 column index (unique within the source)   F5 label   F6 comment
+#              F7 minimum   F8 maximum (not below the minimum)
+#              F10 summary (each summary attribute is also optional)
+#
+# The summary (optional tss:summary on a field)
+#   Optional:  Q1 from   Q2 until   Q3 missing-value policy   Q4 count   Q5 missing
+#              Q6 first time   Q7 last time   Q8 observed minimum   Q9 observed maximum
+#              Q10 mean   Q11 median   Q12 generated at time
+# An absent summary or an empty summary node is valid. Each supplied attribute
+# has at most one value of the stated type. These shapes do not recompute statistics
+# or compare observed extrema with the allowed tss:minimum / tss:maximum bounds.
+#
+# Any other property (tss:header, tss:observedProperty, tss:unit, tss:sensor,
+# tss:featureOfInterest, tss:describesField, tss:language, ...) is allowed and not checked.
+#
+# Every check is in one of these groups (sh:group):
+#   Required   sh:Violation  missing or malformed: the metadata does not conform
+#   Optional   -             may be left out; when present it must be well-formed (sh:Violation)
+#   Not used   sh:Warning    has no effect here, but the metadata still conforms
+# =============================================================================
+
+<https://w3id.org/tss/shapes/external>
+    a owl:Ontology ;
+    rdfs:label "TSS conformance shapes: readings in an external data file"@en ;
+    sh:declare
+        [ sh:prefix "tss" ; sh:namespace "https://w3id.org/tss#"^^xsd:anyURI ] ,
+        [ sh:prefix "xsd" ; sh:namespace "http://www.w3.org/2001/XMLSchema#"^^xsd:anyURI ] .
+
+
+# --- The groups ---------------------------------------------------------------
+
+ext:Required a sh:PropertyGroup ;
+    rdfs:label "Required"@en ;
+    rdfs:comment "Must be present and well-formed (sh:Violation)."@en ;
+    sh:order 0 .
+
+ext:Optional a sh:PropertyGroup ;
+    rdfs:label "Optional"@en ;
+    rdfs:comment "May be left out; when present it must be well-formed (sh:Violation)."@en ;
+    sh:order 1 .
+
+ext:NotUsed a sh:PropertyGroup ;
+    rdfs:label "Not used"@en ;
+    rdfs:comment "Has no effect here (sh:Warning)."@en ;
+    sh:order 2 .
+
+
+# --- S1 the source ------------------------------------------------------------
+# sh:targetNode makes the class itself the focus node, so this check also runs
+# (and fails) when the metadata holds no tss:Source at all.
+
+ext:SourceExistsShape a sh:NodeShape ;
+    sh:targetNode tss:Source ;
+    sh:property [
+        sh:name "S1 the source" ;
+        sh:group ext:Required ;
+        sh:path [ sh:inversePath rdf:type ] ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "The metadata must describe exactly one tss:Source." ;
+    ] .
+
+
+# --- The source ---------------------------------------------------------------
+
+ext:SourceShape a sh:NodeShape ;
+    sh:targetClass tss:Source ;
+
+    # Required
+    sh:property [
+        sh:name "S16 modified at" ;
+        sh:group ext:Required ;
+        sh:path tss:modifiedAt ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "The source needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime." ;
+    ] ;
+    sh:property [
+        sh:name "S17 committed until" ;
+        sh:group ext:Required ;
+        sh:path tss:committedUntil ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the last time the source and its data were checked to be up to date." ;
+    ] ;
+    sh:property [
+        sh:name "S2 from" ;
+        sh:group ext:Optional ;
+        sh:path tss:from ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:from must be one xsd:dateTime: the start of the time window." ;
+    ] ;
+    sh:property [
+        sh:name "S3 mutable" ;
+        sh:group ext:Required ;
+        sh:path tss:mutable ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:message "The source needs exactly one tss:mutable, true or false." ;
+    ] ;
+    sh:property [
+        sh:name "S4 time field" ;
+        sh:group ext:Required ;
+        sh:path tss:timeField ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:message "The source needs exactly one tss:timeField: the field that holds the time of each row." ;
+    ] ;
+    sh:property [
+        sh:name "S5 key" ;
+        sh:group ext:Required ;
+        sh:path tss:key ;
+        sh:minCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:message "The source needs at least one tss:key: the field(s) whose values identify a row." ;
+    ] ;
+    sh:property [
+        sh:name "S6 has field" ;
+        sh:group ext:Required ;
+        sh:path tss:hasField ;
+        sh:minCount 1 ;
+        sh:class tss:Field ;
+        sh:message "The source needs at least one tss:hasField, and each of them must be a described tss:Field." ;
+    ] ;
+    sh:property [
+        sh:name "S7 embedded" ;
+        sh:group ext:Required ;
+        sh:path tss:embedded ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:message "The source needs exactly one tss:embedded, true or false." ;
+    ] ;
+    sh:property [
+        sh:name "S7 embedded is false" ;
+        sh:group ext:Required ;
+        sh:path tss:embedded ;
+        sh:hasValue false ;
+        sh:message "These shapes are for external data: tss:embedded must be false. Use the embedded shapes for tss:embedded true." ;
+    ] ;
+    sh:property [
+        sh:name "S8 data file" ;
+        sh:group ext:Required ;
+        sh:path tss:dataFile ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "The source needs exactly one tss:dataFile: the IRI of the file with the readings." ;
+    ] ;
+    sh:property [
+        sh:name "S9 format" ;
+        sh:group ext:Required ;
+        sh:path tss:format ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( tss:CSV tss:Parquet ) ;
+        sh:message "The source needs exactly one tss:format: tss:CSV or tss:Parquet." ;
+    ] ;
+
+    # S10 and S11: optional (a CSV file without them is read with "," and "utf-8"); when present, well-formed
+    sh:property [
+        sh:name "S10 delimiter" ;
+        sh:group ext:Optional ;
+        sh:path tss:delimiter ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:maxLength 1 ;
+        sh:message "tss:delimiter must be one text of exactly one character, e.g. \",\" or \";\"." ;
+    ] ;
+    sh:property [
+        sh:name "S11 encoding" ;
+        sh:group ext:Optional ;
+        sh:path tss:encoding ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "tss:encoding must be one text, e.g. \"utf-8\"." ;
+    ] ;
+
+    # Optional
+    sh:property [
+        sh:name "S12 label" ;
+        sh:group ext:Optional ;
+        sh:path rdfs:label ;
+        sh:nodeKind sh:Literal ;
+        sh:message "rdfs:label must be a text." ;
+    ] ;
+    sh:property [
+        sh:name "S13 produced by" ;
+        sh:group ext:Optional ;
+        sh:path tss:producedBy ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "tss:producedBy must be one IRI (the station or system that produced the data)." ;
+    ] ;
+    sh:property [
+        sh:name "S14 until" ;
+        sh:group ext:Optional ;
+        sh:path tss:until ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:until must be one xsd:dateTime: the end of the time window (not included)." ;
+    ] ;
+
+    # S4 and S5: the time field and the key are fields of this source
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S4 time field: tss:timeField must be one of the source's own fields (tss:hasField)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeField ?value .
+                FILTER NOT EXISTS { $this tss:hasField ?value }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S5 key: every tss:key must be one of the source's own fields (tss:hasField)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:key ?value .
+                FILTER NOT EXISTS { $this tss:hasField ?value }
+            }""" ;
+    ] ;
+
+    # S14: the time window is not empty
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S14 until: tss:until must come after tss:from." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:from ?from ; tss:until ?value .
+                FILTER (?value <= ?from)
+            }""" ;
+    ] .
+
+
+# --- S15: not used on a Parquet source -----------------------------------------
+# A shape of its own, because a SPARQL check takes its severity from its shape.
+
+ext:ParquetSourceShape a sh:NodeShape ;
+    sh:targetClass tss:Source ;
+    sh:severity sh:Warning ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S15 not used: a tss:Parquet file has no delimiter or text encoding, so {?name} has no effect." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value ?name WHERE {
+                $this tss:format tss:Parquet ; ?property ?value .
+                FILTER (?property IN (tss:delimiter, tss:encoding))
+                BIND (IF(?property = tss:delimiter, "tss:delimiter", "tss:encoding") AS ?name)
+            }""" ;
+    ] .
+
+
+# --- The fields ---------------------------------------------------------------
+# Every tss:Field, and every object of tss:hasField (so an untyped field is checked too)
+
+ext:FieldShape a sh:NodeShape ;
+    sh:targetClass tss:Field ;
+    sh:targetObjectsOf tss:hasField ;
+
+    # Required
+    sh:property [
+        sh:name "F1 the field" ;
+        sh:group ext:Required ;
+        sh:path rdf:type ;
+        sh:hasValue tss:Field ;
+        sh:message "A field must be typed tss:Field." ;
+    ] ;
+    sh:property [
+        sh:name "F1 the field belongs to a source" ;
+        sh:group ext:Required ;
+        sh:path [ sh:inversePath tss:hasField ] ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:message "A field must be a field (tss:hasField) of exactly one source." ;
+    ] ;
+    sh:property [
+        sh:name "F2 column name" ;
+        sh:group ext:Required ;
+        sh:path tss:columnName ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "A field needs exactly one tss:columnName, a non-empty text: the name of its column in the data file." ;
+    ] ;
+    sh:property [
+        sh:name "F3 datatype" ;
+        sh:group ext:Required ;
+        sh:path tss:datatype ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "A field needs exactly one tss:datatype, an IRI such as xsd:double or xsd:dateTime." ;
+    ] ;
+
+    # Optional
+    sh:property [
+        sh:name "F4 column index" ;
+        sh:group ext:Optional ;
+        sh:path tss:columnIndex ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "tss:columnIndex must be one whole number, 0 or more (the first column is 0)." ;
+    ] ;
+    sh:property [
+        sh:name "F5 label" ;
+        sh:group ext:Optional ;
+        sh:path rdfs:label ;
+        sh:nodeKind sh:Literal ;
+        sh:message "rdfs:label must be a text." ;
+    ] ;
+    sh:property [
+        sh:name "F6 comment" ;
+        sh:group ext:Optional ;
+        sh:path rdfs:comment ;
+        sh:nodeKind sh:Literal ;
+        sh:message "rdfs:comment must be a text." ;
+    ] ;
+    sh:property [
+        sh:name "F7 minimum" ;
+        sh:group ext:Optional ;
+        sh:path tss:minimum ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:minimum must be one number (xsd:integer, xsd:decimal, xsd:double or xsd:float)." ;
+    ] ;
+    sh:property [
+        sh:name "F8 maximum" ;
+        sh:group ext:Optional ;
+        sh:path tss:maximum ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:maximum must be one number (xsd:integer, xsd:decimal, xsd:double or xsd:float)." ;
+    ] ;
+
+    sh:property [
+        sh:name "F10 summary" ;
+        sh:group ext:Optional ;
+        sh:path tss:summary ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:node ext:SummaryShape ;
+        sh:message "tss:summary must point to one summary node; the summary and all its attributes may be omitted." ;
+    ] ;
+
+    # F2 and F4: two fields of the same source can't read the same column
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F2 column name: another field of the same source has the column name {?value}." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                ?source tss:hasField $this, ?other .
+                $this tss:columnName ?value .
+                ?other tss:columnName ?value .
+                FILTER (?other != $this)
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F4 column index: another field of the same source has the column index {?value}." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                ?source tss:hasField $this, ?other .
+                $this tss:columnIndex ?value .
+                ?other tss:columnIndex ?value .
+                FILTER (?other != $this)
+            }""" ;
+    ] ;
+
+    # F8: the allowed range is not empty
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F8 maximum: tss:maximum ({?value}) is below tss:minimum." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:minimum ?minimum ; tss:maximum ?value .
+                FILTER (?value < ?minimum)
+            }""" ;
+    ] .
+
+# --- Optional field summaries --------------------------------------------------
+# No sh:minCount: neither the summary nor any of its attributes is mandatory.
+# Validate supplied values without requiring a complete summary or scanning the data.
+
+ext:SummaryShape a sh:NodeShape ;
+    sh:targetObjectsOf tss:summary ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+    sh:property [
+        sh:name "Q1 from" ;
+        sh:group ext:Optional ;
+        sh:path tss:from ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:from must be one xsd:dateTime when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q2 until" ;
+        sh:group ext:Optional ;
+        sh:path tss:until ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:until must be one xsd:dateTime when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q3 missing-value policy" ;
+        sh:group ext:Optional ;
+        sh:path tss:missingValuePolicy ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "tss:missingValuePolicy must be one IRI, such as tss:ExcludeEmptyValues, when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q4 count" ;
+        sh:group ext:Optional ;
+        sh:path tss:count ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "tss:count must be one non-negative xsd:integer when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q5 missing" ;
+        sh:group ext:Optional ;
+        sh:path tss:missing ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "tss:missing must be one non-negative xsd:integer when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q6 first time" ;
+        sh:group ext:Optional ;
+        sh:path tss:firstTime ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:firstTime must be one xsd:dateTime when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q7 last time" ;
+        sh:group ext:Optional ;
+        sh:path tss:lastTime ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:lastTime must be one xsd:dateTime when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q8 observed minimum" ;
+        sh:group ext:Optional ;
+        sh:path tss:observedMinimum ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:observedMinimum must be one number when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q9 observed maximum" ;
+        sh:group ext:Optional ;
+        sh:path tss:observedMaximum ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:observedMaximum must be one number when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q10 mean" ;
+        sh:group ext:Optional ;
+        sh:path tss:mean ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:mean must be one number when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q11 median" ;
+        sh:group ext:Optional ;
+        sh:path tss:median ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:median must be one number when supplied." ;
+    ] ;
+    sh:property [
+        sh:name "Q12 generated at time" ;
+        sh:group ext:Optional ;
+        sh:path prov:generatedAtTime ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "prov:generatedAtTime must be one xsd:dateTime when supplied." ;
+    ] .
