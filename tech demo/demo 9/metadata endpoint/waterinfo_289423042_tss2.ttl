@@ -1,0 +1,262 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+
+# Demo 7: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
+# RDFS/catalog annotations and external datatype/unit identifiers are retained.
+
+# Shared source: provenance, time window, time field and column schema.
+
+ex:grootdok-source
+    a tss:Source ;
+    # Last edit of the source metadata; summary calculation times are separate.
+    tss:modifiedAt "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
+        dcterms:spatial [
+            a dcterms:Location ;
+            rdfs:label "Kanaal Gent-Terneuzen Grootdok (BE)"@en
+        ]
+    ] ;
+    tss:mutable false ;
+    tss:producedBy ex:station-grootdok ;
+    tss:from "2021-03-03T23:45:00Z"^^xsd:dateTime ;
+    tss:until "2025-12-18T23:15:00Z"^^xsd:dateTime ;
+    # Committed until: the last time the source and its data were checked to be up to date.
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:embedded false ;
+    tss:dataFile <../data/waterinfo_289423042.csv> ;
+    tss:format tss:CSV ;
+    tss:timeField ex:grootdok-time-field ;
+    tss:key ex:grootdok-time-field ;
+    tss:hasField ex:grootdok-ts_id-field,
+        ex:grootdok-time-field,
+        ex:grootdok-ec20-field,
+        ex:grootdok-interpolation-type-field,
+        ex:grootdok-quality-code-field,
+        ex:grootdok-quality-code-name-field,
+        ex:grootdok-quality-code-description-field,
+        ex:grootdok-quality-code-color-field ;
+    tss:delimiter "," ;
+    tss:header true ;
+    tss:encoding "utf-8" .
+
+# Field definitions include measurement meaning, units, sensor and feature.
+# Optional tss:fieldDescription records use Dublin Core here; any RDF vocabulary may be used.
+
+# Generated column summaries (calculated from the actual data, not example values).
+# Each summary covers existing rows/points in [tss:from, tss:until) only.
+# tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
+# whitespace-only strings are not treated as empty. tss:count counts present values;
+# tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
+# tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
+# Numeric aggregates are for conductivity fields, in their declared units if known.
+# Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
+# All present readings are included regardless of quality codes or allowed bounds.
+# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
+# For embedded data these summaries describe only the supplied sample points.
+# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+
+ex:grootdok-ts_id-field
+    a tss:Field ;
+    tss:columnName "ts_id" ;
+    tss:columnIndex 0 ;
+    rdfs:label "ts_id"@en ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "waterinfo.be time series identifier (the same on every row)"@en ;
+    tss:fieldDescription [
+        dcterms:description "waterinfo.be time series identifier (the same on every row)"@en
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "94853"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:grootdok-time-field
+    a tss:Field ;
+    tss:columnName "Timestamp" ;
+    tss:columnIndex 1 ;
+    rdfs:label "Timestamp"@en ;
+    tss:datatype xsd:dateTime ;
+    rdfs:comment "Observation time (UTC)"@en ;
+    tss:fieldDescription [
+        dcterms:description "Observation time (UTC)"@en
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "94853"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:grootdok-ec20-field
+    a tss:Field ;
+    tss:columnName "Value" ;
+    tss:columnIndex 2 ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
+    tss:datatype xsd:double ;
+    rdfs:comment "Electrical conductivity at 20 °C"@en ;
+    tss:minimum 0 ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-grootdok-ec20 ;
+    tss:featureOfInterest ex:water-grootdok ;
+    tss:fieldDescription [
+        dcterms:description "Electrical conductivity at 20 °C"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-grootdok-ec20, ex:water-grootdok
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "94853"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "125.57"^^xsd:double ;
+        tss:observedMaximum "19035.51"^^xsd:double ;
+        tss:mean "4429.554312357016"^^xsd:double ;
+        tss:median "3375.36"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:grootdok-interpolation-type-field
+    a tss:Field ;
+    tss:columnName "Interpolation Type" ;
+    tss:columnIndex 3 ;
+    rdfs:label "Interpolation Type"@en ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "KiWIS interpolation type code of the value"@en ;
+    tss:describesField ex:grootdok-ec20-field ;
+    tss:fieldDescription [
+        dcterms:description "KiWIS interpolation type code of the value"@en ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "94853"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:grootdok-quality-code-field
+    a tss:Field ;
+    tss:columnName "Quality Code" ;
+    tss:columnIndex 4 ;
+    rdfs:label "Quality Code"@en ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "KiWIS quality code of the value"@en ;
+    tss:describesField ex:grootdok-ec20-field ;
+    tss:fieldDescription [
+        dcterms:description "KiWIS quality code of the value"@en ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "94853"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:grootdok-quality-code-name-field
+    a tss:Field ;
+    tss:columnName "Quality Code Name" ;
+    tss:columnIndex 5 ;
+    rdfs:label "Quality Code Name"@en ;
+    tss:datatype xsd:string ;
+    rdfs:comment "Short name of the quality code"@en ;
+    tss:describesField ex:grootdok-ec20-field ;
+    tss:fieldDescription [
+        dcterms:description "Short name of the quality code"@en ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "94853"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:grootdok-quality-code-description-field
+    a tss:Field ;
+    tss:columnName "Quality Code Description" ;
+    tss:columnIndex 6 ;
+    rdfs:label "Quality Code Description"@en ;
+    tss:datatype xsd:string ;
+    rdfs:comment "Description of the quality code"@en ;
+    tss:describesField ex:grootdok-ec20-field ;
+    tss:fieldDescription [
+        dcterms:description "Description of the quality code"@en ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "94853"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:grootdok-quality-code-color-field
+    a tss:Field ;
+    tss:columnName "Quality Code Color" ;
+    tss:columnIndex 7 ;
+    rdfs:label "Quality Code Color"@en ;
+    tss:datatype xsd:string ;
+    rdfs:comment "Display colour of the quality code (RGBA)"@en ;
+    tss:observedProperty ex:qualityCodeColor ;
+    tss:describesField ex:grootdok-ec20-field ;
+    tss:fieldDescription [
+        dcterms:description "Display colour of the quality code (RGBA)"@en ;
+        dcterms:subject ex:qualityCodeColor ;
+        dcterms:relation ex:grootdok-ec20-field
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:until "2025-12-18T23:15:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "94853"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .

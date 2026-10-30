@@ -1,0 +1,177 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+
+# Demo 7: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
+# RDFS/catalog annotations and external datatype/unit identifiers are retained.
+
+# A copy of waterinfo_289441042_tss2_points_embedded.ttl (the same five readings) whose points
+# state their time as a Unix timestamp: the time field's tss:datatype is tss:unixTime
+# (proposal vocabulary), so each point's time is a literal like "1614813300"^^tss:unixTime.
+# The source and its fields have their own IRIs (ex:zevenaarshaven-ut-...), so the documents never
+# describe the same node in two ways; the sensor, the feature of interest and the station are the
+# same real-world things, so they keep their IRIs.
+
+# One embedded source contains both series, with one shared time field.
+# The source window applies to all fields; the points are five-reading samples.
+# The points are RDF at the end of this document (see "Points" below).
+
+ex:zevenaarshaven-ut-source
+    a tss:Source ;
+    # Last edit of the source metadata; summary calculation times are separate.
+    tss:modifiedAt "2026-10-30T08:43:34Z"^^xsd:dateTime ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), Unix time points"@en ;
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
+        dcterms:spatial [
+            a dcterms:Location ;
+            rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
+        ]
+    ] ;
+    tss:mutable false ;
+    tss:producedBy ex:289441042 ;
+    tss:embedded true ;
+    tss:timeField ex:zevenaarshaven-ut-time-field ;
+    tss:key ex:zevenaarshaven-ut-time-field ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    # Committed until: the last time the source and its data were checked to be up to date.
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:hasField ex:zevenaarshaven-ut-time-field,
+        ex:zevenaarshaven-ut-ec20-value-field,
+        ex:zevenaarshaven-ut-quality-color-value-field .
+
+# Generated column summaries (calculated from the actual data, not example values).
+# Each summary covers existing rows/points in [tss:from, tss:until) only.
+# tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
+# whitespace-only strings are not treated as empty. tss:count counts present values;
+# tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
+# tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
+# Numeric aggregates are for conductivity fields, in their declared units if known.
+# Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
+# All present readings are included regardless of quality codes or allowed bounds.
+# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
+# For embedded data these summaries describe only the supplied sample points.
+# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+
+ex:zevenaarshaven-ut-time-field
+    a tss:Field ;
+    tss:columnName "time" ;
+    rdfs:label "Observation time"@en ;
+    # tss:unixTime: a Unix timestamp, the number of seconds since 1970-01-01T00:00:00Z (UTC),
+    # leap seconds not counted, written as a whole number ("1614813300" is 2021-03-03T23:15:00Z).
+    tss:datatype tss:unixTime ;
+    tss:fieldDescription [
+        dcterms:description "Observation time"@en
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "5"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:zevenaarshaven-ut-ec20-value-field
+    a tss:Field ;
+    tss:columnName "ec20" ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-zevenaarshaven-ec20 ;
+    tss:featureOfInterest ex:water-zevenaarshaven ;
+    tss:fieldDescription [
+        dcterms:description "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "5"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "4716.1"^^xsd:double ;
+        tss:observedMaximum "4797.72"^^xsd:double ;
+        tss:mean "4750.588"^^xsd:double ;
+        tss:median "4745.36"^^xsd:double ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+ex:zevenaarshaven-ut-quality-color-value-field
+    a tss:Field ;
+    tss:columnName "qualityColor" ;
+    rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
+    tss:datatype xsd:string ;
+    tss:observedProperty ex:qualityCodeColor ;
+    tss:describesField ex:zevenaarshaven-ut-ec20-value-field ;
+    tss:fieldDescription [
+        dcterms:description "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
+        dcterms:subject ex:qualityCodeColor ;
+        dcterms:relation ex:zevenaarshaven-ut-ec20-value-field
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "5"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+    ] .
+
+# Points: one RDF node per point, at the end of the document, so that a new point of a
+# mutable source is appended as one more Turtle statement without touching the rest.
+# tss:pointOf links each point to its source. Each value has its field's IRI as predicate
+# and is typed with the field's tss:datatype; a missing value has no triple.
+# The points are unordered (sort by the value of the tss:timeField).
+# Their times as Unix timestamps:
+#   1614813300 = 2021-03-03T23:15:00Z    1614814200 = 2021-03-03T23:30:00Z
+#   1614815100 = 2021-03-03T23:45:00Z    1614817800 = 2021-03-04T00:30:00Z
+#   1614819600 = 2021-03-04T01:00:00Z
+
+[] tss:pointOf ex:zevenaarshaven-ut-source ;
+    ex:zevenaarshaven-ut-time-field "1614813300"^^tss:unixTime ;
+    ex:zevenaarshaven-ut-ec20-value-field "4797.72"^^xsd:double ;
+    ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+
+[] tss:pointOf ex:zevenaarshaven-ut-source ;
+    ex:zevenaarshaven-ut-time-field "1614814200"^^tss:unixTime ;
+    ex:zevenaarshaven-ut-ec20-value-field "4717.8"^^xsd:double ;
+    ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+
+[] tss:pointOf ex:zevenaarshaven-ut-source ;
+    ex:zevenaarshaven-ut-time-field "1614815100"^^tss:unixTime ;
+    ex:zevenaarshaven-ut-ec20-value-field "4745.36"^^xsd:double ;
+    ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+
+[] tss:pointOf ex:zevenaarshaven-ut-source ;
+    ex:zevenaarshaven-ut-time-field "1614817800"^^tss:unixTime ;
+    ex:zevenaarshaven-ut-ec20-value-field "4716.1"^^xsd:double ;
+    ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+
+[] tss:pointOf ex:zevenaarshaven-ut-source ;
+    ex:zevenaarshaven-ut-time-field "1614819600"^^tss:unixTime ;
+    ex:zevenaarshaven-ut-ec20-value-field "4775.96"^^xsd:double ;
+    ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .

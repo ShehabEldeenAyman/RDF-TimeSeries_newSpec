@@ -1,0 +1,167 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+
+# Demo 7: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
+# Source windows are [from, until).
+# tss:key identifies the field whose values uniquely identify a row.
+# RDFS/catalog annotations and external datatype/unit identifiers are retained.
+
+# A copy of waterinfo_289441042_tss2_points_time_value.ttl (the same five readings) whose points
+# state neither a time nor a full value:
+#   - Regular time steps. The source states a time grid: tss:timeBase (the time of step 0) and
+#     tss:timeStep (the fixed time between two steps). Each point states only its step number,
+#     tss:stepIndex; its time is tss:timeBase + tss:stepIndex × tss:timeStep.
+#   - Delta values. The value field states a tss:baseline. Each point states the difference
+#     from it; the reading is tss:baseline + the point's value.
+# New terms (proposal vocabulary): tss:timeBase, tss:timeStep, tss:stepIndex, tss:baseline.
+# The source and its fields have their own IRIs (ex:zevenaarshaven-sd-...), so the documents never
+# describe the same node in two ways; the sensor, the feature of interest and the station are the
+# same real-world things, so they keep their IRIs.
+# The points are RDF at the end of this document (see "Points" below).
+
+ex:zevenaarshaven-sd-source
+    a tss:Source ;
+    # Last edit of the source metadata; summary calculation times are separate.
+    tss:modifiedAt "2026-10-30T08:34:37Z"^^xsd:dateTime ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time step and delta points"@en ;
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
+        dcterms:spatial [
+            a dcterms:Location ;
+            rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
+        ]
+    ] ;
+    tss:mutable true ;
+    tss:producedBy ex:289441042 ;
+    tss:embedded true ;
+    tss:timeField ex:zevenaarshaven-sd-time-field ;
+    tss:key ex:zevenaarshaven-sd-time-field ;
+    # The time grid of the points: step n is at tss:timeBase + n × tss:timeStep.
+    # tss:timeBase is an xsd:dateTime. It is the anchor of the grid, not a bound of the window:
+    # it stays fixed when tss:from or tss:until change, so no point's time ever moves.
+    tss:timeBase "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    # tss:timeStep is an xsd:dayTimeDuration: a fixed length of time (days, hours, minutes,
+    # seconds). Months and years have no fixed length, so they can't be a step.
+    tss:timeStep "PT15M"^^xsd:dayTimeDuration ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    # Committed until: the last time the source and its data were checked to be up to date.
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:hasField ex:zevenaarshaven-sd-time-field,
+        ex:zevenaarshaven-sd-value-field .
+
+# Generated column summaries (calculated from the actual data, not example values).
+# Each summary covers existing rows/points in [tss:from, tss:until) only.
+# tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
+# whitespace-only strings are not treated as empty. tss:count counts present values;
+# tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
+# tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
+# Numeric aggregates are for the conductivity field, in its declared unit.
+# Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
+# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
+# For embedded data these summaries describe only the supplied sample points.
+# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# The summaries describe the readings (times on the grid, baseline + difference), not the
+# step numbers and differences the points state.
+
+# The time field: the points state no value for it. Each point's time is computed from the
+# source's time grid (tss:timeBase, tss:timeStep) and the point's tss:stepIndex.
+ex:zevenaarshaven-sd-time-field
+    a tss:Field ;
+    tss:columnName "time" ;
+    rdfs:label "Observation time"@en ;
+    tss:datatype xsd:dateTime ;
+    tss:fieldDescription [
+        dcterms:description "Observation time"@en
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "5"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+        prov:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
+    ] .
+
+ex:zevenaarshaven-sd-value-field
+    a tss:Field ;
+    tss:columnName "value" ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:datatype xsd:double ;
+    # The baseline of the readings, a literal of the field's tss:datatype. A point's value for this
+    # field is the difference from it (typed with the field's tss:datatype too):
+    # reading = tss:baseline + the point's value, summed exactly on the decimal values of the two
+    # texts (4750 + 47.72 = 4797.72), then read as the field's tss:datatype.
+    tss:baseline "4750"^^xsd:double ;
+    # tss:minimum and tss:maximum bound the readings, not the differences.
+    tss:minimum "0"^^xsd:double ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-zevenaarshaven-ec20 ;
+    tss:featureOfInterest ex:water-zevenaarshaven ;
+    tss:fieldDescription [
+        dcterms:description "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven
+    ] ;
+    tss:summary [
+        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "5"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "4716.1"^^xsd:double ;
+        tss:observedMaximum "4797.72"^^xsd:double ;
+        tss:mean "4750.588"^^xsd:double ;
+        tss:median "4745.36"^^xsd:double ;
+        prov:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
+    ] .
+
+# Points: one RDF node per point, at the end of the document, so that a new point of a
+# mutable source is appended as one more Turtle statement without touching the rest.
+# tss:pointOf links each point to its source. A point states no time: tss:stepIndex (an
+# xsd:integer, 0 or more) is its step on the source's time grid. Its value for
+# ex:zevenaarshaven-sd-value-field is the difference from that field's tss:baseline (4750).
+# A step without a reading has no point (here steps 3, 4 and 6). The points are unordered
+# (sort by tss:stepIndex). What they mean:
+#   step  time (timeBase + step × PT15M)   reading (4750 + value)
+#      0  2021-03-03T23:15:00Z             4750 + 47.72 = 4797.72
+#      1  2021-03-03T23:30:00Z             4750 - 32.2  = 4717.8
+#      2  2021-03-03T23:45:00Z             4750 - 4.64  = 4745.36
+#      5  2021-03-04T00:30:00Z             4750 - 33.9  = 4716.1
+#      7  2021-03-04T01:00:00Z             4750 + 25.96 = 4775.96
+
+[] tss:pointOf ex:zevenaarshaven-sd-source ;
+    tss:stepIndex 0 ;
+    ex:zevenaarshaven-sd-value-field "47.72"^^xsd:double .
+
+[] tss:pointOf ex:zevenaarshaven-sd-source ;
+    tss:stepIndex 1 ;
+    ex:zevenaarshaven-sd-value-field "-32.2"^^xsd:double .
+
+[] tss:pointOf ex:zevenaarshaven-sd-source ;
+    tss:stepIndex 2 ;
+    ex:zevenaarshaven-sd-value-field "-4.64"^^xsd:double .
+
+[] tss:pointOf ex:zevenaarshaven-sd-source ;
+    tss:stepIndex 5 ;
+    ex:zevenaarshaven-sd-value-field "-33.9"^^xsd:double .
+
+[] tss:pointOf ex:zevenaarshaven-sd-source ;
+    tss:stepIndex 7 ;
+    ex:zevenaarshaven-sd-value-field "25.96"^^xsd:double .
