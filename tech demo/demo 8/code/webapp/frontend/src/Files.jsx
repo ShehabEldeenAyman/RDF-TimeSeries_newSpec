@@ -5,7 +5,7 @@ import { DocumentOrigin } from './Overview'
 
 // The Files tab: the files behind the picked metadata endpoint, so nothing is hidden.
 //   external source (tss:embedded false): its data file (tss:dataFile), previewed and downloadable (FileViewer)
-//   embedded source (tss:embedded true):  the points inside the metadata (tss:points) (PointsViewer)
+//   embedded source (tss:embedded true):  the points inside the metadata (tss:pointOf) (PointsViewer)
 //   both:                                 the metadata document itself
 //   endpoint: the endpoint ({ id, iri, ... }); rdf: the parsed document ({ store, text, source, points, ... })
 //   api:      the endpoint's data questions (dataApi.js)
@@ -38,7 +38,8 @@ export function Files({ endpoint, rdf, api }) {
         <h3>Metadata document</h3>
         {/* Where the document is, in the Overview's words (DocumentOrigin) */}
         <p className="muted small long-text">
-          <DocumentOrigin endpoint={endpoint} />, exactly as {endpoint.user ? 'your browser read it' : 'it was sent'}:
+          <DocumentOrigin endpoint={endpoint} />, exactly as{' '}
+          {endpoint.copyOf ? 'it is in this tab, with the appended text at the end' : endpoint.user ? 'your browser read it' : 'it was sent'}:
         </p>
         <pre>{rdf.text}</pre>
       </section>

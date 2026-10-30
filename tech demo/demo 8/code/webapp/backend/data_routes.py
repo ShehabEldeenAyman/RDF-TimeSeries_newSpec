@@ -33,7 +33,7 @@ def get_data_file(endpoint_id, lines: int = 20, request: Request = None):
     or the first rows of a Parquet file converted to CSV text."""
     graph, source = documents.load_source(endpoint_id, request)
     if source["embedded"] is True:
-        raise HTTPException(status_code=400, detail="This source has no data file: its points are embedded in the Turtle file (tss:points).")
+        raise HTTPException(status_code=400, detail="This source has no data file: its points are embedded in the Turtle file (tss:pointOf).")
     lines = max(1, min(lines, 1000))
     location = source["dataFile"]
     if location is None:
@@ -143,7 +143,7 @@ def query_series(endpoint_id, field, start=None, end=None, min_value=None, max_v
     plus summary numbers and the gaps in the data.
     field and filter_field (called filterField in the address) are field IRIs.
 
-    The source tells us where the data is (tss:dataFile or the embedded tss:points),
+    The source tells us where the data is (tss:dataFile or the embedded points, tss:pointOf),
     how to read it (tss:format, and for CSV tss:delimiter, tss:header, tss:encoding),
     which field holds the time (tss:timeField) and which time window it covers
     (tss:from, tss:until). The field tells us its own column (tss:columnName) and

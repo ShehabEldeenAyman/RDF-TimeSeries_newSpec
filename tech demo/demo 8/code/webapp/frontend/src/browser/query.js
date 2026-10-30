@@ -99,7 +99,7 @@ function csvLine(cells) {
 export async function dataPreview(data, lines = 20) {
   const source = readSource(data.store, data.source)
   if (source.embedded === true) {
-    throw new Error('This source has no data file: its points are embedded in the Turtle file (tss:points).')
+    throw new Error('This source has no data file: its points are embedded in the Turtle file (tss:pointOf).')
   }
   let count = parseWholeNumber(lines, 'lines', 20)
   count = Math.max(1, Math.min(count, 1000))

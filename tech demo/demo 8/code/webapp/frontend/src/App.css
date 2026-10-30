@@ -590,20 +590,39 @@ a.marker:hover {
   font-size: 14px;
 }
 
-/* One SPARQL update that ran: its text, then the values of its variables */
-.sparql-update {
-  margin-bottom: 16px;
-}
+/* ---------- Append example (AppendExample.jsx) ---------- */
 
-.sparql-text {
+/* The last lines of the document: what the appended text comes after */
+.append-tail {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  margin-bottom: 4px;
 }
 
-/* A value can be long and have line breaks (the tss:points literal): keep them */
-.sparql-binding {
+/* The text to append: Turtle you can change, like the SQL box's text */
+.append-text {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: 13px;
-  white-space: pre-wrap;
+  font-size: 14px;
+  padding: 8px;
+  border: 1px solid #c4c9d0;
+  border-radius: 6px;
+}
+
+.append-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* How long an update took (UpdateMetadata.jsx): the milliseconds right-aligned, on one line */
+.timings {
+  width: auto;
+}
+
+.timings td {
+  text-align: right;
+  white-space: nowrap;
 }

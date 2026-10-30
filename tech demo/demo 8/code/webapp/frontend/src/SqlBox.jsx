@@ -224,7 +224,7 @@ function exampleText(store, example, prefixes) {
 
 // Where the data table comes from, in words: the embedded points or the data file
 function dataText(store, source) {
-  if (isEmbedded(store, source) === true) return 'the embedded points (tss:points)'
+  if (isEmbedded(store, source) === true) return 'the embedded points (tss:pointOf)'
   const dataFile = one(store, source, TSS_DATA_FILE)
   if (dataFile === null) return 'no tss:dataFile'
   return dataFile.value + ' (tss:dataFile)'

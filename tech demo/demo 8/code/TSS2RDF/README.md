@@ -1,6 +1,6 @@
 # TSS2RDF
 
-`tss2rdf.py` turns a TSS metadata file (one `tss:Source` with its `tss:Field` nodes) and its data into SOSA observations, written as N-Triples (one triple per line) by rdflib. It runs on its own: you can copy it elsewhere and run it with `rdflib` 7 or newer (and `duckdb` for Parquet data). The dashboard's **RDF generation** tab imports its `generate()` function through `code/webapp/backend/rdf_generation.py`, so both make the same RDF. The backend reads embedded points with the same `lift_points()`.
+`tss2rdf.py` turns a TSS metadata file (one `tss:Source` with its `tss:Field` nodes) and its data into SOSA observations, written as N-Triples (one triple per line) by rdflib. It runs on its own: you can copy it elsewhere and run it with `rdflib` 7 or newer (and `duckdb` for Parquet data). The dashboard's **RDF generation** tab imports its `generate()` function through `code/webapp/backend/rdf_generation.py`, so both make the same RDF. The backend reads embedded points with the same `point_graph()`.
 
 ## Install and run
 
@@ -26,7 +26,7 @@ python .\tss2rdf.py --tss "..\..\metadata endpoint\waterinfo_289423042_tss2.ttl"
 The output folder is created when needed. `output/` is ignored by Git, so full generated datasets stay local. A successful run prints statistics: the data that was read, the output path, the number of observations and triples, the file size, and the observations per field (by the field's IRI). For the embedded file:
 
 ```text
-Data:         the points embedded in the TSS file (tss:points)
+Data:         the points embedded in the TSS file (tss:pointOf)
 Output:       ...\output\embedded.nt
 Observations: 10
 Triples:      65
@@ -79,50 +79,31 @@ _:o1 <http://www.w3.org/ns/sosa/hasSimpleResult> "902.27"^^<http://www.w3.org/20
 - Why N-Triples and not Turtle: rdflib's Turtle serializer, run once per batch, took about 110 s instead of about 22 s for `factory_conductivity_tss2.ttl` (its Turtle file is half the size). Before this change the converter wrote the Turtle syntax itself, as text (about 15 s, 153 MB). The table below has the N-Triples sizes.
 - Every observation links back to its source with `dcterms:source`: the IRI of the `tss:Source` (a source that is a blank node gets no link). Only the link: what the metadata says about the source is not copied.
 - The TSS vocabulary and the source and field nodes are not in the output. What the metadata says about the IRIs the observations use (a sensor, a feature, ...) is copied along, without TSS terms: each IRI's concise bounded description (`graph.cbd`), so blank nodes inside a description come along too.
-- The data is read as `tss:format` says: `tss:CSV` with `tss:delimiter` (optional, default `,`), `tss:header` (optional, default `true`; without a header line, columns are matched by `tss:columnIndex`) and `tss:encoding` (optional, default `utf-8`); `tss:Parquet` with its own column types; or, with `tss:embedded true`, the points in `tss:points`.
+- The data is read as `tss:format` says: `tss:CSV` with `tss:delimiter` (optional, default `,`), `tss:header` (optional, default `true`; without a header line, columns are matched by `tss:columnIndex`) and `tss:encoding` (optional, default `utf-8`); `tss:Parquet` with its own column types; or, with `tss:embedded true`, the points in the TSS file itself (the nodes with `tss:pointOf`).
 - The output is written to a temporary file and only replaces the output file when the whole conversion worked, so errors never leave half a graph or overwrite an earlier result. The output cannot be the TSS file or the data file.
 
 Exit codes: `0` for success, `1` for conversion or input errors, `2` for wrong command-line arguments. No SHACL validation is done before converting.
 
-## Embedded points (`tss:points`)
+## Embedded points (`tss:pointOf`)
 
-Embedded points are read as RDF, never as plain JSON. `tss:points` must be exactly one literal typed `rdf:JSON`: a JSON array of objects, keyed by the fields' `tss:columnName`. Its text is parsed as JSON-LD, with a context made from the source's fields:
-
-- For every field of the source (`tss:hasField`) with a `tss:columnName`, the column name becomes a key: `{"@id": <the field's IRI>, "@type": <its tss:datatype>}`.
-- For an `rdf:langString` field: `{"@id": <the field's IRI>, "@language": <its tss:language>}` instead. A field without `tss:datatype` gets only `"@id"`.
-- `"@vocab": "urn:tss:unmapped:"`, so a key that is no field's column name is not dropped without a word: it becomes a triple with a predicate under `urn:tss:unmapped:`. The converter ignores those triples; the SHACL shapes report them as a warning (P6). A character an IRI can't hold (a space, `<`, `"`, ...) is percent-encoded, so `"Some Key"` becomes `<urn:tss:unmapped:Some%20Key>` and the graph can still be written as Turtle. (The browser's parser leaves such a key out instead.) A key with a colon, like `"a:b"`, is read by JSON-LD as an IRI of its own, `<a:b>`; P6 reports it too.
-- A column name that starts with `@` is refused: JSON-LD would read it as a keyword.
-
-For the demo's embedded file, `points_context()` gives:
-
-```json
-{
-  "@vocab": "urn:tss:unmapped:",
-  "time": {"@id": "https://example.org/ex#zevenaarshaven-time-field", "@type": "http://www.w3.org/2001/XMLSchema#dateTime"},
-  "ec20": {"@id": "https://example.org/ex#zevenaarshaven-ec20-value-field", "@type": "http://www.w3.org/2001/XMLSchema#double"},
-  "qualityColor": {"@id": "https://example.org/ex#zevenaarshaven-quality-color-value-field", "@type": "http://www.w3.org/2001/XMLSchema#string"}
-}
-```
-
-and `lift_points()` turns its five points into 15 triples, one blank node per point, like this one:
+Embedded points are RDF in the TSS file itself, at its end: each point is a node of its own, linked to its source with `tss:pointOf`, and each value is a triple with the field's IRI as predicate and a literal typed with the field's `tss:datatype`. One of the demo's embedded points:
 
 ```turtle
-[] ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-   ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double ;
-   ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+[] tss:pointOf ex:zevenaarshaven-source ;
+    ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double ;
+    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
 ```
 
-Then:
+Each point is one Turtle statement, so a new reading is appended as one more statement at the end of the file. `point_graph(graph, source)` gives the points of a source as an `rdflib.Graph`: the triples of every node with `tss:pointOf <source>`, without the `tss:pointOf` link itself (for the demo's file: 15 triples, one blank node per point). Then:
 
-- A value that is an empty string (`""`) gives no triple, just like `null`, a missing key, or an empty CSV cell.
-- A point's time is its value for the source's `tss:timeField`. Blank nodes have no order, so the converter puts the points in time order. A point without a time stops the conversion, like a CSV row with an empty time cell. So does a JSON object or a list as a value.
-- A point with no value for any field (only keys that are no column name, or only empty values) has nothing to convert and is skipped, as the dashboard and the browser skip it; SHACL's P6 still warns about its keys.
-- A value written as a JSON string keeps its text exactly, also when it is wrong: `"...Z"` stays `...Z` (not `+00:00`), and `" 12 "` or `"1_000"` as `xsd:double`, or `"yes"` as `xsd:boolean`, stay as they are, so the SHACL check P4 can report them (and the browser's lift gives the same texts). rdflib normally rewrites a literal's text while it makes it (`"yes"^^xsd:boolean` would become `"false"`), so `lift_points` sets `rdflib.NORMALIZE_LITERALS = False` during the parse and puts it back afterwards (also when the parse fails). That switch is one for the whole program, and pyshacl's `validate()` switches it off and on again too, so a lock (`NORMALIZE_LOCK`) makes them take turns: the lifts hold it, and the dashboard's backend and `shacl_report.py` hold it around `validate()`. A literal that another thread makes during those milliseconds only keeps its text as written. JSON numbers lose their text in any case: write values as JSON strings (`"4797.72"`, not `4797.72`) to keep it. The browser (rdf-parse) writes the number `4797.72` as `"4.79772E3"`, so compare values, not text.
+- A missing value has no triple; an empty string (`""`) gives no triple either, like an empty CSV cell.
+- A point's time is its value for the source's `tss:timeField`. Blank nodes have no order, so the converter puts the points in time order. A point without a time stops the conversion, like a CSV row with an empty time cell. So do a node as a value (not a literal) and two values for one field.
+- A property of a point that is no field of the source is ignored (the SHACL shapes warn about it: P6). A point with no value for any field (only such properties, or only empty values) has nothing to convert and is skipped, as the dashboard and the browser skip it. A node of another source, or a node without `tss:pointOf`, is no point of the source.
+- Every literal keeps its text exactly as the file writes it, also when it is wrong: `"...Z"` stays `...Z` (not `+00:00`), and `" 12 "` or `"1_000"` as `xsd:double`, or `"yes"` as `xsd:boolean`, stay as they are, so the SHACL check P4 can report them (and the browser, whose parser keeps them too, gives the same texts). rdflib normally rewrites a literal's text while it parses (`"yes"^^xsd:boolean` would become `"false"`), so the converter reads the TSS file with `parse_exact(graph, ...)`: `graph.parse(...)` with `rdflib.NORMALIZE_LITERALS = False`, put back afterwards (also when the parse fails). rdflib still reads each literal's value (`toPython()`). That switch is one for the whole program, and pyshacl's `validate()` switches it off and on again too, so a lock (`NORMALIZE_LOCK`) makes them take turns: `parse_exact` holds it, and the dashboard's backend and `shacl_report.py` hold it around `validate()`. A literal that another thread makes during those milliseconds only keeps its text as written.
 - rdflib's Turtle writer would write such texts in a short form made from their value (a bare `yes`, which is broken Turtle, or `1.2e+01` for `" 12 "`). `exact_turtle(graph)` writes numbers and booleans in full instead (`"yes"^^xsd:boolean`); the SHACL report and the preview of `generate()` use it.
-- A key that starts with `@` (a JSON-LD keyword such as `"@context"`, `"@id"`, `"@value"`, also written as `"\u0040id"`) is refused before the points are read. In the points it would replace the context made from the fields, make the parser download the address a `"@context"` names, or turn a point into another resource. This is a safety check on the literal's text (a search for such a key), not a way of reading the JSON: the points are only read by the JSON-LD parser.
-- The errors are clear ones: no `tss:points`, more than one, a literal not typed `rdf:JSON`, a key that starts with `@`, or text that can't be parsed as JSON-LD (with the parser's message).
 
-In Python: `points_context(graph, source)` gives the context (a dict), and `lift_points(graph, source)` the points as an `rdflib.Graph`. The web app's browser code does the same with rdf-parse (`liftPoints(store, source)` in `code/webapp/frontend/src/tss.js`).
+The web app's browser code does the same with N3.js (`pointStore(store, source)` in `code/webapp/frontend/src/tss.js`).
 
 ## Tests
 
@@ -130,14 +111,14 @@ In Python: `points_context(graph, source)` gives the context (a dict), and `lift
 python -B -m unittest -v test_tss2rdf
 ```
 
-The tests build their metadata with rdflib, write everything in a temporary folder, and parse the output back with rdflib to check its triples and values. They cover:
+The tests build their metadata with rdflib (or, with embedded points, as the text of a TSS file), write everything in a temporary folder, and parse the output back with rdflib to check its triples and values. They cover:
 
 - a CSV source: the link back to the source on every observation, `,` and `utf-8` when `tss:delimiter` and `tss:encoding` are not stated, the time window, empty cells, the describing field with its own observed property, a field without one, kept value text, the copied sensor description with nested blank nodes (also blank nodes labelled `o1` or `o001` in the metadata, which must not merge with observations), and a headerless CSV;
 - the N-Triples output: exactly the expected triples (texts as in the CSV file), one triple per line, the same triples with one observation per batch (no blank nodes merged across batches), and the Turtle preview;
 - Parquet files, also with DECIMAL, TIME and BLOB columns;
 - a bad value, a bad time and an untyped `tss:from` (the old output stays);
-- embedded points: the demo's context and its 15 lifted triples, time order, a key that is no column name, empty and `null` values, a point with no value for any field (skipped), points typed `xsd:string`, invalid JSON, missing or double `tss:points`, a point without a time, a time field typed `xsd:dateTimeStamp` (a timezone is required), a bad value, and `rdf:langString` fields;
-- the exact texts of the lift (`" 12 "`, `"1_000"`, `"yes"`, `...Z`, also in the output), rdflib's switch put back (also with four lifts at the same time), keys that start with `@` refused without parsing, percent-encoded keys like `"Some Key"`, and `exact_turtle`;
+- embedded points: the demo's 15 point triples, time order, an appended point, only the points of the source (not those of another node, nor nodes without `tss:pointOf`), a property that is no field, empty values, a source without points, a point with no value for any field (skipped), a point without a time, a time field typed `xsd:dateTimeStamp` (a timezone is required), a bad value, and a node or two values for one field;
+- the exact texts of `parse_exact` (`" 12 "`, `"1_000"`, `"yes"`, `...Z`, also in the output), rdflib's switch put back (also after a parse error, and with four parses at the same time), and `exact_turtle`;
 - the demo's embedded file and CSV file, and the command line.
 
 Demo conversions (the N-Triples output; the Turtle the converter wrote before was about half the size, with the same triples):

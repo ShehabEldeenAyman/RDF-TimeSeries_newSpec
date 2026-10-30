@@ -1,10 +1,11 @@
 """Validate a TSS2 metadata endpoint against SHACL shapes, and write the validation report as RDF.
 
-Everything is read as RDF (rdflib): the metadata, the shapes, and for an embedded source
-(tss:embedded true) also its points. tss:points is an rdf:JSON literal; lift_points
-(code/TSS2RDF/tss2rdf.py) reads it as JSON-LD, with a context made from the source's
-fields, so each value becomes a triple the shapes can check:
+Everything is read as RDF (rdflib): the metadata and the shapes. The points of an embedded
+source (tss:embedded true) are part of the metadata: RDF nodes linked to the source with
+tss:pointOf, each value a triple the shapes can check:
     _:p1  ex:zevenaarshaven-ec20-value-field  "4797.72"^^xsd:double .
+The metadata is read with every literal's text kept exactly (parse_exact in
+code/TSS2RDF/tss2rdf.py), so the shapes see a wrong text such as " 12 "^^xsd:double.
 The dashboard's SHACL tab runs this same code (code/webapp/backend/shacl_routes.py imports this
 file through rdf_generation.py).
 
@@ -27,21 +28,22 @@ import sys
 import warnings
 
 from pyshacl import validate
-from rdflib import BNode, Graph, Literal, RDF, URIRef
+from rdflib import Graph, RDF, URIRef
 from rdflib.namespace import DCTERMS, SH
 from rdflib.util import guess_format
 
-# The code directory (one folder up) contains the TSS2RDF converter. Its lift_points reads
-# embedded points as RDF, TSS is the TSS vocabulary (tss:Source, tss:points, ...), and
-# embedded_mode reads a source's tss:embedded (the web app reads it with the same function).
+# The code directory (one folder up) contains the TSS2RDF converter. Its parse_exact reads RDF
+# with every literal's text kept, point_graph gives a source's embedded points, TSS is the TSS
+# vocabulary (tss:Source, tss:pointOf, ...), and embedded_mode reads a source's tss:embedded
+# (the web app reads it with the same function).
 code_directory = str(Path(__file__).resolve().parents[1])
 if code_directory not in sys.path:
     sys.path.insert(0, code_directory)
 
 # exact_turtle writes the report as Turtle with every literal's text exactly as it is
 # (rdflib's own short form would write a wrong "yes"^^xsd:boolean as yes, which is broken Turtle).
-# NORMALIZE_LOCK: pyshacl's validate() holds it, so it takes turns with lift_points (see validation_report).
-from TSS2RDF.tss2rdf import NORMALIZE_LOCK, TSS, embedded_mode, exact_turtle, lift_points
+# NORMALIZE_LOCK: pyshacl's validate() holds it, so it takes turns with parse_exact (see validation_report).
+from TSS2RDF.tss2rdf import NORMALIZE_LOCK, TSS, embedded_mode, exact_turtle, parse_exact, point_graph
 
 # This file lives in demo 7/code/shacl_report/, so the SHACL folder is two folders up
 SHACL_DIR = Path(__file__).resolve().parents[2] / "SHACL"
@@ -58,11 +60,10 @@ MAX_LISTED_RESULTS = 20
 def read_rdf(path):
     """An RDF file as an rdflib graph. The syntax comes from the file extension
     (.ttl, .jsonld, .rdf, ...); a file with another extension is read as Turtle.
-    Relative IRIs in it (like <../data/x.csv>) are read against the file's own address."""
-    graph = Graph()
+    Relative IRIs in it (like <../data/x.csv>) are read against the file's own address.
+    Every literal keeps its text exactly as it is written (see parse_exact)."""
     syntax = guess_format(str(path)) or "turtle"
-    graph.parse(path, format=syntax, publicID=path.resolve().as_uri())
-    return graph
+    return parse_exact(Graph(), source=path, format=syntax, publicID=path.resolve().as_uri())
 
 
 def default_shapes(graph):
@@ -80,46 +81,15 @@ def default_shapes(graph):
     return SHACL_DIR / DEFAULT_SHAPES[mode]
 
 
-def data_graph(graph):
-    """The graph SHACL validates: the metadata, plus the points of each embedded source
-    read as RDF (lift_points). Gives (the data graph, the number of point triples, problems):
-    problems lists (source, reason) for the sources whose tss:points can't be read."""
-    data = Graph()
-    for triple in graph:
-        data.add(triple)
-
-    point_triples = 0
-    problems = []
+def point_triple_count(graph):
+    """How many triples the embedded points of the metadata have (point_graph of each source
+    with tss:embedded true), for the summary. The points are part of the metadata itself, so
+    SHACL checks them with it."""
+    count = 0
     for source in graph.subjects(RDF.type, TSS.Source):
-        if embedded_mode(graph, source) is not True:
-            continue  # an external data file is not read by SHACL
-        if (source, TSS.points, None) not in graph:
-            continue  # the shapes report a missing tss:points themselves (S6)
-        try:
-            points = lift_points(graph, source)
-        except ValueError as error:
-            problems.append((source, str(error)))
-            continue
-        for triple in points:
-            data.add(triple)
-        point_triples += len(points)
-    return data, point_triples, problems
-
-
-def add_points_problem(report, report_node, source, reason):
-    """Add a result for points that can't be read as JSON-LD at all (bad JSON, not rdf:JSON, ...).
-    SHACL can't look inside the rdf:JSON literal, so the report gets this result here,
-    like the shapes' own SPARQL checks give it (and like the dashboard does)."""
-    result = BNode()
-    report.add((report_node, SH.result, result))
-    report.add((result, RDF.type, SH.ValidationResult))
-    report.add((result, SH.focusNode, source))
-    report.add((result, SH.resultPath, TSS.points))
-    report.add((result, SH.resultSeverity, SH.Violation))
-    report.add((result, SH.resultMessage, Literal(f"S6 points: {reason}")))
-    report.add((result, SH.sourceConstraintComponent, SH.SPARQLConstraintComponent))
-    # A violation: the metadata does not conform
-    report.set((report_node, SH.conforms, Literal(False)))
+        if embedded_mode(graph, source) is True:
+            count += len(point_graph(graph, source))
+    return count
 
 
 def validation_report(graph, shapes):
@@ -128,25 +98,23 @@ def validation_report(graph, shapes):
     The caller adds which shapes were used (dcterms:source): this command line their file:///
     address, the web app their address on the backend.
     Raises ValueError with pyshacl's message when the shapes can't be run."""
-    data, point_triples, problems = data_graph(graph)
+    point_triples = point_triple_count(graph)
 
     # allow_warnings: warnings alone don't make the metadata fail; only violations do.
     # pyshacl gives (conforms, the report graph, the report as text); only the graph is used.
+    # Without inference pyshacl only reads the graph (it does not clone it), so the metadata stays as it is.
     # pyshacl switches rdflib.NORMALIZE_LITERALS off and on again while it reads the shapes, and
-    # so does lift_points: the lock makes them take turns when they run in threads at the same
+    # so does parse_exact: the lock makes them take turns when they run in threads at the same
     # time (the dashboard's SHACL tab calls this function too).
     try:
         with NORMALIZE_LOCK:
-            conforms, report, report_text = validate(data, shacl_graph=shapes, allow_warnings=True)
+            conforms, report, report_text = validate(graph, shacl_graph=shapes, allow_warnings=True)
     except Exception as error:
         # One kind of error for the callers: the command line prints it, the web app answers 400
         raise ValueError(str(error)) from error
     if not isinstance(report, Graph):
         raise ValueError(str(report))
     report_node = report.value(predicate=RDF.type, object=SH.ValidationReport)
-
-    for source, reason in problems:
-        add_points_problem(report, report_node, source, reason)
 
     # The metadata's prefixes (tss:, ex:, ...), so the Turtle of the report is easier to read
     for prefix, namespace in graph.namespaces():
@@ -223,7 +191,7 @@ def result_lines(report, report_node, shapes):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Validate a TSS2 file (and its embedded points) against "
+    parser = argparse.ArgumentParser(description="Validate a TSS2 file (with its embedded points) against "
                                                  "SHACL shapes, and write the validation report as Turtle.")
     parser.add_argument("tss2_file", help="the TSS2 metadata endpoint (Turtle)")
     parser.add_argument("shapes_file", nargs="?",
@@ -282,7 +250,7 @@ def main():
     print(f"Endpoint: {tss2_path}")
     print(f"Shapes:   {shapes_path}")
     if point_triples > 0:
-        print(f"Points:   {point_triples} triples read from tss:points, validated with the metadata")
+        print(f"Points:   {point_triples} triples of embedded points (tss:pointOf), validated with the metadata")
     print(f"Result:   {'CONFORMS' if conforms else 'DOES NOT CONFORM'}"
           f" ({counts[SH.Violation]} violations, {counts[SH.Warning]} warnings, {counts[SH.Info]} infos)")
     lines = result_lines(report, report_node, shapes)

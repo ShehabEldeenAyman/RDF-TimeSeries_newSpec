@@ -94,8 +94,8 @@ def read_summary(graph, field):
     """A field's stored summary (its tss:summary node) as RDF terms, e.g. {"value_count":
     Literal("94853", datatype=XSD.integer), "mean": ..., ...} (None for an attribute it does not state).
     None when the field has no tss:summary. The numbers were computed from the data when the
-    metadata was made (prov:generatedAtTime); this app shows and checks them. (Only adding a point
-    with the "Add data" tab recomputes them: see points_routes.summary_update.)"""
+    metadata was made (prov:generatedAtTime); this app shows and checks them. (Nothing recomputes
+    them: appending a point in the browser leaves them as they are.)"""
     summary = graph.value(field, TSS.summary)
     if summary is None:
         return None

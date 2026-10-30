@@ -50,21 +50,26 @@ function checkDocument(document, name) {
 // browser needs to work with it alone.
 //   number:   its number in this tab: the id is user-1, user-2, ...
 //   document: the parsed document (loadFromUrl or loadFromFile)
-//   how:      { url, fileName, dataFiles }: its web address (or null for an upload), the name of the
-//             uploaded file (or null), and the data files picked with it ([] when none)
+//   how:      { url, fileName, dataFiles, copyOf }: its web address (or null for an upload), the
+//             name of the uploaded file (or null), the data files picked with it ([] when none),
+//             and for a copy of a bundled endpoint with appended points (see handleAppend in
+//             App.jsx) that bundled endpoint (else leave it out)
 export function makeUserEndpoint(number, document, how) {
   const label = oneText(document.store, findSource(document.store), RDFS_LABEL)
   let name = how.fileName
   if (how.url !== null) name = how.url
+  let shown = label !== '' ? label : name  // the source's rdfs:label, else its address or file name
+  if (how.copyOf) shown = (how.copyOf.label ? how.copyOf.label : how.copyOf.id) + ' (appended)'
   return {
     id: 'user-' + number,
-    iri: document.baseIRI,               // the document's IRI (its base IRI)
-    label: label !== '' ? label : name,  // the source's rdfs:label, else its address or file name
+    iri: document.baseIRI,               // the document's IRI (its base IRI; a copy keeps the bundled one's)
+    label: shown,
     comment: null,
     user: true,                          // read by the browser only (see dataApi.js)
     url: how.url,
     fileName: how.fileName,
     dataFiles: how.dataFiles,
+    copyOf: how.copyOf ? how.copyOf : null, // the bundled endpoint this is a copy of, or null
     contentType: document.contentType,   // its syntax, e.g. 'text/turtle'
     document: document,                  // the parsed document, so App.jsx does not read it again
   }

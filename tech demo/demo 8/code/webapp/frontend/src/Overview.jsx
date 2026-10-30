@@ -9,6 +9,7 @@ import {
   sourceModifiedAt,
   documentModifiedAt,
   isEmbedded,
+  pointNodes,
   shortName,
   termText,
   RDF_TYPE,
@@ -28,7 +29,6 @@ import {
   TSS_TIME_FIELD,
   TSS_KEY,
   TSS_HAS_FIELD,
-  TSS_POINTS,
   TSS_DELIMITER,
   TSS_HEADER,
   TSS_ENCODING,
@@ -169,17 +169,18 @@ function FieldRow({ rdf, field, hasIndexes }) {
   )
 }
 
-// For embedded points: how the app reads tss:points, and how many points that gives
-//   points: rdf.points, the points App.jsx read as RDF: { store, rows, error } (see readPoints in tss.js)
+// For embedded points: how the points are written, and how many there are
+//   points: rdf.points, the points App.jsx read: { store, rows, error } (see readPoints in tss.js)
 function PointsNote({ points }) {
   return (
     <>
       <p className="muted small">
-        tss:points is read as JSON-LD, with a context made from the fields: a key (tss:columnName) becomes the
-        field's IRI, its value gets the field's tss:datatype.
+        Each point is an RDF node at the end of the document, linked to the source with tss:pointOf. Each value is
+        a triple with the field's IRI as property and a literal typed with the field's tss:datatype. A new reading
+        is appended as one more node (the Add data and Append example tabs).
       </p>
-      {points.error && <p className="error small long-text">The points can't be read as RDF: {points.error}</p>}
-      {!points.error && <p className="small">{points.rows.length} points, one blank node each (the Files tab shows them as a table).</p>}
+      {points.error && <p className="error small long-text">The points can't be shown as rows: {points.error}</p>}
+      {!points.error && <p className="small">{points.rows.length} points (the Files tab shows them as a table).</p>}
     </>
   )
 }
@@ -189,11 +190,13 @@ function PointsNote({ points }) {
 //   summaryNodes: the fields' tss:summary nodes (the "Stored summaries" card shows what they say)
 //   documentIri: the IRI of the metadata document (<>): for an older document, the top card shows
 //                its tss:modifiedAt
-function isShown(quad, source, fields, shownSourceProperties, summaryNodes, documentIri) {
+//   points: the source's embedded points (the nodes with tss:pointOf): the Files tab shows them
+function isShown(quad, source, fields, shownSourceProperties, summaryNodes, documentIri, points) {
   const predicate = quad.predicate.value
   if (quad.subject.equals(source)) {
     return shownSourceProperties.includes(predicate)
   }
+  if (points.some((point) => point.equals(quad.subject))) return true
   if (quad.subject.value === documentIri && predicate === TSS_MODIFIED_AT) return true
   if (summaryNodes.some((node) => node.equals(quad.subject))) return true
   // Is the subject one of the fields of the source? (equals compares two RDF terms)
@@ -206,16 +209,18 @@ function isShown(quad, source, fields, shownSourceProperties, summaryNodes, docu
 
 // All statements of the document that the cards do not show: other properties of the
 // source and its fields (a licence, provenance, ...), and what the document says about
-// anything else (a sensor, a station, ...)
+// anything else (a sensor, a station, ...). The embedded points are left out: the Files tab
+// shows them.
 function otherStatements(store, source, fields, shownSourceProperties, documentIri) {
   const summaryNodes = []
   for (const field of fields) {
     const summary = readSummary(store, field)
     if (summary !== null) summaryNodes.push(summary.node)
   }
+  const points = pointNodes(store, source)
   const others = []
   for (const quad of store.getQuads(null, null, null, null)) {
-    if (!isShown(quad, source, fields, shownSourceProperties, summaryNodes, documentIri)) others.push(quad)
+    if (!isShown(quad, source, fields, shownSourceProperties, summaryNodes, documentIri, points)) others.push(quad)
   }
   return others
 }
@@ -225,6 +230,9 @@ function otherStatements(store, source, fields, shownSourceProperties, documentI
 export function DocumentOrigin({ endpoint }) {
   const link = <a href={endpoint.iri} target="_blank" rel="noreferrer">{endpoint.iri}</a>
   if (!endpoint.user) return <>Metadata endpoint file: {link}</>
+  if (endpoint.copyOf) {
+    return <>A copy of the metadata endpoint file {link}, with points appended in this browser tab (the file is unchanged)</>
+  }
   if (endpoint.url !== null) return <>Your own endpoint, downloaded by your browser from: {link}</>
   return (
     <>
@@ -254,13 +262,13 @@ export function Overview({ endpoint, rdf }) {
   const hasIndexes = fields.some((field) => has(store, field, TSS_COLUMN_INDEX, null))
 
   // The properties of the source that the "Source" and "Reading the data" cards show
-  // (tss:hasField: the fields table; tss:points: the points note and the Files tab)
+  // (tss:hasField: the fields table; the embedded points link to the source, so they are not
+  // properties of it: the points note and the Files tab show them)
   const shownSourceProperties = [
     RDF_TYPE, RDFS_LABEL, TSS_MODIFIED_AT, TSS_EMBEDDED, TSS_MUTABLE, TSS_PRODUCED_BY,
     TSS_FROM, TSS_UNTIL, TSS_COMMITTED_UNTIL, TSS_TIME_FIELD, TSS_KEY, TSS_HAS_FIELD,
   ]
-  if (embedded === true) shownSourceProperties.push(TSS_POINTS)
-  else shownSourceProperties.push(TSS_FORMAT, TSS_DATA_FILE)
+  if (embedded !== true) shownSourceProperties.push(TSS_FORMAT, TSS_DATA_FILE)
   if (csv) shownSourceProperties.push(TSS_DELIMITER, TSS_HEADER, TSS_ENCODING)
   const others = otherStatements(store, source, fields, shownSourceProperties, endpoint.iri)
   // When the source's metadata was last edited: tss:modifiedAt on the tss:Source. Documents
@@ -291,7 +299,7 @@ export function Overview({ endpoint, rdf }) {
         <section className="card">
           <h3>Source</h3>
           <p className="muted small">
-            {embedded === true && 'The readings are embedded in the metadata, in tss:points.'}
+            {embedded === true && 'The readings are embedded in the metadata: RDF nodes that link to this source with tss:pointOf.'}
             {embedded === false && 'The readings are in an external data file (tss:dataFile).'}
             {embedded === null && 'tss:embedded is not stated as true or false, so it is not clear where the readings are.'}
           </p>
@@ -352,7 +360,7 @@ export function Overview({ endpoint, rdf }) {
       <section className="card">
         <h3>Fields ({fields.length})</h3>
         <p className="muted small">
-          One field = one {embedded === true ? 'key in each embedded point' : 'column in the data file'}.
+          One field = one {embedded === true ? 'property of each embedded point (its IRI)' : 'column in the data file'}.
           A field that describes another one holds extra information about that field's values, such as a quality code.
         </p>
         <div className="table-scroll">

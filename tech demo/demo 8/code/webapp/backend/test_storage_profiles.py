@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from rdflib import Graph, Literal, RDF, URIRef
+from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import XSD
 import main
 import paths
@@ -22,6 +22,7 @@ import rdf_routes
 import sql_routes
 from rdf_generation import TSS
 from test_rdf_generation import use_a_test_export_folder
+from test_embedded_shacl import LATER, Turtle, embedded_graph, point
 
 EMBEDDED = "waterinfo_289441042_tss2_points_embedded"
 EXTERNAL = "waterinfo_289423042_tss2"
@@ -218,17 +219,17 @@ class StorageProfiles(unittest.TestCase):
 
 
 class EmbeddedPointsAsRdf(unittest.TestCase):
-    """The embedded points are read as RDF (JSON-LD with a context made from the fields),
-    so they follow the RDF rules: no order, "" is no value, other keys are not fields."""
+    """The embedded points are RDF nodes in the metadata (tss:pointOf), so they follow the RDF
+    rules: no order, "" is no value, other properties are not fields."""
 
     def setUp(self):
         use_a_test_export_folder(self)  # generate_rdf writes its files in a folder of this test
 
-    def with_points(self, points):
-        """The embedded endpoint, with other tss:points (an rdf:JSON literal)"""
-        graph = documents.load_graph(EMBEDDED)
-        source = graph.value(predicate=RDF.type, object=TSS.Source)
-        graph.set((source, TSS.points, Literal(points, datatype=RDF.JSON)))
+    def with_points(self, points, change=None):
+        """The embedded endpoint with other points (Turtle statements, see test_embedded_shacl.point)"""
+        graph = embedded_graph(points)
+        if change is not None:
+            change(graph)
         return patch.object(documents, "load_graph", return_value=graph)
 
     def quiet_rdflib(self):
@@ -236,12 +237,10 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
         return patch.object(logging.getLogger("rdflib.term"), "disabled", True)
 
     def test_points_are_sorted_by_time_and_empty_or_unknown_values_are_left_out(self):
-        # Out of time order, an empty value, a missing key, and a key that is no field's column name
-        points = """[
-            {"time": "2021-03-03T23:45:00Z", "ec20": "30.5", "qualityColor": "green", "extra": "not a field"},
-            {"time": "2021-03-03T23:15:00Z", "ec20": "10.5", "qualityColor": ""},
-            {"time": "2021-03-03T23:30:00Z", "qualityColor": "red"}
-        ]"""
+        # Out of time order, an empty value, a missing value, and a property that is no field
+        points = (point(time="2021-03-03T23:45:00Z", ec20="30.5", more='ex:extra "not a field"')
+                  + point(time="2021-03-03T23:15:00Z", ec20="10.5", color="")
+                  + point(time="2021-03-03T23:30:00Z", ec20=None, color="red"))
         with self.with_points(points):
             result = data_routes.query_series(EMBEDDED, VALUE)
             self.assertEqual(result["readings"], [{"time": "2021-03-03T23:15:00Z", "value": 10.5},
@@ -263,9 +262,22 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
             self.assertEqual(result["columns"], [TIME, VALUE, TEXT])
             self.assertEqual([row[1:] for row in result["rows"]], [["10.5", None], [None, "red"], ["30.5", "green"]])
 
+    def test_only_the_points_of_the_source_are_read(self):
+        # A node without tss:pointOf, or with tss:pointOf another node, is no point of the source
+        points = point() + point(of=None, **LATER) + point(of="ex:other-source", time="2021-03-03T23:45:00Z")
+        with self.with_points(points):
+            self.assertEqual(data_routes.query_series(EMBEDDED, VALUE)["readings"],
+                             [{"time": "2021-03-03T23:15:00Z", "value": 4797.72}])
+
+    def test_a_source_without_points_has_empty_answers(self):
+        with self.with_points(""):
+            self.assertEqual(data_routes.query_series(EMBEDDED, VALUE)["readings"], [])
+            self.assertEqual(data_routes.get_first_rows(EMBEDDED)["rows"], [])
+            sql = "SELECT count(*) FROM zevenaarshaven_source"
+            self.assertEqual(sql_routes.run_sql(EMBEDDED, sql_routes.SqlQuery(sql=sql))["rows"], [[0]])
+
     def test_a_value_that_does_not_fit_its_datatype_is_reported(self):
-        points = '[{"time": "2021-03-03T23:15:00Z", "ec20": "abc", "qualityColor": "red"}]'
-        with self.with_points(points), self.quiet_rdflib():
+        with self.with_points(point(ec20="abc", color="red")), self.quiet_rdflib():
             with self.assertRaises(HTTPException) as caught:
                 data_routes.query_series(EMBEDDED, VALUE)
             self.assertEqual(caught.exception.status_code, 400)
@@ -277,7 +289,7 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
         # Python (and rdflib) would read " 12 " and "1_000" as numbers, and "2021-03-03" as a time;
         # like SHACL, the data routes want the XSD form of the field's datatype
         for ec20, time in ((" 12 ", "2021-03-03T23:15:00Z"), ("1_000", "2021-03-03T23:15:00Z"), ("12", "2021-03-03")):
-            points = f'[{{"time": "{time}", "ec20": "{ec20}", "qualityColor": "red"}}]'
+            points = point(time=time, ec20=ec20, color="red")
             with self.subTest(points=points), self.with_points(points), self.quiet_rdflib():
                 with self.assertRaises(HTTPException) as caught:
                     data_routes.query_series(EMBEDDED, VALUE)
@@ -289,14 +301,14 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
                     self.assertIn("not an xsd:dateTime", caught.exception.detail)
 
     def test_embedded_values_are_read_from_their_literals(self):
-        # The rows of embedded points hold the lifted literals themselves, not their texts
+        # The rows of embedded points hold the literals themselves, not their texts
         graph, source = documents.load_source(EMBEDDED)
         rows = list(data_reading.data_rows(graph, source))
         self.assertIsInstance(rows[0][URIRef(VALUE)], Literal)
         self.assertEqual(rows[0][URIRef(VALUE)].datatype, URIRef("http://www.w3.org/2001/XMLSchema#double"))
         # rdflib reads them (Literal.toPython()): another time zone, an exponent
-        points = """[{"time": "2021-03-04T00:15:00+01:00", "ec20": "3.0E1", "qualityColor": "red"},
-                     {"time": "2021-03-03T23:30:00Z", "ec20": "+12.50", "qualityColor": "green"}]"""
+        points = (point(time="2021-03-04T00:15:00+01:00", ec20="3.0E1", color="red")
+                  + point(time="2021-03-03T23:30:00Z", ec20="+12.50"))
         with self.with_points(points):
             result = data_routes.query_series(EMBEDDED, VALUE)
         self.assertEqual(result["readings"], [{"time": "2021-03-03T23:15:00Z", "value": 30.0},
@@ -304,7 +316,7 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
         # A number in the XSD form that is no finite number, and a day that does not exist
         for ec20, time, message in (("INF", "2021-03-03T23:15:00Z", "non-finite"),
                                     ("1", "2021-02-30T23:15:00Z", "not an xsd:dateTime")):
-            points = f'[{{"time": "{time}", "ec20": "{ec20}", "qualityColor": "red"}}]'
+            points = point(time=time, ec20=ec20, color="red")
             with self.subTest(points=points), self.with_points(points), self.quiet_rdflib():
                 with self.assertRaises(HTTPException) as caught:
                     data_routes.query_series(EMBEDDED, VALUE)
@@ -312,9 +324,8 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
                 self.assertIn(message, caught.exception.detail)
 
     def test_embedded_filters_compare_the_texts_of_the_literals(self):
-        points = """[{"time": "2021-03-03T23:15:00Z", "ec20": "10.5", "qualityColor": "green"},
-                     {"time": "2021-03-03T23:30:00Z", "ec20": "20.5", "qualityColor": "red"},
-                     {"time": "2021-03-03T23:45:00Z", "ec20": "30.5"}]"""
+        points = (point(ec20="10.5") + point(time="2021-03-03T23:30:00Z", ec20="20.5", color="red")
+                  + point(time="2021-03-03T23:45:00Z", ec20="30.5", color=None))
         with self.with_points(points):
             self.assertEqual(data_routes.filter_columns(EMBEDDED, VALUE), [{"field": TEXT, "values": ["", "green", "red"]}])
             result = data_routes.query_series(EMBEDDED, VALUE, filter_field=TEXT, filter_value="red")
@@ -323,11 +334,11 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
             self.assertEqual(result["readings"], [{"time": "2021-03-03T23:45:00Z", "value": 30.5}])
 
     def test_a_point_without_any_field_value_is_skipped(self):
-        # Like the browser: a point with only keys that are no column name, or with only empty
-        # values, has nothing to show (SHACL's P6 still warns about its keys: test_embedded_shacl)
-        points = """[{"time": "2021-03-03T23:15:00Z", "ec20": "10.5", "qualityColor": "green"},
-                     {"extra": "x"},
-                     {"time": "", "ec20": "", "note": "y"}]"""
+        # Like the browser: a point with only properties that are no field, or with only empty
+        # values, has nothing to show (SHACL reports it: test_embedded_shacl)
+        points = (point(ec20="10.5")
+                  + '[] tss:pointOf ex:zevenaarshaven-source ; ex:extra "x" .\n'
+                  + point(time="", ec20="", color=None, more='ex:note "y"'))
         with self.with_points(points):
             self.assertEqual(data_routes.query_series(EMBEDDED, VALUE)["readings"], [{"time": "2021-03-03T23:15:00Z", "value": 10.5}])
             self.assertEqual(data_routes.get_first_rows(EMBEDDED)["rows"], [["2021-03-03T23:15:00Z", "10.5", "green"]])
@@ -335,16 +346,29 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
             self.assertEqual(sql_routes.run_sql(EMBEDDED, sql_routes.SqlQuery(sql=sql))["rows"], [[1]])
             self.assertEqual(rdf_routes.generate_rdf(EMBEDDED)["observations"], 2)
 
+    def test_a_point_that_can_not_be_a_row_is_reported(self):
+        # A node as a value, or two values for one field: no table cell can show it
+        for value, message in ((Turtle('[ ex:a "1" ]'), "A point has a node as its 'ec20' value, not a literal."),
+                               (Turtle('"1"^^xsd:double, "2"^^xsd:double'), "A point has more than one 'ec20' value.")):
+            with self.subTest(value=value), self.with_points(point(ec20=value)):
+                for route, arguments in ((data_routes.query_series, (EMBEDDED, VALUE)),
+                                         (data_routes.filter_columns, (EMBEDDED, VALUE)),
+                                         (data_routes.get_first_rows, (EMBEDDED,))):
+                    with self.assertRaises(HTTPException) as caught:
+                        route(*arguments)
+                    self.assertEqual(caught.exception.status_code, 400)
+                    self.assertIn(message, caught.exception.detail)
+                self.assertIn(message, sql_routes.sql_schema(EMBEDDED)["tables"][0]["error"])
+
     def test_a_time_typed_xsd_date_time_stamp_is_read_as_a_date_time(self):
         # xsd:dateTimeStamp is an xsd:dateTime that must have a timezone. rdflib's toPython()
         # leaves it unread, so the backend reads it as an xsd:dateTime.
-        graph = documents.load_graph(EMBEDDED)
-        source = graph.value(predicate=RDF.type, object=TSS.Source)
-        graph.set((URIRef(TIME), TSS.datatype, XSD.dateTimeStamp))
-        graph.set((source, TSS.points, Literal('[{"time": "2021-03-04T00:30:00+01:00", "ec20": "20.5", "qualityColor": "red"},'
-                                               ' {"time": "2021-03-03T23:15:00Z", "ec20": "10.5", "qualityColor": "green"}]',
-                                               datatype=RDF.JSON)))
-        with patch.object(documents, "load_graph", return_value=graph):
+        def stamp_time(graph):
+            graph.set((URIRef(TIME), TSS.datatype, XSD.dateTimeStamp))
+        stamp = {"time": "xsd:dateTimeStamp"}
+        points = (point(time="2021-03-04T00:30:00+01:00", ec20="20.5", color="red", types=stamp)
+                  + point(ec20="10.5", types=stamp))
+        with self.with_points(points, stamp_time):
             self.assertEqual(data_routes.query_series(EMBEDDED, VALUE)["readings"], [{"time": "2021-03-03T23:15:00Z", "value": 10.5},
                                                                                      {"time": "2021-03-03T23:30:00Z", "value": 20.5}])
             # In time order, each time with its text as written
@@ -358,9 +382,8 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
                              [["2021-03-03T23:15:00Z", 10.5], ["2021-03-03T23:30:00Z", 20.5]])
             self.assertEqual(rdf_routes.generate_rdf(EMBEDDED)["observations"], 4)
 
-            # Without a timezone it is no xsd:dateTimeStamp: refused everywhere
-            graph.set((source, TSS.points, Literal('[{"time": "2021-03-03T23:15:00", "ec20": "1", "qualityColor": "red"}]',
-                                                   datatype=RDF.JSON)))
+        # Without a timezone it is no xsd:dateTimeStamp: refused everywhere
+        with self.with_points(point(time="2021-03-03T23:15:00", ec20="1", color="red", types=stamp), stamp_time):
             for route in (lambda: data_routes.query_series(EMBEDDED, VALUE), lambda: rdf_routes.generate_rdf(EMBEDDED)):
                 with self.assertRaises(HTTPException) as caught:
                     route()
@@ -371,8 +394,7 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
     def test_points_without_a_valid_time_go_last(self):
         # rdflib alone reads "2021-03-03" (a date, typed xsd:dateTime) as midnight. Like /query, SHACL
         # and the browser, the order wants an xsd:dateTime in the XSD form, so that point goes last.
-        points = """[{"time": "2021-03-03", "ec20": "1", "qualityColor": "red"},
-                     {"time": "2021-03-03T23:15:00Z", "ec20": "2", "qualityColor": "green"}]"""
+        points = point(time="2021-03-03", ec20="1", color="red") + point(ec20="2")
         with self.with_points(points), self.quiet_rdflib():
             result = data_routes.get_first_rows(EMBEDDED)
         self.assertEqual([row[0] for row in result["rows"]], ["2021-03-03T23:15:00Z", "2021-03-03"])
@@ -390,17 +412,6 @@ class EmbeddedPointsAsRdf(unittest.TestCase):
         self.assertEqual([table["name"] for table in skipped], ["zevenaarshaven_source"])
         self.assertIn("Could not load table zevenaarshaven_source: ", skipped[0]["error"])
         self.assertIn("already exists", skipped[0]["error"])  # DuckDB's own words
-
-    def test_points_that_are_not_json_ld_are_reported(self):
-        with self.with_points("this is not JSON"):
-            for route, arguments in ((data_routes.query_series, (EMBEDDED, VALUE)), (data_routes.filter_columns, (EMBEDDED, VALUE)),
-                                     (data_routes.get_first_rows, (EMBEDDED,))):
-                with self.subTest(route=route.__name__):
-                    with self.assertRaises(HTTPException) as caught:
-                        route(*arguments)
-                    self.assertEqual(caught.exception.status_code, 400)
-                    self.assertIn("JSON-LD", caught.exception.detail)
-            self.assertIn("JSON-LD", sql_routes.sql_schema(EMBEDDED)["tables"][0]["error"])
 
 
 class CsvSqlTable(unittest.TestCase):

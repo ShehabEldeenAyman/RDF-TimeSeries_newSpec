@@ -7,7 +7,7 @@ The dashboard shows TSS2 metadata endpoints: the bundled Turtle files in `demo 7
 Each metadata endpoint describes one `tss:Source` with its columns as `tss:Field` nodes (column name, datatype, unit, observed property, ...).
 
 - `tss:embedded false`: the data is in an external file, `tss:dataFile`, read as `tss:format` says: `tss:CSV` (with `tss:delimiter`, default `,`; `tss:header`, default `true`; `tss:encoding`, default `utf-8`) or `tss:Parquet`.
-- `tss:embedded true`: the data is in `tss:points`, an `rdf:JSON` literal holding a JSON array of objects, one per point, keyed by the fields' `tss:columnName`. It is read as RDF (see [Embedded points](#embedded-points-tsspoints)).
+- `tss:embedded true`: the data is in the metadata itself: RDF nodes at the end of the document, each linked to the source with `tss:pointOf`, with one triple per value (see [Embedded points](#embedded-points-tsspointof)).
 
 The source's `tss:timeField` names the time field. Its time window includes `tss:from` and excludes `tss:until`. Every source states `tss:committedUntil`: the last time the source and its data were checked to be up to date (every write sets it to the time of the write; it is no bound of the window). There is no delimiter guessing. Terms are compared by their full IRI (`https://w3id.org/tss#CSV`), never by a prefixed name, so a document may use any prefixes.
 
@@ -20,7 +20,7 @@ The source's `tss:timeField` names the time field. Its time window includes `tss
 | Catalogue (`GET /api/catalog`) | Turtle (DCAT) | rdf-parse (`readCatalog` in `tss.js`) |
 | SHACL shapes (`/files/SHACL/*.ttl`) and validation reports | Turtle | pyshacl and rdflib; the browser parses the report with rdf-parse |
 | Generated observations | N-Triples download and Turtle preview, written by rdflib (bundled endpoints) or by n3 in a Web Worker (your own endpoints) | the browser parses the preview with rdf-parse |
-| Embedded points (`tss:points`) | an `rdf:JSON` literal inside the metadata | a JSON-LD parser (rdflib, rdf-parse) with a context made from the fields |
+| Embedded points (`tss:pointOf`) | RDF nodes inside the metadata | the same parse as the metadata (rdf-parse; rdflib with every literal's text kept, `parse_exact`) |
 | Data files (`tss:dataFile`) | CSV or Parquet: raw data, described by the RDF | as the `tss:format` IRI says: the backend (Python's csv module, DuckDB) for bundled endpoints; the browser (`src/browser/csvFile.js` and `dataReading.js` for CSV, DuckDB-WASM for Parquet and SQL) for your own |
 | Computed results and errors | JSON | `response.json()` |
 
@@ -30,14 +30,15 @@ JSON is used only for computed tabular results (rows, previews, filter values, r
 
 | Tab | What it shows | Where it comes from |
 |---|---|---|
-| Overview | The source and how to read its data (literals written as in Turtle), when the source's metadata was last edited (`tss:modifiedAt` on the `tss:Source`; for an older document that states it on itself, `<> tss:modifiedAt`), the fields table (role, datatype, unit, observed property, range, ...), the stored summaries of the fields, every other statement in the document, the number of embedded points, and the document as it was sent | The store; the point count from `rdf.points` (App.jsx reads the points once with `readPoints`, which calls `liftPoints`) |
+| Overview | The source and how to read its data (literals written as in Turtle), when the source's metadata was last edited (`tss:modifiedAt` on the `tss:Source`; for an older document that states it on itself, `<> tss:modifiedAt`), the fields table (role, datatype, unit, observed property, range, ...), the stored summaries of the fields, every other statement in the document, the number of embedded points, and the document as it was sent | The store; the point count from `rdf.points` (App.jsx reads the points once with `readPoints`, which calls `pointStore`) |
 | Series inspector | Pick a field: each of its properties, marked as stated on the field, on its source, or missing; its stored summary; the source's own statements; the Turtle of the field and its source; the first 10 rows of the data | The store. Rows: `GET /rows` for CSV and Parquet; for embedded points, `rdf.points` (read in the browser, no request) |
 | SHACL | Conformance with the default shapes (picked by the backend from `tss:embedded`) or uploaded shapes: conforms or not, counts per severity, one row per result, and the report as Turtle | The backend's report (Turtle), parsed in the browser; labels of focus nodes from the store |
 | RDF generation | Observations and triples per field, a preview of the first 200 observations, and a download of the whole graph | `POST /rdf` (counts and links, JSON); the preview fetched and parsed in the browser; field names from the store |
-| Files | External source: the first lines of `tss:dataFile` (Parquet as CSV text) and a download of the original file. Embedded source: the `tss:points` literal, the points read as RDF (a table, and the triples as Turtle), and a warning for undeclared keys. Both: the metadata document as it was sent | `GET /data` (JSON) for data files; the store and `rdf.points` for points |
+| Files | External source: the first lines of `tss:dataFile` (Parquet as CSV text) and a download of the original file. Embedded source: the points (a table, and their triples as Turtle, with their `tss:pointOf` links), and a warning for properties that are no field. Both: the metadata document as it was sent | `GET /data` (JSON) for data files; the store and `rdf.points` for points |
 | Query | Pick a field: time, value and column filters, summary, gaps, and hourly/daily aggregation for numeric fields; "Check the stored summary" puts the field's `tss:summary` next to the same numbers computed from the data now, marked same or different | `/filter-columns` and `/query` (JSON); time window, unit, datatype and the stored summary from the store |
 | SQL (DuckDB) | One data table with a column per field, plus the `source`, `fields` and `summaries` metadata tables (IRIs in full), example queries and a list of the tables | `/sql/tables` and `POST /sql` (JSON); what each column means, and the labels in the example names, from the store |
-| Add data | Only for a bundled endpoint whose source states `tss:embedded true` and `tss:mutable true`: a form with one input per field (the time first), the current window and number of points; after a submit, the SPARQL updates that ran, the SHACL verdict and report, and the new window and count (see [Adding a point](#adding-a-point-to-an-embedded-endpoint)) | The store (fields, labels, datatypes, window); `POST /points` (JSON, with the SHACL report as Turtle, parsed in the browser) |
+| Add data | Only when points may be appended (`tss:embedded true`, `tss:mutable true`, a Turtle document): a form with one input per field (the time first), the current window and number of points, and the Turtle statement it appends; after an append, the number of points before and after and how long the append took (ms). Under it, **Update the metadata** (see [Appending points](#appending-points-in-the-browser)) | The store (fields, labels, datatypes, window); the append runs in the browser, on a copy (no request) |
+| Append example | The same endpoints: the last lines of the document, and a pre-made new reading as an editable Turtle statement, appended in the browser; after an append, how long it took (ms). Under it, **Update the metadata**: recalculates the window, `tss:modifiedAt`, `tss:committedUntil` and the stored summaries, and shows how long each step took (ms) and every value that changed (see [Appending points](#appending-points-in-the-browser)) | The store and `rdf.points` (the newest point); no request |
 
 The `tss:dataFile` IRI is resolved against the document's IRI and shown as text. `data/` is not served to the browser (the factory data is NDA-derived), so for the bundled endpoints data previews and downloads go through the `/api` routes. Every tab asks for data through one object, `makeDataApi` in `frontend/src/dataApi.js`: for a bundled endpoint its methods call the routes above, for your own endpoint they compute the same JSON answers in the browser (next section). A tab is drawn the first time you open it and then kept (hidden), so its results stay, and nothing that needs the data starts before you open a tab that needs it.
 
@@ -80,7 +81,7 @@ No `/api` route is ever called for your endpoint. The only requests to the demo'
 | `observationsWorker.js` | `code/TSS2RDF/tss2rdf.py` (`generate`) |
 | `shacl.js`, `shaclWorker.js` | none: they run the server's own `shacl_report.py` and `tss2rdf.py` in Pyodide, with the server's own `SHACL/*_shapes.ttl` (all imported with `?raw`), so there is only one copy |
 
-(`liftPoints` in `src/tss.js` and `lift_points` in `tss2rdf.py` are such a pair too, see [Embedded points](#embedded-points-tsspoints).)
+(`pointStore` in `src/tss.js` and `point_graph` in `tss2rdf.py` are such a pair too, see [Embedded points](#embedded-points-tsspointof).)
 
 **The data file** (for `tss:embedded false`; embedded points need none), found by `frontend/src/browser/dataSource.js`:
 
@@ -108,36 +109,58 @@ DuckDB's extensions and Pyodide's packages do not come with `npm install`: run `
 
 A field may carry a `tss:summary` node with numbers computed from the data when the metadata was made: the window (`tss:from`, `tss:until`), `tss:missingValuePolicy`, `tss:count`, `tss:missing`, `tss:firstTime`, `tss:lastTime`, for numeric fields `tss:observedMinimum`, `tss:observedMaximum`, `tss:mean` and `tss:median`, and `prov:generatedAtTime`. Every attribute is optional. The source says when its metadata was last edited with `tss:modifiedAt` (on the `tss:Source`).
 
-The summaries are not refreshed by themselves (only the **Add data** tab recomputes them, when it adds a point: see [Adding a point](#adding-a-point-to-an-embedded-endpoint)), so the app can check them against the data:
+The summaries are not refreshed by themselves (appending a point leaves them as they are; only **Update the metadata** recalculates them, in the browser: see [Appending points](#appending-points-in-the-browser)), so the app can check them against the data:
 
 - The Query tab's "Check the stored summary" asks `/query` for the field's readings in the summary's window (no filters) and compares count, empty values, first and last time, and for numbers minimum, maximum, mean (to 3 decimals) and median.
 - The SQL box has a `summaries` table (one row per field with a summary; `source` has a `modified_at` column, the source's `tss:modifiedAt`) and three example queries: the stored summaries; one series' stored summary next to the same numbers computed with SQL; and "Is every stored summary still up to date?", which recomputes count, empty values and first/last time for every column in its summary's window.
 
-## Embedded points (`tss:points`)
+## Embedded points (`tss:pointOf`)
 
-The points are never read as plain JSON. Python (`lift_points` in `code/TSS2RDF/tss2rdf.py`, used by the backend, the converter and the SHACL command line) and JavaScript (`liftPoints` in `frontend/src/tss.js`) follow the same rule:
+The points of an embedded source are RDF in the metadata document itself, at its end: each point is a node of its own, linked to its source with `tss:pointOf`, and each value is a triple with the field's IRI as predicate and a literal typed with the field's `tss:datatype`:
 
-- The JSON-LD context is derived from the fields: each field of the source with a `tss:columnName` maps that key to `{"@id": <field IRI>, "@type": <its tss:datatype>}`. An `rdf:langString` field gets `"@language": <its tss:language>` instead of `"@type"`, and a field without `tss:datatype` only `"@id"`. The context also has `"@vocab": "urn:tss:unmapped:"`.
-- The literal's text is parsed by a JSON-LD parser (rdflib, rdf-parse) with that context given out of band. Each point becomes a blank node, each value a triple with the field's IRI as predicate and a typed literal. Blank nodes have no order, so points are put in order by their `tss:timeField` value.
-- Values should be JSON strings (`"ec20": "4797.72"`). `""`, `null` or a missing key means no value (no triple), like an empty CSV cell.
-- No key may start with `@` (`"@context"`, `"@id"`, also written `"@id"`): such points are refused before parsing (SHACL S6, 400 on the data routes, an error message in the browser).
-- A key that is no field's column name (an undeclared key) becomes a predicate under `urn:tss:unmapped:`. Tables and the converter ignore it; SHACL reports it as a warning (P6), and the Files tab counts it.
-- Both lifts keep the exact text of a JSON string: `"...Z"` stays `...Z`, and a wrong text such as `" 12 "` for an `xsd:double` stays as it is, so SHACL can report it (rdflib's literal normalisation is switched off during the lift). JSON numbers lose their text: rdflib gives `"4797.72"`, rdf-parse `"4.79772E3"`. A key that can't be an IRI (`"Some Key"`) is percent-encoded by Python and dropped by rdf-parse; only P6 sees the difference.
-- Known limit: JSON-LD skips array items that are not objects (`[ {...}, 42 ]`), so no check sees them.
+```turtle
+[] tss:pointOf ex:zevenaarshaven-tv-source ;
+    ex:zevenaarshaven-tv-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    ex:zevenaarshaven-tv-value-field "4797.72"^^xsd:double .
+```
 
-## Adding a point to an embedded endpoint
+- The points of a source are the nodes with `tss:pointOf <the source>`. Python (`point_graph` in `code/TSS2RDF/tss2rdf.py`, used by the backend, the converter and the SHACL command line) and JavaScript (`pointStore` in `frontend/src/tss.js`) take their triples, without the `tss:pointOf` link itself, as the points' values. Blank nodes have no order, so points are put in order by their `tss:timeField` value.
+- A missing value has no triple. An empty literal (`""`) means no value too, like an empty CSV cell.
+- A property of a point that is no field of the source is left out of the tables and the converter; SHACL reports it as a warning (P6), and the Files tab counts it. A node with values for the source's fields but without `tss:pointOf` to it is no point (SHACL S6).
+- Every literal keeps its text exactly as the document writes it: `"...Z"` stays `...Z`, and a wrong text such as `" 12 "` for an `xsd:double` stays as it is, so SHACL can report it. The browser's parser does that by itself; rdflib would rewrite such texts while it parses (`" 12 "` becomes `"12.0"`, `"yes"^^xsd:boolean` becomes `"false"`), so every Python reader of a metadata document parses it with `parse_exact` (`tss2rdf.py`): `rdflib.NORMALIZE_LITERALS` off during the parse, under `NORMALIZE_LOCK` (pyshacl's `validate()` switches it too).
+- A point that no table can show (a node as a value, or two values for one field) is refused by the data routes and the converter, with the reason.
+- The old way, a `tss:points` literal (JSON) on the source, is not read any more: the SHACL shapes report it (S12), and the Files tab says so.
 
-The **Add data** tab adds one point to the `tss:points` of a bundled endpoint, through `POST /api/endpoints/{id}/points` (`backend/points_routes.py`). It is the only route that changes a bundled file.
+## Appending points (in the browser)
 
-- **Which endpoints.** Only bundled endpoints whose `tss:Source` states `tss:embedded true` and `tss:mutable true`. `tss:mutable false` (or no `tss:mutable`) means the data never changes: the backend refuses (409), and the tab is not shown. An external source (CSV, Parquet) is refused too (400). Your own endpoints are never changed (their `api.addPoint` refuses).
-- **The form.** One input per field of the source that has a `tss:columnName`, the time field first, each with its label, column name and datatype: numeric fields get a number box, the others a text box. The time is typed as a value of the time field's datatype, such as the `xsd:dateTime` `2021-03-04T01:15:00Z` (a time without a timezone is read as UTC; the **now** button fills in the current UTC time). An empty input means no value: the point gets no key for it.
-- **Checks before anything changes.** Every value names a field of the source by its IRI (else 400); the time is a valid value of the time field's datatype (an `xsd:dateTimeStamp` needs a timezone, an `xsd:dateTime` does not); every value has the XSD form of its field's datatype (`abc` for an `xsd:double`: 400); no other point has the same `tss:key` (the time, compared as a moment, so `...Z` and `...+00:00` are the same): 409.
-- **The window.** `tss:from` becomes the earlier of the current `tss:from` and the earliest point; `tss:until` the later of the current `tss:until` and the newest point plus one second (`tss:until` is not in the window). So the new point always fits and the window never shrinks. A side the source does not state stays open. `tss:committedUntil` is not moved to the new point's time: like `tss:modifiedAt`, it becomes the time of the write.
-- **The summaries.** Every field that has a `tss:summary` gets it recomputed from the points in the new window: its `tss:from`/`tss:until` become the source's window, `prov:generatedAtTime` becomes now, and of `tss:count`, `tss:missing`, `tss:firstTime`, `tss:lastTime` and, for numeric fields, `tss:observedMinimum`, `tss:observedMaximum`, `tss:mean` (not rounded) and `tss:median`, only those it already states are recomputed; `tss:missingValuePolicy` is kept. The source's `tss:modifiedAt` and `tss:committedUntil` become now (UTC, `...Z`).
-- **SPARQL Update.** The file is parsed with rdflib with every literal's text kept exactly (`rdflib.NORMALIZE_LITERALS` off during the parse, under `NORMALIZE_LOCK`). The existing points are read as RDF (`lift_points`), the new point is added, and the new `tss:points` text is written: one JSON object per line, in time order, every value a JSON string with its text as it was. Then `graph.update` runs a `DELETE`/`INSERT` for `tss:points`, one for the source's `tss:from`, `tss:until`, `tss:modifiedAt` and `tss:committedUntil`, and one per summary; the values come with `initBindings`, so the SPARQL parser never rewrites them. The answer lists each update's text exactly as it ran, with its bindings (the `tss:points` literal shortened), and the tab shows them.
-- **SHACL is the gate.** The changed graph is validated with `SHACL/embedded_shapes.ttl` by `shacl_report.validation_report` (what the SHACL tab runs: P2 window, P3 key, P4 datatypes, P5 range, ...). Not conforming (a value above `tss:maximum`, say): 422 with the report, and nothing is written; the tab shows the violations and says that nothing was saved.
-- **Writing the file.** Conforming: the graph is written as Turtle by rdflib (`exact_turtle`) to a temporary file in the same folder, read back and compared with the validated graph (isomorphic), and then put in place of the file (`os.replace`, so a reader sees the old or the new file, never half of it). **The file is written again: its comments and layout are lost** (the triples stay; booleans and numbers are written in full, e.g. `"true"^^xsd:boolean`). One append runs at a time (a lock), so two at once both end up in the file. The tab then has App load the document again (`cache: 'no-store'`, as every bundled document is loaded), and every tab shows the new data.
-- **Known limits.** rdflib writes absolute IRIs only, so a document with relative IRIs (`<#value>`, `<../data/x.csv>`) would change when written back: the backend reads the document a second time with another base IRI, and when any IRI differs it refuses (400). Write such a document's IRIs in full first. Points with a key that is no field's `tss:columnName` (SHACL's P6 warning) are refused too, because writing the points again would lose that key.
+A point is one Turtle statement, so a mutable source gets a new reading by appending one statement after the last line of its document: nothing before it changes. Two tabs do that, for an endpoint whose source states `tss:embedded true` and `tss:mutable true`, with a source that has an IRI, in a Turtle (or N3) document (`canAppend` in `frontend/src/appendPoints.js`):
+
+- **Append example** (`AppendExample.jsx`) shows the last lines of the document and a pre-made reading, in a box you can change: one step after the newest point (the time between the two newest points, or 15 minutes; halfway to `tss:until` when that step would reach it), with the newest point's values. **Reset the example** brings it back.
+- **Add data** (`AddPointForm.jsx`) is a form with one input per field (the time first; the **now** button fills in the current UTC time). It shows the statement it will append while you type; an empty input gives no value.
+
+The statement uses the document's own prefixes (else full IRIs), and each value gets its field's datatype (an `rdf:langString` field its `tss:language` tag). **Append** adds the text, parses the whole document again (`appendText`) and refuses, with the reason, text that is no Turtle (with the line the appended text starts on), text that adds a second `tss:Source`, and text that adds no point of this source.
+
+**This is a demo: the file on the server never changes.** Appending runs in the browser only:
+
+- Appending to a bundled endpoint makes a copy in this tab: an endpoint of your own (`user-<n>`, see [Your own endpoints](#your-own-endpoints)), listed as "<label> (appended) (in this tab)", with the bundled document's IRI as its base IRI. App.jsx picks it, and every tab computes its answers in the browser (DuckDB-WASM, pyshacl in Pyodide, the converter in a Web Worker); no `/api` route is called for it. The bundled endpoint stays in the list, unchanged.
+- Appending to a copy, or to your own endpoint, changes that one in place.
+- A reload of the page forgets the copies (they are not stored anywhere), and **Remove** removes one.
+
+An append only adds lines, so `tss:modifiedAt`, `tss:committedUntil`, the window (`tss:from`, `tss:until`) and the stored summaries say what they said before: a point outside the window is a SHACL violation (P2), and the Query tab's "Check the stored summary" shows how the data moved on. The SHACL tab checks the appended points like any other.
+
+After an append, the tab says how long it took, in milliseconds: the text added after the last line, and the whole document read again and checked (`appendText` times itself with `performance.now()`).
+
+### Update the metadata
+
+Under both tabs, **Update the metadata** recalculates from the points what an append leaves as it was (`frontend/src/metadataUpdate.js`), with the rules the backend's "Add data" route used before demo 8, when it still wrote the file:
+
+- **The window.** `tss:until` becomes the newest point plus one second (`tss:until` is not in the window) when that is later; `tss:from` becomes the oldest point when that is earlier. The window never shrinks, and a side the source does not state stays open.
+- **`tss:modifiedAt` and `tss:committedUntil`** become now (UTC, to the second, `...Z`).
+- **The stored summaries.** Each `tss:summary` gets the source's new window, `prov:generatedAtTime` now, and of `tss:count`, `tss:missing`, `tss:firstTime`, `tss:lastTime` and, for numeric fields, `tss:observedMinimum`, `tss:observedMaximum`, `tss:mean` (not rounded) and `tss:median`, only those it already states are recomputed, with `tss:ExcludeEmptyValues` (a point without a value for the field counts as missing); `tss:missingValuePolicy` stays. The numbers come from the browser's ports of the backend's Python (`values.js`, `python.js`: Python's `sum()` and the text of `repr()`), so they are the numbers the Query tab computes: "Check the stored summary" says *up to date* afterwards. A time that is the same moment as the one stated (`...+00:00` and `...Z`) keeps its text.
+
+Those statements are not at the end of the document, so the whole document is written again as Turtle (`documentTurtle`): the same triples (checked by reading it back), with the document's prefixes, the summaries and other blank nodes nested as `[ ... ]`, and the points at the end, in time order, each one statement that starts with `tss:pointOf`. **The comments of the document are not kept.** Like an append, the update runs in the browser only: a bundled endpoint gets a copy, a copy is changed in place, and the file on the server never changes. More points can be appended to the updated document as before.
+
+The tab then shows how long it took, in milliseconds (`performance.now()`): the calculation (the window, `tss:modifiedAt` and `tss:committedUntil`; the stored summaries), writing the document and reading it back, and the total, followed by every value that changed (before and now).
 
 ## SHACL
 
@@ -146,25 +169,26 @@ The backend picks the default shapes from the source's `tss:embedded` (`default_
 | TSS declaration | Default shapes |
 |---|---|
 | `tss:embedded false` (a CSV or Parquet `tss:dataFile`) | `demo 7/SHACL/external_shapes.ttl` |
-| `tss:embedded true` (the readings in `tss:points`) | `demo 7/SHACL/embedded_shapes.ttl` |
+| `tss:embedded true` (the readings are nodes with `tss:pointOf`) | `demo 7/SHACL/embedded_shapes.ttl` |
 | missing or not a boolean | none: the tab asks for custom shapes |
 
 For your own endpoint the browser uses the same two files, built into the app (`?raw` imports in `frontend/src/browser/shaclWorker.js`), so checking it fetches no shapes: after editing a shapes file, build the frontend again (the dev server picks up the change by itself).
 
-`external_shapes.ttl` checks the metadata only (S1-S17, F1-F8), not the data file. `embedded_shapes.ttl` checks the metadata (S1-S12, S16-S17, F1-F8, and the F9 warning: some point has a value for the field) together with the lifted points. In both, S16 requires one `tss:modifiedAt` and S17 one `tss:committedUntil` (each an `xsd:dateTime`). The embedded file's SPARQL checks join each point with the field metadata:
+`external_shapes.ttl` checks the metadata only (S1-S17, F1-F8), not the data file. `embedded_shapes.ttl` checks the metadata (S1-S12, S16-S17, F1-F8, and the F9 warning: when the source has points, some point has a value for the field) together with its points, which are part of it: S6 wants every point (a node with `tss:pointOf`) to be a point of exactly one `tss:Source`, and every value of a field of the source to be in a point of it; S12 refuses the old `tss:points` literal. In both, S16 requires one `tss:modifiedAt` and S17 one `tss:committedUntil` (each an `xsd:dateTime`). The embedded file's SPARQL checks find the points by `tss:pointOf` and join each one with the field metadata:
 
 - P1: every point has a time (a value for the `tss:timeField`);
 - P2: every time is in `[tss:from, tss:until)` (a time without a timezone is read as UTC, as the readers do);
 - P3: no two points have the same `tss:key` value(s);
 - P4: every value is a literal with its field's `tss:datatype`, in a valid lexical form (`xsd:dateTime`, `xsd:dateTimeStamp` (with a timezone), `xsd:date` (a timezone is allowed), `xsd:double`, `xsd:float`, `xsd:decimal`, the integer types and `xsd:boolean` are checked);
 - P5: numbers are within the field's `tss:minimum` and `tss:maximum`;
-- P6 (warning): every key of a point is a field's `tss:columnName`.
+- P6 (warning): every property of a point is `tss:pointOf` or a field of its source;
+- P7: a point has at most one value for each field.
 
-When `tss:points` can't be read as JSON-LD at all, the backend adds an S6 violation to the report itself, because SHACL can't look inside the literal. Violations fail conformance; warnings are shown without failing it. Known limit: P3 compares RDF terms, so one instant written as `...Z` and as `...+00:00` is not a duplicate. The header of each shapes file lists every check.
+Violations fail conformance; warnings are shown without failing it. Known limit: P3 compares RDF terms, so one instant written as `...Z` and as `...+00:00` is not a duplicate. The header of each shapes file lists every check.
 
 To use your own shapes, choose a `.ttl` file (up to 5 MB). The browser parses it first, so a Turtle error shows at once, then sends the file as the request body with `Content-Type: text/turtle` (for your own endpoint, the shapes stay in the browser too: pyshacl runs in the tab). Uploaded shapes are used for that run only and are not saved. **Use default shapes** goes back to the bundled ones.
 
-The same validation, with the same lift and S6 result, runs from the command line (from `demo 7/`):
+The same validation runs from the command line (from `demo 7/`); as the points are part of the metadata, plain `pyshacl -s SHACL/embedded_shapes.ttl "<metadata file>.ttl"` checks them too:
 
 ```powershell
 python code/shacl_report/shacl_report.py "metadata endpoint/waterinfo_289441042_tss2_points_embedded.ttl" --out report.ttl
@@ -172,7 +196,7 @@ python code/shacl_report/shacl_report.py "metadata endpoint/waterinfo_289441042_
 
 ## RDF generation
 
-**Generate RDF** runs the shared converter `code/TSS2RDF/tss2rdf.py` (through `backend/rdf_generation.py`) on the CSV or Parquet `tss:dataFile`, or on the lifted points. Every row gives one `sosa:Observation` for each field with a `tss:observedProperty` (except the time field), with a link back to the source (`dcterms:source`, the source's IRI), the field's observed property, sensor, feature of interest and unit, the row's time as `sosa:resultTime` and the value as `sosa:hasSimpleResult`, typed with the field's `tss:datatype`. Only rows inside `[tss:from, tss:until)` are used; an empty value gives no observation; a value that does not fit its datatype stops generation.
+**Generate RDF** runs the shared converter `code/TSS2RDF/tss2rdf.py` (through `backend/rdf_generation.py`) on the CSV or Parquet `tss:dataFile`, or on the embedded points. Every row gives one `sosa:Observation` for each field with a `tss:observedProperty` (except the time field), with a link back to the source (`dcterms:source`, the source's IRI), the field's observed property, sensor, feature of interest and unit, the row's time as `sosa:resultTime` and the value as `sosa:hasSimpleResult`, typed with the field's `tss:datatype`. Only rows inside `[tss:from, tss:until)` are used; an empty value gives no observation; a value that does not fit its datatype stops generation.
 
 rdflib writes all of it: the whole graph as N-Triples (`observations.nt`, in batches of 10,000 observations, so memory stays bounded) and the first 200 observations as a Turtle preview. N-Triples is about twice the size of Turtle: the grootdok CSV gives 189,706 observations in 128 MB. No SHACL validation is done before generating. See `code/TSS2RDF/README.md` for all rules.
 
@@ -184,7 +208,7 @@ All routes are served on port 8001; Vite proxies `/api` and `/files` to it. The 
 
 The code, in `backend/` (the docstring of `main.py` lists every module with one line each):
 
-- `main.py` makes the FastAPI app (its `lifespan` empties the RDF export folder when the backend starts and stops) and adds the routes of the six `*_routes.py` modules (one `APIRouter` each): `catalog_routes.py`, `rdf_routes.py`, `shacl_routes.py`, `data_routes.py`, `sql_routes.py` and `points_routes.py`.
+- `main.py` makes the FastAPI app (its `lifespan` empties the RDF export folder when the backend starts and stops) and adds the routes of the five `*_routes.py` modules (one `APIRouter` each): `catalog_routes.py`, `rdf_routes.py`, `shacl_routes.py`, `data_routes.py` and `sql_routes.py`.
 - What the routes share: `paths.py` (folders, addresses and the RDF export folder), `files.py` (the data files in `demo 7/data/`), `documents.py` (reading the bundled RDF documents, always from `paths.METADATA_DIR`, with the browser's base IRI), `source_reading.py`, `value_reading.py` and `data_reading.py` (the source, one value, the data), `query_helpers.py` (the query form's summary, gaps and hourly/daily values) and `sql_box.py`.
 - `rdf_generation.py` is the only door to the shared code in `code/`: the converter (`TSS2RDF/tss2rdf.py`) and the SHACL command line (`shacl_report/shacl_report.py`), whose validation the SHACL tab runs.
 
@@ -212,11 +236,12 @@ JSON answers:
 | `GET /api/endpoints/{id}/query?field=<IRI>` | `resample`, `aggregate`, `filterValue`, `summary` (`count`, `empty`, `mean`, `median`, `min`, `max`, `firstTime`, `lastTime`), `gaps`, `totalRows`, `limitReached`, `readings`. Parameters: `start`, `end`, `min_value`, `max_value`, `filterField` (an IRI), `filter_value`, `resample` (`hour`, `day`), `aggregate` (`mean`, `min`, `max`), `limit` (up to 5000) |
 | `GET /api/endpoints/{id}/sql/tables` | The data table (`name`, `error`, `columns` as `{name, type, field}`), `metadataTables`, `examples` (`{title, sql, field}`), `maxRows`, `maxSeconds` |
 | `POST /api/endpoints/{id}/sql` | Body `{"sql": "SELECT ..."}`; answers `columns`, `rows`, `moreRows`, `seconds`, `skipped` |
-| `POST /api/endpoints/{id}/points` | Body `{"values": {"<field IRI>": "<text>", ...}}` (the time field's IRI is needed; `""` or a missing field means no value). 200: `conforms` (true), `points`, `from`, `until`, `modifiedAt`, `sparql`, `report` (Turtle); the file was written. 422: `conforms` (false), `report`, `sparql`; nothing was written. 400, 404, 409: `{"detail": ...}`, nothing was written. Each `sparql` item is `{update, bindings: [{variable, value}]}` (see [Adding a point](#adding-a-point-to-an-embedded-endpoint)) |
 
 Errors are always JSON `{"detail": "..."}` (FastAPI's own 422 has a list as `detail`); a crash answers 500 with the error. A `tss:dataFile` must be a file in `demo 7/data/`: a web address answers 400 (`... is a web address: this backend reads only the demo's own data files; user endpoints are read by the browser.`). Data cells must have the XSD form of their field's datatype, as SHACL's P4 wants (a time like `2021-03-03T23:45:00Z`, a number like `4797.72`): `/query` refuses other texts, and the SQL box skips a data table that has them, with the reason. SQL permits one reading statement, up to 1000 returned rows, about 5 MB of values and 30 seconds; external access is disabled after loading.
 
 Removed in demo 7, because the browser reads the RDF instead: `GET /api/`, `GET /api/endpoints`, `GET /api/endpoints/{id}`, `GET /api/endpoints/{id}/series/metadata`, `GET /api/endpoints/{id}/points`, and the JSON body and answers of the SHACL routes.
+
+Removed in demo 8, because points are appended in the browser now (to a copy, see [Appending points](#appending-points-in-the-browser)): `POST /api/endpoints/{id}/points`, which wrote a bundled file.
 
 Removed when the user's own endpoints moved to the browser: the online registry (`backend/online_endpoints.ttl`), `POST /api/endpoints/online`, `DELETE /api/endpoints/{id}` and `GET /api/endpoints/{id}/document` (they answer 404, or 405 when the built frontend is served), and every download by the backend (online documents and online data files).
 
@@ -252,12 +277,12 @@ Run the backend for yourself only, on your own computer. It is not safe to share
 
 The backend no longer fetches any address. It serves only the bundled endpoints, reads only files in `demo 7/data/` (after `..` is resolved), and answers 400 for a `tss:dataFile` that is a web address. The user's own endpoints (uploaded or online) are read by the browser; their documents and data never reach the backend. Uploaded shapes can't be JSON-LD, because a JSON-LD `@context` can name another address or a local file, which rdflib would download or read while parsing. For the same reason the browser refuses a JSON-LD document as your own endpoint. (The embedded points are still read as JSON-LD, but with a context made from the fields, and a key that starts with `@` is refused.)
 
-The only data the backend writes to disk is the generated RDF, in `demo7-rdf-exports` in the system's temporary folder (see [RDF generation](#rdf-generation)): one generation per endpoint, and the folder is emptied when the backend starts and stops. Besides that, it writes the file of a bundled endpoint with `tss:embedded true` and `tss:mutable true`, when a point is added to it (the **Add data** tab; anyone who can reach port 8001 can do that too). DuckDB runs in memory without a scratch folder (`temp_directory = ''`).
+The only data the backend writes to disk is the generated RDF, in `demo7-rdf-exports` in the system's temporary folder (see [RDF generation](#rdf-generation)): one generation per endpoint, and the folder is emptied when the backend starts and stops. It never changes a bundled file: appended points stay in the browser. DuckDB runs in memory without a scratch folder (`temp_directory = ''`).
 
 ## Verification
 
 ```powershell
-# From backend/ (135 tests, about a minute and a half)
+# From backend/ (126 tests, about two minutes)
 python -B -m unittest -v
 # From code/TSS2RDF/
 python -B -m unittest -v test_tss2rdf
@@ -266,7 +291,7 @@ npm run lint
 npm run build
 ```
 
-The backend tests cover the catalogue of bundled endpoints, `/files` and the removed online-endpoint routes (`test_rdf_documents`), SHACL with both shapes files (`test_embedded_shacl`, `test_external_shacl`), RDF generation and its export folder (one export per endpoint, tokens per endpoint, emptied at start and stop: `test_rdf_generation`), the file previews, both storage profiles with their query and SQL routes (`test_storage_profiles`), stored summaries and `modified_at` (`test_summaries`), adding a point to embedded points, on copies of the files in a folder of their own (`test_points`: the SPARQL Update, the window, the summaries, SHACL as the gate, the refusals, two appends at once; the real `metadata endpoint/` folder is checked to be unchanged), answers that stay the same when the metadata uses other prefixes or none (`test_prefix_independence`), field IRIs that are the same as the browser's for a document with relative IRIs (`test_base_iri`), and what the backend may not do: read a file outside `demo 7/data/` through `tss:dataFile` or `..`, download a `tss:dataFile` that is a web address, or read JSON-LD shapes (`test_untrusted_documents`). `npm run build` prints Vite's warning about a chunk over 500 kB (rdf-parse and its parsers); that is expected. These checks do not compare the browser's answers for your own endpoints with the backend's: after a change to a Python module that has a JavaScript twin (see the table in [Your own endpoints](#your-own-endpoints)), change the twin too and compare the two by hand, for example by adding a bundled endpoint's files as your own endpoint.
+The backend tests cover the catalogue of bundled endpoints, `/files` and the removed online-endpoint routes (`test_rdf_documents`), SHACL with both shapes files (`test_embedded_shacl`, whose cases append their own points to the embedded endpoint's file in memory, and `test_external_shacl`), RDF generation and its export folder (one export per endpoint, tokens per endpoint, emptied at start and stop: `test_rdf_generation`), the file previews, both storage profiles with their query and SQL routes (`test_storage_profiles`), stored summaries and `modified_at` (`test_summaries`), answers that stay the same when the metadata uses other prefixes or none (`test_prefix_independence`), field IRIs that are the same as the browser's for a document with relative IRIs (`test_base_iri`), and what the backend may not do: read a file outside `demo 7/data/` through `tss:dataFile` or `..`, download a `tss:dataFile` that is a web address, or read JSON-LD shapes (`test_untrusted_documents`). `npm run build` prints Vite's warning about a chunk over 500 kB (rdf-parse and its parsers); that is expected. These checks do not compare the browser's answers for your own endpoints with the backend's: after a change to a Python module that has a JavaScript twin (see the table in [Your own endpoints](#your-own-endpoints)), change the twin too and compare the two by hand, for example by adding a bundled endpoint's files as your own endpoint.
 
 ## ldfetch
 

@@ -225,7 +225,7 @@ def sql_schema(endpoint_id, request: Request = None):
             columns.append({"name": column_name, "type": sql_type})
         metadata_tables.append({"name": name, "explanation": metadata["explanation"], "columns": columns})
 
-    # Where the data is (tss:dataFile or tss:points) and its format, the browser reads from the RDF
+    # Where the data is (tss:dataFile or the embedded points) and its format, the browser reads from the RDF
     return {
         "tables": [{
             "name": table["name"],

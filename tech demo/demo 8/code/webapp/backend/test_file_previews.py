@@ -165,7 +165,7 @@ class FilePreviews(unittest.TestCase):
 
 class RealEndpoints(unittest.TestCase):
     """The Files tab on the demo's own metadata files: one embedded, two external.
-    (The browser shows embedded points from the tss:points literal in the RDF itself.)"""
+    (The browser shows embedded points from the RDF itself: the nodes with tss:pointOf.)"""
 
     def test_embedded_source_has_no_data_file(self):
         for route in (data_routes.get_data_file, data_routes.download_data_file):

@@ -1,5 +1,5 @@
 """Reading the data of a source: a CSV file, a Parquet file, or the points embedded in the Turtle
-(tss:points, read as RDF). data_rows gives every row; first_rows the first few, for the inspector.
+(RDF nodes with tss:pointOf). data_rows gives every row; first_rows the first few, for the inspector.
 Used by the data routes and the SQL routes."""
 from rdflib import Literal
 from datetime import datetime, timezone
@@ -10,7 +10,7 @@ import files
 import source_reading
 import value_reading
 import sql_box
-from rdf_generation import TSS, lift_points
+from rdf_generation import TSS, point_graph
 
 
 def point_time(row, time_field):
@@ -27,37 +27,33 @@ def point_time(row, time_field):
 
 
 def point_rows(graph, source):
-    """The points embedded in a source (tss:points), read as RDF, as rows in time order.
-    lift_points (code/TSS2RDF/tss2rdf.py, via rdf_generation.py) parses the rdf:JSON literal
-    as JSON-LD, with a context made from the source's fields, so each point becomes a blank
-    node, each key a field IRI, and each value a literal typed by the field's tss:datatype:
+    """The points embedded in a source, as rows in time order. A point is a node with tss:pointOf
+    <the source> (point_graph in code/TSS2RDF/tss2rdf.py, via rdf_generation.py), and each value
+    one triple, with the field's IRI as predicate and a literal typed by the field's tss:datatype:
         _:p1  ex:zevenaarshaven-ec20-value-field  "4797.72"^^xsd:double .
-    Each row is a dict: field (its IRI) -> its literal. Keys that are no field's tss:columnName
-    (predicates under urn:tss:unmapped:) are left out; the SHACL check warns about them.
-    Raises ValueError with the reason when the points can't be read."""
-    points = lift_points(graph, source["node"])
+    Each row is a dict: field (its IRI) -> its literal. Properties that are no field of the
+    source are left out; the SHACL check warns about them (P6).
+    Raises ValueError with the reason when a point can't be shown as a row."""
+    points = point_graph(graph, source["node"])
     fields = set()
     for field in source["fields"]:
         fields.add(field["node"])
 
     rows = []
     for point in points.subjects(unique=True):
-        # A value that is itself a JSON object becomes a node inside a point: that is no point
-        if (None, None, point) in points:
-            continue
         row = {}
         for predicate, value in points.predicate_objects(point):
             if predicate not in fields:
-                continue  # a key that is no field's column name (urn:tss:unmapped:...)
+                continue  # a property that is no field of the source (SHACL's P6 warns about it)
             if not isinstance(value, Literal):
-                raise ValueError(f"A point in tss:points has a JSON object as its "
-                                 f"{source_reading.column_name(graph, predicate)!r} value, not a value.")
+                raise ValueError(f"A point has a node as its "
+                                 f"{source_reading.column_name(graph, predicate)!r} value, not a literal.")
             if predicate in row:
-                raise ValueError(f"A point in tss:points has more than one {source_reading.column_name(graph, predicate)!r} value.")
+                raise ValueError(f"A point has more than one {source_reading.column_name(graph, predicate)!r} value.")
             row[predicate] = value
-        # A point with no value for any field (only keys that are no column name, or only empty
-        # values) has nothing to show: it is skipped, as the browser does (SHACL's P6 still warns
-        # about its keys)
+        # A point with no value for any field (only properties that are no field, or only empty
+        # values) has nothing to show: it is skipped, as the browser does (SHACL's P1 and P6 still
+        # report it)
         if len(row) == 0:
             continue
         rows.append(row)

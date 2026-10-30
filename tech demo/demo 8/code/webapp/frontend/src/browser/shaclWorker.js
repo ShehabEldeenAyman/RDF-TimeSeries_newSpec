@@ -12,7 +12,7 @@
 //   3. The server's own Python files are written into Pyodide's (in-memory) file system and
 //      imported: code/shacl_report/shacl_report.py and code/TSS2RDF/tss2rdf.py. So the browser
 //      runs exactly the validation of the server (validation_report, default_shapes,
-//      lift_points) and writes the report with the same exact_turtle.
+//      parse_exact) and writes the report with the same exact_turtle.
 //   4. The default shapes (SHACL/external_shapes.ttl and embedded_shapes.ttl) are part of the app
 //      too: both are imported below, so picking one of them by the metadata's tss:embedded
 //      fetches nothing.
@@ -62,7 +62,7 @@ from rdflib.namespace import DCTERMS, SH
 
 # The server's own code (the files written above)
 from shacl_report import shacl_report
-from TSS2RDF.tss2rdf import exact_turtle
+from TSS2RDF.tss2rdf import exact_turtle, parse_exact
 
 # Like the server: no long traceback for every value that does not fit its datatype
 # (like "abc"^^xsd:double), and no warnings for a boolean like "yes". The report lists them.
@@ -72,10 +72,11 @@ warnings.filterwarnings("ignore", message="Serializing weird numerical")
 
 
 def read_metadata(job):
-    """The metadata as an rdflib graph, read with its base IRI (like documents.parse_document)"""
+    """The metadata as an rdflib graph, read with its base IRI and every literal's text kept
+    (parse_exact), like documents.parse_document on the server"""
     graph = Graph()
     try:
-        graph.parse(data=job["metadataText"], format=job["metadataFormat"], publicID=job["baseIRI"])
+        parse_exact(graph, data=job["metadataText"], format=job["metadataFormat"], publicID=job["baseIRI"])
     except Exception as error:  # for example a typo in the Turtle
         raise ValueError(f"Could not read {job['baseIRI']}: {error}")
     return graph
@@ -118,7 +119,7 @@ def make_report(job_json):
 
     shapes = Graph()
     try:
-        shapes.parse(data=job["shapesText"], format=job["shapesFormat"], publicID=job["shapesBase"])
+        parse_exact(shapes, data=job["shapesText"], format=job["shapesFormat"], publicID=job["shapesBase"])
     except Exception as error:
         return json.dumps({"error": f"Could not read the shapes {job['shapesName']}: {error}"})
     if not has_shapes(shapes):

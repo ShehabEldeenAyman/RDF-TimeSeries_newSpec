@@ -1,6 +1,6 @@
 // dataReading.js: the rows of the source's data, the way the backend reads them: a CSV file, a
 // Parquet file (DuckDB reads it: db.parquetCells in duck.js) or the points embedded in the
-// metadata (tss:points, read as RDF). eachDataRow gives every row; firstDataRows the first few,
+// metadata (RDF nodes with tss:pointOf). eachDataRow gives every row; firstDataRows the first few,
 // for the series inspector.
 //
 // It is a port of code/webapp/backend/data_reading.py (data_rows, data_columns, first_rows,
@@ -8,7 +8,7 @@
 // Used by query.js (the data routes) and duck.js (the SQL table). Reading the data gives
 // Promises: async functions (see the note at the top of query.js).
 
-import { liftPoints, pointRows, TSS_CSV, TSS_PARQUET } from '../tss.js'
+import { pointStore, pointRows, TSS_CSV, TSS_PARQUET } from '../tss.js'
 import { compareCodePoints, messageText, pyRepr } from './python.js'
 import { literalTime, valueText } from './values.js'
 import { hasFormat } from './sourceReading.js'
@@ -62,13 +62,12 @@ export function csvHeader(source, firstCells) {
 }
 
 // The embedded points as rows in time order (data_reading.point_rows): each row is an object
-// field IRI -> its Literal. The points were lifted once by App.jsx (rdf.points, see readPoints
-// in tss.js); when they are not there, they are lifted here.
+// field IRI -> its Literal. The points were read once by App.jsx (rdf.points, see readPoints
+// in tss.js); when they are not there, they are read here.
 export async function pointRowsOf(data, source) {
   let points = data.points
   if (!points) {
-    const lifted = await liftPoints(data.store, source.node)
-    points = { rows: pointRows(lifted, data.store, source.node), error: null }
+    points = { rows: pointRows(pointStore(data.store, source.node), data.store, source.node), error: null }
   }
   if (points.error) throw new Error(points.error)
 
@@ -83,7 +82,7 @@ export async function pointRowsOf(data, source) {
       if (value.termType !== 'Literal') {
         const field = fields.get(iri)
         const name = field.columnName !== null ? field.columnName : messageText(field.node, data.prefixes)
-        throw new Error(`A point in tss:points has a JSON object as its ${pyRepr(name)} value, not a value.`)
+        throw new Error(`A point has a node as its ${pyRepr(name)} value, not a literal.`)
       }
       row[iri] = value
     }

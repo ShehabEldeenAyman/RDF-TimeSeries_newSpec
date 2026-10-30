@@ -16,7 +16,7 @@ import {
   RDFS_LABEL,
   RDFS_COMMENT,
   TSS_DATA_FILE,
-  TSS_POINTS,
+  TSS_POINT_OF,
   TSS_TIME_FIELD,
   TSS_KEY,
   TSS_DESCRIBES_FIELD,
@@ -32,7 +32,7 @@ const MARKERS = {
 // The series inspector: pick a field (one column of the source) and see everything the
 // metadata says about it, with, for every value, where it is stated: on the field, or on
 // its source. Everything is read from the parsed metadata document (rdf.store), and for
-// embedded data from the points App.jsx read as RDF (rdf.points).
+// embedded data from the points App.jsx read (rdf.points: the nodes with tss:pointOf).
 //   endpoint = { id, iri, label, ... }   rdf = { store, prefixes, text, url, source, points }
 //   api = the endpoint's data questions (dataApi.js): the first rows of the data come from it
 export function Inspector({ endpoint, rdf, api }) {
@@ -308,13 +308,20 @@ function addBindingLines(rdf, binding) {
 
   if (isEmbedded(store, source) === true) {
     binding.explanation =
-      'The values are embedded in the metadata (tss:points). They are read as JSON-LD, with a context ' +
-      'made from the fields, so this field is one key in each point.'
-    const line = makeLine(rdf, 'readings', TSS_POINTS, one(store, source, TSS_POINTS), 'source')
-    if (line.value) {
-      // rdf.points: the points App.jsx read as RDF, { store, rows, error } (see readPoints in tss.js)
-      line.value.text = pointsText(rdf.points)
-      line.value.hover = rdf.points.error ? rdf.points.error : 'tss:points (in the Turtle of the source below)'
+      'The values are embedded in the metadata: each point is an RDF node that links to the source with ' +
+      'tss:pointOf, so this field is one property (its IRI) of each point.'
+    // rdf.points: the points App.jsx read, { store, rows, error } (see readPoints in tss.js). The points
+    // link to the source (point tss:pointOf source), so the line is about the source, not the field.
+    const line = {
+      name: 'readings',
+      property: TSS_POINT_OF,
+      where: 'source',
+      value: {
+        text: pointsText(rdf.points),
+        hover: rdf.points.error ? rdf.points.error : 'the nodes with tss:pointOf this source (the Files tab shows them)',
+        link: null,
+        linkName: null,
+      },
     }
     binding.lines.unshift(line) // unshift: put it first
   } else {
@@ -347,7 +354,7 @@ function addBindingLines(rdf, binding) {
 // The text of the "readings" line of embedded data
 //   points: rdf.points, { store, rows, error }
 function pointsText(points) {
-  if (points.error) return "can't be read as JSON-LD"
+  if (points.error) return "can't be shown as rows"
   return points.rows.length === 1 ? '1 point' : points.rows.length + ' points'
 }
 

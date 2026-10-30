@@ -27,10 +27,10 @@ tss:observedProperty (except the time field). An observation says (here in Turtl
   of small graphs (see generate), and a preview of the first observations as Turtle.
 
 The data is a CSV file or a Parquet file (tss:dataFile, read as tss:format says), or the
-points embedded in the Turtle (tss:points). Embedded points are read as RDF: as JSON-LD,
-with a context made from the source's fields (see points_context and lift_points).
+points embedded in the Turtle: RDF nodes linked to their source with tss:pointOf, each
+value a triple with the field's IRI as predicate (see point_graph).
 This file runs on its own: it needs rdflib, and duckdb for Parquet. The dashboard imports
-(through code/webapp/backend/rdf_generation.py) generate, lift_points and points_context,
+(through code/webapp/backend/rdf_generation.py) generate, point_graph and parse_exact,
 TSS, LEXICAL_FORMS, TIME_DATATYPES and NORMALIZE_LOCK, and exact_turtle, column_index and
 embedded_mode, so both give the same RDF.
 """
@@ -57,26 +57,12 @@ TSS = Namespace("https://w3id.org/tss#")
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
 QUDT = Namespace("http://qudt.org/schema/qudt/")
 
-# Keys of embedded points that are no field's tss:columnName get a predicate in here.
-# (Without it, JSON-LD would drop them without a word.) The converter ignores them.
-UNMAPPED = Namespace("urn:tss:unmapped:")
-
-# A JSON key that starts with "@" (or with \u0040, the same character written as a JSON
-# escape), such as "@context" or "@id": a JSON-LD keyword. Embedded points may not have
-# them (see lift_points). The text between the quotes may hold escapes like \" (that is
-# the (\\.|[^"\\])* part), and the key is the text that is followed by a colon.
-KEYWORD_KEY = r'"(@|\\u0040)(\\.|[^"\\])*"[ \t\r\n]*:'
-
-# The characters an IRI can't hold (Turtle does not allow them between < and >):
-# the control characters, the space, and < > " { } | \ ^ `
-NOT_IN_IRI = r'[\x00-\x20<>"{}|\\^`]'
-
 # rdflib.NORMALIZE_LITERALS is one switch for the whole program. Two things write it:
-# lift_points (see there), and pyshacl, whose validate() turns it off and on again while it
-# reads the shapes. This lock makes them take turns: the lifts hold it here, and
+# parse_exact (see there), and pyshacl, whose validate() turns it off and on again while it
+# reads the shapes. This lock makes them take turns: parse_exact holds it, and
 # shacl_report.validation_report holds it around pyshacl's validate(); the web app's SHACL tab
 # runs that same function.
-# (The web app answers requests in threads, so a lift and a validation can run at the same time.)
+# (The web app answers requests in threads, so a parse and a validation can run at the same time.)
 NORMALIZE_LOCK = threading.Lock()
 
 # How a value must look for each datatype (XSD lexical forms). A datatype that is not
@@ -241,135 +227,54 @@ def read_source(graph):
 
 
 # ---------------------------------------------------------------------------
-# Embedded points as RDF
+# Reading RDF with every literal's text kept, and the embedded points
 # ---------------------------------------------------------------------------
 
-def points_context(graph, source):
-    """The JSON-LD context that turns the source's tss:points into RDF, made from its fields.
-    Each field's tss:columnName is a key: its values get the field's IRI as predicate and
-    the field's tss:datatype as datatype (tss:language instead, for rdf:langString).
-    Keys that are no column name get a predicate under urn:tss:unmapped:."""
-    context = {"@vocab": str(UNMAPPED)}
-    for field in sorted(graph.objects(source, TSS.hasField)):
-        column = single(graph, field, TSS.columnName)
-        if column is None:
-            continue  # a field without a column name has no key in the points
-        name = str(column)
-        if not isinstance(field, URIRef):
-            raise ValueError(f"The field with tss:columnName {name!r} is a blank node, but the values of "
-                             "embedded points need a field IRI as their predicate.")
-        if name in context:
-            raise ValueError(f"Two fields have tss:columnName {name!r}, so a point's {name!r} value "
-                             "could belong to either.")
-        if name.startswith("@"):
-            # In the context, a name that starts with @ would be read as a JSON-LD keyword
-            raise ValueError(f"The field {field} has tss:columnName {name!r}: a key that starts with @ "
-                             "is a JSON-LD keyword, so it can't be the key of a value in tss:points.")
-
-        term = {"@id": str(field)}
-        datatype = single(graph, field, TSS.datatype)
-        if datatype == RDF.langString:
-            language = single(graph, field, TSS.language)
-            if language is not None:
-                term["@language"] = str(language)
-        elif datatype is not None:
-            if not isinstance(datatype, URIRef):
-                raise ValueError(f"The tss:datatype of field {field} must be an IRI, not {datatype.n3()}.")
-            term["@type"] = str(datatype)
-        context[name] = term
-    return context
-
-
-def percent_encoded(found):
-    """%20 for a space, %3C for <, ...: a character written as % and its number (for re.sub)"""
-    return f"%{ord(found.group()):02X}"
-
-
-def lift_points(graph, source, base=None):
-    """The source's embedded points (tss:points) as an RDF graph: one blank node per point, and
-    one triple per value, with the field's IRI as predicate and the value as a typed literal.
-    The rdf:JSON literal is read by rdflib's JSON-LD parser, with points_context() as context.
-    A value written as a JSON string keeps its text exactly ("...Z" stays "...Z").
-    An empty value ("") gives no triple, just like null or a missing key.
-    base: the IRI of the metadata document, for relative IRIs (points rarely have any);
-    by default the source's IRI."""
-    values = list(graph.objects(source, TSS.points))
-    if len(values) == 0:
-        raise ValueError("The source has no tss:points, so there are no embedded points to read.")
-    if len(values) > 1:
-        raise ValueError(f"The source has {len(values)} tss:points values; only one is allowed.")
-    literal = values[0]
-    if not isinstance(literal, Literal):
-        raise ValueError(f"tss:points must be a literal typed rdf:JSON, not {literal.n3()}.")
-    if literal.datatype != RDF.JSON:
-        datatype = literal.datatype
-        if datatype is None:  # rdflib leaves out the datatype of plain and language-tagged strings
-            datatype = RDF.langString if literal.language is not None else XSD.string
-        raise ValueError(f"tss:points must be a literal typed rdf:JSON, but it is typed <{datatype}>.")
-
-    # Points hold values only. A JSON-LD keyword as a key would change how they are read:
-    # "@context" would replace the context made from the fields (and make the parser download
-    # the address it names), "@id" would turn a point into some other resource, and so on.
-    # So a key that starts with @ is refused. This is a safety check on the literal's text,
-    # not a way of reading the points: it only looks for such a key (KEYWORD_KEY), and the
-    # points themselves are read by the JSON-LD parser below.
-    text = str(literal)
-    if re.search(KEYWORD_KEY, text) is not None:
-        raise ValueError("tss:points has a JSON key that starts with @ (a JSON-LD keyword such as "
-                         "@context or @id). Points only hold values, keyed by the fields' tss:columnName.")
-
-    context = points_context(graph, source)
-    if base is None and isinstance(source, URIRef):
-        base = str(source)
-    points = Graph()
-    # rdflib normally rewrites the text of a literal while it makes it: "yes"^^xsd:boolean
-    # becomes "false", " 12 " and "1_000" as xsd:double become "12.0" and "1000.0", and
-    # "...Z" becomes "...+00:00". Then SHACL could not see the wrong texts, and the
-    # browser's lift (which keeps them) would disagree. With rdflib.NORMALIZE_LITERALS
-    # False, every literal keeps its text. rdflib reads this switch each time it makes a
-    # Literal (Literal.__new__ in rdflib/term.py), and the JSON-LD parser makes its
-    # literals with Literal(value, datatype=...), so the switch reaches it.
-    # The switch is one for the whole program: it is turned off only during this parse,
-    # and put back afterwards, also when the parse fails (finally). The lock (NORMALIZE_LOCK)
-    # makes the writers of the switch take turns: lifts that run at the same time, and
-    # pyshacl's validate(), which switches it off and on again itself. That only works when
-    # every caller of validate() holds the lock too, as the web app and shacl_report.py do.
-    # This is safe enough: the parse of the points takes milliseconds, and a literal that
-    # another thread makes in the meantime only keeps its text as it was written.
+def parse_exact(graph, **arguments):
+    """graph.parse(**arguments), but every literal keeps its text exactly as it is written.
+    rdflib normally rewrites the text of a literal while it makes it: "yes"^^xsd:boolean
+    becomes "false", " 12 " and "1_000" as xsd:double become "12.0" and "1000.0", and "...Z"
+    becomes "...+00:00". Then SHACL could not see the wrong texts of embedded points, and the
+    browser (whose parser keeps them) would show other texts. With rdflib.NORMALIZE_LITERALS
+    False, every literal keeps its text; rdflib still reads its value (toPython() gives a
+    datetime, a float, ...). The switch is one for the whole program: it is turned off only
+    during this parse, and put back afterwards, also when the parse fails (finally). The lock
+    (NORMALIZE_LOCK) makes the writers of the switch take turns: parses that run at the same
+    time, and pyshacl's validate(), which switches it off and on again itself. That only works
+    when every caller of validate() holds the lock too, as the web app and shacl_report.py do.
+    Gives the graph."""
     with NORMALIZE_LOCK:
         normalize = rdflib.NORMALIZE_LITERALS
         rdflib.NORMALIZE_LITERALS = False
         try:
-            # The literal's text, exactly as it is, read as JSON-LD with the context given separately
-            points.parse(data=text, format="json-ld", context=context, base=base)
-        except Exception as error:  # bad JSON, a JSON-LD error, ...: the parser says what is wrong
-            raise ValueError(f"tss:points could not be read as JSON-LD ({type(error).__name__}: {error}). "
-                             "It must be a JSON array of objects, keyed by the fields' tss:columnName.")
+            graph.parse(**arguments)
         finally:
             rdflib.NORMALIZE_LITERALS = normalize
+    return graph
 
-    for subject, predicate, value in list(points):
-        # "" means no value, like null or a missing key (and like an empty cell in a CSV file)
-        if isinstance(value, Literal) and str(value) == "":
-            points.remove((subject, predicate, value))
-            continue
-        # A key that is no field's column name, with a space in it (or another character an
-        # IRI can't hold), gives a predicate like <urn:tss:unmapped:Some Key>, which rdflib
-        # can't write as Turtle (the SHACL report, ...). Such characters are percent-encoded:
-        # <urn:tss:unmapped:Some%20Key>. (The field IRIs come from the Turtle, so they never change.)
-        if not isinstance(predicate, URIRef):
-            continue
-        valid = URIRef(re.sub(NOT_IN_IRI, percent_encoded, str(predicate)))
-        if valid != predicate:
-            points.remove((subject, predicate, value))
-            points.add((subject, valid, value))
+
+def point_graph(graph, source):
+    """The source's embedded points as an RDF graph: the nodes that link to it with tss:pointOf,
+    with their triples (but not the tss:pointOf link itself). Each value is one triple, with the
+    field's IRI as predicate and the value as a literal typed by the field's tss:datatype:
+        _:p1  ex:zevenaarshaven-ec20-value-field  "4797.72"^^xsd:double .
+    An empty value ("") gives no triple, like a missing value (and an empty cell in a CSV file).
+    The literals keep the text the metadata was parsed with (see parse_exact)."""
+    points = Graph()
+    for point in graph.subjects(TSS.pointOf, source, unique=True):
+        for predicate, value in graph.predicate_objects(point):
+            if predicate == TSS.pointOf:
+                continue
+            if isinstance(value, Literal) and str(value) == "":
+                continue
+            points.add((point, predicate, value))
     return points
 
 
 # rdflib writes literals of these datatypes in Turtle in a short form made from their value:
 # true, 12, 1.2e+01. For a text that is not in the XSD form, that gives broken Turtle ("yes"
 # as an xsd:boolean is written as yes) or another text (" 12 " as an xsd:double becomes 1.2e+01).
-# The lifted points keep such texts (see lift_points), so a graph with them (like a SHACL
+# The embedded points keep such texts (see parse_exact), so a graph with them (like a SHACL
 # report, which copies the wrong values) is written with ExactTurtleSerializer.
 SHORT_FORM_DATATYPES = (XSD.integer, XSD.boolean, XSD.double, XSD.decimal)
 
@@ -394,40 +299,32 @@ def exact_turtle(graph):
 
 def read_points(graph, source):
     """The embedded points as rows, like read_rows makes them, in time order.
-    The points are read as RDF first (lift_points), and each row is made from a point's triples."""
-    points = lift_points(graph, source["node"])
+    The points are taken from the graph first (point_graph), and each row is made from a point's triples."""
+    points = point_graph(graph, source["node"])
     columns = {}  # the column name of each field, for error messages
     for field in source["fields"]:
         columns[field["node"]] = field["column"]
     time_field = source["timeField"]
 
-    # A value can itself be a JSON object (a node inside a point); such nodes are not points
-    inner = set()
-    for value in points.objects():
-        if not isinstance(value, Literal):
-            inner.add(value)
-
     found = []
     for point in points.subjects(unique=True):
-        if point in inner:
-            continue
         row = {}
         for predicate, value in points.predicate_objects(point):
             if predicate not in columns:
-                continue  # a key that is no field's tss:columnName (urn:tss:unmapped:...)
+                continue  # a property that is no field of the source (SHACL's P6 warns about it)
             if not isinstance(value, Literal):
-                raise ValueError(f"A point in tss:points has a JSON object as its {columns[predicate]!r} value, not a value.")
+                raise ValueError(f"A point has a node as its {columns[predicate]!r} value, not a literal.")
             if predicate in row:
-                raise ValueError(f"A point in tss:points has more than one {columns[predicate]!r} value.")
+                raise ValueError(f"A point has more than one {columns[predicate]!r} value.")
             row[predicate] = str(value)  # the literal's lexical form, like the text of a CSV cell
-        # A point with no value for any field (only keys that are no column name, or only empty
-        # values) has nothing to convert: it is skipped, as the browser does (SHACL's P6 still
-        # warns about its keys)
+        # A point with no value for any field (only properties that are no field, or only empty
+        # values) has nothing to convert: it is skipped, as the browser does (SHACL's P1 and P6
+        # still report it)
         if len(row) == 0:
             continue
         # A point without a time, like a CSV row with an empty time cell, stops the conversion
         if time_field not in row:
-            raise ValueError(f"A point in tss:points has no time: no {source['timeColumn']!r} value (the tss:timeField).")
+            raise ValueError(f"A point has no time: no {source['timeColumn']!r} value (the tss:timeField).")
         time_literal, when = read_time(row[time_field], f"The point at {row[time_field]}", source["timeDatatype"])
         found.append((when, row))
 
@@ -767,7 +664,8 @@ def convert(tss_path, output_path="observations.nt"):
     tss = Path(tss_path).expanduser().resolve()
     if not tss.is_file():
         raise ValueError(f"TSS file not found: {tss}")
-    graph = Graph().parse(tss, format="turtle", publicID=tss.as_uri())
+    # Every literal's text kept, like the web app reads it (see parse_exact)
+    graph = parse_exact(Graph(), source=tss, format="turtle", publicID=tss.as_uri())
     source = read_source(graph)
 
     data_path = None
@@ -812,7 +710,7 @@ def main(argv=None):
                         help="The N-Triples file to write (default: observations.nt).")
     args = parser.parse_args(argv)
     # rdflib logs a long traceback for every value that does not fit its datatype (also for
-    # an empty "" number in tss:points); the converter says itself which value is wrong
+    # an empty "" number of an embedded point); the converter says itself which value is wrong
     logging.getLogger("rdflib.term").setLevel(logging.ERROR)
     try:
         stats = convert(args.tss, args.output)
@@ -821,7 +719,7 @@ def main(argv=None):
 
     # The statistics, for people to read
     if stats["data"] is None:
-        print("Data:         the points embedded in the TSS file (tss:points)")
+        print("Data:         the points embedded in the TSS file (tss:pointOf)")
     else:
         print(f"Data:         {stats['data']}")
     print(f"Output:       {stats['output']}")

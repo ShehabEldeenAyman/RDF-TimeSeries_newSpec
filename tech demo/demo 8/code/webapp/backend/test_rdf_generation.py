@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from rdflib import Graph, Literal, Namespace, RDF
+from rdflib import Graph, Namespace, RDF
 from rdflib.compare import isomorphic
 from rdflib.namespace import XSD
 
@@ -21,7 +21,7 @@ import main
 import paths
 import documents
 import rdf_routes
-from rdf_generation import TSS
+from test_embedded_shacl import embedded_graph, point
 
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
 EX = "https://example.org/ex#"  # the series are identified by their field's full IRI
@@ -182,10 +182,7 @@ class RdfGeneration(unittest.TestCase):
 
     def test_a_failed_generation_leaves_no_files(self):
         # A point with a value that is no xsd:double: the converter stops
-        graph = documents.load_graph(EMBEDDED)
-        source = graph.value(predicate=RDF.type, object=TSS.Source)
-        graph.set((source, TSS.points, Literal('[{"time": "2021-03-03T23:15:00Z", "ec20": "abc", "qualityColor": "red"}]',
-                                               datatype=RDF.JSON)))
+        graph = embedded_graph(point(ec20="abc", color="red"))
         with patch.object(documents, "load_graph", return_value=graph):
             response = self.client.post(f"/api/endpoints/{EMBEDDED}/rdf")
         self.assertEqual(response.status_code, 400, response.text)

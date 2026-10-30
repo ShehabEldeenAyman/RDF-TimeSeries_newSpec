@@ -119,8 +119,8 @@ export function Shacl({ rdf, api }) {
       )}
       {embedded === true && (
         <p>
-          Detected <strong>embedded points</strong>: <code>tss:embedded true</code>. The points are read as RDF too
-          (JSON-LD with a context made from the fields), so the shapes can check every value.
+          Detected <strong>embedded points</strong>: <code>tss:embedded true</code>. The points are RDF nodes in the
+          metadata itself (<code>tss:pointOf</code>), so the shapes check every value with it.
         </p>
       )}
       {!known && (

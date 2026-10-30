@@ -27,7 +27,6 @@ TSS = Namespace("https://w3id.org/tss#")
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
 QUDT = Namespace("http://qudt.org/schema/qudt/")
 EX = Namespace("https://example.org/ex#")
-UNMAPPED = Namespace("urn:tss:unmapped:")
 DEMO = Path(__file__).resolve().parents[2]
 EMBEDDED_DEMO = DEMO / "metadata endpoint" / "waterinfo_289441042_tss2_points_embedded.ttl"
 CSV_DEMO = DEMO / "metadata endpoint" / "waterinfo_289423042_tss2.ttl"
@@ -72,16 +71,19 @@ ROWS = [
     ["2025-01-01T01:00:00Z", "4", "green", "100"],     # until is not included
 ]
 
-# The same kind of rows as embedded points (JSON text, keyed by the fields' tss:columnName),
-# on purpose not in time order
-POINTS = """[
-    {"time": "2025-01-01T00:30:00Z", "value": "3.0E1", "flag": "red", "code": "200"},
-    {"time": "2024-12-31T23:45:00Z", "value": "1.5", "flag": "green"},
-    {"time": "2025-01-01T00:00:00Z", "value": "2.25", "flag": "green", "code": "100"}
-]"""
+# The same kind of rows as embedded points: RDF nodes linked to the source with tss:pointOf,
+# each value a triple with the field's IRI as predicate (on purpose not in time order)
+POINTS = """
+[] tss:pointOf ex:source ; ex:time "2025-01-01T00:30:00Z"^^xsd:dateTime ; ex:value "3.0E1"^^xsd:double ;
+    ex:flag "red" ; ex:code "200"^^xsd:integer .
+[] tss:pointOf ex:source ; ex:time "2024-12-31T23:45:00Z"^^xsd:dateTime ; ex:value "1.5"^^xsd:double ;
+    ex:flag "green" .
+[] tss:pointOf ex:source ; ex:time "2025-01-01T00:00:00Z"^^xsd:dateTime ; ex:value "2.25"^^xsd:double ;
+    ex:flag "green" ; ex:code "100"^^xsd:integer .
+"""
 
 
-def metadata_graph(embedded, data=None, file_format=None, header=True, points=None):
+def metadata_graph(embedded, data=None, file_format=None, header=True):
     """The test metadata as a graph, with where its data is set through rdflib"""
     graph = Graph().parse(data=METADATA, format="turtle")
     graph.set((EX.source, TSS.embedded, Literal(embedded)))
@@ -89,9 +91,18 @@ def metadata_graph(embedded, data=None, file_format=None, header=True, points=No
         graph.set((EX.source, TSS.dataFile, URIRef(data.as_uri())))
         graph.set((EX.source, TSS["format"], file_format))
         graph.set((EX.source, TSS.header, Literal(header)))
-    if points is not None:
-        graph.set((EX.source, TSS.points, points))
     return graph
+
+
+def embedded_text(points, more="", metadata=METADATA):
+    """The test metadata as the text of a TSS file with embedded points: tss:embedded true, then
+    more Turtle (e.g. another tss:datatype), then the points, appended like new readings"""
+    return metadata + "\nex:source tss:embedded true .\n" + more + points
+
+
+def exact_graph(text):
+    """A TSS file's text as a graph, every literal's text kept (as the converter reads its file)"""
+    return tss2rdf.parse_exact(Graph(), data=text, format="turtle")
 
 
 def observations_in(path):
@@ -421,24 +432,15 @@ class CsvAndParquet(TempFolder):
 
 
 class EmbeddedPoints(TempFolder):
-    def test_the_demo_context_is_made_from_its_fields(self):
-        graph = Graph().parse(EMBEDDED_DEMO, format="turtle")
-        context = tss2rdf.points_context(graph, EX["zevenaarshaven-source"])
-        self.assertEqual(context, {
-            "@vocab": "urn:tss:unmapped:",
-            "time": {"@id": str(EX["zevenaarshaven-time-field"]), "@type": str(XSD.dateTime)},
-            "ec20": {"@id": str(EX["zevenaarshaven-ec20-value-field"]), "@type": str(XSD.double)},
-            "qualityColor": {"@id": str(EX["zevenaarshaven-quality-color-value-field"]), "@type": str(XSD.string)},
-        })
-
-    def test_the_demo_points_lift_to_15_triples(self):
-        graph = Graph().parse(EMBEDDED_DEMO, format="turtle")
-        points = tss2rdf.lift_points(graph, EX["zevenaarshaven-source"])
-        self.assertEqual(len(points), 15)
+    def test_the_demo_points_are_15_triples(self):
+        graph = exact_graph(EMBEDDED_DEMO.read_text(encoding="utf-8"))
+        points = tss2rdf.point_graph(graph, EX["zevenaarshaven-source"])
+        self.assertEqual(len(points), 15)  # the tss:pointOf links are not in it
         subjects = set(points.subjects())
         self.assertEqual(len(subjects), 5)  # one blank node per point
         for subject in subjects:
             self.assertIsInstance(subject, BNode)
+            self.assertEqual(graph.value(subject, TSS.pointOf), EX["zevenaarshaven-source"])
 
         time_field = str(EX["zevenaarshaven-time-field"])
         ec20_field = str(EX["zevenaarshaven-ec20-value-field"])
@@ -455,7 +457,7 @@ class EmbeddedPoints(TempFolder):
         for subject, predicate, value in points:
             found.append((str(predicate), value.toPython(), value.datatype))
         self.assertEqual(sorted(found), sorted(expected))
-        # The times keep their text, as it is in the points
+        # The times keep their text, as it is in the file
         times = sorted(str(value) for value in points.objects(None, URIRef(time_field)))
         self.assertEqual(times[0], "2021-03-03T23:15:00Z")
 
@@ -474,12 +476,15 @@ class EmbeddedPoints(TempFolder):
                       '"2021-03-03T23:15:00Z"^^<http://www.w3.org/2001/XMLSchema#dateTime>', text)
         self.assertNotIn("+00:00", text)
 
-    def write_points(self, text, datatype=RDF.JSON):
-        return self.save(metadata_graph(True, points=Literal(text, datatype=datatype)))
+    def write_points(self, points, more="", metadata=METADATA):
+        """A TSS file with these points (Turtle statements, see embedded_text)"""
+        path = self.root / "metadata.ttl"
+        path.write_text(embedded_text(points, more, metadata), encoding="utf-8")
+        return path
 
     def test_points_become_observations_in_time_order(self):
         path = self.write_points(POINTS)
-        graph = Graph().parse(path, format="turtle")
+        graph = exact_graph(path.read_text(encoding="utf-8"))
         rows = list(tss2rdf.read_rows(graph, tss2rdf.read_source(graph), None))
         times = []
         for where, row in rows:
@@ -493,57 +498,54 @@ class EmbeddedPoints(TempFolder):
         self.assertEqual(values, [2.25, 30.0])
         self.assertEqual(len(graph), stats["triples"])
 
-    def test_a_key_that_is_no_column_name_gives_no_observation(self):
-        points = '[{"time": "2025-01-01T00:00:00Z", "value": "1.5", "Flag": "red"}]'
-        path = self.write_points(points)
-        lifted = tss2rdf.lift_points(Graph().parse(path, format="turtle"), EX.source)
-        self.assertEqual(list(lifted.objects(None, UNMAPPED.Flag)), [Literal("red")])
+    def test_appending_a_point_adds_its_observations(self):
+        # A new reading is one more statement at the end of the file
+        path = self.write_points(POINTS + '[] tss:pointOf ex:source ; ex:time "2025-01-01T00:45:00Z"^^xsd:dateTime ; '
+                                          'ex:value "5"^^xsd:double ; ex:flag "red" .\n')
+        self.assertEqual(per_field(tss2rdf.convert(path, self.output)), [(str(EX.value), 3), (str(EX.flag), 3)])
+
+    def test_only_the_points_of_the_source_are_read(self):
+        # A node of another source, and a node with values but no tss:pointOf, are no points of ex:source
+        points = POINTS + (
+            '[] tss:pointOf ex:other ; ex:time "2025-01-01T00:15:00Z"^^xsd:dateTime ; ex:value "7"^^xsd:double .\n'
+            '[] ex:time "2025-01-01T00:20:00Z"^^xsd:dateTime ; ex:value "8"^^xsd:double .\n')
+        graph = exact_graph(embedded_text(points))
+        self.assertEqual(len(set(tss2rdf.point_graph(graph, EX.source).subjects())), 3)
+        self.assertEqual(per_field(tss2rdf.convert(self.write_points(points), self.output)),
+                         [(str(EX.value), 2), (str(EX.flag), 2)])
+
+    def test_a_property_that_is_no_field_gives_no_observation(self):
+        path = self.write_points('[] tss:pointOf ex:source ; ex:time "2025-01-01T00:00:00Z"^^xsd:dateTime ; '
+                                 'ex:value "1.5"^^xsd:double ; ex:Flag "red" .\n')
+        points = tss2rdf.point_graph(exact_graph(path.read_text(encoding="utf-8")), EX.source)
+        self.assertEqual(list(points.objects(None, EX.Flag)), [Literal("red")])
         stats = tss2rdf.convert(path, self.output)
         self.assertEqual(per_field(stats), [(str(EX.value), 1), (str(EX.flag), 0)])
 
-    def test_empty_and_null_values_give_no_triple_and_no_observation(self):
-        points = """[{"time": "2025-01-01T00:00:00Z", "value": "", "flag": null},
-                     {"time": "2025-01-01T00:15:00Z", "value": "2", "flag": "green"}]"""
+    def test_empty_values_give_no_triple_and_no_observation(self):
+        points = ('[] tss:pointOf ex:source ; ex:time "2025-01-01T00:00:00Z"^^xsd:dateTime ; ex:value ""^^xsd:double .\n'
+                  '[] tss:pointOf ex:source ; ex:time "2025-01-01T00:15:00Z"^^xsd:dateTime ; ex:value "2"^^xsd:double ; '
+                  'ex:flag "green" .\n')
         path = self.write_points(points)
-        lifted = tss2rdf.lift_points(Graph().parse(path, format="turtle"), EX.source)
+        lifted = tss2rdf.point_graph(exact_graph(path.read_text(encoding="utf-8")), EX.source)
         self.assertEqual(len(lifted), 4)  # the first point has only its time
-        self.assertEqual(list(lifted.objects(None, EX.flag)), [Literal("green", datatype=XSD.string)])
+        self.assertEqual(list(lifted.objects(None, EX.flag)), [Literal("green")])
         stats = tss2rdf.convert(path, self.output)
         self.assertEqual(per_field(stats), [(str(EX.value), 1), (str(EX.flag), 1)])
 
-    def test_points_typed_as_a_string_are_refused(self):
-        path = self.write_points(POINTS, datatype=XSD.string)
-        with self.assertRaises(ValueError) as caught:
-            tss2rdf.convert(path, self.output)
-        self.assertIn("rdf:JSON", str(caught.exception))
-        self.assertIn(str(XSD.string), str(caught.exception))
-
-    def test_invalid_json_is_refused_with_the_parsers_message(self):
-        path = self.write_points('[{"time": }]')
-        with self.assertRaises(ValueError) as caught:
-            tss2rdf.convert(path, self.output)
-        self.assertIn("could not be read as JSON-LD", str(caught.exception))
-        self.assertIn("Expecting value", str(caught.exception))  # what the JSON parser says
-
-    def test_missing_or_double_points_are_refused(self):
-        graph = metadata_graph(True)
-        with self.assertRaises(ValueError) as caught:
-            tss2rdf.lift_points(graph, EX.source)
-        self.assertIn("no tss:points", str(caught.exception))
-        graph.add((EX.source, TSS.points, Literal("[]", datatype=RDF.JSON)))
-        graph.add((EX.source, TSS.points, Literal("[ ]", datatype=RDF.JSON)))
-        with self.assertRaises(ValueError) as caught:
-            tss2rdf.lift_points(graph, EX.source)
-        self.assertIn("2 tss:points values", str(caught.exception))
+    def test_a_source_without_points_gives_no_observations(self):
+        stats = tss2rdf.convert(self.write_points(""), self.output)
+        self.assertEqual(stats["observations"], 0)
 
     def test_a_point_without_any_field_value_is_skipped(self):
-        # Like the browser and the backend: a point with only keys that are no column name, or
-        # with only empty values, has nothing to convert (SHACL's P6 warns about its keys)
-        points = """[{"time": "2025-01-01T00:00:00Z", "value": "2.25", "flag": "green"},
-                     {"Flag": "red"},
-                     {"time": "", "value": "", "note": "x"}]"""
+        # Like the browser and the backend: a point with only properties that are no field, or
+        # with only empty values, has nothing to convert (SHACL reports it: P1, P6)
+        points = ('[] tss:pointOf ex:source ; ex:time "2025-01-01T00:00:00Z"^^xsd:dateTime ; ex:value "2.25"^^xsd:double ; '
+                  'ex:flag "green" .\n'
+                  '[] tss:pointOf ex:source ; ex:Flag "red" .\n'
+                  '[] tss:pointOf ex:source ; ex:time ""^^xsd:dateTime ; ex:value ""^^xsd:double ; ex:note "x" .\n')
         path = self.write_points(points)
-        graph = Graph().parse(path, format="turtle")
+        graph = exact_graph(path.read_text(encoding="utf-8"))
         self.assertEqual(len(list(tss2rdf.read_rows(graph, tss2rdf.read_source(graph), None))), 1)
         stats = tss2rdf.convert(path, self.output)
         self.assertEqual(per_field(stats), [(str(EX.value), 1), (str(EX.flag), 1)])
@@ -554,69 +556,75 @@ class EmbeddedPoints(TempFolder):
         self.assertIsNotNone(re.fullmatch(form, "2025-01-01T00:30:00Z"))
         self.assertIsNotNone(re.fullmatch(form, "2025-01-01T01:30:00.5+01:00"))
         self.assertIsNone(re.fullmatch(form, "2025-01-01T00:30:00"))
-        graph = metadata_graph(True, points=Literal(POINTS, datatype=RDF.JSON))
-        graph.set((EX.time, TSS.datatype, XSD.dateTimeStamp))
-        stats = tss2rdf.convert(self.save(graph), self.output)
+        # The time field's datatype in the test metadata becomes xsd:dateTimeStamp
+        stamp = METADATA.replace('tss:columnIndex 0 ; tss:datatype xsd:dateTime .', 'tss:columnIndex 0 ; tss:datatype xsd:dateTimeStamp .')
+        self.assertNotEqual(stamp, METADATA)
+        stats = tss2rdf.convert(self.write_points(POINTS, metadata=stamp), self.output)
         self.assertEqual(per_field(stats), [(str(EX.value), 2), (str(EX.flag), 2)])
         # Its observations' result times are xsd:dateTime, like those of any other time
         graph_out, found = observations_in(self.output)
         self.assertEqual({when.datatype for prop, when, value in found}, {XSD.dateTime})
         # A time without a timezone stops the conversion (as xsd:dateTime it would be UTC)
-        graph.set((EX.source, TSS.points, Literal('[{"time": "2025-01-01T00:30:00", "value": "1"}]', datatype=RDF.JSON)))
+        no_zone = '[] tss:pointOf ex:source ; ex:time "2025-01-01T00:30:00"^^xsd:dateTime ; ex:value "1"^^xsd:double .\n'
         with self.assertRaises(ValueError) as caught:
-            tss2rdf.convert(self.save(graph), self.output)
+            tss2rdf.convert(self.write_points(no_zone, metadata=stamp), self.output)
         self.assertIn("not an xsd:dateTimeStamp", str(caught.exception))
-        graph.set((EX.time, TSS.datatype, XSD.dateTime))
-        self.assertEqual(tss2rdf.convert(self.save(graph), self.output)["observations"], 1)
+        self.assertEqual(tss2rdf.convert(self.write_points(no_zone), self.output)["observations"], 1)
 
     def test_a_point_without_time_stops(self):
-        path = self.write_points('[{"time": "", "value": "1"}]')
+        path = self.write_points('[] tss:pointOf ex:source ; ex:time ""^^xsd:dateTime ; ex:value "1"^^xsd:double .\n')
         with self.assertRaises(ValueError) as caught:
             tss2rdf.convert(path, self.output)
         self.assertIn("no time", str(caught.exception))
 
     def test_a_value_that_does_not_fit_names_the_point(self):
-        path = self.write_points('[{"time": "2025-01-01T00:30:00Z", "value": "not a number"}]')
+        path = self.write_points('[] tss:pointOf ex:source ; ex:time "2025-01-01T00:30:00Z"^^xsd:dateTime ; '
+                                 'ex:value "not a number"^^xsd:double .\n')
         with self.assertRaises(ValueError) as caught:
             tss2rdf.convert(path, self.output)
         self.assertIn("point at 2025-01-01T00:30:00", str(caught.exception))
         self.assertIn("xsd:double", str(caught.exception))
 
-    def lift(self, text):
-        """The test metadata's points (the text of an rdf:JSON literal), lifted"""
-        graph = metadata_graph(True, points=Literal(text, datatype=RDF.JSON))
-        return tss2rdf.lift_points(graph, EX.source)
+    def test_a_node_or_two_values_for_a_field_stops(self):
+        for value, message in (('[ ex:a "1" ]', "A point has a node as its 'value' value, not a literal."),
+                               ('"1"^^xsd:double, "2"^^xsd:double', "A point has more than one 'value' value.")):
+            with self.subTest(value=value):
+                path = self.write_points('[] tss:pointOf ex:source ; ex:time "2025-01-01T00:30:00Z"^^xsd:dateTime ; '
+                                         f'ex:value {value} .\n')
+                with self.assertRaises(ValueError) as caught:
+                    tss2rdf.convert(path, self.output)
+                self.assertEqual(str(caught.exception), message)
 
     def test_values_keep_their_text_even_when_it_is_wrong(self):
         # rdflib would rewrite these while it parses: "12.0", "1000.0", "false", "...+00:00"
-        lifted = self.lift('[{"time": "2025-01-01T00:00:00Z", "value": " 12 ", "flag": "yes"},'
-                           ' {"time": "2025-01-01T00:15:00Z", "value": "1_000"}]')
+        boolean = 'ex:flag tss:datatype xsd:boolean .\n'
+        points = ('[] tss:pointOf ex:source ; ex:time "2025-01-01T00:00:00Z"^^xsd:dateTime ; ex:value " 12 "^^xsd:double ; '
+                  'ex:flag "yes"^^xsd:boolean .\n'
+                  '[] tss:pointOf ex:source ; ex:time "2025-01-01T00:15:00Z"^^xsd:dateTime ; ex:value "1_000"^^xsd:double .\n')
+        lifted = tss2rdf.point_graph(exact_graph(embedded_text(points, boolean)), EX.source)
         self.assertEqual(sorted(str(value) for value in lifted.objects(None, EX.value)), [" 12 ", "1_000"])
         self.assertEqual(sorted(str(value) for value in lifted.objects(None, EX.time)),
                          ["2025-01-01T00:00:00Z", "2025-01-01T00:15:00Z"])
-        # an xsd:boolean field: "yes" stays "yes" (rdflib's normalising would make it "false")
-        graph = metadata_graph(True, points=Literal('[{"time": "2025-01-01T00:00:00Z", "flag": "yes"}]', datatype=RDF.JSON))
-        graph.set((EX.flag, TSS.datatype, XSD.boolean))
-        self.assertEqual(list(tss2rdf.lift_points(graph, EX.source).objects(None, EX.flag)),
-                         [Literal("yes", datatype=XSD.boolean, normalize=False)])
-        # rdflib's switch is back on afterwards, also after points that can't be read
+        self.assertEqual(list(lifted.objects(None, EX.flag)), [Literal("yes", datatype=XSD.boolean, normalize=False)])
+        # rdflib's switch is back on afterwards, also after a document that can't be read
         self.assertTrue(rdflib.NORMALIZE_LITERALS)
-        with self.assertRaises(ValueError):
-            self.lift('[{"time": }]')
+        with self.assertRaises(Exception):
+            exact_graph(METADATA + "[] tss:pointOf ex:source ; ex:time .")
         self.assertTrue(rdflib.NORMALIZE_LITERALS)
         self.assertEqual(str(Literal("01", datatype=XSD.integer)), "1")  # other literals are normalised again
 
-    def test_lifts_at_the_same_time_put_the_switch_back(self):
+    def test_parses_at_the_same_time_put_the_switch_back(self):
         errors = []
+        text = embedded_text(POINTS)
 
-        def lift_many():
+        def parse_many():
             try:
                 for count in range(20):
-                    self.assertEqual(len(self.lift(POINTS)), 11)
+                    self.assertEqual(len(tss2rdf.point_graph(exact_graph(text), EX.source)), 11)
             except Exception as error:
                 errors.append(error)
 
-        threads = [threading.Thread(target=lift_many) for count in range(4)]
+        threads = [threading.Thread(target=parse_many) for count in range(4)]
         for thread in threads:
             thread.start()
         for thread in threads:
@@ -624,67 +632,16 @@ class EmbeddedPoints(TempFolder):
         self.assertEqual(errors, [])
         self.assertTrue(rdflib.NORMALIZE_LITERALS)
 
-    def test_json_ld_keywords_in_the_points_are_refused_before_they_are_read(self):
-        for text in ['[{"@context": "http://127.0.0.1:9/ctx.jsonld", "time": "2025-01-01T00:00:00Z"}]',
-                     '[{"@context": {"value": "urn:x:v"}, "time": "2025-01-01T00:00:00Z", "value": "1"}]',
-                     '[{"@id": "urn:x:p", "time": "2025-01-01T00:00:00Z"}]',
-                     '[{"time": "2025-01-01T00:00:00Z", "value": {"@value": "1", "@type": "urn:x:t"}}]',
-                     '[{"\\u0040id": "urn:x:p", "time": "2025-01-01T00:00:00Z"}]',  # \u0040 is @
-                     '[{"time": "2025-01-01T00:00:00Z", "@type"\n  : "urn:x:T"}]']:
-            with self.subTest(points=text):
-                graph = metadata_graph(True, points=Literal(text, datatype=RDF.JSON))
-                # The JSON-LD parser is never called, so nothing is downloaded
-                with patch.object(Graph, "parse", side_effect=AssertionError("the points were parsed")):
-                    with self.assertRaises(ValueError) as caught:
-                        tss2rdf.lift_points(graph, EX.source)
-                self.assertIn("starts with @", str(caught.exception))
-
-    def test_an_at_sign_inside_a_value_or_a_key_is_fine(self):
-        lifted = self.lift('[{"time": "2025-01-01T00:00:00Z", "flag": "@home", "a@b": "1"},'
-                           ' {"time": "2025-01-01T00:15:00Z", "flag": "say \\"@x\\": hi"}]')
-        self.assertEqual(sorted(str(value) for value in lifted.objects(None, EX.flag)), ["@home", 'say "@x": hi'])
-        self.assertEqual(list(lifted.objects(None, UNMAPPED["a@b"])), [Literal("1")])
-
-    def test_a_column_name_that_starts_with_an_at_sign_is_refused(self):
-        graph = metadata_graph(True, points=Literal("[]", datatype=RDF.JSON))
-        graph.set((EX.flag, TSS.columnName, Literal("@flag")))
-        with self.assertRaises(ValueError) as caught:
-            tss2rdf.points_context(graph, EX.source)
-        self.assertIn("JSON-LD keyword", str(caught.exception))
-
-    def test_keys_that_are_no_valid_iri_are_percent_encoded(self):
-        lifted = self.lift('[{"time": "2025-01-01T00:00:00Z", "Some Key": "x", "a<b>": "y", "http://x y": "z"}]')
-        predicates = set(lifted.predicates())
-        self.assertEqual(predicates, {EX.time, URIRef("urn:tss:unmapped:Some%20Key"),
-                                      URIRef("urn:tss:unmapped:a%3Cb%3E"), URIRef("http://x%20y")})
-        # ... so the graph can be written as Turtle (and parsed back)
-        again = Graph().parse(data=lifted.serialize(format="turtle"), format="turtle")
-        self.assertEqual(len(again), 4)
-
     def test_exact_turtle_keeps_every_text(self):
-        lifted = self.lift('[{"time": "2025-01-01T00:00:00Z", "value": " 12 ", "code": "1_0"}]')
+        points = ('[] tss:pointOf ex:source ; ex:time "2025-01-01T00:00:00Z"^^xsd:dateTime ; ex:value " 12 "^^xsd:double ; '
+                  'ex:code "1_0"^^xsd:integer .\n')
+        lifted = tss2rdf.point_graph(exact_graph(embedded_text(points)), EX.source)
         lifted.add((EX.x, EX.flag, Literal("yes", datatype=XSD.boolean, normalize=False)))
         text = tss2rdf.exact_turtle(lifted)
         for written in ['" 12 "^^xsd:double', '"1_0"^^xsd:integer', '"yes"^^xsd:boolean',
                         '"2025-01-01T00:00:00Z"^^xsd:dateTime']:
             self.assertIn(written, text)
         self.assertEqual(len(Graph().parse(data=text, format="turtle")), 4)  # valid Turtle
-
-    def test_language_and_plain_fields_in_the_context(self):
-        graph = metadata_graph(True, points=Literal('[{"time": "2025-01-01T00:00:00Z", "note": "hallo", "remark": "ok"}]',
-                                                    datatype=RDF.JSON))
-        graph.add((EX.source, TSS.hasField, EX.note))
-        graph.add((EX.note, TSS.columnName, Literal("note")))
-        graph.add((EX.note, TSS.datatype, RDF.langString))
-        graph.add((EX.note, TSS.language, Literal("nl")))
-        graph.add((EX.source, TSS.hasField, EX.remark))
-        graph.add((EX.remark, TSS.columnName, Literal("remark")))  # no tss:datatype
-        context = tss2rdf.points_context(graph, EX.source)
-        self.assertEqual(context["note"], {"@id": str(EX.note), "@language": "nl"})
-        self.assertEqual(context["remark"], {"@id": str(EX.remark)})
-        lifted = tss2rdf.lift_points(graph, EX.source)
-        self.assertEqual(list(lifted.objects(None, EX.note)), [Literal("hallo", lang="nl")])
-        self.assertEqual(list(lifted.objects(None, EX.remark)), [Literal("ok")])
 
 
 class DemoCsvFile(TempFolder):

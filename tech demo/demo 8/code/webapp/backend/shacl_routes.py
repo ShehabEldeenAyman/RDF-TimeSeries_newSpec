@@ -21,8 +21,8 @@ MAX_SHAPES_BYTES = 5_000_000
 
 def run_validation(graph, shapes, name):
     """Validate an endpoint's metadata (and its embedded points) with these shapes: the SHACL
-    command line's own code (shacl_report.validation_report: the metadata plus the points read as
-    RDF, pyshacl while holding NORMALIZE_LOCK, an S6 result when the points can't be read).
+    command line's own code (shacl_report.validation_report: the metadata, with its embedded
+    points in it, and pyshacl while holding NORMALIZE_LOCK).
     Gives the report graph and its sh:ValidationReport node.
     name: how the error message calls the shapes"""
     try:

@@ -37,7 +37,7 @@ export function SourceFiles({ endpoint, rdf, api, fieldIri }) {
   // The first rows of a CSV or Parquet file, from GET /rows: { columns: [field IRIs], rows: [[text or null]] }
   const [rows, setRows] = useState(null)
   const [rowsError, setRowsError] = useState(null)
-  // Are the readings embedded in the metadata (tss:points)? Then the rows come from rdf.points.
+  // Are the readings embedded in the metadata (nodes with tss:pointOf)? Then the rows come from rdf.points.
   const embedded = isEmbedded(rdf.store, rdf.source) === true
 
   // Every time another field is picked: write what the store says about the field, and
@@ -87,12 +87,12 @@ export function SourceFiles({ endpoint, rdf, api, fieldIri }) {
     }
   }, [api, embedded])
 
-  // Embedded points (tss:points): App.jsx read them as RDF once (rdf.points), so the rows are made
+  // Embedded points (tss:pointOf): App.jsx read them once (rdf.points), so the rows are made
   // here while drawing, by embeddedRows (see below). No state is needed for them: they are known
   // as soon as the tab is drawn.
   let shownRows = rows
   let shownError = rowsError
-  if (embedded && rdf.points.error) shownError = "The points can't be read as RDF: " + rdf.points.error
+  if (embedded && rdf.points.error) shownError = "The points can't be shown as rows: " + rdf.points.error
   if (embedded && !rdf.points.error) shownRows = embeddedRows(rdf.points.rows, rdf)
 
   return (
@@ -116,12 +116,11 @@ export function SourceFiles({ endpoint, rdf, api, fieldIri }) {
 // The first ROW_COUNT embedded points as table rows, in the same shape as the answer of
 // /rows: { columns: [field IRIs], rows: [[text or null, ...], ...] }
 //   pointRowList: the points as rows, in time order (rdf.points.rows: pointRows of the points
-//                 App.jsx read as RDF)
-//   columns: the fields with a tss:columnName (only those can be keys in the points), in
-//            the order of readFields. The other fields are shown as "not found".
-//   rows:    each cell is the text of the field's literal, or null when the point has no
-//            value. A value written as a JSON string keeps its text exactly; a JSON number is
-//            written by the parser (4797.72 -> 4.79772E3).
+//                 App.jsx read)
+//   columns: the fields with a tss:columnName, in the order of readFields, like the backend's
+//            /rows. The other fields are shown as "not found".
+//   rows:    each cell is the text of the field's literal, exactly as the document writes it,
+//            or null when the point has no value.
 function embeddedRows(pointRowList, rdf) {
   const columns = []
   for (const field of readFields(rdf.store, rdf.source)) {
@@ -214,8 +213,8 @@ function DataRows({ rdf, fieldIri, rows, error }) {
   if (isEmbedded(store, source) === true) {
     where = (
       <>
-        the points in <code>tss:points</code>, read as RDF here in the browser (JSON-LD with a context made from
-        the fields), in time order; each cell is the text of its literal (a JSON string keeps its text exactly)
+        the points (the nodes with <code>tss:pointOf</code>), read here in the browser from the metadata, in time
+        order; each cell is the text of its literal, exactly as the document writes it
       </>
     )
   }

@@ -2,7 +2,7 @@
 //
 // A user endpoint (a metadata file you uploaded, or one added by its web address) is read by the
 // browser only: neither the metadata nor the data ever goes to the demo's server. The readings are
-//   - embedded in the metadata (tss:embedded true, tss:points): App.jsx already read them as RDF
+//   - embedded in the metadata (tss:embedded true, nodes with tss:pointOf): App.jsx already read them
 //     (rdf.points), so no file is needed, or
 //   - in a data file (tss:dataFile). findDataFile finds that file's contents, as a Blob, in this order:
 //       1. a file you picked in a data tab ("Pick <name> from your computer", "Pick another file")

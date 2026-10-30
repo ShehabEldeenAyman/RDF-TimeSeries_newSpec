@@ -145,7 +145,7 @@ export function QueryForm({ rdf, api }) {
     <>
       <section className="card">
         <h3>Query a time series</h3>
-        {isEmbedded(store, source) === true && <p className="muted small">Reads the points embedded in the Turtle file (tss:points).</p>}
+        {isEmbedded(store, source) === true && <p className="muted small">Reads the points embedded in the Turtle file (tss:pointOf).</p>}
         <p className="muted small">
           Value ranges and mean/min/max apply to numeric fields (a numeric tss:datatype); text fields can be filtered on time and on other fields.
         </p>
@@ -366,7 +366,7 @@ function QueryResult({ result, request, rdf, inBrowser }) {
       )}
       <p className="muted small">
         {inBrowser ? 'How your browser answered' : 'How the backend answered'}: it{' '}
-        {embedded && <>read the points embedded in the Turtle file (<code>tss:points</code>) as RDF</>}
+        {embedded && <>read the points embedded in the Turtle file (the nodes with <code>tss:pointOf</code>)</>}
         {!embedded && isCsv && <>opened <code>{dataFileText}</code> (CSV{delimiter !== '' && <>, delimiter <code>{delimiter}</code></>})</>}
         {!embedded && !isCsv && <>opened <code>{dataFileText}</code> ({format ? shortName(format, rdf.prefixes) : 'no tss:format'})</>},
         took the time from column "{timeField ? fieldName(store, timeField, rdf.prefixes) : '(none)'}" (<code>tss:timeField</code>)

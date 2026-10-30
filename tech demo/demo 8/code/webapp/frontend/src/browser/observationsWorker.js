@@ -62,7 +62,7 @@ import {
   XSD,
   XSD_DATE_TIME,
   XSD_DATE_TIME_STAMP,
-  liftPoints,
+  pointStore,
   pointRows,
 } from '../tss.js'
 import { compareCodePoints, pyRepr, rdflibPrefixes, termTextWith } from './python.js'
@@ -290,26 +290,26 @@ function describe(store, resources) {
 
 // The embedded points as rows, in time order (tss2rdf.read_points)
 async function converterPoints(store, source) {
-  const lifted = await liftPoints(store, source.node)
+  const points = pointStore(store, source.node)
   const columns = new Map() // field IRI -> its column name, for error messages
   for (const field of source.fields) columns.set(field.node.value, field.column)
   const timeIri = source.timeField.value
   const found = []
-  for (const point of pointRows(lifted, store, source.node)) {
+  for (const point of pointRows(points, store, source.node)) {
     const row = {}
     for (const iri of Object.keys(point.values)) {
       if (!columns.has(iri)) continue
       const value = point.values[iri]
       if (value.termType !== 'Literal') {
         const name = columns.get(iri)
-        throw new Error(`A point in tss:points has a JSON object as its ${name === null ? 'None' : pyRepr(name)} value, not a value.`)
+        throw new Error(`A point has a node as its ${name === null ? 'None' : pyRepr(name)} value, not a literal.`)
       }
       row[iri] = value.value // the literal's text, like the text of a CSV cell
     }
     if (Object.keys(row).length === 0) continue
     // A point without a time, like a CSV row with an empty time cell, stops the conversion
     if (row[timeIri] === undefined) {
-      throw new Error(`A point in tss:points has no time: no ${pyRepr(source.timeColumn)} value (the tss:timeField).`)
+      throw new Error(`A point has no time: no ${pyRepr(source.timeColumn)} value (the tss:timeField).`)
     }
     const time = readTime(row[timeIri], `The point at ${row[timeIri]}`, source.timeDatatype)
     found.push({ moment: time.moment, row: row })

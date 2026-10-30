@@ -14,7 +14,7 @@
 // Usage:
 //   import { loadRdf } from './rdf.js'
 //   import { findSource, readFields, one, oneText, termText, TSS_FORMAT, TSS_CSV,
-//            TSS_COLUMN_NAME, liftPoints, pointRows, readPoints } from './tss.js'
+//            TSS_COLUMN_NAME, pointStore, pointRows, readPoints } from './tss.js'
 //
 //   loadRdf('/files/metadata%20endpoint/waterinfo_289423042_tss2.ttl').then((rdf) => {
 //     const source = findSource(rdf.store)                  // NamedNode ex:grootdok-source, or null
@@ -26,18 +26,16 @@
 //     console.log(termText(format, rdf.prefixes))           // 'tss:CSV' (for display only)
 //   })
 //
-//   // Embedded points (tss:embedded true): turn the tss:points JSON into RDF, then into rows
-//   liftPoints(rdf.store, source).then((points) => {
-//     const rows = pointRows(points, rdf.store, source)     // ordered by time
-//     // rows[0] = { point: BlankNode, time: Literal, values: { 'https://example.org/ex#...-field': Literal } }
-//   })
+//   // Embedded points (tss:embedded true): the nodes with tss:pointOf <source>, then as rows
+//   const points = pointStore(rdf.store, source)            // an N3 Store with the points' values
+//   const rows = pointRows(points, rdf.store, source)       // ordered by time
+//   // rows[0] = { point: BlankNode, time: Literal, values: { 'https://example.org/ex#...-field': Literal } }
 //
 //   // Both at once, as App.jsx does for every tab: null (not embedded), { store, rows, error: null },
 //   // or { store: null, rows: null, error: 'why the points can't be read' }
 //   readPoints(rdf.store, source).then((points) => console.log(points))
 
-import { DataFactory } from 'n3'
-import { parseRdf } from './rdf.js'
+import { DataFactory, Store } from 'n3'
 
 const { namedNode } = DataFactory
 
@@ -53,11 +51,6 @@ export const SH = 'http://www.w3.org/ns/shacl#'
 export const SOSA = 'http://www.w3.org/ns/sosa/'
 export const QUDT = 'http://qudt.org/schema/qudt/'
 export const PROV = 'http://www.w3.org/ns/prov#'
-
-// When a key in tss:points is not the tss:columnName of any field, the JSON-LD parser
-// gives it a predicate under this namespace (instead of dropping it without a word).
-// The tables ignore these triples; SHACL reports them as a warning.
-export const UNMAPPED = 'urn:tss:unmapped:'
 
 // Prefixes that shortName may use when the document itself does not declare them
 export const KNOWN_PREFIXES = {
@@ -76,7 +69,7 @@ export const KNOWN_PREFIXES = {
 // --- The terms the app uses (full IRIs, as strings) ---------------------------
 
 export const RDF_TYPE = RDF + 'type'               // rdf:type ("a" in Turtle)
-export const RDF_JSON = RDF + 'JSON'               // rdf:JSON, the datatype of tss:points
+export const RDF_JSON = RDF + 'JSON'               // rdf:JSON, the datatype of the old tss:points literal
 export const RDF_LANG_STRING = RDF + 'langString'  // rdf:langString, text with a language tag
 
 export const RDFS_LABEL = RDFS + 'label'
@@ -100,7 +93,8 @@ export const TSS_UNTIL = TSS + 'until'
 export const TSS_COMMITTED_UNTIL = TSS + 'committedUntil'  // the last time the source and its data were checked up to date
 // Where the readings are: in a data file, or embedded in the metadata
 export const TSS_EMBEDDED = TSS + 'embedded'
-export const TSS_POINTS = TSS + 'points'
+export const TSS_POINT_OF = TSS + 'pointOf'        // an embedded point -> its source
+export const TSS_POINTS = TSS + 'points'           // the old JSON literal of points (not read any more)
 export const TSS_DATA_FILE = TSS + 'dataFile'
 export const TSS_FORMAT = TSS + 'format'
 export const TSS_CSV = TSS + 'CSV'                 // tss:CSV (a value of tss:format)
@@ -431,7 +425,8 @@ const TURTLE_ESCAPES = {
 }
 
 // A text between double quotes, as Turtle writes it: say "hi" -> "say \"hi\""
-function quoteText(text) {
+// (appendPoints.js writes the values of new points with it)
+export function quoteText(text) {
   let quoted = '"'
   for (const character of text) {
     // Is this character one of the keys of TURTLE_ESCAPES? Then write its escape instead.
@@ -476,205 +471,54 @@ function readCatalogEntry(store, dataset) {
   }
 }
 
-// --- Embedded points: from the tss:points JSON to RDF -------------------------
-// tss:points is a JSON text, e.g. [ { "time": "2021-03-03T23:15:00Z", "ec20": "4797.72" } ].
-// We do not read that JSON ourselves. We tell a JSON-LD parser what each key means
-// (a "context", built from the fields), and the parser turns the JSON into triples:
-//   _:b0  ex:zevenaarshaven-time-field  "2021-03-03T23:15:00Z"^^xsd:dateTime .
-//   _:b0  ex:zevenaarshaven-ec20-value-field  "4797.72"^^xsd:double .
-// One blank node per point; the predicate is the field; the object is the typed value.
-// The backend does exactly the same in Python (tss2rdf.points_context and lift_points).
+// --- Embedded points: RDF nodes linked to their source with tss:pointOf ------------
+// The points are RDF in the metadata itself, at the end of the document. Each point is a node of
+// its own, linked to its source with tss:pointOf; each value is a triple with the field's IRI as
+// predicate and the value as a literal typed by the field's tss:datatype:
+//   [] tss:pointOf ex:zevenaarshaven-source ;
+//       ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+//       ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double .
+// Each point is one Turtle statement, so a mutable source gets a new point by appending one to
+// the end of the document (see appendPoints.js). The backend does the same in Python
+// (tss2rdf.point_graph).
 
-// The JSON-LD context for the points of a source: for each field with a column name,
-//   "<column name>": { "@id": "<field IRI>", "@type": "<its tss:datatype>" }
-// or, for rdf:langString, { "@id": ..., "@language": "<its tss:language>" }.
-// "@vocab" catches the keys no field knows (see UNMAPPED).
-//
-// Throws an Error when the fields can't give a clear context. These are the rules (and the
-// messages) of points_context in code/TSS2RDF/tss2rdf.py, so that the browser and the backend
-// refuse the same metadata, instead of the browser quietly picking one of two meanings:
-//   - a field with more than one tss:columnName or tss:datatype (or tss:language, for rdf:langString)
-//   - a field with a column name that is a blank node: a value needs a field IRI as its predicate
-//   - two fields with the same column name: a value with that key could belong to either
-//   - a column name that starts with @: JSON-LD would read that key as a keyword
-//   - a tss:datatype that is not an IRI
-// One more rule only the browser has: a field with the column name '__proto__' (see the end).
-export function pointsContext(store, source) {
-  // Object.create(null): an object without the usual JavaScript extras (no prototype), so
-  // every column name is a plain key, also '__proto__'. On a normal {} object,
-  // context['__proto__'] = ... would not add a key, and Object.hasOwn would not see it.
-  const context = Object.create(null)
-  context['@vocab'] = UNMAPPED
-  let protoField = null // the field with the column name '__proto__', if there is one
-  // In the same order as the Python lift (blank nodes first, then by IRI), so that when
-  // several fields are wrong, both lifts name the same problem
-  const fields = all(store, source, TSS_HAS_FIELD)
-  fields.sort(compareTerms)
-
-  for (const field of fields) {
-    const columnName = single(store, field, TSS_COLUMN_NAME)
-    // A field without a column name has no key in the points
-    if (columnName === null) continue
-    const name = columnName.value
-    if (field.termType !== 'NamedNode') {
-      throw new Error(`The field with tss:columnName '${name}' is a blank node, but the values of ` +
-        'embedded points need a field IRI as their predicate.')
+// The points of a source as a new N3 Store: every node with tss:pointOf <source>, with its
+// triples, but not the tss:pointOf link itself (so the store holds only the values, one triple
+// each). Values with empty text ("") are left out: like a missing value, or an empty CSV cell,
+// they mean "no value". The literals keep their text exactly as the document writes it.
+export function pointStore(store, source) {
+  const points = new Store()
+  for (const point of store.getSubjects(namedNode(TSS_POINT_OF), source, null)) {
+    for (const quad of store.getQuads(point, null, null, null)) {
+      if (quad.predicate.value === TSS_POINT_OF) continue
+      if (quad.object.termType === 'Literal' && quad.object.value === '') continue
+      points.addQuad(quad.subject, quad.predicate, quad.object)
     }
-    // Object.hasOwn: is this name already a key of the context (made from another field)?
-    if (Object.hasOwn(context, name)) {
-      throw new Error(`Two fields have tss:columnName '${name}', so a point's '${name}' value could belong to either.`)
-    }
-    if (name.startsWith('@')) {
-      throw new Error(`The field ${shortName(field)} has tss:columnName '${name}': a key that starts with @ ` +
-        'is a JSON-LD keyword, so it can\'t be the key of a value in tss:points.')
-    }
-
-    const definition = { '@id': field.value }
-    const datatype = single(store, field, TSS_DATATYPE)
-    if (datatype !== null && datatype.termType === 'NamedNode' && datatype.value === RDF_LANG_STRING) {
-      // Text with a language tag: the tag comes from tss:language (none given: no tag)
-      const language = single(store, field, TSS_LANGUAGE)
-      if (language !== null) definition['@language'] = language.value
-    } else if (datatype !== null) {
-      if (datatype.termType !== 'NamedNode') {
-        throw new Error(`The tss:datatype of field ${shortName(field)} must be an IRI, not ${termText(datatype)}.`)
-      }
-      definition['@type'] = datatype.value
-    }
-    context[name] = definition
-    if (name === '__proto__') protoField = field
   }
-
-  // '__proto__' is a special word in JavaScript. The JSON-LD parser copies the context into
-  // normal objects, where that key gets lost, so the parser would quietly treat the field's
-  // values as unknown keys (UNMAPPED) and the tables would show them as missing. We say so
-  // instead. (The Python lift reads such values. This check comes after the loop, so that
-  // metadata Python refuses, such as two fields named '__proto__', gets Python's message.)
-  if (protoField !== null) {
-    throw new Error(`The field ${shortName(protoField)} has tss:columnName '__proto__': the JSON-LD parser in ` +
-      'the browser can\'t use that key (a special word in JavaScript), so its values can\'t be read here. ' +
-      'The backend reads them.')
-  }
-  return context
+  return points
 }
 
-// The one object of (subject, predicate), or null when there is none. More than one is an
-// error: the metadata does not say which one is meant. (single() in tss2rdf.py does the same.)
-function single(store, subject, predicate) {
-  const objects = all(store, subject, predicate)
-  if (objects.length > 1) {
-    throw new Error(`${shortName(subject)} states ${objects.length} values for ${shortName(predicate)}; only one is allowed.`)
-  }
-  return objects.length === 1 ? objects[0] : null
+// The nodes that are points of a source (they link to it with tss:pointOf), e.g. to leave them
+// out of a list of other statements
+export function pointNodes(store, source) {
+  return store.getSubjects(namedNode(TSS_POINT_OF), source, null)
 }
 
-// Blank nodes before IRIs, then by their text (for the order of pointsContext)
-function compareTerms(a, b) {
-  const blankA = a.termType === 'BlankNode'
-  const blankB = b.termType === 'BlankNode'
-  if (blankA && !blankB) return -1
-  if (!blankA && blankB) return 1
-  if (a.value < b.value) return -1
-  if (a.value > b.value) return 1
-  return 0
-}
-
-// A JSON key that starts with "@" (or with \u0040, the same character written as a JSON
-// escape), such as "@context" or "@id": a JSON-LD keyword. The text between the quotes
-// may hold escapes like \" (the (\\.|[^"\\])* part); a key is followed by a colon.
-// The same pattern as KEYWORD_KEY in code/TSS2RDF/tss2rdf.py.
-const KEYWORD_KEY = /"(@|\\u0040)(\\.|[^"\\])*"[ \t\r\n]*:/
-
-// Turn the tss:points of a source into RDF. Gives a Promise of a new N3 Store with one
-// blank node per point. Values with empty text ("") are left out: like a missing key,
-// null, or an empty CSV cell, they mean "no value". A value written as a JSON string keeps
-// its text exactly, e.g. "...Z" or even a wrong " 12 " (the Python lift does the same).
-//
-// A key that is no field's column name gets a predicate under UNMAPPED, e.g. "extra" ->
-// urn:tss:unmapped:extra. When that is not a valid IRI (a key with a space, like "Some Key",
-// or with one of < > " { } | \ ` [ ]), the parser here leaves the key out without a word;
-// the Python lift keeps it, as urn:tss:unmapped:Some%20Key. Only the SHACL warning (made by
-// the backend) sees the difference: the tables here never show unmapped keys.
-//
-// The Promise is rejected, with the reason as its message, when the points can't be read:
-// not exactly one rdf:JSON literal, a key that starts with @, fields that can't give a
-// context (see pointsContext), text that is no JSON-LD, or a point with more than one value
-// for a field (see pointRows).
-export function liftPoints(store, source) {
-  const points = all(store, source, TSS_POINTS)
-  if (points.length !== 1) {
-    return Promise.reject(new Error(`${shortName(source)} has ${points.length} tss:points values; expected exactly one`))
-  }
-  const literal = points[0]
-  if (literal.termType !== 'Literal' || literal.datatype.value !== RDF_JSON) {
-    return Promise.reject(new Error(`The tss:points of ${shortName(source)} is not an rdf:JSON literal`))
-  }
-  // Points hold values only. A JSON-LD keyword as a key would change how they are read:
-  // "@context" would replace the context made from the fields (and make the parser
-  // download the address it names), "@id" would turn a point into another resource.
-  // So a key that starts with @ is refused. This is a safety check on the literal's text,
-  // not a way of reading the points: the JSON-LD parser below reads them.
-  if (KEYWORD_KEY.test(literal.value)) {
-    return Promise.reject(new Error(`The tss:points of ${shortName(source)} has a JSON key that starts with @ ` +
-      '(a JSON-LD keyword such as @context or @id). Points only hold values, keyed by the fields\' tss:columnName.'))
-  }
-
-  // The context made from the fields. pointsContext throws when the fields can't make one
-  // (e.g. two fields with the same column name); that becomes a rejected Promise, so the
-  // caller's .catch shows the reason, as for every other problem with the points.
-  let context
-  try {
-    context = pointsContext(store, source)
-  } catch (error) {
-    return Promise.reject(error)
-  }
-
-  // The context goes to the parser "out of band": next to the JSON, not inside it,
-  // so the points text is parsed exactly as it is written in the metadata.
-  const options = { '@comunica/actor-rdf-parse-jsonld:parserOptions': { context: context } }
-  // The base IRI: the source's IRI (the points only hold values, so nothing in them
-  // is normally resolved against it)
-  return parseRdf(literal.value, 'application/ld+json', source.value, options).then((parsed) => {
-    dropEmptyValues(parsed.store)
-    // pointRows runs here only as a check, and its rows are thrown away: it throws for a
-    // point that no table can show (two values for one field, e.g. a JSON array as a value),
-    // and a throw inside .then rejects the Promise. The Python converter and /query refuse
-    // such points too. So whoever lifts the points gets the reason through its .catch.
-    // The rows the tabs draw are made again by readPoints (called once by App.jsx): no tab
-    // calls pointRows while it draws, where a throw would stop the whole page.
-    pointRows(parsed.store, store, source)
-    return parsed.store
-  })
-}
-
-// Remove every triple whose object is a literal with empty text
-function dropEmptyValues(store) {
-  for (const quad of store.getQuads(null, null, null, null)) {
-    if (quad.object.termType === 'Literal' && quad.object.value === '') store.removeQuad(quad)
-  }
-}
-
-// The lifted points as table rows, ordered by time (blank nodes have no order):
+// The points as table rows, ordered by time (blank nodes have no order):
 //   [{ point: BlankNode, time: Literal or null, values: { '<field IRI>': Literal } }, ...]
-//   liftedStore: the store from liftPoints; store and source: the metadata, for its fields
-// Only the source's fields are read: keys no field knows (predicates under UNMAPPED, or a
-// key with a colon like "a:b", which JSON-LD reads as an IRI of its own) are left out.
-// Throws an Error when a point has more than one value for a field (a JSON array as a
-// value, e.g. "v": ["1.5", "9.9"]): a cell can show only one, and keeping the first would
-// hide the others. The Python lift says the same (read_points in tss2rdf.py, point_rows in
-// backend/data_reading.py). liftPoints already makes this check, so its store never makes
-// pointRows throw.
-export function pointRows(liftedStore, store, source) {
+//   points: the store from pointStore; store and source: the metadata, for its fields
+// Only the source's fields are read: other properties of a point are left out (SHACL's P6 warns
+// about them). Throws an Error when a point has more than one value for a field (e.g. two
+// literals after one predicate): a cell can show only one, and keeping the first would hide the
+// others. The Python side says the same (read_points in tss2rdf.py, point_rows in
+// backend/data_reading.py).
+export function pointRows(points, store, source) {
   const timeField = one(store, source, TSS_TIME_FIELD)
   const fieldIris = all(store, source, TSS_HAS_FIELD).map((field) => field.value)
   const rows = []
-  for (const point of liftedStore.getSubjects(null, null, null)) {
-    // A JSON object inside a point would be a blank node too, but it is not a point:
-    // points are the subjects that are not the object of another triple
-    if (liftedStore.countQuads(null, null, point, null) > 0) continue
-
+  for (const point of points.getSubjects(null, null, null)) {
     const values = {}
-    for (const quad of liftedStore.getQuads(point, null, null, null)) {
+    for (const quad of points.getQuads(point, null, null, null)) {
       const fieldIri = quad.predicate.value
       if (!fieldIris.includes(fieldIri)) continue
       // Object.hasOwn: does this point already have a value for this field?
@@ -682,11 +526,11 @@ export function pointRows(liftedStore, store, source) {
         // The field by its column name, or by its IRI when it has none (as column_name in backend/source_reading.py)
         let name = oneText(store, fieldIri, TSS_COLUMN_NAME)
         if (name === '') name = shortName(fieldIri)
-        throw new Error(`A point in tss:points has more than one '${name}' value.`)
+        throw new Error(`A point has more than one '${name}' value.`)
       }
       values[fieldIri] = quad.object
     }
-    // A point with only unknown keys has nothing to show
+    // A point with only properties that are no field has nothing to show
     if (Object.keys(values).length === 0) continue
 
     const time = timeField && values[timeField.value] ? values[timeField.value] : null
@@ -699,14 +543,17 @@ export function pointRows(liftedStore, store, source) {
 // The embedded points of a source, read once for every tab: App.jsx calls this while it loads
 // the document and puts the answer on the rdf prop (rdf.points). Gives a Promise of
 //   null                                the source is not embedded (tss:embedded is not true)
-//   { store, rows, error: null }        store: the points as RDF (liftPoints), rows: pointRows of it
-//   { store: null, rows: null, error }  the points can't be read: error says why (a text)
+//   { store, rows, error: null }        store: the points (pointStore), rows: pointRows of it
+//   { store: null, rows: null, error }  a point can't be shown as a row: error says why (a text)
 // The Promise is never rejected: the tabs show a problem with the points, not App.
 export function readPoints(store, source) {
   if (isEmbedded(store, source) !== true) return Promise.resolve(null)
-  return liftPoints(store, source)
-    .then((lifted) => ({ store: lifted, rows: pointRows(lifted, store, source), error: null }))
-    .catch((err) => ({ store: null, rows: null, error: err.message }))
+  try {
+    const points = pointStore(store, source)
+    return Promise.resolve({ store: points, rows: pointRows(points, store, source), error: null })
+  } catch (err) {
+    return Promise.resolve({ store: null, rows: null, error: err.message })
+  }
 }
 
 // Earlier times first; rows without a readable time last. A time field may also

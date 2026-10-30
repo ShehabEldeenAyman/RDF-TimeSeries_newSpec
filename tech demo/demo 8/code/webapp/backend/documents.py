@@ -11,7 +11,7 @@ from urllib.parse import quote, urljoin
 
 import paths
 import source_reading
-from rdf_generation import exact_turtle
+from rdf_generation import exact_turtle, parse_exact
 
 
 # The RDF syntaxes the backend reads in an uploaded shapes file (the SHACL tab), by media type
@@ -26,8 +26,7 @@ RDF_FORMATS = {
 # Not JSON-LD, although it is an RDF syntax too. A JSON-LD document can name its "@context" by a
 # web address, or by a file on this computer (file:///...), and rdflib's JSON-LD parser downloads
 # or reads it while it parses. So an uploaded shapes file could make the backend fetch any
-# address, or read a local file. (The embedded points are read as JSON-LD, but with a context
-# made here from the fields, and a point can't bring its own: see lift_points.)
+# address, or read a local file.
 JSON_LD = "application/ld+json"
 JSON_LD_REFUSED = ("JSON-LD is not read here: its @context can make the parser download other addresses "
                    "or read files on this computer. Use Turtle, N-Triples, N3 or RDF/XML instead.")
@@ -63,9 +62,8 @@ def rdf_media_type(content_type):
 def document_path(location):
     """Where a bundled document is on disk: location is "metadata endpoint/<id>.ttl" (see
     endpoint_file), and the file is <id>.ttl in paths.METADATA_DIR. Every reader goes through
-    paths.METADATA_DIR (not DEMO_DIR / location), and so does the "Add data" tab, which writes
-    the file (points_routes.py): a test or a script that points METADATA_DIR at a copy of the
-    folder reads and writes that copy only."""
+    paths.METADATA_DIR (not DEMO_DIR / location): a test or a script that points METADATA_DIR at
+    a copy of the folder reads that copy only."""
     return paths.METADATA_DIR / PurePosixPath(location).name
 
 
@@ -84,10 +82,13 @@ def read_document(location):
 
 def parse_document(text, media_type, base, name):
     """Parse an RDF document into an rdflib graph, with the parser for its media type.
+    Every literal keeps its text exactly as it is written (parse_exact), as in the browser: an
+    embedded point's "...Z" stays "...Z", and a wrong " 12 "^^xsd:double stays as it is, so SHACL
+    can report it.
     base: the document's IRI (its base IRI, see local_document_address). name: how error messages call the document"""
     graph = Graph()
     try:
-        graph.parse(data=text, format=RDF_FORMATS[media_type], publicID=base)
+        parse_exact(graph, data=text, format=RDF_FORMATS[media_type], publicID=base)
     except Exception as error:
         # For example a typo in the Turtle
         raise HTTPException(status_code=500, detail=f"Could not read {name}: {error}")

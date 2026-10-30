@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { API_URL } from './config'
 import { loadRdf } from './rdf'
-import { findSource, isEmbedded, isMutable, readCatalog, readPoints } from './tss'
+import { findSource, isEmbedded, readCatalog, readPoints } from './tss'
 import { makeDataApi } from './dataApi'
 import { forgetDataFiles } from './browser/dataSource'
 import { loadFromUrl, makeUserEndpoint, storedUrls, storeUrls } from './userEndpoints'
@@ -15,6 +15,9 @@ import { SqlBox } from './SqlBox'
 import { Shacl } from './Shacl'
 import { RdfGeneration } from './RdfGeneration'
 import { AddPointForm } from './AddPointForm'
+import { AppendExample } from './AppendExample'
+import { appendText, canAppend } from './appendPoints'
+import { updateMetadata } from './metadataUpdate'
 
 // App is the whole page. It does four things:
 //   1. load the catalogue of the bundled metadata endpoints (an RDF document) and list them in a
@@ -27,8 +30,8 @@ import { AddPointForm } from './AddPointForm'
 //   4. show the tabs; every tab reads what it needs from that store and that api
 
 // The tabs of the dashboard: an id we use in the code, the text on the button, and whether the
-// tab needs the data itself (not only the metadata). "Add data" is only there for some endpoints
-// (see canAddPoints).
+// tab needs the data itself (not only the metadata). "Add data" and "Append example" are only
+// there for some endpoints (see APPEND_TABS).
 const tabs = [
   { id: 'overview', label: 'Overview', data: false },
   { id: 'inspector', label: 'Series inspector', data: true },
@@ -38,7 +41,18 @@ const tabs = [
   { id: 'query', label: 'Query', data: true },
   { id: 'sql', label: 'SQL (DuckDB)', data: true },
   { id: 'add', label: 'Add data', data: false },
+  { id: 'append', label: 'Append example', data: false },
 ]
+
+// The tabs that append new points to the endpoint, and update its metadata afterwards (in this
+// browser tab, see appendPoints.js and metadataUpdate.js). They are there only when points may be
+// appended (canAppend: tss:embedded true, tss:mutable true, a Turtle document).
+const APPEND_TABS = ['add', 'append']
+
+// Is this tab there for this endpoint's document?
+function hasTab(tabId, rdf) {
+  return !APPEND_TABS.includes(tabId) || canAppend(rdf)
+}
 
 // The catalogue: the list of the bundled metadata endpoints, itself an RDF document (DCAT).
 // The backend makes it from the files in "metadata endpoint/".
@@ -61,13 +75,6 @@ function needsDataFile(tabId, endpoint, rdf) {
   return endpoint.user === true && tab.data && isEmbedded(rdf.store, rdf.source) !== true
 }
 
-// Can points be added to this endpoint (the "Add data" tab)? Only to a bundled endpoint (the
-// backend writes its file; your own endpoints are never changed) whose source says
-// tss:embedded true (the points are in the metadata) and tss:mutable true (its data may change).
-function canAddPoints(endpoint, rdf) {
-  return endpoint.user !== true && isEmbedded(rdf.store, rdf.source) === true && isMutable(rdf.store, rdf.source) === true
-}
-
 function App() {
   const [endpoints, setEndpoints] = useState(null)       // the catalogue, as a list for the drop down
   const [userEndpoints, setUserEndpoints] = useState([]) // your own endpoints, in this tab (see userEndpoints.js)
@@ -78,11 +85,10 @@ function App() {
   const [pickedFiles, setPickedFiles] = useState({})     // endpoint id -> the data file picked in a data tab:
                                                          // { file, anyway } (see handlePickedFile)
   const [error, setError] = useState(null)
-  // The "Add data" tab saved a point: the endpoint's document is loaded again (reloadDocument).
-  // reloads counts those loads (the document is loaded when it changes); lastAdded is the answer
-  // of the save, for the tab to show after it is drawn again: { endpointId, answer }, or null.
-  const [reloads, setReloads] = useState(0)
-  const [lastAdded, setLastAdded] = useState(null)
+  // The "Add data" or "Append example" tab appended points or updated the metadata: the answer of
+  // the last change, for the tab to show after it is drawn again for the new document:
+  // { endpointId, answer }, or null (see takeDocument)
+  const [lastChange, setLastChange] = useState(null)
 
   // Your endpoints added by web address before a reload of this tab (sessionStorage), read once
   // when the page opens. They are added again, one by one: restoring is true until then.
@@ -166,9 +172,8 @@ function App() {
     storeUrls(urls)
   }, [userEndpoints, restoring])
 
-  // Every time another endpoint is picked, or its document must be loaded again (reloads, after the
-  // "Add data" tab saved a point): load its metadata document and parse it. Until the new one
-  // arrives, the tabs keep showing the old one.
+  // Every time another endpoint is picked: load its metadata document and parse it. Until the new
+  // one arrives, the tabs keep showing the old one.
   useEffect(() => {
     if (selected === null) return
 
@@ -181,10 +186,9 @@ function App() {
     //   downloadUrl: where the browser fetches the document
     //   iri:         the document's own IRI. Relative IRIs in it, like <../data/x.csv>, are
     //                resolved against it, so they mean the same as for the document's author.
-    //   cache: 'no-store': always ask the server, never the browser's cache. The "Add data" tab
-    //                can change a bundled document, and an old copy kept by the browser would
-    //                show the data of before (also when you come back to the endpoint later).
-    // Your own endpoint: the browser already read the document when it was added.
+    //   cache: 'no-store': always ask the server, never the browser's cache, so a bundled file
+    //                that was edited on disk is shown as it is now.
+    // Your own endpoint (or a copy with appended points): the browser already read the document.
     let loading
     if (selected.user) loading = Promise.resolve(selected.document)
     else loading = loadRdf(selected.downloadUrl, selected.iri, { cache: 'no-store' })
@@ -198,7 +202,7 @@ function App() {
           setError(`${selected.iri} has no tss:Source, or more than one. This app needs exactly one.`)
           return
         }
-        // The embedded points (tss:points) are read as RDF once, here, for every tab
+        // The embedded points (the nodes with tss:pointOf) are read once, here, for every tab
         // (see readPoints in tss.js). Its Promise is never rejected: a problem with the
         // points is part of the answer, and the tabs show it.
         return readPoints(loaded.store, source).then((points) => {
@@ -209,9 +213,10 @@ function App() {
             prefixes: loaded.prefixes, // the document's @prefix lines, to show IRIs short (tss:CSV)
             text: loaded.text,         // the document as text, exactly as it was sent (or uploaded)
             url: loaded.url,           // where it was fetched from (null for an upload)
+            contentType: loaded.contentType, // its syntax, e.g. 'text/turtle'
             source: source,            // the tss:Source (a NamedNode)
-            points: points,            // the embedded points read as RDF: null when the source is not
-                                       // embedded, else { store, rows, error } (see readPoints)
+            points: points,            // the embedded points (the nodes with tss:pointOf): null when the
+                                       // source is not embedded, else { store, rows, error } (see readPoints)
           })
         })
       })
@@ -222,7 +227,7 @@ function App() {
     return () => {
       ignore = true
     }
-  }, [selected, reloads])
+  }, [selected])
 
   // The api of the picked endpoint (see dataApi.js): made again when the endpoint, its document
   // or the data file picked for it changes. useMemo keeps the same object between redraws, so the
@@ -241,19 +246,23 @@ function App() {
     return () => api.close()
   }, [api])
 
-  // Pick an endpoint: an entry of endpoints or userEndpoints, or null for none
-  function selectEndpoint(endpoint) {
+  // Pick an endpoint: an entry of endpoints or userEndpoints, or null for none.
+  //   change: only after an append or an update (see takeDocument): its answer, for the tab to
+  //           show. The open tab stays open then (the new document has it too).
+  function selectEndpoint(endpoint, change) {
     // The same endpoint as before: nothing to do. (Without this line we would clear
     // rdf, but the useEffect would not run again to load it.)
     if (endpoint === selected) return
     setSelected(endpoint)
     setRdf(null)       // forget the old document while the new one loads
-    // Only the open tab is drawn for the new endpoint (see openTab). "Add data" is not there
-    // for every endpoint, so from there we go to the Overview.
-    const nextTab = tab === 'add' ? 'overview' : tab
+    // Only the open tab is drawn for the new endpoint (see openTab). The append tabs are not there
+    // for every endpoint, so from there we go to the Overview (but not after an append).
+    let nextTab = tab
+    if (APPEND_TABS.includes(tab) && !change) nextTab = 'overview'
     setTab(nextTab)
     setOpened([nextTab])
-    setLastAdded(null) // the answer of a save belongs to the endpoint it was made for
+    // The answer of a change belongs to the endpoint it was made for
+    setLastChange(change && endpoint ? { endpointId: endpoint.id, answer: change } : null)
     setError(null)
   }
 
@@ -298,12 +307,60 @@ function App() {
     selectEndpoint(null)
   }
 
-  // The "Add data" tab saved a point in the endpoint's file: keep its answer (the tab shows it
-  // again after it is drawn anew) and load the document again. The new document gives a new rdf,
-  // and so a new api (useMemo above), and every tab is drawn again with the new data (key={api.key}).
-  function reloadDocument(answer) {
-    setLastAdded({ endpointId: selected.id, answer: answer })
-    setReloads((count) => count + 1)
+  // The "Add data" or "Append example" tab appends text (new points) to the picked endpoint's
+  // document, here in the browser (appendText in appendPoints.js). Gives a Promise, rejected with
+  // the reason when the text can't be appended (nothing changes then). The answer the tab shows:
+  // { kind: 'append', before, after, text, copied, milliseconds } (how long the append took).
+  function handleAppend(text) {
+    const endpoint = selected
+    return appendText(rdf, endpoint.iri, text).then((result) => {
+      takeDocument(endpoint, result.document, {
+        kind: 'append',
+        before: result.before,
+        after: result.after,
+        text: text,
+        copied: !endpoint.user,
+        milliseconds: result.milliseconds,
+      })
+    })
+  }
+
+  // "Update the metadata" (under the same tabs): recalculate the window, tss:modifiedAt,
+  // tss:committedUntil and the stored summaries from the points, here in the browser
+  // (metadataUpdate.js). Gives a Promise, rejected with the reason when that can't be done. The
+  // answer the tab shows: { kind: 'update', changes, summaries, timings, copied } (timings: how
+  // long each step took).
+  function handleUpdate() {
+    const endpoint = selected
+    return updateMetadata(rdf, endpoint.iri).then((result) => {
+      takeDocument(endpoint, result.document, {
+        kind: 'update',
+        changes: result.changes,
+        summaries: result.summaries,
+        timings: result.timings,
+        copied: !endpoint.user,
+      })
+    })
+  }
+
+  // Make a new document (appended or updated) the endpoint's document, in this tab. The file on
+  // the server is never changed:
+  //   - a bundled endpoint gets a copy in this tab: a user endpoint (see makeUserEndpoint) with the
+  //     new document, listed after your own endpoints as "(appended)"
+  //   - a copy, or your own endpoint, is changed in place (the same id, the new document)
+  // Then the new document is picked: a new rdf, a new api (computed in the browser, like your own
+  // endpoints, see dataApi.js), and every tab is drawn again with the new data; the open tab shows
+  // the answer.
+  function takeDocument(endpoint, document, answer) {
+    if (!endpoint.user) {
+      const copy = addUserEndpoint(document, { url: null, fileName: null, dataFiles: [], copyOf: endpoint })
+      selectEndpoint(copy, answer)
+      return
+    }
+    const changed = Object.assign({}, endpoint, { document: document })
+    userList.current = userList.current.map((entry) => (entry.id === endpoint.id ? changed : entry))
+    setUserEndpoints(userList.current)
+    selectEndpoint(changed, answer)
   }
 
   // A data file was chosen in a data tab (DataFileCard): keep it for this endpoint. The api is
@@ -359,9 +416,15 @@ function App() {
 
       {selected === null && <p className="muted">Pick a data source in the drop down to start.</p>}
 
-      {selected !== null && selected.user && (
+      {selected !== null && selected.user && !selected.copyOf && (
         <p className="privacy-note">
           This endpoint and its data stay in this browser tab. Nothing is sent to the demo's server.
+        </p>
+      )}
+      {selected !== null && selected.copyOf && (
+        <p className="privacy-note">
+          This is a copy of a bundled endpoint, with points appended in this browser tab. It stays in this tab: the
+          file on the server is unchanged, and nothing is sent to the demo's server.
         </p>
       )}
 
@@ -370,16 +433,16 @@ function App() {
       {/* The props of the tabs (each tab gets only those it needs, see the list below):
             endpoint = { id, iri, label, ... }                              the endpoint (bundled, or your own: user true)
                        (Overview, Series inspector, Files)
-            rdf      = { store, prefixes, text, url, source, points }       its parsed metadata document (every tab)
-                       (points: the embedded points as RDF, or null; see readPoints in tss.js)
-            api      = the endpoint's data questions (dataApi.js)           (every tab but Overview)
-          The "Add data" tab also gets saved and onSaved (see reloadDocument).
+            rdf      = { store, prefixes, text, url, contentType, source, points }  its parsed metadata
+                       document (every tab) (points: the embedded points, or null; see readPoints in tss.js)
+            api      = the endpoint's data questions (dataApi.js)           (every tab but Overview and the append tabs)
+          The append tabs also get lastChange, onAppend and onUpdate (see takeDocument).
           While another endpoint loads, rdf is null and all tabs disappear, so each tab
           starts fresh for every endpoint. */}
       {rdf !== null && api !== null && (
         <>
           <nav className="tabs">
-            {tabs.filter((t) => t.id !== 'add' || canAddPoints(selected, rdf)).map((t) => (
+            {tabs.filter((t) => hasTab(t.id, rdf)).map((t) => (
               <button
                 key={t.id}
                 className={t.id === tab ? 'tab active' : 'tab'}
@@ -396,7 +459,8 @@ function App() {
 
             {/* Only the tabs opened so far are drawn; the open one is shown, the others hidden */}
             {tabs.map((t) => {
-              if (!opened.includes(t.id)) return null
+              if (!opened.includes(t.id) || !hasTab(t.id, rdf)) return null
+              const change = lastChange !== null && lastChange.endpointId === selected.id ? lastChange.answer : null
               return (
                 <div key={t.id} style={{ display: t.id === tab ? 'block' : 'none' }}>
                   {t.id === 'overview' && <Overview endpoint={selected} rdf={rdf} />}
@@ -406,13 +470,11 @@ function App() {
                   {t.id === 'files' && <Files endpoint={selected} rdf={rdf} api={api} />}
                   {t.id === 'query' && <QueryForm rdf={rdf} api={api} />}
                   {t.id === 'sql' && <SqlBox rdf={rdf} api={api} />}
-                  {t.id === 'add' && canAddPoints(selected, rdf) && (
-                    <AddPointForm
-                      rdf={rdf}
-                      api={api}
-                      saved={lastAdded !== null && lastAdded.endpointId === selected.id ? lastAdded.answer : null}
-                      onSaved={reloadDocument}
-                    />
+                  {t.id === 'add' && (
+                    <AddPointForm rdf={rdf} lastChange={change} onAppend={handleAppend} onUpdate={handleUpdate} />
+                  )}
+                  {t.id === 'append' && (
+                    <AppendExample rdf={rdf} lastChange={change} onAppend={handleAppend} onUpdate={handleUpdate} />
                   )}
                 </div>
               )
