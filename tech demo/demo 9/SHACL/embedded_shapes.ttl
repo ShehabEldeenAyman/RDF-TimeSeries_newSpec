@@ -34,8 +34,8 @@
 #   Required:  S16 modified at (one xsd:dateTime)
 #              S17 committed until (one xsd:dateTime: the last time the snippet and its
 #                  data were checked to be up to date)
-#              S20 time datatype (exactly one: xsd:dateTime or tss:unixTime, the same as the
-#                  tss:datatype of the time field)
+#              S20 time datatype (exactly one: xsd:dateTime, or xsd:integer for Unix time; the
+#                  same as the tss:datatype of the time field)
 #   Required:     S1 the snippet (exactly one)    S4 time field
 #                 S2 mutable                     S5 has field (at least one)
 #                 S3 embedded (true)             S9 key (at least one)
@@ -74,7 +74,8 @@
 #              P4 datatype: every value is a literal with its field's tss:datatype,
 #                 and a valid value of it (xsd:dateTime, xsd:dateTimeStamp (with a timezone),
 #                 xsd:date, xsd:double, xsd:float, xsd:decimal, the integer types,
-#                 xsd:boolean and tss:unixTime (a whole number, 0 or more) are checked)
+#                 xsd:boolean are checked; with tss:timeDatatype xsd:integer, every time is a
+#                 Unix timestamp, a whole number of 0 or more)
 #              P5 range: every number is within its field's tss:minimum and tss:maximum
 #              P7 one value: a point has at most one value for each field
 #              P8 step: with a time grid (tss:timeBase, tss:timeStep), every point has exactly
@@ -221,8 +222,8 @@ emb:SnippetShape a sh:NodeShape ;
         sh:path tss:timeDatatype ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:in ( xsd:dateTime tss:unixTime ) ;
-        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime or tss:unixTime." ;
+        sh:in ( xsd:dateTime xsd:integer ) ;
+        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime, or xsd:integer for Unix time (whole seconds since 1970-01-01T00:00:00Z)." ;
     ] ;
 
     # Optional
@@ -920,8 +921,9 @@ emb:FieldValuesShape a sh:NodeShape ;
                         && !REGEX(?text, "^-[0-9]*[1-9][0-9]*$"))
                     || (?datatype = xsd:boolean
                         && !REGEX(?text, "^(true|false|1|0)$"))
-                    # tss:unixTime: whole seconds since 1970-01-01T00:00:00Z, 0 or more
-                    || (?datatype = tss:unixTime
+                    # A time of xsd:integer (Unix time): whole seconds since 1970-01-01T00:00:00Z, 0 or more
+                    || (?datatype = xsd:integer
+                        && EXISTS { ?snippet tss:timeField $this }
                         && !REGEX(?text, "^[0-9]+$"))
                     || (?datatype = xsd:dateTime
                         && (!REGEX(?text, "^-?[0-9]{4,}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?$")

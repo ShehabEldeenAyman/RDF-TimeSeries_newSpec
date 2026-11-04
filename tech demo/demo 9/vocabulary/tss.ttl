@@ -63,16 +63,6 @@ tss:ValueEncoding a owl:Class ;
 
 
 #################################################################
-#    Datatypes
-#################################################################
-
-tss:unixTime a rdfs:Datatype ;
-    rdfs:label "Unix time"@en ;
-    rdfs:comment "A Unix timestamp: a time as the number of whole seconds since 1970-01-01T00:00:00Z (UTC), leap seconds not counted. The lexical form is a whole number of 0 or more, digits only, such as \"86400\" for 1970-01-02T00:00:00Z."@en ;
-    rdfs:isDefinedBy <https://w3id.org/tss#> .
-
-
-#################################################################
 #    Individuals
 #################################################################
 
@@ -103,7 +93,7 @@ tss:DeltaFromBaseline a tss:ValueEncoding ;
 
 tss:timeDatatype a owl:ObjectProperty ;
     rdfs:label "time datatype"@en ;
-    rdfs:comment "The datatype of every time of the snippet: xsd:dateTime or tss:unixTime. The snippet's tss:timeField has the same tss:datatype."@en ;
+    rdfs:comment "The datatype of every time of the snippet: xsd:dateTime, or xsd:integer for Unix time. With xsd:integer, every time is a Unix timestamp: the number of whole seconds since 1970-01-01T00:00:00Z (UTC), leap seconds not counted, written as a whole number of 0 or more, digits only, such as \"86400\" for 1970-01-02T00:00:00Z. The snippet's tss:timeField has the same tss:datatype."@en ;
     rdfs:domain tss:Snippet ;
     rdfs:range rdfs:Datatype ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .

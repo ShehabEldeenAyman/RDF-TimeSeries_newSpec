@@ -25,8 +25,8 @@
 #              S4 time field                    S9  format (tss:CSV or tss:Parquet)
 #              S5 key (at least one)
 #              S6 has field (at least one)
-#              S20 time datatype (exactly one: xsd:dateTime or tss:unixTime, the same as the
-#                  tss:datatype of the time field)
+#              S20 time datatype (exactly one: xsd:dateTime, or xsd:integer for Unix time; the
+#                  same as the tss:datatype of the time field)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
 #              S18 time base (one xsd:dateTime: the time of step 0)
 #              S19 time step (one xsd:dayTimeDuration of more than zero)
@@ -181,8 +181,8 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:timeDatatype ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:in ( xsd:dateTime tss:unixTime ) ;
-        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime or tss:unixTime." ;
+        sh:in ( xsd:dateTime xsd:integer ) ;
+        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime, or xsd:integer for Unix time (whole seconds since 1970-01-01T00:00:00Z)." ;
     ] ;
     sh:property [
         sh:name "S7 embedded" ;
