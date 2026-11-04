@@ -16,9 +16,10 @@
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # A copy of waterinfo_289441042_tss2_points_time_value.ttl (the same five readings) whose points
-# state no full reading. The value field states a tss:baseline. Each point states the difference
-# from it; the reading is tss:baseline + the point's value. The times are unchanged.
-# New term (proposal vocabulary): tss:baseline.
+# state no full reading. The value field states tss:valueEncoding tss:DeltaFromBaseline and a
+# tss:baseline. Each point states the difference from it; the reading is tss:baseline + the
+# point's value. The times are unchanged.
+# New terms (proposal vocabulary): tss:valueEncoding, tss:DeltaFromBaseline, tss:baseline.
 # The source and its fields have their own IRIs (ex:zevenaarshaven-vd-...), so the documents never
 # describe the same node in two ways; the sensor, the feature of interest and the station are the
 # same real-world things, so they keep their IRIs.
@@ -32,7 +33,7 @@ ex:zevenaarshaven-vd-source
     # The points' times are xsd:dateTime literals with a timezone, such as 2021-03-03T23:15:00Z.
     tss:timeDatatype xsd:dateTime ;
     # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-11-04T08:56:19Z"^^xsd:dateTime ;
+    tss:modifiedAt "2026-11-04T09:34:36Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), value delta points"@en ;
     # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
     tss:sourceDescription [
@@ -61,7 +62,6 @@ ex:zevenaarshaven-vd-source
 # tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
 # Numeric aggregates are for the conductivity field, in its declared unit.
 # Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
-# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
 # For embedded data these summaries describe only the supplied sample points.
 # prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
 # The value summaries describe the readings (baseline + difference), not the differences
@@ -91,15 +91,15 @@ ex:zevenaarshaven-vd-value-field
     tss:columnName "value" ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:double ;
+    # How the points state this field's values: tss:DeltaFromBaseline, each value is the
+    # difference from the field's tss:baseline. A field without tss:valueEncoding states the
+    # readings themselves.
+    tss:valueEncoding tss:DeltaFromBaseline ;
     # The baseline of the readings, a literal of the field's tss:datatype. A point's value for this
     # field is the difference from it (typed with the field's tss:datatype too):
     # reading = tss:baseline + the point's value, summed exactly on the decimal values of the two
     # texts (4750 + 47.72 = 4797.72), then read as the field's tss:datatype.
     tss:baseline "4750"^^xsd:double ;
-    # tss:minimum and tss:maximum bound the readings, not the differences.
-    tss:minimum "0"^^xsd:double ;
-    # Example only: 10000 is a placeholder, not a real validated upper limit.
-    tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:sensor ex:sensor-zevenaarshaven-ec20 ;

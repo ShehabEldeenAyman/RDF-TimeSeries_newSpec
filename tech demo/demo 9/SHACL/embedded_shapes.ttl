@@ -53,6 +53,13 @@
 #              F10 summary (each summary attribute is also optional)
 #   Warning:   F9 some point has a value for the field
 #
+# The value encoding of a field (optional tss:valueEncoding and tss:baseline on a field)
+#   Optional:     D1 value encoding (one IRI: tss:DeltaFromBaseline, each value is the
+#                    difference from the field's tss:baseline, so the field needs one)
+#                 D2 baseline (one number, a literal with the field's tss:datatype)
+#   Not allowed:  D3 a tss:baseline without tss:valueEncoding tss:DeltaFromBaseline,
+#                    and a tss:valueEncoding on the time field
+#
 # The points (the nodes with tss:pointOf)
 #   Required:  P1 time: every point has a value for the tss:timeField
 #              P2 time window: every time is from tss:from (included) until tss:until (not included)
@@ -411,6 +418,74 @@ emb:FieldShape a sh:NodeShape ;
         sh:nodeKind sh:BlankNodeOrIRI ;
         sh:node emb:SummaryShape ;
         sh:message "tss:summary must point to one summary node; the summary and all its attributes may be omitted." ;
+    ] ;
+
+    # D1-D3: the value encoding. A field with tss:valueEncoding tss:DeltaFromBaseline states
+    # each value as the difference from its tss:baseline (reading = baseline + value).
+    sh:property [
+        sh:name "D1 value encoding" ;
+        sh:group emb:Optional ;
+        sh:path tss:valueEncoding ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:in ( tss:DeltaFromBaseline ) ;
+        sh:message "tss:valueEncoding must be one IRI when supplied: tss:DeltaFromBaseline (the values are differences from the field's tss:baseline)." ;
+    ] ;
+    sh:property [
+        sh:name "D2 baseline" ;
+        sh:group emb:Optional ;
+        sh:path tss:baseline ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:datatype xsd:integer ] [ sh:datatype xsd:decimal ] [ sh:datatype xsd:double ] [ sh:datatype xsd:float ] ) ;
+        sh:message "tss:baseline must be one number (xsd:integer, xsd:decimal, xsd:double or xsd:float)." ;
+    ] ;
+
+    # D1: differences need the baseline they are differences from
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "D1 value encoding: the field's values are differences (tss:DeltaFromBaseline), but it has no tss:baseline to add them to." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this WHERE {
+                $this tss:valueEncoding tss:DeltaFromBaseline .
+                FILTER NOT EXISTS { $this tss:baseline ?baseline }
+            }""" ;
+    ] ;
+
+    # D2: the baseline is a value of the field, so it has the field's datatype
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "D2 baseline: the baseline {?value} is not a literal with the field's tss:datatype." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:baseline ?value ; tss:datatype ?datatype .
+                FILTER (!isLiteral(?value) || DATATYPE(?value) != ?datatype)
+            }""" ;
+    ] ;
+
+    # D3: a baseline only with tss:DeltaFromBaseline (otherwise nothing says the values are
+    # differences, so one reader would add it and another would not), and the time field
+    # states the times themselves
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "D3 baseline: the field has a tss:baseline ({?value}), but its tss:valueEncoding is not tss:DeltaFromBaseline." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:baseline ?value .
+                FILTER NOT EXISTS { $this tss:valueEncoding tss:DeltaFromBaseline }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "D3 value encoding: this is the source's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding ({?value})." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                ?source tss:timeField $this .
+                $this tss:valueEncoding ?value .
+            }""" ;
     ] ;
 
     # F2 and F4: two fields of the same source can't use the same key or index
