@@ -3,12 +3,11 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss:  <https://w3id.org/tss#> .
 @prefix ext:  <https://w3id.org/tss/shapes/external#> .
 
 # =============================================================================
-# TSS conformance shapes for EXTERNAL data: a tss:Source whose readings are in a
+# TSS conformance shapes for EXTERNAL data: a tss:Snippet whose readings are in a
 # data file (tss:dataFile), a CSV file (tss:CSV) or a Parquet file (tss:Parquet),
 # with one tss:Field node per column of that file.
 #
@@ -17,25 +16,30 @@
 # statements that have no effect; with -w (allow warnings) they don't fail the run.
 # These shapes only look at the metadata, not at the data file itself.
 #
-# The source (tss:Source)
+# The snippet (tss:Snippet)
 #   Required:  S16 modified at (one xsd:dateTime)
-#              S17 committed until (one xsd:dateTime: the last time the source and its
+#              S17 committed until (one xsd:dateTime: the last time the snippet and its
 #                  data were checked to be up to date)
-#   Required:  S1 the source (exactly one)      S7  embedded (false)
+#   Required:  S1 the snippet (exactly one)      S7  embedded (false)
 #              S3 mutable                       S8  data file
 #              S4 time field                    S9  format (tss:CSV or tss:Parquet)
 #              S5 key (at least one)
 #              S6 has field (at least one)
+#              S20 time datatype (exactly one: xsd:dateTime or tss:unixTime, the same as the
+#                  tss:datatype of the time field)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
+#              S18 time base (one xsd:dateTime: the time of step 0)
+#              S19 time step (one xsd:dayTimeDuration of more than zero)
+#              S18 and S19 come together: a tss:timeBase needs a tss:timeStep, and the other way round
 #              S10 delimiter (one character; "," when not stated)
 #              S11 encoding ("utf-8" when not stated)
-#   Not used:  S15 delimiter and encoding on a tss:Parquet source (warning)
+#   Not used:  S15 delimiter and encoding on a tss:Parquet snippet (warning)
 #
 # The fields (tss:Field, and every object of tss:hasField)
-#   Required:  F1 the field: typed tss:Field, and a field of exactly one source
-#              F2 column name (unique within the source)
+#   Required:  F1 the field: typed tss:Field, and a field of exactly one snippet
+#              F2 column name (unique within the snippet)
 #              F3 datatype
-#   Optional:  F4 column index (unique within the source)   F5 label   F6 comment
+#   Optional:  F4 column index (unique within the snippet)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
 #              F10 summary (each summary attribute is also optional)
 #
@@ -89,26 +93,26 @@ ext:NotUsed a sh:PropertyGroup ;
     sh:order 2 .
 
 
-# --- S1 the source ------------------------------------------------------------
+# --- S1 the snippet ------------------------------------------------------------
 # sh:targetNode makes the class itself the focus node, so this check also runs
-# (and fails) when the metadata holds no tss:Source at all.
+# (and fails) when the metadata holds no tss:Snippet at all.
 
-ext:SourceExistsShape a sh:NodeShape ;
-    sh:targetNode tss:Source ;
+ext:SnippetExistsShape a sh:NodeShape ;
+    sh:targetNode tss:Snippet ;
     sh:property [
-        sh:name "S1 the source" ;
+        sh:name "S1 the snippet" ;
         sh:group ext:Required ;
         sh:path [ sh:inversePath rdf:type ] ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:message "The metadata must describe exactly one tss:Source." ;
+        sh:message "The metadata must describe exactly one tss:Snippet." ;
     ] .
 
 
-# --- The source ---------------------------------------------------------------
+# --- The snippet ---------------------------------------------------------------
 
-ext:SourceShape a sh:NodeShape ;
-    sh:targetClass tss:Source ;
+ext:SnippetShape a sh:NodeShape ;
+    sh:targetClass tss:Snippet ;
 
     # Required
     sh:property [
@@ -118,7 +122,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "The source needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime." ;
+        sh:message "The snippet needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime." ;
     ] ;
     sh:property [
         sh:name "S17 committed until" ;
@@ -127,7 +131,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the last time the source and its data were checked to be up to date." ;
+        sh:message "The snippet needs exactly one tss:committedUntil, an xsd:dateTime: the last time the snippet and its data were checked to be up to date." ;
     ] ;
     sh:property [
         sh:name "S2 from" ;
@@ -144,7 +148,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
-        sh:message "The source needs exactly one tss:mutable, true or false." ;
+        sh:message "The snippet needs exactly one tss:mutable, true or false." ;
     ] ;
     sh:property [
         sh:name "S4 time field" ;
@@ -153,7 +157,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "The source needs exactly one tss:timeField: the field that holds the time of each row." ;
+        sh:message "The snippet needs exactly one tss:timeField: the field that holds the time of each row." ;
     ] ;
     sh:property [
         sh:name "S5 key" ;
@@ -161,7 +165,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:path tss:key ;
         sh:minCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "The source needs at least one tss:key: the field(s) whose values identify a row." ;
+        sh:message "The snippet needs at least one tss:key: the field(s) whose values identify a row." ;
     ] ;
     sh:property [
         sh:name "S6 has field" ;
@@ -169,7 +173,16 @@ ext:SourceShape a sh:NodeShape ;
         sh:path tss:hasField ;
         sh:minCount 1 ;
         sh:class tss:Field ;
-        sh:message "The source needs at least one tss:hasField, and each of them must be a described tss:Field." ;
+        sh:message "The snippet needs at least one tss:hasField, and each of them must be a described tss:Field." ;
+    ] ;
+    sh:property [
+        sh:name "S20 time datatype" ;
+        sh:group ext:Required ;
+        sh:path tss:timeDatatype ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( xsd:dateTime tss:unixTime ) ;
+        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime or tss:unixTime." ;
     ] ;
     sh:property [
         sh:name "S7 embedded" ;
@@ -178,7 +191,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
-        sh:message "The source needs exactly one tss:embedded, true or false." ;
+        sh:message "The snippet needs exactly one tss:embedded, true or false." ;
     ] ;
     sh:property [
         sh:name "S7 embedded is false" ;
@@ -194,7 +207,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
-        sh:message "The source needs exactly one tss:dataFile: the IRI of the file with the readings." ;
+        sh:message "The snippet needs exactly one tss:dataFile: the IRI of the file with the readings." ;
     ] ;
     sh:property [
         sh:name "S9 format" ;
@@ -203,7 +216,7 @@ ext:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:in ( tss:CSV tss:Parquet ) ;
-        sh:message "The source needs exactly one tss:format: tss:CSV or tss:Parquet." ;
+        sh:message "The snippet needs exactly one tss:format: tss:CSV or tss:Parquet." ;
     ] ;
 
     # S10 and S11: optional (a CSV file without them is read with "," and "utf-8"); when present, well-formed
@@ -251,11 +264,28 @@ ext:SourceShape a sh:NodeShape ;
         sh:datatype xsd:dateTime ;
         sh:message "tss:until must be one xsd:dateTime: the end of the time window (not included)." ;
     ] ;
+    # The time grid: step n is at tss:timeBase + n × tss:timeStep
+    sh:property [
+        sh:name "S18 time base" ;
+        sh:group ext:Optional ;
+        sh:path tss:timeBase ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:timeBase must be one xsd:dateTime: the time of step 0 of the snippet's time grid." ;
+    ] ;
+    sh:property [
+        sh:name "S19 time step" ;
+        sh:group ext:Optional ;
+        sh:path tss:timeStep ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dayTimeDuration ;
+        sh:message "tss:timeStep must be one xsd:dayTimeDuration, such as \"PT15M\": the fixed time between two steps of the snippet's time grid." ;
+    ] ;
 
-    # S4 and S5: the time field and the key are fields of this source
+    # S4 and S5: the time field and the key are fields of this snippet
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S4 time field: tss:timeField must be one of the source's own fields (tss:hasField)." ;
+        sh:message "S4 time field: tss:timeField must be one of the snippet's own fields (tss:hasField)." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -265,12 +295,25 @@ ext:SourceShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S5 key: every tss:key must be one of the source's own fields (tss:hasField)." ;
+        sh:message "S5 key: every tss:key must be one of the snippet's own fields (tss:hasField)." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:key ?value .
                 FILTER NOT EXISTS { $this tss:hasField ?value }
+            }""" ;
+    ] ;
+
+    # S20: the time field's values are times of the snippet, so they have its tss:timeDatatype
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S20 time datatype: tss:timeDatatype is {?value}, but the time field's tss:datatype is {?datatype}; they must be the same." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value ?datatype WHERE {
+                $this tss:timeDatatype ?value ; tss:timeField ?timeField .
+                ?timeField tss:datatype ?datatype .
+                FILTER (?datatype != ?value)
             }""" ;
     ] ;
 
@@ -284,14 +327,55 @@ ext:SourceShape a sh:NodeShape ;
                 $this tss:from ?from ; tss:until ?value .
                 FILTER (?value <= ?from)
             }""" ;
+    ] ;
+
+    # S18 and S19: the time grid needs both, a time base and a time step, or neither:
+    # without a step the grid has no steps, and without a base its steps are at no time
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S18 time base: the snippet has a tss:timeStep ({?value}), so it needs a tss:timeBase: the time of step 0." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeStep ?value .
+                FILTER NOT EXISTS { $this tss:timeBase ?base }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S19 time step: the snippet has a tss:timeBase ({?value}), so it needs a tss:timeStep: the fixed time between two steps." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeBase ?value .
+                FILTER NOT EXISTS { $this tss:timeStep ?step }
+            }""" ;
+    ] ;
+
+    # S19: the text of the time step (rdflib takes "P1M", a month, as a valid
+    # xsd:dayTimeDuration, so sh:datatype does not catch it). Only days, hours, minutes and
+    # seconds, at least one of them, and more than zero: a step of zero or less never moves on.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S19 time step: {?value} is not a fixed time of more than zero, written with days, hours, minutes and seconds only (such as PT15M or P1D)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeStep ?value .
+                FILTER (isLiteral(?value) && DATATYPE(?value) = xsd:dayTimeDuration)
+                BIND (STR(?value) AS ?text)
+                FILTER (!REGEX(?text, "^P([0-9]+D)?(T([0-9]+H)?([0-9]+M)?([0-9]+([.][0-9]+)?S)?)?$")
+                    || REGEX(?text, "^PT?$") || REGEX(?text, "T$")
+                    || !REGEX(?text, "[1-9]"))
+            }""" ;
     ] .
 
 
-# --- S15: not used on a Parquet source -----------------------------------------
+# --- S15: not used on a Parquet snippet -----------------------------------------
 # A shape of its own, because a SPARQL check takes its severity from its shape.
 
-ext:ParquetSourceShape a sh:NodeShape ;
-    sh:targetClass tss:Source ;
+ext:ParquetSnippetShape a sh:NodeShape ;
+    sh:targetClass tss:Snippet ;
     sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;
@@ -322,12 +406,12 @@ ext:FieldShape a sh:NodeShape ;
         sh:message "A field must be typed tss:Field." ;
     ] ;
     sh:property [
-        sh:name "F1 the field belongs to a source" ;
+        sh:name "F1 the field belongs to a snippet" ;
         sh:group ext:Required ;
         sh:path [ sh:inversePath tss:hasField ] ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:message "A field must be a field (tss:hasField) of exactly one source." ;
+        sh:message "A field must be a field (tss:hasField) of exactly one snippet." ;
     ] ;
     sh:property [
         sh:name "F2 column name" ;
@@ -459,23 +543,23 @@ ext:FieldShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "D3 value encoding: this is the source's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding ({?value})." ;
+        sh:message "D3 value encoding: this is the snippet's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding ({?value})." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?source tss:timeField $this .
+                ?snippet tss:timeField $this .
                 $this tss:valueEncoding ?value .
             }""" ;
     ] ;
 
-    # F2 and F4: two fields of the same source can't read the same column
+    # F2 and F4: two fields of the same snippet can't read the same column
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F2 column name: another field of the same source has the column name {?value}." ;
+        sh:message "F2 column name: another field of the same snippet has the column name {?value}." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?source tss:hasField $this, ?other .
+                ?snippet tss:hasField $this, ?other .
                 $this tss:columnName ?value .
                 ?other tss:columnName ?value .
                 FILTER (?other != $this)
@@ -483,11 +567,11 @@ ext:FieldShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F4 column index: another field of the same source has the column index {?value}." ;
+        sh:message "F4 column index: another field of the same snippet has the column index {?value}." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?source tss:hasField $this, ?other .
+                ?snippet tss:hasField $this, ?other .
                 $this tss:columnIndex ?value .
                 ?other tss:columnIndex ?value .
                 FILTER (?other != $this)
@@ -606,8 +690,8 @@ ext:SummaryShape a sh:NodeShape ;
     sh:property [
         sh:name "Q12 generated at time" ;
         sh:group ext:Optional ;
-        sh:path prov:generatedAtTime ;
+        sh:path tss:generatedAtTime ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "prov:generatedAtTime must be one xsd:dateTime when supplied." ;
+        sh:message "tss:generatedAtTime must be one xsd:dateTime when supplied." ;
     ] .

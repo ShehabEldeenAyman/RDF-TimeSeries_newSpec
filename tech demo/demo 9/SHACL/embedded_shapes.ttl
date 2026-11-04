@@ -3,23 +3,22 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss:  <https://w3id.org/tss#> .
 @prefix emb:  <https://w3id.org/tss/shapes/embedded#> .
 
 # =============================================================================
-# TSS conformance shapes for EMBEDDED data: a tss:Source whose points are inside
+# TSS conformance shapes for EMBEDDED data: a tss:Snippet whose points are inside
 # the metadata itself, as RDF. Each point is a node of its own, at the end of the
-# document, linked to its source with tss:pointOf. Each value is one triple, with the
+# document, linked to its snippet with tss:pointOf. Each value is one triple, with the
 # field's IRI as predicate and a literal typed by the field's tss:datatype, e.g.
-#   [] tss:pointOf ex:zevenaarshaven-source ;
+#   [] tss:pointOf ex:zevenaarshaven-snippet ;
 #       ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
 #       ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double .
-# Each point is one Turtle statement, so a mutable source gets a new point by appending
-# one to the end of the document. A missing value has no triple. A source may have no
+# Each point is one Turtle statement, so a mutable snippet gets a new point by appending
+# one to the end of the document. A missing value has no triple. A snippet may have no
 # points (yet).
 #
-# The points of a source are the nodes that link to it:  ?point tss:pointOf <source> .
+# The points of a snippet are the nodes that link to it:  ?point tss:pointOf <snippet> .
 # P4 checks the text of each value. rdflib rewrites some texts while it reads Turtle
 # (" 12 "^^xsd:double becomes "12.0", "yes"^^xsd:boolean becomes "false"), so P4 sees
 # such a wrong text only when the metadata is read with rdflib.NORMALIZE_LITERALS off.
@@ -31,27 +30,33 @@
 # The metadata conforms when the report holds no sh:Violation. Warnings point at
 # things that look wrong; with -w (allow warnings) they don't fail the run.
 #
-# The source (tss:Source)
+# The snippet (tss:Snippet)
 #   Required:  S16 modified at (one xsd:dateTime)
-#              S17 committed until (one xsd:dateTime: the last time the source and its
+#              S17 committed until (one xsd:dateTime: the last time the snippet and its
 #                  data were checked to be up to date)
-#   Required:     S1 the source (exactly one)    S4 time field
+#              S20 time datatype (exactly one: xsd:dateTime or tss:unixTime, the same as the
+#                  tss:datatype of the time field)
+#   Required:     S1 the snippet (exactly one)    S4 time field
 #                 S2 mutable                     S5 has field (at least one)
 #                 S3 embedded (true)             S9 key (at least one)
-#                 S6 points: every point has exactly one tss:pointOf, a tss:Source, and
-#                    every value of a field of the source is in a point of that source
+#                 S6 points: every point has exactly one tss:pointOf, a tss:Snippet, and
+#                    every value of a field of the snippet is in a point of that snippet
 #   Optional:     S7 label    S8 produced by    S10 from    S11 until (after from)
+#                 S18 time base (one xsd:dateTime: the time of step 0)
+#                 S19 time step (one xsd:dayTimeDuration of more than zero)
+#                 S18 and S19 come together: a tss:timeBase needs a tss:timeStep, and the other way round
 #   Not allowed:  S12 tss:dataFile, tss:format, tss:delimiter, tss:encoding, tss:header:
 #                 they describe an external data file; tss:points: the points are RDF
 #
 # The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl
-#   Required:  F1 the field: typed tss:Field, and a field of exactly one source
-#              F2 column name (unique within the source)
+#   Required:  F1 the field: typed tss:Field, and a field of exactly one snippet
+#              F2 column name (unique within the snippet)
 #              F3 datatype
-#   Optional:  F4 column index (unique within the source)   F5 label   F6 comment
+#   Optional:  F4 column index (unique within the snippet)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
 #              F10 summary (each summary attribute is also optional)
-#   Warning:   F9 some point has a value for the field
+#   Warning:   F9 some point has a value for the field (not asked of the time field of a
+#                 snippet with a time grid: its points state steps)
 #
 # The value encoding of a field (optional tss:valueEncoding and tss:baseline on a field)
 #   Optional:     D1 value encoding (one IRI: tss:DeltaFromBaseline, each value is the
@@ -61,16 +66,22 @@
 #                    and a tss:valueEncoding on the time field
 #
 # The points (the nodes with tss:pointOf)
-#   Required:  P1 time: every point has a value for the tss:timeField
+#   Required:  P1 time: without a time grid, every point has a value for the tss:timeField
 #              P2 time window: every time is from tss:from (included) until tss:until (not included)
-#              P3 key: no two points have the same value(s) for the tss:key field(s)
+#              P3 key: no two points have the same value(s) for the tss:key field(s); the same
+#                 time written in two ways counts as the same; with a time grid, no two points
+#                 have the same tss:stepIndex
 #              P4 datatype: every value is a literal with its field's tss:datatype,
 #                 and a valid value of it (xsd:dateTime, xsd:dateTimeStamp (with a timezone),
-#                 xsd:date, xsd:double, xsd:float, xsd:decimal, the integer types and
-#                 xsd:boolean are checked)
+#                 xsd:date, xsd:double, xsd:float, xsd:decimal, the integer types,
+#                 xsd:boolean and tss:unixTime (a whole number, 0 or more) are checked)
 #              P5 range: every number is within its field's tss:minimum and tss:maximum
 #              P7 one value: a point has at most one value for each field
-#   Warning:   P6 properties: every property of a point is tss:pointOf or a field of its source
+#              P8 step: with a time grid (tss:timeBase, tss:timeStep), every point has exactly
+#                 one tss:stepIndex (a whole number, 0 or more) and no value for the
+#                 tss:timeField; without a time grid, no point has a tss:stepIndex
+#   Warning:   P6 properties: every property of a point is tss:pointOf, tss:stepIndex or a
+#                 field of its snippet
 #
 # The summary (optional tss:summary on a field)
 #   Optional:  Q1 from   Q2 until   Q3 missing-value policy   Q4 count   Q5 missing
@@ -122,26 +133,26 @@ emb:Warning a sh:PropertyGroup ;
     sh:order 3 .
 
 
-# --- S1 the source ------------------------------------------------------------
+# --- S1 the snippet ------------------------------------------------------------
 # sh:targetNode makes the class itself the focus node, so this check also runs
-# (and fails) when the metadata holds no tss:Source at all.
+# (and fails) when the metadata holds no tss:Snippet at all.
 
-emb:SourceExistsShape a sh:NodeShape ;
-    sh:targetNode tss:Source ;
+emb:SnippetExistsShape a sh:NodeShape ;
+    sh:targetNode tss:Snippet ;
     sh:property [
-        sh:name "S1 the source" ;
+        sh:name "S1 the snippet" ;
         sh:group emb:Required ;
         sh:path [ sh:inversePath rdf:type ] ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:message "The metadata must describe exactly one tss:Source." ;
+        sh:message "The metadata must describe exactly one tss:Snippet." ;
     ] .
 
 
-# --- The source ---------------------------------------------------------------
+# --- The snippet ---------------------------------------------------------------
 
-emb:SourceShape a sh:NodeShape ;
-    sh:targetClass tss:Source ;
+emb:SnippetShape a sh:NodeShape ;
+    sh:targetClass tss:Snippet ;
 
     # Required
     sh:property [
@@ -151,7 +162,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "The source needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime." ;
+        sh:message "The snippet needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime." ;
     ] ;
     sh:property [
         sh:name "S17 committed until" ;
@@ -160,7 +171,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "The source needs exactly one tss:committedUntil, an xsd:dateTime: the last time the source and its data were checked to be up to date." ;
+        sh:message "The snippet needs exactly one tss:committedUntil, an xsd:dateTime: the last time the snippet and its data were checked to be up to date." ;
     ] ;
     sh:property [
         sh:name "S2 mutable" ;
@@ -169,7 +180,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
-        sh:message "The source needs exactly one tss:mutable, true or false." ;
+        sh:message "The snippet needs exactly one tss:mutable, true or false." ;
     ] ;
     sh:property [
         sh:name "S3 embedded" ;
@@ -178,7 +189,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
-        sh:message "The source needs exactly one tss:embedded, true or false." ;
+        sh:message "The snippet needs exactly one tss:embedded, true or false." ;
     ] ;
     sh:property [
         sh:name "S3 embedded is true" ;
@@ -194,7 +205,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "The source needs exactly one tss:timeField: the field that holds the time of each point." ;
+        sh:message "The snippet needs exactly one tss:timeField: the field that holds the time of each point." ;
     ] ;
     sh:property [
         sh:name "S5 has field" ;
@@ -202,7 +213,16 @@ emb:SourceShape a sh:NodeShape ;
         sh:path tss:hasField ;
         sh:minCount 1 ;
         sh:class tss:Field ;
-        sh:message "The source needs at least one tss:hasField, and each of them must be a described tss:Field." ;
+        sh:message "The snippet needs at least one tss:hasField, and each of them must be a described tss:Field." ;
+    ] ;
+    sh:property [
+        sh:name "S20 time datatype" ;
+        sh:group emb:Required ;
+        sh:path tss:timeDatatype ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( xsd:dateTime tss:unixTime ) ;
+        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime or tss:unixTime." ;
     ] ;
 
     # Optional
@@ -227,7 +247,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:path tss:key ;
         sh:minCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "The source needs at least one tss:key: the field(s) whose values identify a point." ;
+        sh:message "The snippet needs at least one tss:key: the field(s) whose values identify a point." ;
     ] ;
     sh:property [
         sh:name "S10 from" ;
@@ -245,6 +265,23 @@ emb:SourceShape a sh:NodeShape ;
         sh:datatype xsd:dateTime ;
         sh:message "tss:until must be one xsd:dateTime: the end of the time window (not included)." ;
     ] ;
+    # The time grid: step n is at tss:timeBase + n × tss:timeStep
+    sh:property [
+        sh:name "S18 time base" ;
+        sh:group emb:Optional ;
+        sh:path tss:timeBase ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dateTime ;
+        sh:message "tss:timeBase must be one xsd:dateTime: the time of step 0 of the snippet's time grid." ;
+    ] ;
+    sh:property [
+        sh:name "S19 time step" ;
+        sh:group emb:Optional ;
+        sh:path tss:timeStep ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:dayTimeDuration ;
+        sh:message "tss:timeStep must be one xsd:dayTimeDuration, such as \"PT15M\": the fixed time between two steps of the snippet's time grid." ;
+    ] ;
 
     # Not allowed: these describe an external data file
     sh:property [
@@ -252,7 +289,7 @@ emb:SourceShape a sh:NodeShape ;
         sh:group emb:NotAllowed ;
         sh:path tss:dataFile ;
         sh:maxCount 0 ;
-        sh:message "S12 not allowed: an embedded source keeps its points in the metadata (nodes with tss:pointOf), so it has no tss:dataFile." ;
+        sh:message "S12 not allowed: an embedded snippet keeps its points in the metadata (nodes with tss:pointOf), so it has no tss:dataFile." ;
     ] ;
     sh:property [
         sh:name "S12 format" ;
@@ -291,10 +328,10 @@ emb:SourceShape a sh:NodeShape ;
         sh:message "S12 not allowed: tss:points (a JSON literal) is not used; each point is an RDF node with tss:pointOf, at the end of the document." ;
     ] ;
 
-    # S4 and S9: the time field and the key are fields of this source
+    # S4 and S9: the time field and the key are fields of this snippet
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S4 time field: tss:timeField must be one of the source's own fields (tss:hasField)." ;
+        sh:message "S4 time field: tss:timeField must be one of the snippet's own fields (tss:hasField)." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -304,12 +341,25 @@ emb:SourceShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S9 key: every tss:key must be one of the source's own fields (tss:hasField)." ;
+        sh:message "S9 key: every tss:key must be one of the snippet's own fields (tss:hasField)." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:key ?value .
                 FILTER NOT EXISTS { $this tss:hasField ?value }
+            }""" ;
+    ] ;
+
+    # S20: the time field's values are times of the snippet, so they have its tss:timeDatatype
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S20 time datatype: tss:timeDatatype is {?value}, but the time field's tss:datatype is {?datatype}; they must be the same." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value ?datatype WHERE {
+                $this tss:timeDatatype ?value ; tss:timeField ?timeField .
+                ?timeField tss:datatype ?datatype .
+                FILTER (?datatype != ?value)
             }""" ;
     ] ;
 
@@ -322,6 +372,47 @@ emb:SourceShape a sh:NodeShape ;
             SELECT $this ?value WHERE {
                 $this tss:from ?from ; tss:until ?value .
                 FILTER (?value <= ?from)
+            }""" ;
+    ] ;
+
+    # S18 and S19: the time grid needs both, a time base and a time step, or neither:
+    # without a step the grid has no steps, and without a base its steps are at no time
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S18 time base: the snippet has a tss:timeStep ({?value}), so it needs a tss:timeBase: the time of step 0." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeStep ?value .
+                FILTER NOT EXISTS { $this tss:timeBase ?base }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S19 time step: the snippet has a tss:timeBase ({?value}), so it needs a tss:timeStep: the fixed time between two steps." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeBase ?value .
+                FILTER NOT EXISTS { $this tss:timeStep ?step }
+            }""" ;
+    ] ;
+
+    # S19: the text of the time step (rdflib takes "P1M", a month, as a valid
+    # xsd:dayTimeDuration, so sh:datatype does not catch it). Only days, hours, minutes and
+    # seconds, at least one of them, and more than zero: a step of zero or less never moves on.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S19 time step: {?value} is not a fixed time of more than zero, written with days, hours, minutes and seconds only (such as PT15M or P1D)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeStep ?value .
+                FILTER (isLiteral(?value) && DATATYPE(?value) = xsd:dayTimeDuration)
+                BIND (STR(?value) AS ?text)
+                FILTER (!REGEX(?text, "^P([0-9]+D)?(T([0-9]+H)?([0-9]+M)?([0-9]+([.][0-9]+)?S)?)?$")
+                    || REGEX(?text, "^PT?$") || REGEX(?text, "T$")
+                    || !REGEX(?text, "[1-9]"))
             }""" ;
     ] .
 
@@ -342,12 +433,12 @@ emb:FieldShape a sh:NodeShape ;
         sh:message "A field must be typed tss:Field." ;
     ] ;
     sh:property [
-        sh:name "F1 the field belongs to a source" ;
+        sh:name "F1 the field belongs to a snippet" ;
         sh:group emb:Required ;
         sh:path [ sh:inversePath tss:hasField ] ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:message "A field must be a field (tss:hasField) of exactly one source." ;
+        sh:message "A field must be a field (tss:hasField) of exactly one snippet." ;
     ] ;
     sh:property [
         sh:name "F2 column name" ;
@@ -479,23 +570,23 @@ emb:FieldShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "D3 value encoding: this is the source's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding ({?value})." ;
+        sh:message "D3 value encoding: this is the snippet's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding ({?value})." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?source tss:timeField $this .
+                ?snippet tss:timeField $this .
                 $this tss:valueEncoding ?value .
             }""" ;
     ] ;
 
-    # F2 and F4: two fields of the same source can't use the same key or index
+    # F2 and F4: two fields of the same snippet can't use the same key or index
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F2 column name: another field of the same source has the column name {?value}." ;
+        sh:message "F2 column name: another field of the same snippet has the column name {?value}." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?source tss:hasField $this, ?other .
+                ?snippet tss:hasField $this, ?other .
                 $this tss:columnName ?value .
                 ?other tss:columnName ?value .
                 FILTER (?other != $this)
@@ -503,11 +594,11 @@ emb:FieldShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F4 column index: another field of the same source has the column index {?value}." ;
+        sh:message "F4 column index: another field of the same snippet has the column index {?value}." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?source tss:hasField $this, ?other .
+                ?snippet tss:hasField $this, ?other .
                 $this tss:columnIndex ?value .
                 ?other tss:columnIndex ?value .
                 FILTER (?other != $this)
@@ -530,7 +621,7 @@ emb:FieldShape a sh:NodeShape ;
 # --- F9: some point has a value for the field -----------------------------------
 # A shape of its own, because a SPARQL check takes its severity from its shape.
 # A point's value for a field is the triple  ?point <the field> ?value .
-# Only when the source has points at all: a source without points (yet) gives no
+# Only when the snippet has points at all: a snippet without points (yet) gives no
 # warning per field.
 
 emb:FieldInPointsShape a sh:NodeShape ;
@@ -539,21 +630,23 @@ emb:FieldInPointsShape a sh:NodeShape ;
     sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F9 points: the source has points, but none has a value for this field, so it has no values." ;
+        sh:message "F9 points: the snippet has points, but none has a value for this field, so it has no values." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this WHERE {
-                ?source tss:hasField $this .
-                # The source has points ...
-                FILTER EXISTS { ?point tss:pointOf ?source }
+                ?snippet tss:hasField $this .
+                # The snippet has points ...
+                FILTER EXISTS { ?point tss:pointOf ?snippet }
                 # ... but none with a value for this field
-                FILTER NOT EXISTS { ?somePoint tss:pointOf ?source ; $this ?someValue }
+                FILTER NOT EXISTS { ?somePoint tss:pointOf ?snippet ; $this ?someValue }
+                # (with a time grid the points state their step, not a value for the time field)
+                FILTER NOT EXISTS { ?snippet tss:timeField $this ; tss:timeBase ?timeBase }
             }""" ;
     ] .
 
 
-# --- S6: the points and their source ---------------------------------------------
-# A point is a node with tss:pointOf. It is a point of exactly one source.
+# --- S6: the points and their snippet ---------------------------------------------
+# A point is a node with tss:pointOf. It is a point of exactly one snippet.
 
 emb:PointShape a sh:NodeShape ;
     sh:targetSubjectsOf tss:pointOf ;
@@ -562,25 +655,34 @@ emb:PointShape a sh:NodeShape ;
         sh:group emb:Required ;
         sh:path tss:pointOf ;
         sh:maxCount 1 ;
-        sh:class tss:Source ;
-        sh:message "S6 points: a point needs exactly one tss:pointOf, the tss:Source it is a point of." ;
+        sh:class tss:Snippet ;
+        sh:message "S6 points: a point needs exactly one tss:pointOf, the tss:Snippet it is a point of." ;
+    ] ;
+    sh:property [
+        sh:name "P8 step" ;
+        sh:group emb:Required ;
+        sh:path tss:stepIndex ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:integer ;
+        sh:minInclusive 0 ;
+        sh:message "P8 step: a point has at most one tss:stepIndex, a whole number, 0 or more: its step on the snippet's time grid." ;
     ] .
 
 
-# --- The points: P1-P3, about each point as a whole ------------------------------
-# The points of the source are the nodes that link to it:
+# --- The points: P1-P3 and P8, about each point as a whole -----------------------
+# The points of the snippet are the nodes that link to it:
 #   ?point tss:pointOf $this .
 
 emb:PointsShape a sh:NodeShape ;
-    sh:targetClass tss:Source ;
+    sh:targetClass tss:Snippet ;
 
-    # S6: a value of a field is in a point of the source. A node with a value for one of
-    # the source's fields, but without tss:pointOf to it (left out, or a typo in the
-    # source's IRI), is not one of its points, so nothing reads its values.
+    # S6: a value of a field is in a point of the snippet. A node with a value for one of
+    # the snippet's fields, but without tss:pointOf to it (left out, or a typo in the
+    # snippet's IRI), is not one of its points, so nothing reads its values.
     # sh:value is that node, so the report shows its values.
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S6 points: a node has a value for a field of this source, but no tss:pointOf to it, so it is not one of its points." ;
+        sh:message "S6 points: a node has a value for a field of this snippet, but no tss:pointOf to it, so it is not one of its points." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
@@ -591,13 +693,15 @@ emb:PointsShape a sh:NodeShape ;
     ] ;
 
     # P1: every point has a time. sh:value is the point, so the report shows its values.
+    # With a time grid a point states its step instead (P8).
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "P1 time: a point has no time: no value for the source's tss:timeField." ;
+        sh:message "P1 time: a point has no time: no value for the snippet's tss:timeField." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
                 $this tss:timeField ?timeField .
+                FILTER NOT EXISTS { $this tss:timeBase ?timeBase }
                 ?value tss:pointOf $this .
                 FILTER NOT EXISTS { ?value ?timeField ?time }
             }""" ;
@@ -640,7 +744,7 @@ emb:PointsShape a sh:NodeShape ;
     ] ;
 
     # P3: the key identifies a point. Two points have the same key when they have the
-    # same value for every tss:key field (most sources have one key field: the time).
+    # same value for every tss:key field (most snippets have one key field: the time).
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "P3 key: more than one point has the tss:key value {?value}." ;
@@ -657,6 +761,86 @@ emb:PointsShape a sh:NodeShape ;
                     ?point ?otherKey ?mine .
                     FILTER NOT EXISTS { ?other ?otherKey ?mine }
                 }
+            }""" ;
+    ] ;
+
+    # P3: the same time written in two ways (2021-03-03T23:15:00Z and 2021-03-03T23:15:00+00:00)
+    # is the same key value too. (The check above compares the texts.)
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P3 key: more than one point has the time {?value} (written in different ways)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:timeField ?timeField ; tss:key ?timeField .
+                ?point tss:pointOf $this ; ?timeField ?value .
+                ?other tss:pointOf $this ; ?timeField ?otherTime .
+                FILTER (?other != ?point && !sameTerm(?value, ?otherTime) && ?value = ?otherTime)
+                # ... and no other key field where the two points differ
+                FILTER NOT EXISTS {
+                    $this tss:key ?otherKey .
+                    FILTER (?otherKey != ?timeField)
+                    ?point ?otherKey ?mine .
+                    FILTER NOT EXISTS { ?other ?otherKey ?mine }
+                }
+            }""" ;
+    ] ;
+
+    # P3, with a time grid: the step stands for the time, so two points at the same step have
+    # the same time (when the time field is a key)
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P3 key: more than one point is at step {?value} (tss:stepIndex), so they have the same time." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:timeField ?timeField ; tss:key ?timeField .
+                ?point tss:pointOf $this ; tss:stepIndex ?value .
+                ?other tss:pointOf $this ; tss:stepIndex ?otherStep .
+                FILTER (?other != ?point && ?otherStep = ?value)
+                # ... and no other key field where the two points differ
+                FILTER NOT EXISTS {
+                    $this tss:key ?otherKey .
+                    FILTER (?otherKey != ?timeField)
+                    ?point ?otherKey ?mine .
+                    FILTER NOT EXISTS { ?other ?otherKey ?mine }
+                }
+            }""" ;
+    ] ;
+
+    # P8: with a time grid (tss:timeBase, tss:timeStep) every point states its step
+    # (tss:stepIndex) and no time: its time is tss:timeBase + tss:stepIndex × tss:timeStep.
+    # Without a time grid a point states its time and no step. A point can't state both,
+    # because the two could disagree. sh:value is the point, so the report shows its values.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P8 step: the snippet has a time grid (tss:timeBase, tss:timeStep), but a point has no tss:stepIndex, so it has no time." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:timeBase ?timeBase .
+                ?value tss:pointOf $this .
+                FILTER NOT EXISTS { ?value tss:stepIndex ?step }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P8 step: the snippet has a time grid, so a point states its step (tss:stepIndex) and not a value for the tss:timeField, but this point has the time {?time}." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value ?time WHERE {
+                $this tss:timeBase ?timeBase ; tss:timeField ?timeField .
+                ?value tss:pointOf $this ; ?timeField ?time .
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "P8 step: a point has a tss:stepIndex ({?step}), but the snippet has no time grid (tss:timeBase, tss:timeStep), so the step gives no time." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT DISTINCT $this ?value ?step WHERE {
+                ?value tss:pointOf $this ; tss:stepIndex ?step .
+                FILTER NOT EXISTS { $this tss:timeBase ?timeBase }
             }""" ;
     ] ;
 
@@ -691,10 +875,10 @@ emb:FieldValuesShape a sh:NodeShape ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value ?when WHERE {
-                ?source tss:hasField $this .
+                ?snippet tss:hasField $this .
                 $this tss:datatype ?datatype .
-                ?point tss:pointOf ?source ; $this ?value .
-                OPTIONAL { ?source tss:timeField ?timeField . ?point ?timeField ?time }
+                ?point tss:pointOf ?snippet ; $this ?value .
+                OPTIONAL { ?snippet tss:timeField ?timeField . ?point ?timeField ?time }
                 BIND (COALESCE(STR(?time), "(no time)") AS ?when)
                 FILTER (!isLiteral(?value) || DATATYPE(?value) != ?datatype)
             }""" ;
@@ -708,11 +892,11 @@ emb:FieldValuesShape a sh:NodeShape ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value ?when WHERE {
-                ?source tss:hasField $this .
+                ?snippet tss:hasField $this .
                 $this tss:datatype ?datatype .
-                ?point tss:pointOf ?source ; $this ?value .
+                ?point tss:pointOf ?snippet ; $this ?value .
                 FILTER (isLiteral(?value) && DATATYPE(?value) = ?datatype)
-                OPTIONAL { ?source tss:timeField ?timeField . ?point ?timeField ?time }
+                OPTIONAL { ?snippet tss:timeField ?timeField . ?point ?timeField ?time }
                 BIND (COALESCE(STR(?time), "(no time)") AS ?when)
                 BIND (STR(?value) AS ?text)
                 BIND (xsd:dateTime(?text) AS ?moment)
@@ -736,6 +920,9 @@ emb:FieldValuesShape a sh:NodeShape ;
                         && !REGEX(?text, "^-[0-9]*[1-9][0-9]*$"))
                     || (?datatype = xsd:boolean
                         && !REGEX(?text, "^(true|false|1|0)$"))
+                    # tss:unixTime: whole seconds since 1970-01-01T00:00:00Z, 0 or more
+                    || (?datatype = tss:unixTime
+                        && !REGEX(?text, "^[0-9]+$"))
                     || (?datatype = xsd:dateTime
                         && (!REGEX(?text, "^-?[0-9]{4,}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?$")
                             || !BOUND(?moment)))
@@ -758,10 +945,10 @@ emb:FieldValuesShape a sh:NodeShape ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value ?when ?minimum WHERE {
-                ?source tss:hasField $this .
+                ?snippet tss:hasField $this .
                 $this tss:minimum ?minimum .
-                ?point tss:pointOf ?source ; $this ?value .
-                OPTIONAL { ?source tss:timeField ?timeField . ?point ?timeField ?time }
+                ?point tss:pointOf ?snippet ; $this ?value .
+                OPTIONAL { ?snippet tss:timeField ?timeField . ?point ?timeField ?time }
                 BIND (COALESCE(STR(?time), "(no time)") AS ?when)
                 BIND (xsd:double(STR(?value)) AS ?number)
                 FILTER (isNumeric(?value) && BOUND(?number) && ?number < ?minimum)
@@ -773,10 +960,10 @@ emb:FieldValuesShape a sh:NodeShape ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value ?when ?maximum WHERE {
-                ?source tss:hasField $this .
+                ?snippet tss:hasField $this .
                 $this tss:maximum ?maximum .
-                ?point tss:pointOf ?source ; $this ?value .
-                OPTIONAL { ?source tss:timeField ?timeField . ?point ?timeField ?time }
+                ?point tss:pointOf ?snippet ; $this ?value .
+                OPTIONAL { ?snippet tss:timeField ?timeField . ?point ?timeField ?time }
                 BIND (COALESCE(STR(?time), "(no time)") AS ?when)
                 BIND (xsd:double(STR(?value)) AS ?number)
                 FILTER (isNumeric(?value) && BOUND(?number) && ?number > ?maximum)
@@ -784,22 +971,22 @@ emb:FieldValuesShape a sh:NodeShape ;
     ] .
 
 
-# --- P6: every property of a point is tss:pointOf or a field of its source -----------
+# --- P6: every property of a point is tss:pointOf or a field of its snippet -----------
 # A shape of its own, because a SPARQL check takes its severity from its shape.
-# A property that is no field of the source (a typo in a field's IRI, or a field of
+# A property that is no field of the snippet (a typo in a field's IRI, or a field of
 # another document) is not read, so its values are lost.
 
 emb:PointPropertiesShape a sh:NodeShape ;
-    sh:targetClass tss:Source ;
+    sh:targetClass tss:Snippet ;
     sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "P6 properties: a point has the property {?value}, which is no field of the source (tss:hasField), so its values are not read." ;
+        sh:message "P6 properties: a point has the property {?value}, which is no field of the snippet (tss:hasField), so its values are not read." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
                 ?point tss:pointOf $this ; ?value ?any .
-                FILTER (!sameTerm(?value, tss:pointOf))
+                FILTER (!sameTerm(?value, tss:pointOf) && !sameTerm(?value, tss:stepIndex))
                 FILTER NOT EXISTS { $this tss:hasField ?value }
             }""" ;
     ] .
@@ -904,8 +1091,8 @@ emb:SummaryShape a sh:NodeShape ;
     sh:property [
         sh:name "Q12 generated at time" ;
         sh:group emb:Optional ;
-        sh:path prov:generatedAtTime ;
+        sh:path tss:generatedAtTime ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTime ;
-        sh:message "prov:generatedAtTime must be one xsd:dateTime when supplied." ;
+        sh:message "tss:generatedAtTime must be one xsd:dateTime when supplied." ;
     ] .

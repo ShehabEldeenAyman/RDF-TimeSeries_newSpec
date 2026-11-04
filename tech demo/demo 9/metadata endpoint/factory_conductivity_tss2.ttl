@@ -1,6 +1,5 @@
 @prefix dcterms: <http://purl.org/dc/terms/> .
 @prefix s4inma: <https://saref.etsi.org/saref4inma/> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -8,29 +7,29 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level source locators.
-# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level snippet locators.
+# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Source windows are [from, until).
+# Snippet windows are [from, until).
 # tss:key identifies the field whose values uniquely identify a row.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
-# Shared source: provenance, time window, time field and column schema.
+# Shared snippet: provenance, time window, time field and column schema.
 
-ex:factory-source
-    a tss:Source ;
-    # The datatype of every time of this source: its metadata times (tss:modifiedAt, the window,
+ex:factory-snippet
+    a tss:Snippet ;
+    # The datatype of every time of this snippet: its metadata times (tss:modifiedAt, the window,
     # tss:committedUntil and the summary times) and its tss:timeField's values (whose
     # tss:datatype is the same).
     # The "datetime" column of the data file holds times with a UTC offset such as
     # 2025-01-01T00:00:00+00:00: xsd:dateTime texts, each with a timezone.
     tss:timeDatatype xsd:dateTime ;
-    # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-11-04T08:56:19Z"^^xsd:dateTime ;
+    # Last edit of the snippet metadata; summary calculation times are separate.
+    tss:modifiedAt "2026-11-04T10:12:36Z"^^xsd:dateTime ;
     rdfs:label "Factory water conductivity, 2025"@en ;
-    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
-    tss:sourceDescription [
+    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
+    tss:snippetDescription [
         dcterms:spatial [
             a s4inma:Factory ;
             # Illustrative site description: the factory name and coordinates were not supplied.
@@ -41,7 +40,7 @@ ex:factory-source
     tss:producedBy ex:system1 ;
     tss:from "2025-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    # Committed until: the last time the source and its data were checked to be up to date.
+    # Committed until: the last time the snippet and its data were checked to be up to date.
     tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:embedded false ;
     tss:dataFile <../data/factory_conductivity.csv> ;
@@ -80,7 +79,7 @@ ex:factory-source
 # All present readings are included regardless of quality codes or allowed bounds.
 # Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
 # For embedded data these summaries describe only the supplied sample points.
-# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
 
 ex:factory-time-field
     a tss:Field ;
@@ -100,7 +99,7 @@ ex:factory-time-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-ro1_a_permeate_conductivity-field
@@ -134,7 +133,7 @@ ex:factory-ro1_a_permeate_conductivity-field
         tss:observedMaximum "27297.440431"^^xsd:double ;
         tss:mean "82.28262446154072"^^xsd:double ;
         tss:median "77.120205"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-ro1_b_permeate_conductivity-field
@@ -168,7 +167,7 @@ ex:factory-ro1_b_permeate_conductivity-field
         tss:observedMaximum "25133.892928"^^xsd:double ;
         tss:mean "144.20755343038235"^^xsd:double ;
         tss:median "59.9185535"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-ro1_c_permeate_conductivity-field
@@ -202,7 +201,7 @@ ex:factory-ro1_c_permeate_conductivity-field
         tss:observedMaximum "24272.137992"^^xsd:double ;
         tss:mean "182.33738701902942"^^xsd:double ;
         tss:median "149.64687"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-ro2_a_permeate_conductivity-field
@@ -236,7 +235,7 @@ ex:factory-ro2_a_permeate_conductivity-field
         tss:observedMaximum "41429.990362"^^xsd:double ;
         tss:mean "11.370732131309566"^^xsd:double ;
         tss:median "2.783907"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-ro2_b_permeate_conductivity-field
@@ -270,7 +269,7 @@ ex:factory-ro2_b_permeate_conductivity-field
         tss:observedMaximum "36634.188629"^^xsd:double ;
         tss:mean "34.59727942931953"^^xsd:double ;
         tss:median "10.870987"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-cooling_water_conductivity-field
@@ -304,7 +303,7 @@ ex:factory-cooling_water_conductivity-field
         tss:observedMaximum "24624.794491"^^xsd:double ;
         tss:mean "143.95241408805882"^^xsd:double ;
         tss:median "142.3577785"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-boiler_feed_conductivity-field
@@ -338,7 +337,7 @@ ex:factory-boiler_feed_conductivity-field
         tss:observedMaximum "57054.147219"^^xsd:double ;
         tss:mean "10.365869883662784"^^xsd:double ;
         tss:median "4.626449"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-boiler_water_delivery_conductivity-field
@@ -372,7 +371,7 @@ ex:factory-boiler_water_delivery_conductivity-field
         tss:observedMaximum "312551.014798"^^xsd:double ;
         tss:mean "25.75021324329496"^^xsd:double ;
         tss:median "1.039377"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-dockwater_blowdown_conductivity-field
@@ -406,7 +405,7 @@ ex:factory-dockwater_blowdown_conductivity-field
         tss:observedMaximum "22909.422542"^^xsd:double ;
         tss:mean "8653.226761380412"^^xsd:double ;
         tss:median "7494.228771"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-venturi_reject_conductivity-field
@@ -440,7 +439,7 @@ ex:factory-venturi_reject_conductivity-field
         tss:observedMaximum "47844.229807"^^xsd:double ;
         tss:mean "19604.451817061476"^^xsd:double ;
         tss:median "18475.501609"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-ro1de_feed_conductivity-field
@@ -452,11 +451,11 @@ ex:factory-ro1de_feed_conductivity-field
     rdfs:comment "Feed conductivity to RO1D and RO1E combined"@en ;
     tss:minimum 0 ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+    rdfs:comment "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1de_feed ;
     tss:featureOfInterest ex:ro1de_feed ;
     tss:fieldDescription [
-        dcterms:description "Feed conductivity to RO1D and RO1E combined"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:description "Feed conductivity to RO1D and RO1E combined"@en, "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1de_feed, ex:ro1de_feed
     ] ;
@@ -472,7 +471,7 @@ ex:factory-ro1de_feed_conductivity-field
         tss:observedMaximum "11972097.073206"^^xsd:double ;
         tss:mean "6392.581568974113"^^xsd:double ;
         tss:median "2347.34368"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-ro1d_feed_conductivity-field
@@ -484,11 +483,11 @@ ex:factory-ro1d_feed_conductivity-field
     rdfs:comment "Feed conductivity to RO1D (after chemical injection)"@en ;
     tss:minimum 0 ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+    rdfs:comment "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1d_feed ;
     tss:featureOfInterest ex:ro1d_feed ;
     tss:fieldDescription [
-        dcterms:description "Feed conductivity to RO1D (after chemical injection)"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:description "Feed conductivity to RO1D (after chemical injection)"@en, "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1d_feed, ex:ro1d_feed
     ] ;
@@ -504,7 +503,7 @@ ex:factory-ro1d_feed_conductivity-field
         tss:observedMaximum "12081262.451126"^^xsd:double ;
         tss:mean "3379.540025022093"^^xsd:double ;
         tss:median "36.6465"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:factory-ro1e_feed_conductivity-field
@@ -516,11 +515,11 @@ ex:factory-ro1e_feed_conductivity-field
     rdfs:comment "Feed conductivity to RO1E"@en ;
     tss:minimum 0 ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+    rdfs:comment "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1e_feed ;
     tss:featureOfInterest ex:ro1e_feed ;
     tss:fieldDescription [
-        dcterms:description "Feed conductivity to RO1E"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:description "Feed conductivity to RO1E"@en, "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1e_feed, ex:ro1e_feed
     ] ;
@@ -536,5 +535,5 @@ ex:factory-ro1e_feed_conductivity-field
         tss:observedMaximum "12039157.659813"^^xsd:double ;
         tss:mean "4686.543670799653"^^xsd:double ;
         tss:median "53.967353"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .

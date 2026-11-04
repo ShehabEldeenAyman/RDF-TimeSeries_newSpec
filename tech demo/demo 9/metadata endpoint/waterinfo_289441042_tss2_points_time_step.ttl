@@ -1,5 +1,4 @@
 @prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -8,36 +7,36 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level source locators.
-# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level snippet locators.
+# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Source windows are [from, until).
+# Snippet windows are [from, until).
 # tss:key identifies the field whose values uniquely identify a row.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # A copy of waterinfo_289441042_tss2_points_time_value.ttl (the same five readings) whose points
-# state no time. The source states a time grid: tss:timeBase (the time of step 0) and
+# state no time. The snippet states a time grid: tss:timeBase (the time of step 0) and
 # tss:timeStep (the fixed time between two steps). Each point states only its step number,
 # tss:stepIndex; its time is tss:timeBase + tss:stepIndex × tss:timeStep. The values are unchanged.
 # New terms (proposal vocabulary): tss:timeBase, tss:timeStep, tss:stepIndex.
-# The source and its fields have their own IRIs (ex:zevenaarshaven-ts-...), so the documents never
+# The snippet and its fields have their own IRIs (ex:zevenaarshaven-ts-...), so the documents never
 # describe the same node in two ways; the sensor, the feature of interest and the station are the
 # same real-world things, so they keep their IRIs.
 # The points are RDF at the end of this document (see "Points" below).
 
-ex:zevenaarshaven-ts-source
-    a tss:Source ;
-    # The datatype of every time of this source: its metadata times (tss:modifiedAt, the window,
+ex:zevenaarshaven-ts-snippet
+    a tss:Snippet ;
+    # The datatype of every time of this snippet: its metadata times (tss:modifiedAt, the window,
     # tss:committedUntil and the summary times) and its tss:timeField's values (whose
     # tss:datatype is the same).
-    # tss:timeBase is a time of this source too. The points state no time: each one's time is
+    # tss:timeBase is a time of this snippet too. The points state no time: each one's time is
     # tss:timeBase + tss:stepIndex × tss:timeStep, an xsd:dateTime like tss:timeBase.
     tss:timeDatatype xsd:dateTime ;
-    # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-11-04T08:56:19Z"^^xsd:dateTime ;
+    # Last edit of the snippet metadata; summary calculation times are separate.
+    tss:modifiedAt "2026-11-04T10:12:36Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time step points"@en ;
-    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
-    tss:sourceDescription [
+    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
+    tss:snippetDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
@@ -57,7 +56,7 @@ ex:zevenaarshaven-ts-source
     tss:timeStep "PT15M"^^xsd:dayTimeDuration ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    # Committed until: the last time the source and its data were checked to be up to date.
+    # Committed until: the last time the snippet and its data were checked to be up to date.
     tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:hasField ex:zevenaarshaven-ts-time-field,
         ex:zevenaarshaven-ts-value-field .
@@ -72,11 +71,11 @@ ex:zevenaarshaven-ts-source
 # Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
 # Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
 # For embedded data these summaries describe only the supplied sample points.
-# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
 # The time summaries describe the times on the grid, not the step numbers the points state.
 
 # The time field: the points state no value for it. Each point's time is computed from the
-# source's time grid (tss:timeBase, tss:timeStep) and the point's tss:stepIndex.
+# snippet's time grid (tss:timeBase, tss:timeStep) and the point's tss:stepIndex.
 ex:zevenaarshaven-ts-time-field
     a tss:Field ;
     tss:columnName "time" ;
@@ -93,7 +92,7 @@ ex:zevenaarshaven-ts-time-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
     ] .
 
 ex:zevenaarshaven-ts-value-field
@@ -125,13 +124,13 @@ ex:zevenaarshaven-ts-value-field
         tss:observedMaximum "4797.72"^^xsd:double ;
         tss:mean "4750.588"^^xsd:double ;
         tss:median "4745.36"^^xsd:double ;
-        prov:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
     ] .
 
 # Points: one RDF node per point, at the end of the document, so that a new point of a
-# mutable source is appended as one more Turtle statement without touching the rest.
-# tss:pointOf links each point to its source. A point states no time: tss:stepIndex (an
-# xsd:integer, 0 or more) is its step on the source's time grid. Its value has its field's IRI
+# mutable snippet is appended as one more Turtle statement without touching the rest.
+# tss:pointOf links each point to its snippet. A point states no time: tss:stepIndex (an
+# xsd:integer, 0 or more) is its step on the snippet's time grid. Its value has its field's IRI
 # as predicate and is typed with the field's tss:datatype; a missing value has no triple.
 # A step without a reading has no point (here steps 3, 4 and 6). The points are unordered
 # (sort by tss:stepIndex). Their times:
@@ -142,22 +141,22 @@ ex:zevenaarshaven-ts-value-field
 #      5  2021-03-04T00:30:00Z
 #      7  2021-03-04T01:00:00Z
 
-[] tss:pointOf ex:zevenaarshaven-ts-source ;
+[] tss:pointOf ex:zevenaarshaven-ts-snippet ;
     tss:stepIndex 0 ;
     ex:zevenaarshaven-ts-value-field "4797.72"^^xsd:double .
 
-[] tss:pointOf ex:zevenaarshaven-ts-source ;
+[] tss:pointOf ex:zevenaarshaven-ts-snippet ;
     tss:stepIndex 1 ;
     ex:zevenaarshaven-ts-value-field "4717.8"^^xsd:double .
 
-[] tss:pointOf ex:zevenaarshaven-ts-source ;
+[] tss:pointOf ex:zevenaarshaven-ts-snippet ;
     tss:stepIndex 2 ;
     ex:zevenaarshaven-ts-value-field "4745.36"^^xsd:double .
 
-[] tss:pointOf ex:zevenaarshaven-ts-source ;
+[] tss:pointOf ex:zevenaarshaven-ts-snippet ;
     tss:stepIndex 5 ;
     ex:zevenaarshaven-ts-value-field "4716.1"^^xsd:double .
 
-[] tss:pointOf ex:zevenaarshaven-ts-source ;
+[] tss:pointOf ex:zevenaarshaven-ts-snippet ;
     tss:stepIndex 7 ;
     ex:zevenaarshaven-ts-value-field "4775.96"^^xsd:double .

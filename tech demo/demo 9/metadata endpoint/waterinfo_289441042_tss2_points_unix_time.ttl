@@ -7,43 +7,42 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level source locators.
-# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level snippet locators.
+# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Source windows are [from, until).
+# Snippet windows are [from, until).
 # tss:key identifies the field whose values uniquely identify a row.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # A copy of waterinfo_289441042_tss2_points_embedded.ttl (the same five readings) whose times are
-# all Unix timestamps. The source states tss:timeDatatype tss:unixTime (proposal vocabulary), so
-# every time in this document (in the source, the summaries and the points) is a literal like
-# "1614813300"^^tss:unixTime. A summary's calculation time is tss:generatedAtTime (proposal
-# vocabulary), not prov:generatedAtTime, because PROV-O gives the latter the range xsd:dateTime.
-# The source and its fields have their own IRIs (ex:zevenaarshaven-ut-...), so the documents never
+# all Unix timestamps. The snippet states tss:timeDatatype tss:unixTime (proposal vocabulary), so
+# every time in this document (in the snippet, the summaries and the points) is a literal like
+# "1614813300"^^tss:unixTime.
+# The snippet and its fields have their own IRIs (ex:zevenaarshaven-ut-...), so the documents never
 # describe the same node in two ways; the sensor, the feature of interest and the station are the
 # same real-world things, so they keep their IRIs.
 
-# One embedded source contains both series, with one shared time field.
-# The source window applies to all fields; the points are five-reading samples.
+# One embedded snippet contains both series, with one shared time field.
+# The snippet window applies to all fields; the points are five-reading samples.
 # The points are RDF at the end of this document (see "Points" below).
 
-ex:zevenaarshaven-ut-source
-    a tss:Source ;
-    # The datatype of every time of this source: its tss:modifiedAt, tss:from, tss:until and
+ex:zevenaarshaven-ut-snippet
+    a tss:Snippet ;
+    # The datatype of every time of this snippet: its tss:modifiedAt, tss:from, tss:until and
     # tss:committedUntil, the tss:from, tss:until, tss:firstTime, tss:lastTime and
     # tss:generatedAtTime of each summary, and the values of its tss:timeField (whose
     # tss:datatype is the same).
     # tss:unixTime: a Unix timestamp, the number of seconds since 1970-01-01T00:00:00Z (UTC),
-    # leap seconds not counted, written as a whole number ("1614813300" is 2021-03-03T23:15:00Z).
-    # Without tss:timeDatatype these times are xsd:dateTime.
+    # leap seconds not counted, written as a whole number, 0 or more ("1614813300" is
+    # 2021-03-03T23:15:00Z).
     tss:timeDatatype tss:unixTime ;
-    # Last edit of the source metadata; summary calculation times are separate.
-    # 1793782281 = 2026-11-04T08:51:21Z
-    tss:modifiedAt "1793782281"^^tss:unixTime ;
+    # Last edit of the snippet metadata; summary calculation times are separate.
+    # 1793787156 = 2026-11-04T10:12:36Z
+    tss:modifiedAt "1793787156"^^tss:unixTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), Unix time"@en ;
-    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
-    tss:sourceDescription [
+    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
+    tss:snippetDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
@@ -57,7 +56,7 @@ ex:zevenaarshaven-ut-source
     # The window [2021-03-03T23:15:00Z, 2026-01-01T00:00:00Z).
     tss:from "1614813300"^^tss:unixTime ;
     tss:until "1767225600"^^tss:unixTime ;
-    # Committed until: the last time the source and its data were checked to be up to date.
+    # Committed until: the last time the snippet and its data were checked to be up to date.
     # 1793015023 = 2026-10-26T11:43:43Z
     tss:committedUntil "1793015023"^^tss:unixTime ;
     tss:hasField ex:zevenaarshaven-ut-time-field,
@@ -76,7 +75,7 @@ ex:zevenaarshaven-ut-source
 # Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
 # For embedded data these summaries describe only the supplied sample points.
 # tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
-# The summary times are tss:unixTime (the source's tss:timeDatatype): 1614813300 is
+# The summary times are tss:unixTime (the snippet's tss:timeDatatype): 1614813300 is
 # 2021-03-03T23:15:00Z, 1614819600 is 2021-03-04T01:00:00Z, 1767225600 is 2026-01-01T00:00:00Z,
 # 1792677750 is 2026-10-22T14:02:30Z.
 
@@ -84,7 +83,7 @@ ex:zevenaarshaven-ut-time-field
     a tss:Field ;
     tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
-    # The time field's datatype is the source's tss:timeDatatype.
+    # The time field's datatype is the snippet's tss:timeDatatype.
     tss:datatype tss:unixTime ;
     tss:fieldDescription [
         dcterms:description "Observation time"@en
@@ -156,8 +155,8 @@ ex:zevenaarshaven-ut-quality-color-value-field
     ] .
 
 # Points: one RDF node per point, at the end of the document, so that a new point of a
-# mutable source is appended as one more Turtle statement without touching the rest.
-# tss:pointOf links each point to its source. Each value has its field's IRI as predicate
+# mutable snippet is appended as one more Turtle statement without touching the rest.
+# tss:pointOf links each point to its snippet. Each value has its field's IRI as predicate
 # and is typed with the field's tss:datatype; a missing value has no triple.
 # The points are unordered (sort by the value of the tss:timeField).
 # Their times as Unix timestamps:
@@ -165,27 +164,27 @@ ex:zevenaarshaven-ut-quality-color-value-field
 #   1614815100 = 2021-03-03T23:45:00Z    1614817800 = 2021-03-04T00:30:00Z
 #   1614819600 = 2021-03-04T01:00:00Z
 
-[] tss:pointOf ex:zevenaarshaven-ut-source ;
+[] tss:pointOf ex:zevenaarshaven-ut-snippet ;
     ex:zevenaarshaven-ut-time-field "1614813300"^^tss:unixTime ;
     ex:zevenaarshaven-ut-ec20-value-field "4797.72"^^xsd:double ;
     ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
 
-[] tss:pointOf ex:zevenaarshaven-ut-source ;
+[] tss:pointOf ex:zevenaarshaven-ut-snippet ;
     ex:zevenaarshaven-ut-time-field "1614814200"^^tss:unixTime ;
     ex:zevenaarshaven-ut-ec20-value-field "4717.8"^^xsd:double ;
     ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
 
-[] tss:pointOf ex:zevenaarshaven-ut-source ;
+[] tss:pointOf ex:zevenaarshaven-ut-snippet ;
     ex:zevenaarshaven-ut-time-field "1614815100"^^tss:unixTime ;
     ex:zevenaarshaven-ut-ec20-value-field "4745.36"^^xsd:double ;
     ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
 
-[] tss:pointOf ex:zevenaarshaven-ut-source ;
+[] tss:pointOf ex:zevenaarshaven-ut-snippet ;
     ex:zevenaarshaven-ut-time-field "1614817800"^^tss:unixTime ;
     ex:zevenaarshaven-ut-ec20-value-field "4716.1"^^xsd:double ;
     ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
 
-[] tss:pointOf ex:zevenaarshaven-ut-source ;
+[] tss:pointOf ex:zevenaarshaven-ut-snippet ;
     ex:zevenaarshaven-ut-time-field "1614819600"^^tss:unixTime ;
     ex:zevenaarshaven-ut-ec20-value-field "4775.96"^^xsd:double ;
     ex:zevenaarshaven-ut-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .

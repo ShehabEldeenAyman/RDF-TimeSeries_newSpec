@@ -1,5 +1,4 @@
 @prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -8,32 +7,32 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level source locators.
-# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level snippet locators.
+# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Source windows are [from, until).
+# Snippet windows are [from, until).
 # tss:key identifies the field whose values uniquely identify a row.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # A copy of waterinfo_289441042_tss2_points_embedded.ttl with one series only: each point
 # holds just "time" and "value" (the EC20 reading); the quality code colour is left out.
-# The source and its fields have their own IRIs (ex:zevenaarshaven-tv-...), so the two documents
+# The snippet and its fields have their own IRIs (ex:zevenaarshaven-tv-...), so the two documents
 # never describe the same node in two ways; the sensor, the feature of interest and the station
 # are the same real-world things, so they keep their IRIs.
 # The points are RDF at the end of this document (see "Points" below).
 
-ex:zevenaarshaven-tv-source
-    a tss:Source ;
-    # The datatype of every time of this source: its metadata times (tss:modifiedAt, the window,
+ex:zevenaarshaven-tv-snippet
+    a tss:Snippet ;
+    # The datatype of every time of this snippet: its metadata times (tss:modifiedAt, the window,
     # tss:committedUntil and the summary times) and its tss:timeField's values (whose
     # tss:datatype is the same).
     # The points' times are xsd:dateTime literals with a timezone, such as 2021-03-03T23:15:00Z.
     tss:timeDatatype xsd:dateTime ;
-    # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-11-04T08:56:19Z"^^xsd:dateTime ;
+    # Last edit of the snippet metadata; summary calculation times are separate.
+    tss:modifiedAt "2026-11-04T10:12:36Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time and value points"@en ;
-    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
-    tss:sourceDescription [
+    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
+    tss:snippetDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
@@ -46,7 +45,7 @@ ex:zevenaarshaven-tv-source
     tss:key ex:zevenaarshaven-tv-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
-    # Committed until: the last time the source and its data were checked to be up to date.
+    # Committed until: the last time the snippet and its data were checked to be up to date.
     tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:hasField ex:zevenaarshaven-tv-time-field,
         ex:zevenaarshaven-tv-value-field .
@@ -61,7 +60,7 @@ ex:zevenaarshaven-tv-source
 # Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
 # Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
 # For embedded data these summaries describe only the supplied sample points.
-# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
 
 ex:zevenaarshaven-tv-time-field
     a tss:Field ;
@@ -79,7 +78,7 @@ ex:zevenaarshaven-tv-time-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
     ] .
 
 ex:zevenaarshaven-tv-value-field
@@ -111,31 +110,31 @@ ex:zevenaarshaven-tv-value-field
         tss:observedMaximum "4797.72"^^xsd:double ;
         tss:mean "4750.588"^^xsd:double ;
         tss:median "4745.36"^^xsd:double ;
-        prov:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-26T09:03:01+00:00"^^xsd:dateTime
     ] .
 
 # Points: one RDF node per point, at the end of the document, so that a new point of a
-# mutable source is appended as one more Turtle statement without touching the rest.
-# tss:pointOf links each point to its source. Each value has its field's IRI as predicate
+# mutable snippet is appended as one more Turtle statement without touching the rest.
+# tss:pointOf links each point to its snippet. Each value has its field's IRI as predicate
 # and is typed with the field's tss:datatype; a missing value has no triple.
 # The points are unordered (sort by the value of the tss:timeField).
 
-[] tss:pointOf ex:zevenaarshaven-tv-source ;
+[] tss:pointOf ex:zevenaarshaven-tv-snippet ;
     ex:zevenaarshaven-tv-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-tv-value-field "4797.72"^^xsd:double .
 
-[] tss:pointOf ex:zevenaarshaven-tv-source ;
+[] tss:pointOf ex:zevenaarshaven-tv-snippet ;
     ex:zevenaarshaven-tv-time-field "2021-03-03T23:30:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-tv-value-field "4717.8"^^xsd:double .
 
-[] tss:pointOf ex:zevenaarshaven-tv-source ;
+[] tss:pointOf ex:zevenaarshaven-tv-snippet ;
     ex:zevenaarshaven-tv-time-field "2021-03-03T23:45:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-tv-value-field "4745.36"^^xsd:double .
 
-[] tss:pointOf ex:zevenaarshaven-tv-source ;
+[] tss:pointOf ex:zevenaarshaven-tv-snippet ;
     ex:zevenaarshaven-tv-time-field "2021-03-04T00:30:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-tv-value-field "4716.1"^^xsd:double .
 
-[] tss:pointOf ex:zevenaarshaven-tv-source ;
+[] tss:pointOf ex:zevenaarshaven-tv-snippet ;
     ex:zevenaarshaven-tv-time-field "2021-03-04T01:00:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-tv-value-field "4775.96"^^xsd:double .

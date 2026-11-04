@@ -1,5 +1,4 @@
 @prefix dcterms: <http://purl.org/dc/terms/> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
 @prefix tss: <https://w3id.org/tss#> .
 @prefix ex: <https://example.org/ex#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -7,29 +6,29 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level source locators.
-# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level snippet locators.
+# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Source windows are [from, until).
+# Snippet windows are [from, until).
 # tss:key identifies the field whose values uniquely identify a row.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
-# Shared source: provenance, time window, time field and column schema.
+# Shared snippet: provenance, time window, time field and column schema.
 
-ex:autrichehaven-source
-    a tss:Source ;
-    # The datatype of every time of this source: its metadata times (tss:modifiedAt, the window,
+ex:autrichehaven-snippet
+    a tss:Snippet ;
+    # The datatype of every time of this snippet: its metadata times (tss:modifiedAt, the window,
     # tss:committedUntil and the summary times) and its tss:timeField's values (whose
     # tss:datatype is the same).
     # The "Timestamp" column of the data file holds UTC times such as 2021-03-03T23:45:00Z:
     # xsd:dateTime texts, each with a timezone.
     tss:timeDatatype xsd:dateTime ;
-    # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-11-04T08:56:19Z"^^xsd:dateTime ;
+    # Last edit of the snippet metadata; summary calculation times are separate.
+    tss:modifiedAt "2026-11-04T10:12:36Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
-    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
-    tss:sourceDescription [
+    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
+    tss:snippetDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Autrichehaven (NL)"@en
@@ -39,7 +38,7 @@ ex:autrichehaven-source
     tss:producedBy ex:station-autrichehaven ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2025-10-07T07:45:00Z"^^xsd:dateTime ;
-    # Committed until: the last time the source and its data were checked to be up to date.
+    # Committed until: the last time the snippet and its data were checked to be up to date.
     tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289435042.csv> ;
@@ -72,7 +71,7 @@ ex:autrichehaven-source
 # All present readings are included regardless of quality codes or allowed bounds.
 # Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
 # For embedded data these summaries describe only the supplied sample points.
-# prov:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
 
 ex:autrichehaven-ts_id-field
     a tss:Field ;
@@ -92,7 +91,7 @@ ex:autrichehaven-ts_id-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2025-10-07T07:30:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:autrichehaven-time-field
@@ -113,7 +112,7 @@ ex:autrichehaven-time-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2025-10-07T07:30:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:autrichehaven-ec20-field
@@ -147,7 +146,7 @@ ex:autrichehaven-ec20-field
         tss:observedMaximum "40109.15"^^xsd:double ;
         tss:mean "7375.69176455034"^^xsd:double ;
         tss:median "6650.57"^^xsd:double ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:autrichehaven-interpolation-type-field
@@ -170,7 +169,7 @@ ex:autrichehaven-interpolation-type-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2025-10-07T07:30:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:autrichehaven-quality-code-field
@@ -193,7 +192,7 @@ ex:autrichehaven-quality-code-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2025-10-07T07:30:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:autrichehaven-quality-code-name-field
@@ -216,7 +215,7 @@ ex:autrichehaven-quality-code-name-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2025-10-07T07:30:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:autrichehaven-quality-code-description-field
@@ -239,7 +238,7 @@ ex:autrichehaven-quality-code-description-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2025-10-07T07:30:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:autrichehaven-quality-code-color-field
@@ -264,5 +263,5 @@ ex:autrichehaven-quality-code-color-field
         tss:missing "0"^^xsd:integer ;
         tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
         tss:lastTime "2025-10-07T07:30:00+00:00"^^xsd:dateTime ;
-        prov:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
