@@ -27,8 +27,14 @@
 
 ex:zevenaarshaven-ts-source
     a tss:Source ;
+    # The datatype of every time of this source: its metadata times (tss:modifiedAt, the window,
+    # tss:committedUntil and the summary times) and its tss:timeField's values (whose
+    # tss:datatype is the same).
+    # tss:timeBase is a time of this source too. The points state no time: each one's time is
+    # tss:timeBase + tss:stepIndex × tss:timeStep, an xsd:dateTime like tss:timeBase.
+    tss:timeDatatype xsd:dateTime ;
     # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-10-30T17:27:36Z"^^xsd:dateTime ;
+    tss:modifiedAt "2026-11-04T08:56:19Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time step points"@en ;
     # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
     tss:sourceDescription [

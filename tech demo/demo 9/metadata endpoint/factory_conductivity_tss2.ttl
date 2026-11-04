@@ -20,8 +20,14 @@
 
 ex:factory-source
     a tss:Source ;
+    # The datatype of every time of this source: its metadata times (tss:modifiedAt, the window,
+    # tss:committedUntil and the summary times) and its tss:timeField's values (whose
+    # tss:datatype is the same).
+    # The "datetime" column of the data file holds times with a UTC offset such as
+    # 2025-01-01T00:00:00+00:00: xsd:dateTime texts, each with a timezone.
+    tss:timeDatatype xsd:dateTime ;
     # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:modifiedAt "2026-11-04T08:56:19Z"^^xsd:dateTime ;
     rdfs:label "Factory water conductivity, 2025"@en ;
     # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
     tss:sourceDescription [

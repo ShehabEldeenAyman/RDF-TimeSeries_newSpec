@@ -19,8 +19,14 @@
 
 ex:grootdok-source
     a tss:Source ;
+    # The datatype of every time of this source: its metadata times (tss:modifiedAt, the window,
+    # tss:committedUntil and the summary times) and its tss:timeField's values (whose
+    # tss:datatype is the same).
+    # The "Timestamp" column of the data file holds UTC times such as 2021-03-03T23:45:00Z:
+    # xsd:dateTime texts, each with a timezone.
+    tss:timeDatatype xsd:dateTime ;
     # Last edit of the source metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:modifiedAt "2026-11-04T08:56:19Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
     # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
     tss:sourceDescription [
