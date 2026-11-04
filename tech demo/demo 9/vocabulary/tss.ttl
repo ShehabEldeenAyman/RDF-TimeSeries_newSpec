@@ -226,9 +226,9 @@ tss:timeBase a owl:DatatypeProperty ;
 
 tss:timeStep a owl:DatatypeProperty ;
     rdfs:label "time step"@en ;
-    rdfs:comment "The fixed time between two steps of the snippet's time grid, more than zero. Days, hours, minutes and seconds only: months and years have no fixed length. A snippet states tss:timeBase and tss:timeStep together, or neither."@en ;
+    rdfs:comment "The time between two steps of the snippet's time grid: a duration of more than zero, such as PT15M or P1M. Step n is at tss:timeBase + n × tss:timeStep: each part of the step (years, months, days, hours, minutes, seconds) is multiplied by n, and the result is added to tss:timeBase as XML Schema adds a duration to an xsd:dateTime. With years or months the steps are calendar steps, not equal lengths of time: a month has 28 to 31 days, and a day past the end of a month becomes its last day (2021-01-31 + P1M is 2021-02-28). A snippet states tss:timeBase and tss:timeStep together, or neither."@en ;
     rdfs:domain tss:Snippet ;
-    rdfs:range xsd:dayTimeDuration ;
+    rdfs:range xsd:duration ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:stepIndex a owl:DatatypeProperty ;

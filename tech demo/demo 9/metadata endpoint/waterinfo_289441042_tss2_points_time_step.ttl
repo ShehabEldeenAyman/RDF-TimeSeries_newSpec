@@ -16,7 +16,7 @@
 
 # A copy of waterinfo_289441042_tss2_points_time_value.ttl (the same five readings) whose points
 # state no time. The snippet states a time grid: tss:timeBase (the time of step 0) and
-# tss:timeStep (the fixed time between two steps). Each point states only its step number,
+# tss:timeStep (the time between two steps). Each point states only its step number,
 # tss:stepIndex; its time is tss:timeBase + tss:stepIndex × tss:timeStep. The values are unchanged.
 # New terms (proposal vocabulary): tss:timeBase, tss:timeStep, tss:stepIndex.
 # The snippet and its fields have their own IRIs (ex:zevenaarshaven-ts-...), so the documents never
@@ -33,7 +33,7 @@ ex:zevenaarshaven-ts-snippet
     # tss:timeBase + tss:stepIndex × tss:timeStep, an xsd:dateTime like tss:timeBase.
     tss:timeDatatype xsd:dateTime ;
     # Last edit of the snippet metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-11-04T10:12:36Z"^^xsd:dateTime ;
+    tss:modifiedAt "2026-11-04T14:19:27Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time step points"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [
@@ -51,9 +51,10 @@ ex:zevenaarshaven-ts-snippet
     # tss:timeBase is an xsd:dateTime. It is the anchor of the grid, not a bound of the window:
     # it stays fixed when tss:from or tss:until change, so no point's time ever moves.
     tss:timeBase "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-    # tss:timeStep is an xsd:dayTimeDuration: a fixed length of time (days, hours, minutes,
-    # seconds). Months and years have no fixed length, so they can't be a step.
-    tss:timeStep "PT15M"^^xsd:dayTimeDuration ;
+    # tss:timeStep is an xsd:duration of more than zero. With years or months the steps are
+    # calendar steps, not equal lengths of time (a month has 28 to 31 days); this grid steps
+    # every 15 minutes.
+    tss:timeStep "PT15M"^^xsd:duration ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     # Committed until: the last time the snippet and its data were checked to be up to date.

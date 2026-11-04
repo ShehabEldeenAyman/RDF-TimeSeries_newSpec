@@ -29,7 +29,7 @@
 #                  same as the tss:datatype of the time field)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
 #              S18 time base (one xsd:dateTime: the time of step 0)
-#              S19 time step (one xsd:dayTimeDuration of more than zero)
+#              S19 time step (one xsd:duration of more than zero)
 #              S18 and S19 come together: a tss:timeBase needs a tss:timeStep, and the other way round
 #              S10 delimiter (one character; "," when not stated)
 #              S11 encoding ("utf-8" when not stated)
@@ -278,8 +278,8 @@ ext:SnippetShape a sh:NodeShape ;
         sh:group ext:Optional ;
         sh:path tss:timeStep ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dayTimeDuration ;
-        sh:message "tss:timeStep must be one xsd:dayTimeDuration, such as \"PT15M\": the fixed time between two steps of the snippet's time grid." ;
+        sh:datatype xsd:duration ;
+        sh:message "tss:timeStep must be one xsd:duration, such as \"PT15M\": the time between two steps of the snippet's time grid." ;
     ] ;
 
     # S4 and S5: the time field and the key are fields of this snippet
@@ -343,7 +343,7 @@ ext:SnippetShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S19 time step: the snippet has a tss:timeBase ({?value}), so it needs a tss:timeStep: the fixed time between two steps." ;
+        sh:message "S19 time step: the snippet has a tss:timeBase ({?value}), so it needs a tss:timeStep: the time between two steps." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -352,19 +352,18 @@ ext:SnippetShape a sh:NodeShape ;
             }""" ;
     ] ;
 
-    # S19: the text of the time step (rdflib takes "P1M", a month, as a valid
-    # xsd:dayTimeDuration, so sh:datatype does not catch it). Only days, hours, minutes and
-    # seconds, at least one of them, and more than zero: a step of zero or less never moves on.
+    # S19: the text of the time step: years, months, days, hours, minutes and seconds, at
+    # least one of them, and more than zero: a step of zero or less never moves on.
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S19 time step: {?value} is not a fixed time of more than zero, written with days, hours, minutes and seconds only (such as PT15M or P1D)." ;
+        sh:message "S19 time step: {?value} is not a duration of more than zero (such as PT15M, P1D or P1M)." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:timeStep ?value .
-                FILTER (isLiteral(?value) && DATATYPE(?value) = xsd:dayTimeDuration)
+                FILTER (isLiteral(?value) && DATATYPE(?value) = xsd:duration)
                 BIND (STR(?value) AS ?text)
-                FILTER (!REGEX(?text, "^P([0-9]+D)?(T([0-9]+H)?([0-9]+M)?([0-9]+([.][0-9]+)?S)?)?$")
+                FILTER (!REGEX(?text, "^P([0-9]+Y)?([0-9]+M)?([0-9]+D)?(T([0-9]+H)?([0-9]+M)?([0-9]+([.][0-9]+)?S)?)?$")
                     || REGEX(?text, "^PT?$") || REGEX(?text, "T$")
                     || !REGEX(?text, "[1-9]"))
             }""" ;
