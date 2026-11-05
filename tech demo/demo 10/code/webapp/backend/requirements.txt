@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+rdflib
+duckdb
+pyngrok
+pyshacl
+# for the tests (FastAPI's TestClient)
+httpx
