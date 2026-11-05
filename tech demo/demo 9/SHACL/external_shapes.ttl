@@ -31,6 +31,9 @@
 #              S18 time base (one xsd:dateTime: the time of step 0)
 #              S19 time step (one xsd:duration of more than zero)
 #              S18 and S19 come together: a tss:timeBase needs a tss:timeStep, and the other way round
+#              S21 step field: with a time grid, exactly one: the field whose column holds the
+#                  step of each row (one of the snippet's fields, tss:datatype xsd:integer, not
+#                  the time field); without a time grid, none
 #              S10 delimiter (one character; "," when not stated)
 #              S11 encoding ("utf-8" when not stated)
 #   Not used:  S15 delimiter and encoding on a tss:Parquet snippet (warning)
@@ -281,6 +284,14 @@ ext:SnippetShape a sh:NodeShape ;
         sh:datatype xsd:duration ;
         sh:message "tss:timeStep must be one xsd:duration, such as \"PT15M\": the time between two steps of the snippet's time grid." ;
     ] ;
+    sh:property [
+        sh:name "S21 step field" ;
+        sh:group ext:Optional ;
+        sh:path tss:stepField ;
+        sh:maxCount 1 ;
+        sh:class tss:Field ;
+        sh:message "tss:stepField must be one described tss:Field: the field whose column holds the step of each row on the snippet's time grid." ;
+    ] ;
 
     # S4 and S5: the time field and the key are fields of this snippet
     sh:sparql [
@@ -366,6 +377,51 @@ ext:SnippetShape a sh:NodeShape ;
                 FILTER (!REGEX(?text, "^P([0-9]+Y)?([0-9]+M)?([0-9]+D)?(T([0-9]+H)?([0-9]+M)?([0-9]+([.][0-9]+)?S)?)?$")
                     || REGEX(?text, "^PT?$") || REGEX(?text, "T$")
                     || !REGEX(?text, "[1-9]"))
+            }""" ;
+    ] ;
+
+    # S21: a data file has no tss:stepIndex, so with a time grid a column holds the step of
+    # each row. The snippet names its field with tss:stepField, as tss:timeField names the
+    # time field. The data file has no time column: a row's time is the time of its step.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S21 step field: the snippet has a time grid (tss:timeBase, tss:timeStep), so it needs a tss:stepField: the field whose column holds the step of each row." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT DISTINCT $this WHERE {
+                $this tss:timeBase|tss:timeStep ?grid .
+                FILTER NOT EXISTS { $this tss:stepField ?field }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S21 step field: the snippet has no time grid (tss:timeBase, tss:timeStep), so its tss:stepField ({?value}) gives no time." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:stepField ?value .
+                FILTER NOT EXISTS { $this tss:timeBase ?base }
+                FILTER NOT EXISTS { $this tss:timeStep ?step }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S21 step field: tss:stepField ({?value}) must be one of the snippet's own fields (tss:hasField), and not its tss:timeField." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:stepField ?value .
+                FILTER (NOT EXISTS { $this tss:hasField ?value } || EXISTS { $this tss:timeField ?value })
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S21 step field: the tss:datatype of the step field ({?value}) must be xsd:integer: a step is a whole number, 0 or more." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:stepField ?value .
+                FILTER NOT EXISTS { ?value tss:datatype xsd:integer }
             }""" ;
     ] .
 

@@ -152,6 +152,8 @@ The <dfn>Time Window</dfn> of a snippet is the period from `tss:from` (included)
 
 The <dfn id="dfn-time-grid">Time Grid</dfn> of a snippet is a series of times at regular steps: step 0 at `tss:timeBase`, and every next step `tss:timeStep` later ([[#time-grid]]).
 
+The <dfn>Step Field</dfn> of an external snippet with a time grid is the field whose column holds the step of each row (`tss:stepField`).
+
 An <dfn>Embedded Snippet</dfn> keeps its points in the metadata, as nodes that link to it with `tss:pointOf` (`tss:embedded true`). An <dfn>External Snippet</dfn> keeps them in a data file, `tss:dataFile` (`tss:embedded false`).
 
 An <dfn>Empty Value</dfn> is the absence of a value: an empty CSV cell, a Parquet NULL, an embedded point without a value for the field, or the empty text `""`. A text that holds only spaces is not empty.
@@ -187,6 +189,7 @@ A metadata document MUST describe exactly one `tss:Snippet`. The snippet has one
 <tr><td><code>tss:until</code></td><td>a [=Snippet Time=], after <code>tss:from</code></td><td>optional</td><td>optional</td></tr>
 <tr><td><code>tss:timeBase</code></td><td>a [=Snippet Time=]</td><td>optional, together with <code>tss:timeStep</code></td><td>optional, together with <code>tss:timeStep</code></td></tr>
 <tr><td><code>tss:timeStep</code></td><td><code>xsd:duration</code>, more than zero</td><td>optional, together with <code>tss:timeBase</code></td><td>optional, together with <code>tss:timeBase</code></td></tr>
+<tr><td><code>tss:stepField</code></td><td>one of its fields</td><td>required with a time grid; not allowed without one</td><td>not allowed</td></tr>
 <tr><td><code>tss:dataFile</code></td><td>IRI</td><td>required</td><td>not allowed</td></tr>
 <tr><td><code>tss:format</code></td><td><code>tss:CSV</code> or <code>tss:Parquet</code></td><td>required</td><td>not allowed</td></tr>
 <tr><td><code>tss:delimiter</code></td><td>one character</td><td>optional, for <code>tss:CSV</code>; default <code>","</code></td><td>not allowed</td></tr>
@@ -343,7 +346,63 @@ ex:grid-value-field
 Step 5 is at 2024-05-12T08:00:00Z + 5 × PT15M, which is 2024-05-12T09:15:00Z.
 </div>
 
-Issue: An external snippet may state a time grid, but how a row of its data file gives its step is not defined yet. One way is a column that holds the step number, named by the snippet as `tss:timeField` names the time column; another is the position of the row as its step.
+In an external snippet with a time grid, a column of the data file MUST hold the step of each row. The snippet names the field of that column, the [=Step Field=], with exactly one `tss:stepField`, as `tss:timeField` names the time field:
+
+- The step field MUST be one of the snippet's own fields (`tss:hasField`), and MUST NOT be its time field. Its `tss:datatype` MUST be `xsd:integer`.
+- Every row MUST have a step: a whole number of 0 or more. No two rows may be at the same step.
+- A row's time is the time of its step: the data file has no column for the time field.
+
+A snippet without a time grid, and an embedded snippet, MUST NOT state a `tss:stepField`.
+
+<div class="example" id="example-external-time-grid">
+The readings of the time grid example in a CSV file. The column `step` holds the step of each row.
+
+```turtle
+ex:grid-csv-snippet
+    a tss:Snippet ;
+    tss:embedded false ;
+    tss:mutable false ;
+    tss:timeDatatype xsd:dateTime ;
+    tss:modifiedAt "2024-05-12T09:46:10Z"^^xsd:dateTime ;
+    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTime ;
+    tss:dataFile <https://example.org/grid.csv> ;
+    tss:format tss:CSV ;
+    tss:timeBase "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:timeStep "PT15M"^^xsd:duration ;
+    tss:timeField ex:grid-csv-time-field ;
+    tss:stepField ex:grid-csv-step-field ;
+    tss:key ex:grid-csv-time-field ;
+    tss:hasField ex:grid-csv-time-field,
+        ex:grid-csv-step-field,
+        ex:grid-csv-value-field .
+
+ex:grid-csv-time-field
+    a tss:Field ;
+    tss:columnName "time" ;
+    tss:datatype xsd:dateTime .
+
+ex:grid-csv-step-field
+    a tss:Field ;
+    tss:columnName "step" ;
+    tss:datatype xsd:integer .
+
+ex:grid-csv-value-field
+    a tss:Field ;
+    tss:columnName "value" ;
+    tss:datatype xsd:double .
+```
+
+The data file:
+
+```
+step,value
+0,4810.5
+1,4722.4
+2,4751.9
+5,4719.3
+7,4783.6
+```
+</div>
 
 ## Changes ## {#change}
 
@@ -725,6 +784,7 @@ An [=External Snippet=] is never changed this way: managing the data file of an 
 <tr><td><code>tss:hasField</code>, <code>tss:timeField</code>, <code>tss:key</code></td><td>property</td><td>snippet</td><td>[[#time-and-key]]</td></tr>
 <tr><td><code>tss:from</code>, <code>tss:until</code></td><td>property</td><td>snippet, summary</td><td>[[#window]], [[#summaries]]</td></tr>
 <tr><td><code>tss:timeBase</code>, <code>tss:timeStep</code></td><td>property</td><td>snippet</td><td>[[#time-grid]]</td></tr>
+<tr><td><code>tss:stepField</code></td><td>property</td><td>external snippet</td><td>[[#time-grid]]</td></tr>
 <tr><td><code>tss:dataFile</code>, <code>tss:format</code>, <code>tss:delimiter</code>, <code>tss:header</code>, <code>tss:encoding</code></td><td>property</td><td>external snippet</td><td>[[#data-files]]</td></tr>
 <tr><td><code>tss:producedBy</code>, <code>tss:snippetDescription</code></td><td>property</td><td>snippet</td><td>[[#provenance]]</td></tr>
 <tr><td><code>tss:columnName</code>, <code>tss:columnIndex</code>, <code>tss:datatype</code>, <code>tss:language</code>, <code>tss:minimum</code>, <code>tss:maximum</code></td><td>property</td><td>field</td><td>[[#fields]], [[#datatypes]]</td></tr>

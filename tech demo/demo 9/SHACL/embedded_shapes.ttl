@@ -46,7 +46,9 @@
 #                 S19 time step (one xsd:duration of more than zero)
 #                 S18 and S19 come together: a tss:timeBase needs a tss:timeStep, and the other way round
 #   Not allowed:  S12 tss:dataFile, tss:format, tss:delimiter, tss:encoding, tss:header:
-#                 they describe an external data file; tss:points: the points are RDF
+#                 they describe an external data file; tss:points: the points are RDF;
+#                 tss:stepField: it names the step column of a data file, and embedded
+#                 points state their step with tss:stepIndex (P8)
 #
 # The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl
 #   Required:  F1 the field: typed tss:Field, and a field of exactly one snippet
@@ -327,6 +329,14 @@ emb:SnippetShape a sh:NodeShape ;
         sh:path tss:points ;
         sh:maxCount 0 ;
         sh:message "S12 not allowed: tss:points (a JSON literal) is not used; each point is an RDF node with tss:pointOf, at the end of the document." ;
+    ] ;
+    # Not allowed: embedded points state their own step (tss:stepIndex, P8)
+    sh:property [
+        sh:name "S12 step field" ;
+        sh:group emb:NotAllowed ;
+        sh:path tss:stepField ;
+        sh:maxCount 0 ;
+        sh:message "S12 not allowed: tss:stepField names the step column of a data file; embedded points state their step with tss:stepIndex." ;
     ] ;
 
     # S4 and S9: the time field and the key are fields of this snippet

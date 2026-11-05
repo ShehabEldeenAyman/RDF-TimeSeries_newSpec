@@ -17,7 +17,7 @@
 <https://w3id.org/tss#> a owl:Ontology ;
     dcterms:title "RDF Time Series Snippets"@en ;
     dcterms:description "Vocabulary for describing time series snippets in RDF: a snippet, its fields and how to read their values, the summaries of those values, and the points of a snippet whose readings are embedded in its metadata."@en ;
-    dcterms:modified "2026-11-04"^^xsd:date ;
+    dcterms:modified "2026-11-05"^^xsd:date ;
     vann:preferredNamespacePrefix "tss" ;
     vann:preferredNamespaceUri "https://w3id.org/tss#" .
 
@@ -231,9 +231,16 @@ tss:timeStep a owl:DatatypeProperty ;
     rdfs:range xsd:duration ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
+tss:stepField a owl:ObjectProperty ;
+    rdfs:label "step field"@en ;
+    rdfs:comment "The field of an external snippet with a time grid whose column holds the step of each row: a whole number, 0 or more, and no two rows at the same step. A row's time is tss:timeBase + its step × tss:timeStep, so the data file has no column for the tss:timeField. The step field is one of the snippet's fields (tss:hasField), has tss:datatype xsd:integer and is not its tss:timeField. An external snippet with a time grid states exactly one tss:stepField; a snippet without a time grid, and an embedded snippet, state none: embedded points state their step with tss:stepIndex."@en ;
+    rdfs:domain tss:Snippet ;
+    rdfs:range tss:Field ;
+    rdfs:isDefinedBy <https://w3id.org/tss#> .
+
 tss:stepIndex a owl:DatatypeProperty ;
     rdfs:label "step index"@en ;
-    rdfs:comment "The step of a point on its snippet's time grid: a whole number, 0 or more. The point's time is tss:timeBase + tss:stepIndex × tss:timeStep. In a snippet with a time grid, every point states exactly one tss:stepIndex and no value for the tss:timeField, and no two points are at the same step. A point of a snippet without a time grid has no tss:stepIndex."@en ;
+    rdfs:comment "The step of a point on its snippet's time grid: a whole number, 0 or more. The point's time is tss:timeBase + tss:stepIndex × tss:timeStep. In an embedded snippet with a time grid, every point states exactly one tss:stepIndex and no value for the tss:timeField, and no two points are at the same step. A point of a snippet without a time grid has no tss:stepIndex."@en ;
     rdfs:domain tss:Point ;
     rdfs:range xsd:integer ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
