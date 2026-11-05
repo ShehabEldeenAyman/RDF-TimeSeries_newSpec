@@ -38,7 +38,7 @@ tss:Field a owl:Class ;
 
 tss:Point a owl:Class ;
     rdfs:label "Point"@en ;
-    rdfs:comment "One reading of an embedded snippet: a node that links to its snippet with tss:pointOf, so it need not be typed. Each of its values is a triple with the field's IRI as predicate and a literal of the field's tss:datatype; a missing value has no triple. The points of a snippet are unordered."@en ;
+    rdfs:comment "One reading of an embedded snippet: a node that links to its snippet with tss:pointOf. It is not typed: its type follows from tss:pointOf. Each of its values is a triple with the field's IRI as predicate and a literal of the field's tss:datatype; a missing value has no triple. The points of a snippet are unordered."@en ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:Summary a owl:Class ;
