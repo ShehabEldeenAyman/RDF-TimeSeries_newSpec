@@ -18,12 +18,6 @@
 
 ex:autrichehaven-snippet
     a tss:Snippet ;
-    # The datatype of every time of this snippet: its metadata times (the window,
-    # tss:committedUntil and the summary times) and its tss:timeField's values (whose
-    # tss:datatype is the same).
-    # The "Timestamp" column of the data file holds UTC times such as 2021-03-03T23:45:00Z:
-    # xsd:dateTime texts, each with a timezone.
-    tss:timeDatatype xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [
@@ -41,6 +35,8 @@ ex:autrichehaven-snippet
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289435042.csv> ;
     tss:format tss:CSV ;
+    # The "Timestamp" column of the data file holds UTC times such as 2021-03-03T23:45:00Z:
+    # xsd:dateTime texts, each with a timezone.
     tss:timeField ex:autrichehaven-time-field ;
     tss:key ex:autrichehaven-time-field ;
     tss:hasField ex:autrichehaven-ts_id-field,

@@ -19,12 +19,6 @@
 
 ex:rodenhuizedok-snippet
     a tss:Snippet ;
-    # The datatype of every time of this snippet: its metadata times (the window,
-    # tss:committedUntil and the summary times) and its tss:timeField's values (whose
-    # tss:datatype is the same).
-    # The "Timestamp" column of the data file is a native Parquet timestamp (UTC, in
-    # microseconds, all whole seconds), read as xsd:dateTime.
-    tss:timeDatatype xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [
@@ -42,6 +36,8 @@ ex:rodenhuizedok-snippet
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289429042.parquet> ;
     tss:format tss:Parquet ;
+    # The "Timestamp" column of the data file is a native Parquet timestamp (UTC, in
+    # microseconds, all whole seconds), read as xsd:dateTime.
     tss:timeField ex:rodenhuizedok-time-field ;
     tss:key ex:rodenhuizedok-time-field ;
     tss:hasField ex:rodenhuizedok-ts_id-field,

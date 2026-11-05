@@ -8,17 +8,18 @@
 
 # =============================================================================
 # TSS conformance shapes for EMBEDDED data: a tss:Snippet whose points are inside
-# the metadata itself, as RDF. Each point is a node of its own, at the end of the
-# document, linked to its snippet with tss:pointOf. Each value is one triple, with the
-# field's IRI as predicate and a literal typed by the field's tss:datatype, e.g.
-#   [] tss:pointOf ex:zevenaarshaven-snippet ;
+# the metadata itself, as RDF. Each point is a node of its own, linked from its snippet
+# with tss:hasPoint in a statement at the end of the document. Each value is one triple,
+# with the field's IRI as predicate and a literal typed by the field's tss:datatype, e.g.
+#   ex:zevenaarshaven-snippet tss:hasPoint [
 #       ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-#       ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double .
+#       ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double
+#   ] .
 # Each point is one Turtle statement, so a mutable snippet gets a new point by appending
 # one to the end of the document. A missing value has no triple. A snippet may have no
 # points (yet).
 #
-# The points of a snippet are the nodes that link to it:  ?point tss:pointOf <snippet> .
+# The points of a snippet are the nodes it links to:  <snippet> tss:hasPoint ?point .
 # P4 checks the text of each value. rdflib rewrites some texts while it reads Turtle
 # (" 12 "^^xsd:double becomes "12.0", "yes"^^xsd:boolean becomes "false"), so P4 sees
 # such a wrong text only when the metadata is read with rdflib.NORMALIZE_LITERALS off.
@@ -33,13 +34,13 @@
 # The snippet (tss:Snippet)
 #   Required:  S17 committed until (one xsd:dateTime: the last time the snippet and its
 #                  data were checked to be up to date)
-#              S20 time datatype (exactly one: xsd:dateTime, the same as the tss:datatype of
-#                  the time field)
+#              S20 time field datatype (xsd:dateTime: every time of a snippet is an xsd:dateTime)
 #   Required:     S1 the snippet (exactly one)    S4 time field
 #                 S2 mutable                     S5 has field (at least one)
 #                 S3 embedded (true)             S9 key (at least one)
-#                 S6 points: every point has exactly one tss:pointOf, a tss:Snippet, and
-#                    every value of a field of the snippet is in a point of that snippet
+#                 S6 points: every point is a node that exactly one tss:Snippet links to
+#                    with tss:hasPoint, and every value of a field of the snippet is in a
+#                    point of that snippet
 #   Optional:     S7 label    S8 produced by    S10 from    S11 until (after from)
 #   Not allowed:  S12 tss:dataFile, tss:format, tss:delimiter, tss:encoding, tss:header:
 #                 they describe an external data file; tss:points: the points are RDF;
@@ -59,7 +60,7 @@
 #   Not allowed:  D3 tss:valueEncoding and tss:baseline: a value encoding is only for an
 #                    external data file, so every point states the readings themselves
 #
-# The points (the nodes with tss:pointOf)
+# The points (the nodes that the snippet links to with tss:hasPoint)
 #   Required:  P1 time: every point has a value for the tss:timeField
 #              P2 time window: every time is from tss:from (included) until tss:until (not included)
 #              P3 key: no two points have the same value(s) for the tss:key field(s); the same
@@ -70,8 +71,8 @@
 #                 xsd:boolean are checked)
 #              P5 range: every number is within its field's tss:minimum and tss:maximum
 #              P7 one value: a point has at most one value for each field
-#   Warning:   P6 properties: every property of a point is tss:pointOf or a field of its
-#                 snippet
+#   Warning:   P6 properties: every property of a point is a field of its snippet (so a
+#                 point states no rdf:type)
 #
 # The summary (optional tss:summary on a field)
 #   Optional:  Q1 from   Q2 until   Q3 missing-value policy   Q4 count   Q5 missing
@@ -196,15 +197,6 @@ emb:SnippetShape a sh:NodeShape ;
         sh:class tss:Field ;
         sh:message "The snippet needs at least one tss:hasField, and each of them must be a described tss:Field." ;
     ] ;
-    sh:property [
-        sh:name "S20 time datatype" ;
-        sh:group emb:Required ;
-        sh:path tss:timeDatatype ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:in ( xsd:dateTime ) ;
-        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime." ;
-    ] ;
 
     # Optional
     sh:property [
@@ -252,7 +244,7 @@ emb:SnippetShape a sh:NodeShape ;
         sh:group emb:NotAllowed ;
         sh:path tss:dataFile ;
         sh:maxCount 0 ;
-        sh:message "S12 not allowed: an embedded snippet keeps its points in the metadata (nodes with tss:pointOf), so it has no tss:dataFile." ;
+        sh:message "S12 not allowed: an embedded snippet keeps its points in the metadata (the nodes it links to with tss:hasPoint), so it has no tss:dataFile." ;
     ] ;
     sh:property [
         sh:name "S12 format" ;
@@ -288,7 +280,7 @@ emb:SnippetShape a sh:NodeShape ;
         sh:group emb:NotAllowed ;
         sh:path tss:points ;
         sh:maxCount 0 ;
-        sh:message "S12 not allowed: tss:points (a JSON literal) is not used; each point is an RDF node with tss:pointOf, at the end of the document." ;
+        sh:message "S12 not allowed: tss:points (a JSON literal) is not used; each point is an RDF node that the snippet links to with tss:hasPoint, in a statement at the end of the document." ;
     ] ;
     # Not allowed: a time grid is only for an external data file; every point states its own time (P1)
     sh:property [
@@ -335,16 +327,17 @@ emb:SnippetShape a sh:NodeShape ;
             }""" ;
     ] ;
 
-    # S20: the time field's values are times of the snippet, so they have its tss:timeDatatype
+    # S20: the time field's values are times of the snippet, and every time of a snippet is an
+    # xsd:dateTime
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S20 time datatype: tss:timeDatatype is {?value}, but the time field's tss:datatype is {?datatype}; they must be the same." ;
+        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a snippet is an xsd:dateTime." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
-            SELECT $this ?value ?datatype WHERE {
-                $this tss:timeDatatype ?value ; tss:timeField ?timeField .
-                ?timeField tss:datatype ?datatype .
-                FILTER (?datatype != ?value)
+            SELECT $this ?value WHERE {
+                $this tss:timeField ?timeField .
+                ?timeField tss:datatype ?value .
+                FILTER (!sameTerm(?value, xsd:dateTime))
             }""" ;
     ] ;
 
@@ -529,48 +522,51 @@ emb:FieldInPointsShape a sh:NodeShape ;
             SELECT $this WHERE {
                 ?snippet tss:hasField $this .
                 # The snippet has points ...
-                FILTER EXISTS { ?point tss:pointOf ?snippet }
+                FILTER EXISTS { ?snippet tss:hasPoint ?point }
                 # ... but none with a value for this field
-                FILTER NOT EXISTS { ?somePoint tss:pointOf ?snippet ; $this ?someValue }
+                FILTER NOT EXISTS { ?snippet tss:hasPoint ?somePoint . ?somePoint $this ?someValue }
             }""" ;
     ] .
 
 
 # --- S6: the points and their snippet ---------------------------------------------
-# A point is a node with tss:pointOf. It is a point of exactly one snippet.
+# A point is a node that a snippet links to with tss:hasPoint: a blank node or an IRI,
+# not a literal, since its values are triples about it. It is a point of exactly one snippet.
 
 emb:PointShape a sh:NodeShape ;
-    sh:targetSubjectsOf tss:pointOf ;
+    sh:targetObjectsOf tss:hasPoint ;
+    sh:nodeKind sh:BlankNodeOrIRI ;
+    sh:message "S6 points: a point is a node (a blank node or an IRI) that holds its values, not a literal." ;
     sh:property [
-        sh:name "S6 point of" ;
+        sh:name "S6 has point" ;
         sh:group emb:Required ;
-        sh:path tss:pointOf ;
+        sh:path [ sh:inversePath tss:hasPoint ] ;
         sh:maxCount 1 ;
         sh:class tss:Snippet ;
-        sh:message "S6 points: a point needs exactly one tss:pointOf, the tss:Snippet it is a point of." ;
+        sh:message "S6 points: a point is a point of exactly one tss:Snippet: one snippet links to it with tss:hasPoint." ;
     ] .
 
 
 # --- The points: P1-P3 and P7, about each point as a whole -----------------------
-# The points of the snippet are the nodes that link to it:
-#   ?point tss:pointOf $this .
+# The points of the snippet are the nodes it links to:
+#   $this tss:hasPoint ?point .
 
 emb:PointsShape a sh:NodeShape ;
     sh:targetClass tss:Snippet ;
 
     # S6: a value of a field is in a point of the snippet. A node with a value for one of
-    # the snippet's fields, but without tss:pointOf to it (left out, or a typo in the
-    # snippet's IRI), is not one of its points, so nothing reads its values.
+    # the snippet's fields that the snippet does not link to with tss:hasPoint (left out, or
+    # a typo in the snippet's IRI) is not one of its points, so nothing reads its values.
     # sh:value is that node, so the report shows its values.
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S6 points: a node has a value for a field of this snippet, but no tss:pointOf to it, so it is not one of its points." ;
+        sh:message "S6 points: a node has a value for a field of this snippet, but the snippet does not link to it with tss:hasPoint, so it is not one of its points." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
                 $this tss:hasField ?field .
                 ?value ?field ?any .
-                FILTER NOT EXISTS { ?value tss:pointOf $this }
+                FILTER NOT EXISTS { $this tss:hasPoint ?value }
             }""" ;
     ] ;
 
@@ -582,7 +578,7 @@ emb:PointsShape a sh:NodeShape ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
                 $this tss:timeField ?timeField .
-                ?value tss:pointOf $this .
+                $this tss:hasPoint ?value .
                 FILTER NOT EXISTS { ?value ?timeField ?time }
             }""" ;
     ] ;
@@ -599,7 +595,7 @@ emb:PointsShape a sh:NodeShape ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:timeField ?timeField ; tss:from ?from .
-                ?point tss:pointOf $this ; ?timeField ?value .
+                $this tss:hasPoint ?point . ?point ?timeField ?value .
                 BIND (IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z")) AS ?time)
                 BIND (IF(REGEX(STR(?from), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?from), CONCAT(STR(?from), "Z")) AS ?start)
                 BIND (xsd:dateTime(?time) AS ?moment)
@@ -614,7 +610,7 @@ emb:PointsShape a sh:NodeShape ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:timeField ?timeField ; tss:until ?until .
-                ?point tss:pointOf $this ; ?timeField ?value .
+                $this tss:hasPoint ?point . ?point ?timeField ?value .
                 BIND (IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z")) AS ?time)
                 BIND (IF(REGEX(STR(?until), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?until), CONCAT(STR(?until), "Z")) AS ?end)
                 BIND (xsd:dateTime(?time) AS ?moment)
@@ -632,8 +628,9 @@ emb:PointsShape a sh:NodeShape ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
                 $this tss:key ?key .
-                ?point tss:pointOf $this ; ?key ?value .
-                ?other tss:pointOf $this ; ?key ?value .
+                $this tss:hasPoint ?point, ?other .
+                ?point ?key ?value .
+                ?other ?key ?value .
                 FILTER (?other != ?point)
                 # ... and no other key field where the two points differ
                 FILTER NOT EXISTS {
@@ -653,8 +650,8 @@ emb:PointsShape a sh:NodeShape ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
                 $this tss:timeField ?timeField ; tss:key ?timeField .
-                ?point tss:pointOf $this ; ?timeField ?value .
-                ?other tss:pointOf $this ; ?timeField ?otherTime .
+                $this tss:hasPoint ?point . ?point ?timeField ?value .
+                $this tss:hasPoint ?other . ?other ?timeField ?otherTime .
                 FILTER (?other != ?point && !sameTerm(?value, ?otherTime) && ?value = ?otherTime)
                 # ... and no other key field where the two points differ
                 FILTER NOT EXISTS {
@@ -675,7 +672,7 @@ emb:PointsShape a sh:NodeShape ;
         sh:select """
             SELECT DISTINCT $this ?value ?field WHERE {
                 $this tss:hasField ?field .
-                ?value tss:pointOf $this ; ?field ?first, ?second .
+                $this tss:hasPoint ?value . ?value ?field ?first, ?second .
                 FILTER (!sameTerm(?first, ?second))
             }""" ;
     ] .
@@ -699,7 +696,7 @@ emb:FieldValuesShape a sh:NodeShape ;
             SELECT $this ?value ?when WHERE {
                 ?snippet tss:hasField $this .
                 $this tss:datatype ?datatype .
-                ?point tss:pointOf ?snippet ; $this ?value .
+                ?snippet tss:hasPoint ?point . ?point $this ?value .
                 OPTIONAL { ?snippet tss:timeField ?timeField . ?point ?timeField ?time }
                 BIND (COALESCE(STR(?time), "(no time)") AS ?when)
                 FILTER (!isLiteral(?value) || DATATYPE(?value) != ?datatype)
@@ -716,7 +713,7 @@ emb:FieldValuesShape a sh:NodeShape ;
             SELECT $this ?value ?when WHERE {
                 ?snippet tss:hasField $this .
                 $this tss:datatype ?datatype .
-                ?point tss:pointOf ?snippet ; $this ?value .
+                ?snippet tss:hasPoint ?point . ?point $this ?value .
                 FILTER (isLiteral(?value) && DATATYPE(?value) = ?datatype)
                 OPTIONAL { ?snippet tss:timeField ?timeField . ?point ?timeField ?time }
                 BIND (COALESCE(STR(?time), "(no time)") AS ?when)
@@ -766,7 +763,7 @@ emb:FieldValuesShape a sh:NodeShape ;
             SELECT $this ?value ?when ?minimum WHERE {
                 ?snippet tss:hasField $this .
                 $this tss:minimum ?minimum .
-                ?point tss:pointOf ?snippet ; $this ?value .
+                ?snippet tss:hasPoint ?point . ?point $this ?value .
                 OPTIONAL { ?snippet tss:timeField ?timeField . ?point ?timeField ?time }
                 BIND (COALESCE(STR(?time), "(no time)") AS ?when)
                 BIND (xsd:double(STR(?value)) AS ?number)
@@ -781,7 +778,7 @@ emb:FieldValuesShape a sh:NodeShape ;
             SELECT $this ?value ?when ?maximum WHERE {
                 ?snippet tss:hasField $this .
                 $this tss:maximum ?maximum .
-                ?point tss:pointOf ?snippet ; $this ?value .
+                ?snippet tss:hasPoint ?point . ?point $this ?value .
                 OPTIONAL { ?snippet tss:timeField ?timeField . ?point ?timeField ?time }
                 BIND (COALESCE(STR(?time), "(no time)") AS ?when)
                 BIND (xsd:double(STR(?value)) AS ?number)
@@ -790,10 +787,10 @@ emb:FieldValuesShape a sh:NodeShape ;
     ] .
 
 
-# --- P6: every property of a point is tss:pointOf or a field of its snippet -----------
+# --- P6: every property of a point is a field of its snippet -----------------------
 # A shape of its own, because a SPARQL check takes its severity from its shape.
-# A property that is no field of the snippet (a typo in a field's IRI, or a field of
-# another document) is not read, so its values are lost.
+# A property that is no field of the snippet (a typo in a field's IRI, a field of another
+# document, or rdf:type: a point states no type) is not read, so its values are lost.
 
 emb:PointPropertiesShape a sh:NodeShape ;
     sh:targetClass tss:Snippet ;
@@ -804,8 +801,8 @@ emb:PointPropertiesShape a sh:NodeShape ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
-                ?point tss:pointOf $this ; ?value ?any .
-                FILTER (!sameTerm(?value, tss:pointOf))
+                $this tss:hasPoint ?point .
+                ?point ?value ?any .
                 FILTER NOT EXISTS { $this tss:hasField ?value }
             }""" ;
     ] .

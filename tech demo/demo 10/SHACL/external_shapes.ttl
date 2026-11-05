@@ -26,8 +26,7 @@
 #              S4 time field                    S9  format (tss:CSV or tss:Parquet)
 #              S5 key (at least one)
 #              S6 has field (at least one)
-#              S20 time datatype (exactly one: xsd:dateTime, the same as the tss:datatype of
-#                  the time field)
+#              S20 time field datatype (xsd:dateTime: every time of a snippet is an xsd:dateTime)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
 #              S18 time base (one xsd:dateTime: the time of step 0)
 #              S19 time step (one xsd:duration of more than zero)
@@ -37,6 +36,8 @@
 #                  the time field); without a time grid, none
 #              S10 delimiter (one character; "," when not stated)
 #              S11 encoding ("utf-8" when not stated)
+#   Not allowed: S22 has point (tss:hasPoint: the readings of an external snippet are the
+#                rows of its data file, not points in the metadata)
 #   Not used:  S15 delimiter and encoding on a tss:Parquet snippet (warning)
 #
 # The fields (tss:Field, and every object of tss:hasField)
@@ -70,6 +71,7 @@
 # Every check is in one of these groups (sh:group):
 #   Required   sh:Violation  missing or malformed: the metadata does not conform
 #   Optional   -             may be left out; when present it must be well-formed (sh:Violation)
+#   Not allowed sh:Violation contradicts external data: the metadata does not conform
 #   Not used   sh:Warning    has no effect here, but the metadata still conforms
 # =============================================================================
 
@@ -93,10 +95,15 @@ ext:Optional a sh:PropertyGroup ;
     rdfs:comment "May be left out; when present it must be well-formed (sh:Violation)."@en ;
     sh:order 1 .
 
+ext:NotAllowed a sh:PropertyGroup ;
+    rdfs:label "Not allowed"@en ;
+    rdfs:comment "Contradicts external data (sh:Violation)."@en ;
+    sh:order 2 .
+
 ext:NotUsed a sh:PropertyGroup ;
     rdfs:label "Not used"@en ;
     rdfs:comment "Has no effect here (sh:Warning)."@en ;
-    sh:order 2 .
+    sh:order 3 .
 
 
 # --- S1 the snippet ------------------------------------------------------------
@@ -171,15 +178,6 @@ ext:SnippetShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:class tss:Field ;
         sh:message "The snippet needs at least one tss:hasField, and each of them must be a described tss:Field." ;
-    ] ;
-    sh:property [
-        sh:name "S20 time datatype" ;
-        sh:group ext:Required ;
-        sh:path tss:timeDatatype ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:in ( xsd:dateTime ) ;
-        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime." ;
     ] ;
     sh:property [
         sh:name "S7 embedded" ;
@@ -286,6 +284,14 @@ ext:SnippetShape a sh:NodeShape ;
         sh:class tss:Field ;
         sh:message "tss:stepField must be one described tss:Field: the field whose column holds the step of each row on the snippet's time grid." ;
     ] ;
+    # Not allowed: the readings of an external snippet are the rows of its data file
+    sh:property [
+        sh:name "S22 has point" ;
+        sh:group ext:NotAllowed ;
+        sh:path tss:hasPoint ;
+        sh:maxCount 0 ;
+        sh:message "S22 not allowed: tss:hasPoint links the points of an embedded snippet; the readings of an external snippet are the rows of its data file." ;
+    ] ;
 
     # S4 and S5: the time field and the key are fields of this snippet
     sh:sparql [
@@ -309,16 +315,17 @@ ext:SnippetShape a sh:NodeShape ;
             }""" ;
     ] ;
 
-    # S20: the time field's values are times of the snippet, so they have its tss:timeDatatype
+    # S20: the time field's values are times of the snippet, and every time of a snippet is an
+    # xsd:dateTime
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S20 time datatype: tss:timeDatatype is {?value}, but the time field's tss:datatype is {?datatype}; they must be the same." ;
+        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a snippet is an xsd:dateTime." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
-            SELECT $this ?value ?datatype WHERE {
-                $this tss:timeDatatype ?value ; tss:timeField ?timeField .
-                ?timeField tss:datatype ?datatype .
-                FILTER (?datatype != ?value)
+            SELECT $this ?value WHERE {
+                $this tss:timeField ?timeField .
+                ?timeField tss:datatype ?value .
+                FILTER (!sameTerm(?value, xsd:dateTime))
             }""" ;
     ] ;
 

@@ -20,11 +20,6 @@
 
 ex:zevenaarshaven-ts-snippet
     a tss:Snippet ;
-    # The datatype of every time of this snippet: its metadata times (the window,
-    # tss:committedUntil, tss:timeBase and the summary times) and its tss:timeField's values
-    # (whose tss:datatype is the same). The rows state no time: each one's time is
-    # tss:timeBase + step × tss:timeStep, an xsd:dateTime like tss:timeBase.
-    tss:timeDatatype xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), 2021-03-04, time steps"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [
@@ -44,7 +39,8 @@ ex:zevenaarshaven-ts-snippet
     tss:format tss:CSV ;
     tss:timeField ex:zevenaarshaven-ts-time-field ;
     tss:key ex:zevenaarshaven-ts-time-field ;
-    # The time grid of the rows: step n is at tss:timeBase + n × tss:timeStep.
+    # The time grid of the rows: step n is at tss:timeBase + n × tss:timeStep. The rows state
+    # no time: each row's time is the time of its step, an xsd:dateTime like tss:timeBase.
     # tss:timeBase is the anchor of the grid, not a bound of the window: it stays fixed when
     # tss:from or tss:until change, so no row's time ever moves.
     tss:timeBase "2021-03-04T00:00:00Z"^^xsd:dateTime ;

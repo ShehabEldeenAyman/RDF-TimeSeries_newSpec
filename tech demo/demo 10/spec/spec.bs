@@ -21,7 +21,7 @@ Representing time series in RDF drastically raises the verbosity, as each readin
 With RDF Time Series Snippets, a publisher keeps the readings compact and describes them with RDF:
 
 - A [=Snippet=] describes a table of readings: every [=Point=] has one time and values for one or more [=Fields=]. Series that are measured together share one [=Time Field=].
-- The readings are either embedded in the metadata, as one small node per point (`tss:pointOf`), or kept in an external data file (`tss:dataFile`). The same field descriptions read both.
+- The readings are either embedded in the metadata, as one small node per point (`tss:hasPoint`), or kept in an external data file (`tss:dataFile`). The same field descriptions read both.
 - Each field states the column name and datatype of its values and, optionally, what they observe, in which unit, with which sensor, of which feature of interest.
 - A data file can give the time of each row as a step on a regular [=Time Grid=], and state the values of a field as differences from a baseline (`tss:valueEncoding`).
 
@@ -53,7 +53,6 @@ ex:snippet
     rdfs:label "Conductivity readings"@en ;
     tss:embedded true ;
     tss:mutable true ;
-    tss:timeDatatype xsd:dateTime ;
     tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTime ;
     tss:producedBy ex:producer ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
@@ -81,29 +80,34 @@ ex:value-field
     tss:sensor ex:sensor-1 ;
     tss:featureOfInterest ex:feature-1 .
 
-[] tss:pointOf ex:snippet ;
+ex:snippet tss:hasPoint [
     ex:time-field "2024-05-12T08:00:00Z"^^xsd:dateTime ;
-    ex:value-field "4810.5"^^xsd:double .
+    ex:value-field "4810.5"^^xsd:double
+] .
 
-[] tss:pointOf ex:snippet ;
+ex:snippet tss:hasPoint [
     ex:time-field "2024-05-12T08:15:00Z"^^xsd:dateTime ;
-    ex:value-field "4722.4"^^xsd:double .
+    ex:value-field "4722.4"^^xsd:double
+] .
 
-[] tss:pointOf ex:snippet ;
+ex:snippet tss:hasPoint [
     ex:time-field "2024-05-12T08:30:00Z"^^xsd:dateTime ;
-    ex:value-field "4751.9"^^xsd:double .
+    ex:value-field "4751.9"^^xsd:double
+] .
 
-[] tss:pointOf ex:snippet ;
+ex:snippet tss:hasPoint [
     ex:time-field "2024-05-12T09:15:00Z"^^xsd:dateTime ;
-    ex:value-field "4719.3"^^xsd:double .
+    ex:value-field "4719.3"^^xsd:double
+] .
 
-[] tss:pointOf ex:snippet ;
+ex:snippet tss:hasPoint [
     ex:time-field "2024-05-12T09:45:00Z"^^xsd:dateTime ;
-    ex:value-field "4783.6"^^xsd:double .
+    ex:value-field "4783.6"^^xsd:double
+] .
 ```
 </div>
 
-Each point links to the snippet with `tss:pointOf`, and the IRIs of the fields are the predicates of its values. Expanded into observations ([[#expanding]]), every value of a [=Measured Field=] becomes one observation, with a link back to the snippet, the time of its point and what its field says. Written with SOSA [[VOCAB-SSN]] and `dcterms:source`, the first two observations are:
+The snippet links to each point with `tss:hasPoint`, one statement per point, and the IRIs of the fields are the predicates of the point's values. Expanded into observations ([[#expanding]]), every value of a [=Measured Field=] becomes one observation, with a link back to the snippet, the time of its point and what its field says. Written with SOSA [[VOCAB-SSN]] and `dcterms:source`, the first two observations are:
 
 <div class="example" id="example-observations">
 ```turtle
@@ -151,7 +155,7 @@ The <dfn>Key</dfn> of a snippet is the field, or the fields, whose values identi
 
 The <dfn>Time Window</dfn> of a snippet is the period from `tss:from` (included) until `tss:until` (not included). A point lies in the window when its time is not before `tss:from` and before `tss:until`. A bound that is not stated leaves that side of the window open.
 
-An <dfn>Embedded Snippet</dfn> keeps its points in the metadata, as nodes that link to it with `tss:pointOf` (`tss:embedded true`). An <dfn>External Snippet</dfn> keeps them in a data file, `tss:dataFile` (`tss:embedded false`).
+An <dfn>Embedded Snippet</dfn> keeps its points in the metadata, as nodes that it links to with `tss:hasPoint` (`tss:embedded true`). An <dfn>External Snippet</dfn> keeps them in a data file, `tss:dataFile` (`tss:embedded false`).
 
 The <dfn id="dfn-time-grid">Time Grid</dfn> of an external snippet is a series of times at regular steps: step 0 at `tss:timeBase`, and every next step `tss:timeStep` later ([[#time-grid]]).
 
@@ -180,13 +184,13 @@ A metadata document MUST describe exactly one `tss:Snippet`. The snippet has one
 <tbody>
 <tr><td><code>tss:embedded</code></td><td><code>xsd:boolean</code></td><td>required: <code>false</code></td><td>required: <code>true</code></td></tr>
 <tr><td><code>tss:mutable</code></td><td><code>xsd:boolean</code></td><td>required</td><td>required</td></tr>
-<tr><td><code>tss:timeDatatype</code></td><td><code>xsd:dateTime</code></td><td>required</td><td>required</td></tr>
 <tr><td><code>tss:committedUntil</code></td><td><code>xsd:dateTime</code></td><td>required</td><td>required</td></tr>
 <tr><td><code>tss:hasField</code></td><td>a <code>tss:Field</code></td><td>required, one or more</td><td>required, one or more</td></tr>
 <tr><td><code>tss:timeField</code></td><td>one of its fields</td><td>required</td><td>required</td></tr>
 <tr><td><code>tss:key</code></td><td>one of its fields</td><td>required, one or more</td><td>required, one or more</td></tr>
 <tr><td><code>tss:from</code></td><td><code>xsd:dateTime</code></td><td>optional</td><td>optional</td></tr>
 <tr><td><code>tss:until</code></td><td><code>xsd:dateTime</code>, after <code>tss:from</code></td><td>optional</td><td>optional</td></tr>
+<tr><td><code>tss:hasPoint</code></td><td>a point</td><td>not allowed</td><td>optional, any number</td></tr>
 <tr><td><code>tss:dataFile</code></td><td>IRI</td><td>required</td><td>not allowed</td></tr>
 <tr><td><code>tss:format</code></td><td><code>tss:CSV</code> or <code>tss:Parquet</code></td><td>required</td><td>not allowed</td></tr>
 <tr><td><code>tss:delimiter</code></td><td>one character</td><td>optional, for <code>tss:CSV</code>; default <code>","</code></td><td>not allowed</td></tr>
@@ -205,8 +209,8 @@ A metadata document MUST describe exactly one `tss:Snippet`. The snippet has one
 
 `tss:embedded` says where the points of the snippet are:
 
-- `true`: in the metadata itself, as nodes that link to the snippet with `tss:pointOf` ([[#points]]). Every point states its own time and its readings themselves. The snippet MUST NOT state `tss:dataFile`, `tss:format`, `tss:delimiter`, `tss:encoding` or `tss:header`, which describe a data file, nor `tss:timeBase`, `tss:timeStep` or `tss:stepField`, which describe a [=Time Grid=] ([[#time-grid]]). Its fields MUST NOT state a value encoding ([[#value-encoding]]).
-- `false`: in the data file `tss:dataFile`, read as `tss:format` says ([[#data-files]]). No node links to an external snippet with `tss:pointOf`.
+- `true`: in the metadata itself, as nodes that the snippet links to with `tss:hasPoint` ([[#points]]). Every point states its own time and its readings themselves. The snippet MUST NOT state `tss:dataFile`, `tss:format`, `tss:delimiter`, `tss:encoding` or `tss:header`, which describe a data file, nor `tss:timeBase`, `tss:timeStep` or `tss:stepField`, which describe a [=Time Grid=] ([[#time-grid]]). Its fields MUST NOT state a value encoding ([[#value-encoding]]).
+- `false`: in the data file `tss:dataFile`, read as `tss:format` says ([[#data-files]]). An external snippet has no `tss:hasPoint`.
 
 A consumer selects the rules by this one boolean. Metadata without exactly one boolean `tss:embedded` does not say where its readings are.
 
@@ -220,7 +224,7 @@ Every time of a snippet is an `xsd:dateTime` [[XMLSCHEMA11-2]]: a date and a tim
 - on a [=Stored Summary=]: `tss:from`, `tss:until`, `tss:firstTime`, `tss:lastTime` and `tss:generatedAtTime`;
 - in each point: its value for the [=Time Field=].
 
-A snippet states the datatype of its times with exactly one `tss:timeDatatype`, which MUST be `xsd:dateTime`. The `tss:datatype` of the time field MUST be `xsd:dateTime` too. Times are compared as the moments they stand for: two times that are the same moment are the same time.
+The `tss:datatype` of the time field MUST be `xsd:dateTime`. Times are compared as the moments they stand for: two times that are the same moment are the same time.
 
 ### The time field and the key ### {#time-and-key}
 
@@ -274,7 +278,7 @@ Each [=Field=] is a `tss:Field`, linked from exactly one snippet with `tss:hasFi
 <tr><td><code>tss:datatype</code></td><td>IRI</td><td>required</td><td>the datatype of the values, such as <code>xsd:double</code></td></tr>
 <tr><td><code>tss:columnIndex</code></td><td><code>xsd:integer</code>, 0 or more</td><td>optional; none for the time field of a snippet with a [=Time Grid=]</td><td>the position of the column, the first being 0; unique within the snippet</td></tr>
 <tr><td><code>tss:language</code></td><td>language tag</td><td>optional</td><td>the language of the values of an <code>rdf:langString</code> field</td></tr>
-<tr><td><code>tss:minimum</code>, <code>tss:maximum</code></td><td>number</td><td>optional</td><td>the allowed range of the [=Decoded Values=], bounds included; the maximum is not below the minimum</td></tr>
+<tr><td><code>tss:minimum</code>, <code>tss:maximum</code></td><td>number</td><td>optional</td><td>the allowed range of the [=Decoded Values=], bounds included; the maximum is not below the minimum ([[#meaning]])</td></tr>
 <tr><td><code>tss:valueEncoding</code></td><td>IRI, such as <code>tss:DeltaFromBaseline</code></td><td>optional, for a field of an external snippet</td><td>how the values in the data file are stated when they are not the readings themselves ([[#value-encoding]])</td></tr>
 <tr><td><code>tss:baseline</code></td><td>number</td><td>with <code>tss:DeltaFromBaseline</code> only</td><td>the number that each value is the difference from ([[#value-encoding]])</td></tr>
 <tr><td><code>tss:observedProperty</code></td><td>IRI</td><td>optional</td><td>what the values observe; makes the field a [=Measured Field=]</td></tr>
@@ -304,7 +308,7 @@ An `rdf:langString` field states the language of its values with `tss:language`.
 
 `tss:observedProperty`, `tss:unit`, `tss:sensor` and `tss:featureOfInterest` say what the values of a field mean. They are stated field by field, so the fields of one snippet can observe different properties, with different sensors, in different units. When the snippet is expanded ([[#expanding]]), they are what each observation of the field holds.
 
-`tss:minimum` and `tss:maximum` are the allowed range of a numeric field, not the range of the values that occur: those are in the stored summary (`tss:observedMinimum`, `tss:observedMaximum`).
+`tss:minimum` and `tss:maximum` are the allowed range of a numeric field, bounds included, and each of them applies on its own: a [=Decoded Value=] of the field MUST NOT be below its `tss:minimum` or above its `tss:maximum`. They are not the range of the values that occur: those are in the stored summary (`tss:observedMinimum`, `tss:observedMaximum`).
 
 ## Describing fields ## {#describing}
 
@@ -318,7 +322,6 @@ ex:two-series-snippet
     a tss:Snippet ;
     tss:embedded true ;
     tss:mutable false ;
-    tss:timeDatatype xsd:dateTime ;
     tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTime ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
@@ -346,15 +349,17 @@ ex:two-series-status-field
     tss:datatype xsd:string ;
     tss:describesField ex:two-series-value-field .
 
-[] tss:pointOf ex:two-series-snippet ;
+ex:two-series-snippet tss:hasPoint [
     ex:two-series-time-field "2024-05-12T08:00:00Z"^^xsd:dateTime ;
     ex:two-series-value-field "4810.5"^^xsd:double ;
-    ex:two-series-status-field "ok"^^xsd:string .
+    ex:two-series-status-field "ok"^^xsd:string
+] .
 
-[] tss:pointOf ex:two-series-snippet ;
+ex:two-series-snippet tss:hasPoint [
     ex:two-series-time-field "2024-05-12T08:15:00Z"^^xsd:dateTime ;
     ex:two-series-value-field "4722.4"^^xsd:double ;
-    ex:two-series-status-field "estimated"^^xsd:string .
+    ex:two-series-status-field "estimated"^^xsd:string
+] .
 ```
 </div>
 
@@ -375,14 +380,14 @@ ex:value-field
 
 # Embedded points # {#points}
 
-An [=Embedded Snippet=] keeps its points in the metadata, as RDF. A [=Point=] is a node that links to its snippet with exactly one `tss:pointOf`. Every node with a `tss:pointOf` is a point: its type follows from that link, so a point states no `rdf:type`. It needs no identifier either, so it is usually a blank node.
+An [=Embedded Snippet=] keeps its points in the metadata, as RDF. The snippet links to each [=Point=] with `tss:hasPoint`, and a point is a point of exactly one snippet. Every node that a snippet links to with `tss:hasPoint` is a point: its type follows from that link, so a point states no `rdf:type`. It needs no identifier either, so it is usually a blank node, written as one statement at the end of the document, as in <a href="#example-embedded-snippet">the embedded example</a>. A [=Write=] then adds a point by appending one statement ([[#updating]]).
 
 - Each value of a point is one triple: the point is the subject, the IRI of the field the predicate, and the object a literal with the field's `tss:datatype` ([[#datatypes]]).
 - A point has at most one value for each field.
 - A point has no triple for a field it has no value for: that is an [=Empty Value=].
 - Every point has a value for the time field ([[#time-and-key]]), and states its readings themselves: an embedded snippet has no [=Time Grid=] and no value encoding.
 - Every value of a field of the snippet MUST be in a point of that snippet.
-- Every property of a point SHOULD be `tss:pointOf` or a field of its snippet. Values of other properties are not values of the snippet.
+- Every property of a point SHOULD be a field of its snippet. Values of other properties are not values of the snippet.
 - The points have no order. A consumer orders them by their time.
 
 A snippet may have no points yet. No property of a point has a meaning of its own: the fields say what each value means.
@@ -409,7 +414,6 @@ ex:csv-snippet
     a tss:Snippet ;
     tss:embedded false ;
     tss:mutable false ;
-    tss:timeDatatype xsd:dateTime ;
     tss:committedUntil "2024-06-01T00:05:00Z"^^xsd:dateTime ;
     tss:from "2024-05-01T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/data.csv> ;
@@ -482,7 +486,6 @@ ex:grid-snippet
     a tss:Snippet ;
     tss:embedded false ;
     tss:mutable false ;
-    tss:timeDatatype xsd:dateTime ;
     tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTime ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
@@ -545,7 +548,6 @@ ex:delta-snippet
     a tss:Snippet ;
     tss:embedded false ;
     tss:mutable false ;
-    tss:timeDatatype xsd:dateTime ;
     tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/delta.csv> ;
     tss:format tss:CSV ;
@@ -605,7 +607,7 @@ The attributes of a summary:
 </tbody>
 </table>
 
-Only a numeric field ([[#datatypes]]) has `tss:observedMinimum`, `tss:observedMaximum`, `tss:mean` and `tss:median`. They include every value in the window, also values outside the allowed range of the field: the observed minimum and maximum do not replace `tss:minimum` and `tss:maximum`.
+Only a numeric field ([[#datatypes]]) has `tss:observedMinimum`, `tss:observedMaximum`, `tss:mean` and `tss:median`. They include every value in the window. The observed minimum and maximum are the values that occur: they do not replace `tss:minimum` and `tss:maximum`, the allowed range ([[#meaning]]).
 
 <div class="example" id="example-summary">
 The summary of the value field of <a href="#example-embedded-snippet">the embedded example</a>:
@@ -643,7 +645,7 @@ A snippet can be expanded into observations: every value of a [=Measured Field=]
 
 To expand a snippet:
 
-1. Read the points: from the data file as [[#data-files]] says, or the nodes that link to the snippet with `tss:pointOf` ([[#points]]).
+1. Read the points: from the data file as [[#data-files]] says, or the nodes that the snippet links to with `tss:hasPoint` ([[#points]]).
 2. Keep the points whose time lies in the [=Time Window=]. A point without a time is an error.
 3. For each point, and for each measured field for which the point has a value, make one observation: a new blank node that links back to the snippet.
 4. A value that is not in the lexical form of its datatype is an error.
@@ -657,8 +659,8 @@ Note: The expansion does not keep every value: a field without `tss:observedProp
 
 The points of an [=Embedded Snippet=] with `tss:mutable true` may change. A [=Write=] that adds one point:
 
-1. Checks the new point: every value is a literal in the lexical form of its field's datatype, and no other point has the same [=Key=].
-2. Adds the new point: a new node with `tss:pointOf` and one triple for each of its values. The other points stay as they are.
+1. Checks the new point: every value is a literal in the lexical form of its field's datatype and within its field's allowed range ([[#meaning]]), and no other point has the same [=Key=].
+2. Adds the new point: one statement that links the snippet to a new node with `tss:hasPoint`, with one triple for each of its values. The other points stay as they are.
 3. Widens the [=Time Window=] when needed: `tss:from` becomes the earlier of `tss:from` and the earliest point, and `tss:until` the later of `tss:until` and the newest point plus one second, since `tss:until` is not in the window. A side that the snippet leaves open stays open.
 4. Sets `tss:committedUntil` to the time of the write.
 5. Recomputes every [=Stored Summary=] of the snippet from the points in the new window: its `tss:from` and `tss:until` become the window of the snippet, `tss:generatedAtTime` the time of the write, and every number it states is computed again. Its `tss:missingValuePolicy` stays.
@@ -668,9 +670,10 @@ The points of an [=Embedded Snippet=] with `tss:mutable true` may change. A [=Wr
 A new point for <a href="#example-embedded-snippet">the embedded example</a>:
 
 ```turtle
-[] tss:pointOf ex:snippet ;
+ex:snippet tss:hasPoint [
     ex:time-field "2024-05-12T10:00:00Z"^^xsd:dateTime ;
-    ex:value-field "4766.2"^^xsd:double .
+    ex:value-field "4766.2"^^xsd:double
+] .
 ```
 
 The write keeps the window, since the new point lies inside it, and sets `tss:committedUntil` to the time of the write, not to `2024-05-12T10:00:00Z`.
@@ -696,9 +699,9 @@ An [=External Snippet=] is never changed this way: managing the data file of an 
 <tr><td><code>tss:ExcludeEmptyValues</code></td><td>individual</td><td>value of <code>tss:missingValuePolicy</code></td><td>[[#summaries]]</td></tr>
 <tr><td><code>tss:DeltaFromBaseline</code></td><td>individual</td><td>value of <code>tss:valueEncoding</code></td><td>[[#value-encoding]]</td></tr>
 <tr><td><code>tss:embedded</code>, <code>tss:mutable</code>, <code>tss:committedUntil</code></td><td>property</td><td>snippet</td><td>[[#storage]], [[#change]]</td></tr>
-<tr><td><code>tss:timeDatatype</code></td><td>property</td><td>snippet</td><td>[[#times]]</td></tr>
 <tr><td><code>tss:hasField</code>, <code>tss:timeField</code>, <code>tss:key</code></td><td>property</td><td>snippet</td><td>[[#time-and-key]]</td></tr>
 <tr><td><code>tss:from</code>, <code>tss:until</code></td><td>property</td><td>snippet, summary</td><td>[[#window]], [[#summaries]]</td></tr>
+<tr><td><code>tss:hasPoint</code></td><td>property</td><td>embedded snippet</td><td>[[#points]]</td></tr>
 <tr><td><code>tss:dataFile</code>, <code>tss:format</code>, <code>tss:delimiter</code>, <code>tss:header</code>, <code>tss:encoding</code></td><td>property</td><td>external snippet</td><td>[[#data-files]]</td></tr>
 <tr><td><code>tss:timeBase</code>, <code>tss:timeStep</code>, <code>tss:stepField</code></td><td>property</td><td>external snippet</td><td>[[#time-grid]]</td></tr>
 <tr><td><code>tss:producedBy</code>, <code>tss:snippetDescription</code></td><td>property</td><td>snippet</td><td>[[#provenance]]</td></tr>
@@ -708,7 +711,6 @@ An [=External Snippet=] is never changed this way: managing the data file of an 
 <tr><td><code>tss:describesField</code>, <code>tss:fieldDescription</code></td><td>property</td><td>field</td><td>[[#describing]]</td></tr>
 <tr><td><code>tss:summary</code></td><td>property</td><td>field</td><td>[[#summaries]]</td></tr>
 <tr><td><code>tss:missingValuePolicy</code>, <code>tss:count</code>, <code>tss:missing</code>, <code>tss:firstTime</code>, <code>tss:lastTime</code>, <code>tss:observedMinimum</code>, <code>tss:observedMaximum</code>, <code>tss:mean</code>, <code>tss:median</code>, <code>tss:generatedAtTime</code></td><td>property</td><td>summary</td><td>[[#summaries]]</td></tr>
-<tr><td><code>tss:pointOf</code></td><td>property</td><td>point</td><td>[[#points]]</td></tr>
 </tbody>
 </table>
 

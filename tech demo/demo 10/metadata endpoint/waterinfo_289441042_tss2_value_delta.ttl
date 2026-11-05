@@ -20,12 +20,6 @@
 
 ex:zevenaarshaven-vd-snippet
     a tss:Snippet ;
-    # The datatype of every time of this snippet: its metadata times (the window,
-    # tss:committedUntil and the summary times) and its tss:timeField's values (whose
-    # tss:datatype is the same).
-    # The "time" column of the data file holds UTC times such as 2021-03-04T00:30:00Z:
-    # xsd:dateTime texts, each with a timezone.
-    tss:timeDatatype xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), 2021-03-04, value delta"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [
@@ -43,6 +37,8 @@ ex:zevenaarshaven-vd-snippet
     tss:embedded false ;
     tss:dataFile <../data/waterinfo_289441042_value_delta.csv> ;
     tss:format tss:CSV ;
+    # The "time" column of the data file holds UTC times such as 2021-03-04T00:30:00Z:
+    # xsd:dateTime texts, each with a timezone.
     tss:timeField ex:zevenaarshaven-vd-time-field ;
     tss:key ex:zevenaarshaven-vd-time-field ;
     tss:hasField ex:zevenaarshaven-vd-time-field,

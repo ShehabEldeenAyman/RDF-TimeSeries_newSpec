@@ -21,11 +21,6 @@
 
 ex:zevenaarshaven-snippet
     a tss:Snippet ;
-    # The datatype of every time of this snippet: its metadata times (the window,
-    # tss:committedUntil and the summary times) and its tss:timeField's values (whose
-    # tss:datatype is the same).
-    # The points' times are xsd:dateTime literals with a timezone, such as 2021-03-03T23:15:00Z.
-    tss:timeDatatype xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [
@@ -37,6 +32,7 @@ ex:zevenaarshaven-snippet
     tss:mutable false ;
     tss:producedBy ex:289441042 ;
     tss:embedded true ;
+    # The points' times are xsd:dateTime literals with a timezone, such as 2021-03-03T23:15:00Z.
     tss:timeField ex:zevenaarshaven-time-field ;
     tss:key ex:zevenaarshaven-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
@@ -136,31 +132,36 @@ ex:zevenaarshaven-quality-color-value-field
 
 # Points: one RDF node per point, at the end of the document, so that a new point of a
 # mutable snippet is appended as one more Turtle statement without touching the rest.
-# tss:pointOf links each point to its snippet. Each value has its field's IRI as predicate
+# tss:hasPoint links the snippet to each point. Each value has its field's IRI as predicate
 # and is typed with the field's tss:datatype; a missing value has no triple.
 # The points are unordered (sort by the value of the tss:timeField).
 
-[] tss:pointOf ex:zevenaarshaven-snippet ;
+ex:zevenaarshaven-snippet tss:hasPoint [
     ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+] .
 
-[] tss:pointOf ex:zevenaarshaven-snippet ;
+ex:zevenaarshaven-snippet tss:hasPoint [
     ex:zevenaarshaven-time-field "2021-03-03T23:30:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-ec20-value-field "4717.8"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+] .
 
-[] tss:pointOf ex:zevenaarshaven-snippet ;
+ex:zevenaarshaven-snippet tss:hasPoint [
     ex:zevenaarshaven-time-field "2021-03-03T23:45:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-ec20-value-field "4745.36"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+] .
 
-[] tss:pointOf ex:zevenaarshaven-snippet ;
+ex:zevenaarshaven-snippet tss:hasPoint [
     ex:zevenaarshaven-time-field "2021-03-04T00:30:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-ec20-value-field "4716.1"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+] .
 
-[] tss:pointOf ex:zevenaarshaven-snippet ;
+ex:zevenaarshaven-snippet tss:hasPoint [
     ex:zevenaarshaven-time-field "2021-03-04T01:00:00Z"^^xsd:dateTime ;
     ex:zevenaarshaven-ec20-value-field "4775.96"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string .
+    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+] .
