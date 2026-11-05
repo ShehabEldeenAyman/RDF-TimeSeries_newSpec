@@ -23,13 +23,11 @@
 
 ex:zevenaarshaven-tv-snippet
     a tss:Snippet ;
-    # The datatype of every time of this snippet: its metadata times (tss:modifiedAt, the window,
+    # The datatype of every time of this snippet: its metadata times (the window,
     # tss:committedUntil and the summary times) and its tss:timeField's values (whose
     # tss:datatype is the same).
     # The points' times are xsd:dateTime literals with a timezone, such as 2021-03-03T23:15:00Z.
     tss:timeDatatype xsd:dateTime ;
-    # Last edit of the snippet metadata; summary calculation times are separate.
-    tss:modifiedAt "2026-11-04T10:12:36Z"^^xsd:dateTime ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time and value points"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [

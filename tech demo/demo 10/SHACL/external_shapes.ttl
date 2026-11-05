@@ -9,7 +9,9 @@
 # =============================================================================
 # TSS conformance shapes for EXTERNAL data: a tss:Snippet whose readings are in a
 # data file (tss:dataFile), a CSV file (tss:CSV) or a Parquet file (tss:Parquet),
-# with one tss:Field node per column of that file.
+# with one tss:Field node per column of that file. A time grid (tss:timeBase, tss:timeStep,
+# tss:stepField) and a value encoding (tss:valueEncoding, tss:baseline) are only for such a
+# snippet; the embedded shapes do not allow them.
 #
 # Run:   pyshacl -s external_shapes.ttl "<metadata file>.ttl"
 # The metadata conforms when the report holds no sh:Violation. Warnings point at
@@ -17,16 +19,15 @@
 # These shapes only look at the metadata, not at the data file itself.
 #
 # The snippet (tss:Snippet)
-#   Required:  S16 modified at (one xsd:dateTime)
-#              S17 committed until (one xsd:dateTime: the last time the snippet and its
+#   Required:  S17 committed until (one xsd:dateTime: the last time the snippet and its
 #                  data were checked to be up to date)
 #   Required:  S1 the snippet (exactly one)      S7  embedded (false)
 #              S3 mutable                       S8  data file
 #              S4 time field                    S9  format (tss:CSV or tss:Parquet)
 #              S5 key (at least one)
 #              S6 has field (at least one)
-#              S20 time datatype (exactly one: xsd:dateTime, or xsd:integer for Unix time; the
-#                  same as the tss:datatype of the time field)
+#              S20 time datatype (exactly one: xsd:dateTime, the same as the tss:datatype of
+#                  the time field)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
 #              S18 time base (one xsd:dateTime: the time of step 0)
 #              S19 time step (one xsd:duration of more than zero)
@@ -40,7 +41,9 @@
 #
 # The fields (tss:Field, and every object of tss:hasField)
 #   Required:  F1 the field: typed tss:Field, and a field of exactly one snippet
-#              F2 column name (unique within the snippet)
+#              F2 column name (unique within the snippet); the time field of a snippet with
+#                 a time grid is the one field without a column: no tss:columnName, no
+#                 tss:columnIndex (a row's time is the time of its step, S21)
 #              F3 datatype
 #   Optional:  F4 column index (unique within the snippet)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
@@ -119,15 +122,6 @@ ext:SnippetShape a sh:NodeShape ;
 
     # Required
     sh:property [
-        sh:name "S16 modified at" ;
-        sh:group ext:Required ;
-        sh:path tss:modifiedAt ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "The snippet needs exactly one tss:modifiedAt for its metadata, an xsd:dateTime." ;
-    ] ;
-    sh:property [
         sh:name "S17 committed until" ;
         sh:group ext:Required ;
         sh:path tss:committedUntil ;
@@ -184,8 +178,8 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:timeDatatype ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:in ( xsd:dateTime xsd:integer ) ;
-        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime, or xsd:integer for Unix time (whole seconds since 1970-01-01T00:00:00Z)." ;
+        sh:in ( xsd:dateTime ) ;
+        sh:message "The snippet needs exactly one tss:timeDatatype, the datatype of all its times: xsd:dateTime." ;
     ] ;
     sh:property [
         sh:name "S7 embedded" ;
@@ -472,11 +466,10 @@ ext:FieldShape a sh:NodeShape ;
         sh:name "F2 column name" ;
         sh:group ext:Required ;
         sh:path tss:columnName ;
-        sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
         sh:minLength 1 ;
-        sh:message "A field needs exactly one tss:columnName, a non-empty text: the name of its column in the data file." ;
+        sh:message "A field has at most one tss:columnName, a non-empty text: the name of its column in the data file." ;
     ] ;
     sh:property [
         sh:name "F3 datatype" ;
@@ -604,6 +597,30 @@ ext:FieldShape a sh:NodeShape ;
             SELECT $this ?value WHERE {
                 ?snippet tss:timeField $this .
                 $this tss:valueEncoding ?value .
+            }""" ;
+    ] ;
+
+    # F2: every field reads a column of the data file, except the time field of a snippet with
+    # a time grid: the data file has no time column, and a row's time is the time of its step
+    # (S21). That time field has no column, so a time in the file can't disagree with the step.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F2 column name: a field needs a tss:columnName: the name of its column in the data file." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS { $this tss:columnName ?name }
+                FILTER NOT EXISTS { ?snippet tss:timeField $this ; tss:timeBase|tss:timeStep ?grid }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F2 column name: this is the tss:timeField of a snippet with a time grid, so it has no column in the data file, but it has {?value} (tss:columnName or tss:columnIndex): a row's time is the time of its step (tss:stepField)." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                ?snippet tss:timeField $this ; tss:timeBase|tss:timeStep ?grid .
+                $this tss:columnName|tss:columnIndex ?value .
             }""" ;
     ] ;
 

@@ -1,0 +1,157 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+
+# One day (2021-03-04, UTC) of the Waterinfo EC20 series of Kanaal Gent-Terneuzen Zevenaarshaven (NL),
+# taken from waterinfo_289441042.csv: 43 readings on a 15-minute rhythm, with gaps.
+# The data file has no time column. The snippet states a time grid: tss:timeBase (the time of
+# step 0) and tss:timeStep (the time between two steps). Each row states its step in the column
+# of the tss:stepField ("step"); its time is tss:timeBase + step × tss:timeStep. A step without a
+# reading has no row. A time grid is only for a snippet with an external data file; the points of
+# an embedded snippet state their own time.
+# Snippet windows are [from, until). tss:key identifies the field whose values identify a row.
+# The snippet and its fields have their own IRIs (ex:zevenaarshaven-ts-...); the sensor, the feature
+# of interest and the station are the same real-world things as in the other Zevenaarshaven
+# documents, so they keep their IRIs.
+
+ex:zevenaarshaven-ts-snippet
+    a tss:Snippet ;
+    # The datatype of every time of this snippet: its metadata times (the window,
+    # tss:committedUntil, tss:timeBase and the summary times) and its tss:timeField's values
+    # (whose tss:datatype is the same). The rows state no time: each one's time is
+    # tss:timeBase + step × tss:timeStep, an xsd:dateTime like tss:timeBase.
+    tss:timeDatatype xsd:dateTime ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), 2021-03-04, time steps"@en ;
+    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
+    tss:snippetDescription [
+        dcterms:spatial [
+            a dcterms:Location ;
+            rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
+        ]
+    ] ;
+    tss:mutable false ;
+    tss:producedBy ex:289441042 ;
+    tss:from "2021-03-04T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2021-03-05T00:00:00Z"^^xsd:dateTime ;
+    # Committed until: the last time the snippet and its data were checked to be up to date.
+    tss:committedUntil "2026-11-05T12:20:10Z"^^xsd:dateTime ;
+    tss:embedded false ;
+    tss:dataFile <../data/waterinfo_289441042_time_step.csv> ;
+    tss:format tss:CSV ;
+    tss:timeField ex:zevenaarshaven-ts-time-field ;
+    tss:key ex:zevenaarshaven-ts-time-field ;
+    # The time grid of the rows: step n is at tss:timeBase + n × tss:timeStep.
+    # tss:timeBase is the anchor of the grid, not a bound of the window: it stays fixed when
+    # tss:from or tss:until change, so no row's time ever moves.
+    tss:timeBase "2021-03-04T00:00:00Z"^^xsd:dateTime ;
+    # tss:timeStep is an xsd:duration of more than zero. With years or months the steps are
+    # calendar steps, not equal lengths of time (a month has 28 to 31 days); this grid steps
+    # every 15 minutes.
+    tss:timeStep "PT15M"^^xsd:duration ;
+    # The field whose column holds the step of each row.
+    tss:stepField ex:zevenaarshaven-ts-step-field ;
+    tss:hasField ex:zevenaarshaven-ts-time-field,
+        ex:zevenaarshaven-ts-step-field,
+        ex:zevenaarshaven-ts-value-field ;
+    tss:delimiter "," ;
+    tss:header true ;
+    tss:encoding "utf-8" .
+
+# Generated column summaries (calculated from the actual data, not example values).
+# Each summary covers existing rows in [tss:from, tss:until) only.
+# tss:ExcludeEmptyValues excludes nulls, absent values and empty strings ("");
+# whitespace-only strings are not treated as empty. tss:count counts present values;
+# tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
+# tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
+# Numeric aggregates are for the conductivity field, in its declared unit.
+# Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
+# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
+# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# The time summary describes the times on the grid, not the steps in the file.
+
+# The time field has no column (no tss:columnName, no tss:columnIndex): each row's time is computed
+# from the snippet's time grid (tss:timeBase, tss:timeStep) and the row's step.
+ex:zevenaarshaven-ts-time-field
+    a tss:Field ;
+    rdfs:label "Observation time"@en ;
+    tss:datatype xsd:dateTime ;
+    rdfs:comment "Observation time (UTC): tss:timeBase + step × tss:timeStep"@en ;
+    tss:fieldDescription [
+        dcterms:description "Observation time (UTC): tss:timeBase + step × tss:timeStep"@en
+    ] ;
+    tss:summary [
+        tss:from "2021-03-04T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2021-03-05T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "43"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+    ] .
+
+ex:zevenaarshaven-ts-step-field
+    a tss:Field ;
+    tss:columnName "step" ;
+    tss:columnIndex 0 ;
+    rdfs:label "Step"@en ;
+    tss:datatype xsd:integer ;
+    rdfs:comment "The step of the row on the snippet's time grid: a whole number, 0 or more (step 0 is 2021-03-04T00:00:00Z)"@en ;
+    tss:fieldDescription [
+        dcterms:description "The step of the row on the snippet's time grid: a whole number, 0 or more (step 0 is 2021-03-04T00:00:00Z)"@en
+    ] ;
+    tss:summary [
+        tss:from "2021-03-04T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2021-03-05T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "43"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+    ] .
+
+ex:zevenaarshaven-ts-value-field
+    a tss:Field ;
+    tss:columnName "value" ;
+    tss:columnIndex 1 ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:datatype xsd:double ;
+    rdfs:comment "Electrical conductivity at 20 °C"@en ;
+    tss:minimum "0"^^xsd:double ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-zevenaarshaven-ec20 ;
+    tss:featureOfInterest ex:water-zevenaarshaven ;
+    tss:fieldDescription [
+        dcterms:description "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven
+    ] ;
+    tss:summary [
+        tss:from "2021-03-04T00:00:00+00:00"^^xsd:dateTime ;
+        tss:until "2021-03-05T00:00:00+00:00"^^xsd:dateTime ;
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "43"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "4457.92"^^xsd:double ;
+        tss:observedMaximum "4883.63"^^xsd:double ;
+        tss:mean "4637.250697674419"^^xsd:double ;
+        tss:median "4627.68"^^xsd:double ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+    ] .
+
+# What the first rows of the data file mean:
+#   step   time (tss:timeBase + step × PT15M)   value
+#      2   2021-03-04T00:30:00Z                  4716.1
+#      4   2021-03-04T01:00:00Z                  4775.96
+#      6   2021-03-04T01:30:00Z                  4716.67
+# The last row is step 92, 2021-03-04T23:00:00Z.
