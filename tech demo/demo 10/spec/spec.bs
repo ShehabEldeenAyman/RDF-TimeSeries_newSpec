@@ -879,3 +879,14 @@ The vocabulary reuses `rdfs:label`, `rdfs:comment` and the XML Schema datatypes 
 The key words "MUST", "MUST NOT", "SHOULD" and "MAY" in this document are to be interpreted as described in BCP 14 [[!RFC2119]] [[!RFC8174]] when, and only when, they appear in all capitals.
 
 Everything in this specification is normative, except the sections marked as informative, the examples, the notes and the issues.
+
+This specification defines four conformance classes:
+
+: <dfn export>Conforming metadata document</dfn>
+:: An RDF document that describes at least one `tss:Snippet` and meets every requirement in this specification on a metadata document, a snippet, a field, embedded points and a stored summary. For an external snippet, this includes the requirements on the properties that describe the data file, its [=Time Grid=] and its value encoding, but not on the contents of the data file.
+: <dfn export>Conforming data</dfn>
+:: The points of a snippet, embedded or in its data file, that meet the requirements on points: the time of every point (on a [=Time Grid=], its step), the key, the lexical form of the values, and the [=Time Window=]. The points of an embedded snippet are part of its metadata document; the rows of a data file are not.
+: <dfn export>Conforming consumer</dfn>
+:: Software that reads a conforming metadata document and its data as this specification says: it selects the rules by `tss:embedded`, reads the points as [[#points]] or [[#data-files]] says, reads the times as [[#times]] says, decodes the values of a field with a value encoding ([[#value-encoding]]), applies the [=Time Window=] and the [=Empty Value=] rules, and reports an error where this specification calls something an error. A <dfn export>conforming expander</dfn> is a conforming consumer that also expands a snippet into observations as [[#expanding]] says.
+: <dfn export>Conforming writer</dfn>
+:: Software that changes the points of an [=Embedded Snippet=] only by the [=Write=] of [[#updating]], and that leaves a conforming metadata document conforming after every Write.
