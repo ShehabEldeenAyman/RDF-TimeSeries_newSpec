@@ -55,7 +55,8 @@ ex:autrichehaven-snippet
 # Optional tss:fieldDescription records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
-# Each summary covers existing rows/points in [tss:from, tss:until) only.
+# Each summary covers the existing rows/points in the snippet's window [tss:from, tss:until);
+# a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
 # whitespace-only strings are not treated as empty. tss:count counts present values;
 # tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
@@ -78,8 +79,6 @@ ex:autrichehaven-ts_id-field
         dcterms:description "waterinfo.be time series identifier (the same on every row)"@en
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2025-10-07T07:45:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "139928"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -99,8 +98,6 @@ ex:autrichehaven-time-field
         dcterms:description "Observation time (UTC)"@en
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2025-10-07T07:45:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "139928"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -129,8 +126,6 @@ ex:autrichehaven-ec20-field
         dcterms:relation ex:sensor-autrichehaven-ec20, ex:water-autrichehaven
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2025-10-07T07:45:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "139928"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -156,8 +151,6 @@ ex:autrichehaven-interpolation-type-field
         dcterms:relation ex:autrichehaven-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2025-10-07T07:45:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "139928"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -179,8 +172,6 @@ ex:autrichehaven-quality-code-field
         dcterms:relation ex:autrichehaven-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2025-10-07T07:45:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "139928"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -202,8 +193,6 @@ ex:autrichehaven-quality-code-name-field
         dcterms:relation ex:autrichehaven-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2025-10-07T07:45:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "139928"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -225,8 +214,6 @@ ex:autrichehaven-quality-code-description-field
         dcterms:relation ex:autrichehaven-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2025-10-07T07:45:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "139928"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -250,8 +237,6 @@ ex:autrichehaven-quality-code-color-field
         dcterms:relation ex:autrichehaven-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2025-10-07T07:45:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "139928"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;

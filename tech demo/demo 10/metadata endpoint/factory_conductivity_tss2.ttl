@@ -63,7 +63,8 @@ ex:factory-snippet
 # Optional tss:fieldDescription records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
-# Each summary covers existing rows/points in [tss:from, tss:until) only.
+# Each summary covers the existing rows/points in the snippet's window [tss:from, tss:until);
+# a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
 # whitespace-only strings are not treated as empty. tss:count counts present values;
 # tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
@@ -86,8 +87,6 @@ ex:factory-time-field
         dcterms:description "Observation time (UTC), 15-minute resolution"@en
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "35033"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -116,8 +115,6 @@ ex:factory-ro1_a_permeate_conductivity-field
         dcterms:relation ex:sensor-ro1_a_permeate, ex:ro1_a_permeate
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33997"^^xsd:integer ;
         tss:missing "1036"^^xsd:integer ;
@@ -150,8 +147,6 @@ ex:factory-ro1_b_permeate_conductivity-field
         dcterms:relation ex:sensor-ro1_b_permeate, ex:ro1_b_permeate
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "34000"^^xsd:integer ;
         tss:missing "1033"^^xsd:integer ;
@@ -184,8 +179,6 @@ ex:factory-ro1_c_permeate_conductivity-field
         dcterms:relation ex:sensor-ro1_c_permeate, ex:ro1_c_permeate
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "34000"^^xsd:integer ;
         tss:missing "1033"^^xsd:integer ;
@@ -218,8 +211,6 @@ ex:factory-ro2_a_permeate_conductivity-field
         dcterms:relation ex:sensor-ro2_a_permeate, ex:ro2_a_permeate
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33996"^^xsd:integer ;
         tss:missing "1037"^^xsd:integer ;
@@ -252,8 +243,6 @@ ex:factory-ro2_b_permeate_conductivity-field
         dcterms:relation ex:sensor-ro2_b_permeate, ex:ro2_b_permeate
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33991"^^xsd:integer ;
         tss:missing "1042"^^xsd:integer ;
@@ -286,8 +275,6 @@ ex:factory-cooling_water_conductivity-field
         dcterms:relation ex:sensor-cooling_water, ex:cooling_water
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "34000"^^xsd:integer ;
         tss:missing "1033"^^xsd:integer ;
@@ -320,8 +307,6 @@ ex:factory-boiler_feed_conductivity-field
         dcterms:relation ex:sensor-boiler_feed, ex:boiler_feed
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33996"^^xsd:integer ;
         tss:missing "1037"^^xsd:integer ;
@@ -354,8 +339,6 @@ ex:factory-boiler_water_delivery_conductivity-field
         dcterms:relation ex:sensor-boiler_water_delivery, ex:boiler_water_delivery
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33967"^^xsd:integer ;
         tss:missing "1066"^^xsd:integer ;
@@ -388,8 +371,6 @@ ex:factory-dockwater_blowdown_conductivity-field
         dcterms:relation ex:sensor-dockwater_blowdown, ex:dockwater_blowdown
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "34000"^^xsd:integer ;
         tss:missing "1033"^^xsd:integer ;
@@ -422,8 +403,6 @@ ex:factory-venturi_reject_conductivity-field
         dcterms:relation ex:sensor-venturi_reject, ex:venturi_reject
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33998"^^xsd:integer ;
         tss:missing "1035"^^xsd:integer ;
@@ -454,8 +433,6 @@ ex:factory-ro1de_feed_conductivity-field
         dcterms:relation ex:sensor-ro1de_feed, ex:ro1de_feed
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33994"^^xsd:integer ;
         tss:missing "1039"^^xsd:integer ;
@@ -486,8 +463,6 @@ ex:factory-ro1d_feed_conductivity-field
         dcterms:relation ex:sensor-ro1d_feed, ex:ro1d_feed
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33993"^^xsd:integer ;
         tss:missing "1040"^^xsd:integer ;
@@ -518,8 +493,6 @@ ex:factory-ro1e_feed_conductivity-field
         dcterms:relation ex:sensor-ro1e_feed, ex:ro1e_feed
     ] ;
     tss:summary [
-        tss:from "2025-01-01T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "33991"^^xsd:integer ;
         tss:missing "1042"^^xsd:integer ;

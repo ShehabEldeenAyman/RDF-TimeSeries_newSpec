@@ -6,7 +6,6 @@ Level: none
 Status: LD
 Repository: KNowledgeOnWebScale/rdf-timeseriessnippets
 URL: https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/
-Editor: Dylan Van Assche, https://dylanvanassche.be/#me
 Editor: Pieter Colpaert, https://pietercolpaert.be
 Editor: Shehab Abdelfatah, https://www.linkedin.com/in/shehabeldeen-abdelfatah-289123365/
 Abstract: RDF Time Series Snippets describes a snippet of time series data with RDF. The readings stay compact: inside the metadata as one small RDF node per reading, or in an external source. RDF describes the snippet (where its readings are, which period they cover, whether readings may still be added) and each of its fields (the column name and datatype of its values, how they are stated, and what they observe, in which unit, with which sensor). The readings can be summarised and expanded into observations.
@@ -107,7 +106,7 @@ ex:snippet tss:hasPoint [
 ```
 </div>
 
-The snippet links to each point with `tss:hasPoint`, one statement per point, and the IRIs of the fields are the predicates of the point's values. Expanded into observations ([[#expanding]]), every value of a [=Measured Field=] becomes one observation, with a link back to the snippet, the time of its point and what its field says. Written with SOSA [[VOCAB-SSN]] and `dcterms:source`, the first two observations are:
+The snippet links to each point with `tss:hasPoint`, one statement per point, and the IRIs of the fields are the predicates of the point's values. Expanded into observations ([[#expanding]]), every value of a [=Measured Field=] becomes one observation, with a link back to the snippet, the time of its point and what its field says. Written with SOSA [[VOCAB-SSN]] and `dcterms:source` ([[#sosa-mapping]]), the first two observations are:
 
 <div class="example" id="example-observations">
 ```turtle
@@ -223,7 +222,7 @@ All snippets of a document MUST state the same `tss:embedded`: a document descri
 A time of a snippet is a date and a time of day, such as `"2024-05-12T08:00:00Z"`: an `xsd:dateTime` [[XMLSCHEMA11-2]], the default, or an `xsd:dateTimeStamp`, an `xsd:dateTime` whose timezone cannot be left out. The times of a snippet are:
 
 - on the snippet: `tss:committedUntil`, `tss:from`, `tss:until` and `tss:timeBase`;
-- on a [=Stored Summary=]: `tss:from`, `tss:until`, `tss:firstTime`, `tss:lastTime` and `tss:generatedAtTime`;
+- on a [=Stored Summary=]: `tss:firstTime`, `tss:lastTime` and `tss:generatedAtTime`;
 - in each point: its value for the [=Time Field=].
 
 The `tss:datatype` of the time field MUST be `xsd:dateTime` or `xsd:dateTimeStamp`. Every time SHOULD have a timezone: `Z` or an offset such as `+02:00`. A time without a timezone is read as UTC. Times are compared as the moments they stand for: two times that are the same moment are the same time.
@@ -311,6 +310,69 @@ An `rdf:langString` field states the language of its values with `tss:language`.
 `tss:observedProperty`, `tss:unit`, `tss:sensor` and `tss:featureOfInterest` say what the values of a field mean. They are stated field by field, so the fields of one snippet can observe different properties, with different sensors, in different units. When the snippet is expanded ([[#expanding]]), they are what each observation of the field holds.
 
 `tss:minimum` and `tss:maximum` are the expected range of a numeric field, bounds included, and each of them applies on its own. They are not the range of the values that occur: those are in the stored summary (`tss:observedMinimum`, `tss:observedMaximum`). The range is informative: a value outside it does not make the snippet non-conforming, and the expansion keeps it. A consumer MAY use the range, for example to flag suspicious readings.
+
+<div class="example" id="example-multi-sensor">
+Several measured fields share one time field, each with its own property, unit and sensor. The point at 08:10 has no humidity: it has no triple for that field. The snippet states no `tss:key`, so its key is its time field.
+
+```turtle
+ex:weather-snippet
+    a tss:Snippet ;
+    rdfs:label "Weather station readings"@en ;
+    tss:embedded true ;
+    tss:mutable false ;
+    tss:committedUntil "2024-05-12T09:00:00Z"^^xsd:dateTime ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-12T09:00:00Z"^^xsd:dateTime ;
+    tss:timeField ex:weather-time-field ;
+    tss:hasField ex:weather-time-field,
+        ex:temperature-field,
+        ex:humidity-field .
+
+ex:weather-time-field
+    a tss:Field ;
+    tss:columnName "time" ;
+    tss:datatype xsd:dateTime .
+
+ex:temperature-field
+    a tss:Field ;
+    tss:columnName "temperature" ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:Temperature ;
+    tss:unit unit:DEG_C ;
+    tss:sensor ex:thermometer ;
+    tss:featureOfInterest ex:outside-air .
+
+ex:humidity-field
+    a tss:Field ;
+    tss:columnName "humidity" ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    tss:maximum "100"^^xsd:double ;
+    tss:observedProperty quantitykind:RelativeHumidity ;
+    tss:unit unit:PERCENT_RH ;
+    tss:sensor ex:hygrometer ;
+    tss:featureOfInterest ex:outside-air .
+
+ex:weather-snippet tss:hasPoint [
+    ex:weather-time-field "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    ex:temperature-field "18.2"^^xsd:double ;
+    ex:humidity-field "61.0"^^xsd:double
+] .
+
+ex:weather-snippet tss:hasPoint [
+    ex:weather-time-field "2024-05-12T08:10:00Z"^^xsd:dateTime ;
+    ex:temperature-field "18.4"^^xsd:double
+] .
+
+ex:weather-snippet tss:hasPoint [
+    ex:weather-time-field "2024-05-12T08:20:00Z"^^xsd:dateTime ;
+    ex:temperature-field "18.9"^^xsd:double ;
+    ex:humidity-field "59.5"^^xsd:double
+] .
+```
+
+Expanded ([[#expanding]]), the three points give five observations: the point at 08:10 only gives a temperature, as it has no humidity.
+</div>
 
 ## Describing fields ## {#describing}
 
@@ -445,9 +507,65 @@ time;value
 ```
 </div>
 
+<div class="example" id="example-csv-no-header">
+An external snippet with a CSV file without a header line, and with an open time window: it states neither `tss:from` nor `tss:until`, so every row of the file is read. The columns are found by their `tss:columnIndex`.
+
+```turtle
+ex:headerless-snippet
+    a tss:Snippet ;
+    tss:embedded false ;
+    tss:mutable true ;
+    tss:committedUntil "2024-06-01T00:05:00Z"^^xsd:dateTime ;
+    tss:dataFile <data-no-header.csv> ;
+    tss:format tss:CSV ;
+    tss:header false ;
+    tss:timeField ex:headerless-time-field ;
+    tss:hasField ex:headerless-time-field,
+        ex:headerless-value-field .
+
+ex:headerless-time-field
+    a tss:Field ;
+    tss:columnName "time" ;
+    tss:columnIndex 0 ;
+    tss:datatype xsd:dateTime .
+
+ex:headerless-value-field
+    a tss:Field ;
+    tss:columnName "value" ;
+    tss:columnIndex 1 ;
+    tss:datatype xsd:double .
+```
+
+The data file, relative to the metadata document:
+
+```
+2024-05-01T00:00:00Z,12.5
+2024-05-01T00:15:00Z,12.7
+```
+</div>
+
 ## Parquet ## {#parquet}
 
-A `tss:Parquet` file is read by its column names: a field's column is the column whose name is its `tss:columnName`. `tss:delimiter`, `tss:encoding` and `tss:header` have no effect on it. The values keep their Parquet types in the file. To check a value against the field's datatype, the value is written in the lexical form of its Parquet type.
+A `tss:Parquet` file is read by its column names: a field's column is the column whose name is its `tss:columnName`. `tss:delimiter`, `tss:encoding` and `tss:header` have no effect on it. The values keep their Parquet types in the file. To check a value against the field's datatype, the value is written in the lexical form that the table below gives for the Parquet type of its column, and the field's `tss:datatype` MUST be one of the datatypes the table allows for that type. A Parquet NULL is an [=Empty Value=]. A column of a Parquet type that is not in the table is not supported by this specification.
+
+<table class="data">
+<thead>
+<tr><th>Parquet type</th><th>Lexical form</th><th>Allowed <code>tss:datatype</code></th></tr>
+</thead>
+<tbody>
+<tr><td><code>BOOLEAN</code></td><td><code>true</code> or <code>false</code></td><td><code>xsd:boolean</code></td></tr>
+<tr><td><code>INT32</code>, <code>INT64</code>, <code>INT(8, 16, 32 or 64, signed)</code></td><td>decimal digits, with a <code>-</code> sign when negative</td><td><code>xsd:integer</code>, or the XSD integer type whose range holds the values, such as <code>xsd:int</code> or <code>xsd:long</code></td></tr>
+<tr><td><code>INT(8, 16, 32 or 64, unsigned)</code></td><td>decimal digits</td><td><code>xsd:nonNegativeInteger</code>, or an unsigned XSD type such as <code>xsd:unsignedInt</code></td></tr>
+<tr><td><code>FLOAT</code></td><td>the XSD lexical form of the value, with <code>INF</code>, <code>-INF</code> and <code>NaN</code> for the special values</td><td><code>xsd:float</code></td></tr>
+<tr><td><code>DOUBLE</code></td><td>the same</td><td><code>xsd:double</code></td></tr>
+<tr><td><code>DECIMAL(precision, scale)</code></td><td>decimal digits with a <code>.</code> and exactly <em>scale</em> fraction digits</td><td><code>xsd:decimal</code></td></tr>
+<tr><td><code>STRING</code>, <code>ENUM</code></td><td>the text</td><td><code>xsd:string</code>, or any other datatype that reads a text</td></tr>
+<tr><td><code>DATE</code></td><td><code>YYYY-MM-DD</code></td><td><code>xsd:date</code></td></tr>
+<tr><td><code>TIMESTAMP(isAdjustedToUTC = true)</code>, in milli-, micro- or nanoseconds</td><td><code>YYYY-MM-DDThh:mm:ss[.fraction]Z</code>, in UTC, with a fraction only when the value has one</td><td><code>xsd:dateTime</code> or <code>xsd:dateTimeStamp</code></td></tr>
+<tr><td><code>TIMESTAMP(isAdjustedToUTC = false)</code></td><td><code>YYYY-MM-DDThh:mm:ss[.fraction]</code>, without timezone: it is read as UTC ([[#times]])</td><td><code>xsd:dateTime</code></td></tr>
+<tr><td><code>TIME</code></td><td><code>hh:mm:ss[.fraction]</code></td><td><code>xsd:time</code></td></tr>
+</tbody>
+</table>
 
 <div class="example" id="example-parquet-snippet">
 The properties that make a snippet a Parquet snippet:
@@ -585,7 +703,7 @@ Their decoded values are 4750 + 60.5 = 4810.5 and 4750 + (-27.6) = 4722.4.
 
 A field MAY have one `tss:summary`: a node that holds numbers computed from the values of the field, such as how many values there are and their mean. A consumer can use them without reading the data. Every attribute of a summary is optional, and a summary may be empty.
 
-The numbers of a summary cover the points in its own window: from its `tss:from` (included) until its `tss:until` (not included), normally the [=Time Window=] of the snippet. They are computed from the [=Decoded Values=] of the field ([[#value-encoding]]).
+The numbers of a summary cover the points in the [=Time Window=] of the snippet: from its `tss:from` (included) until its `tss:until` (not included), with an open side when the snippet leaves it open. A summary has no window of its own. They are computed from the [=Decoded Values=] of the field ([[#value-encoding]]).
 
 A summary states with `tss:missingValuePolicy` which values its numbers leave out. This specification defines one such policy, `tss:ExcludeEmptyValues`: an [=Empty Value=] is not a value, so the numbers leave it out. A text of only spaces is a value.
 
@@ -596,7 +714,6 @@ The attributes of a summary:
 <tr><th>Property</th><th>Value</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tss:from</code>, <code>tss:until</code></td><td>a time ([[#times]])</td><td>the window of the summary</td></tr>
 <tr><td><code>tss:missingValuePolicy</code></td><td>IRI</td><td>which values the numbers leave out, such as <code>tss:ExcludeEmptyValues</code></td></tr>
 <tr><td><code>tss:count</code></td><td><code>xsd:integer</code>, 0 or more</td><td>how many points in the window have a value for the field</td></tr>
 <tr><td><code>tss:missing</code></td><td><code>xsd:integer</code>, 0 or more</td><td>how many points in the window have no value for the field; a time without a point is not counted</td></tr>
@@ -616,8 +733,6 @@ The summary of the value field of <a href="#example-embedded-snippet">the embedd
 ```turtle
 ex:value-field
     tss:summary [
-        tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
-        tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "5"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -628,6 +743,26 @@ ex:value-field
         tss:mean "4757.54"^^xsd:double ;
         tss:median "4751.9"^^xsd:double ;
         tss:generatedAtTime "2024-05-12T09:46:10Z"^^xsd:dateTime
+    ] .
+```
+</div>
+
+<div class="example" id="example-summary-missing">
+The summary of the humidity field of <a href="#example-multi-sensor">the multi-sensor example</a>. One of the three points has no humidity: it is counted in `tss:missing`, and the numbers leave it out.
+
+```turtle
+ex:humidity-field
+    tss:summary [
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "2"^^xsd:integer ;
+        tss:missing "1"^^xsd:integer ;
+        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+        tss:lastTime "2024-05-12T08:20:00Z"^^xsd:dateTime ;
+        tss:observedMinimum "59.5"^^xsd:double ;
+        tss:observedMaximum "61.0"^^xsd:double ;
+        tss:mean "60.25"^^xsd:double ;
+        tss:median "60.25"^^xsd:double ;
+        tss:generatedAtTime "2024-05-12T09:00:00Z"^^xsd:dateTime
     ] .
 ```
 </div>
@@ -658,15 +793,35 @@ A document with several snippets is expanded snippet by snippet: the observation
 
 Note: The expansion does not keep every value: a field without `tss:observedProperty`, such as an identifier or a status, gives no observations.
 
+## Mapping to SOSA (informative) ## {#sosa-mapping}
+
+*This section is informative.* An implementation that has no reason to choose another vocabulary can write the observations with SOSA [[VOCAB-SSN]], QUDT and Dublin Core, as in <a href="#example-observations">the example</a>:
+
+<table class="data">
+<thead>
+<tr><th>Part of an observation</th><th>Written as</th></tr>
+</thead>
+<tbody>
+<tr><td>the observation</td><td>a blank node of type <code>sosa:Observation</code></td></tr>
+<tr><td>the snippet</td><td><code>dcterms:source</code>, with the IRI of the <code>tss:Snippet</code></td></tr>
+<tr><td>the observed property</td><td><code>sosa:observedProperty</code></td></tr>
+<tr><td>the sensor</td><td><code>sosa:madeBySensor</code></td></tr>
+<tr><td>the feature of interest</td><td><code>sosa:hasFeatureOfInterest</code></td></tr>
+<tr><td>the unit</td><td><code>qudt:hasUnit</code></td></tr>
+<tr><td>the time of the point</td><td><code>sosa:resultTime</code></td></tr>
+<tr><td>the result</td><td><code>sosa:hasSimpleResult</code></td></tr>
+</tbody>
+</table>
+
 # Adding points to a mutable snippet # {#updating}
 
 An [=Embedded Snippet=] with `tss:mutable true` is append-only: a [=Write=] adds points, and never changes or removes an existing point. A Write that adds one point:
 
 1. Checks the new point: every value is a literal in the lexical form of its field's datatype, and no other point has the same [=Key=].
 2. Adds the new point: one statement that links the snippet to a new node with `tss:hasPoint`, with one triple for each of its values. The other points stay as they are.
-3. Widens the [=Time Window=] when needed: `tss:from` becomes the earlier of `tss:from` and the earliest point, and `tss:until` the later of `tss:until` and the newest point plus one second, since `tss:until` is not in the window. A side that the snippet leaves open stays open.
+3. Widens the [=Time Window=] when needed, so that the new point lies in it: `tss:from` becomes the earlier of `tss:from` and the time of the new point, and `tss:until` becomes a time after the time of the new point when it was not already. The writer chooses that time, and it MUST be after the time of the newest point, since `tss:until` is not in the window. A side that the snippet leaves open stays open.
 4. Sets `tss:committedUntil` to the time of the write.
-5. Recomputes every [=Stored Summary=] of the snippet from the points in the new window: its `tss:from` and `tss:until` become the window of the snippet, `tss:generatedAtTime` the time of the write, and every number it states is computed again. Its `tss:missingValuePolicy` stays.
+5. Recomputes every [=Stored Summary=] of the snippet from the points in the new window: its `tss:generatedAtTime` becomes the time of the write, and every number it states is computed again. Its `tss:missingValuePolicy` stays.
 6. Keeps the change only when the snippet still meets this specification.
 
 <div class="example" id="example-write">
@@ -703,7 +858,7 @@ An [=External Snippet=] is never changed this way: managing the data file of an 
 <tr><td><code>tss:DeltaFromBaseline</code></td><td>individual</td><td>value of <code>tss:valueEncoding</code></td><td>[[#value-encoding]]</td></tr>
 <tr><td><code>tss:embedded</code>, <code>tss:mutable</code>, <code>tss:committedUntil</code></td><td>property</td><td>snippet</td><td>[[#storage]], [[#change]]</td></tr>
 <tr><td><code>tss:hasField</code>, <code>tss:timeField</code>, <code>tss:key</code></td><td>property</td><td>snippet</td><td>[[#time-and-key]]</td></tr>
-<tr><td><code>tss:from</code>, <code>tss:until</code></td><td>property</td><td>snippet, summary</td><td>[[#window]], [[#summaries]]</td></tr>
+<tr><td><code>tss:from</code>, <code>tss:until</code></td><td>property</td><td>snippet</td><td>[[#window]]</td></tr>
 <tr><td><code>tss:hasPoint</code></td><td>property</td><td>embedded snippet</td><td>[[#points]]</td></tr>
 <tr><td><code>tss:dataFile</code>, <code>tss:format</code>, <code>tss:delimiter</code>, <code>tss:header</code>, <code>tss:encoding</code></td><td>property</td><td>external snippet</td><td>[[#data-files]]</td></tr>
 <tr><td><code>tss:timeBase</code>, <code>tss:timeStep</code>, <code>tss:stepField</code></td><td>property</td><td>external snippet</td><td>[[#time-grid]]</td></tr>

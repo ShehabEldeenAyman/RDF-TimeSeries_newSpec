@@ -48,7 +48,8 @@ ex:zevenaarshaven-vd-snippet
     tss:encoding "utf-8" .
 
 # Generated column summaries (calculated from the actual data, not example values).
-# Each summary covers existing rows in [tss:from, tss:until) only.
+# Each summary covers the existing rows in the snippet's window [tss:from, tss:until);
+# a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent values and empty strings ("");
 # whitespace-only strings are not treated as empty. tss:count counts present values;
 # tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
@@ -70,8 +71,6 @@ ex:zevenaarshaven-vd-time-field
         dcterms:description "Observation time (UTC), 15-minute rhythm"@en
     ] ;
     tss:summary [
-        tss:from "2021-03-04T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2021-03-05T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -109,8 +108,6 @@ ex:zevenaarshaven-vd-value-field
         dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven
     ] ;
     tss:summary [
-        tss:from "2021-03-04T00:00:00+00:00"^^xsd:dateTime ;
-        tss:until "2021-03-05T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;

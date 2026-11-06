@@ -53,7 +53,8 @@ ex:rodenhuizedok-snippet
 # Optional tss:fieldDescription records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
-# Each summary covers existing rows/points in [tss:from, tss:until) only.
+# Each summary covers the existing rows/points in the snippet's window [tss:from, tss:until);
+# a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
 # whitespace-only strings are not treated as empty. tss:count counts present values;
 # tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
@@ -75,8 +76,6 @@ ex:rodenhuizedok-ts_id-field
         dcterms:description "Waterinfo time series identifier (the same on every row)."@en
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -95,8 +94,6 @@ ex:rodenhuizedok-time-field
         dcterms:description "Observation time (UTC)."@en
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -124,8 +121,6 @@ ex:rodenhuizedok-ec20-field
         dcterms:relation ex:sensor-rodenhuizedok-ec20, ex:water-rodenhuizedok
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -150,8 +145,6 @@ ex:rodenhuizedok-interpolation-type-field
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -172,8 +165,6 @@ ex:rodenhuizedok-quality-code-field
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -194,8 +185,6 @@ ex:rodenhuizedok-quality-code-name-field
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -217,8 +206,6 @@ ex:rodenhuizedok-quality-code-description-field
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
@@ -241,8 +228,6 @@ ex:rodenhuizedok-quality-code-color-field
         dcterms:relation ex:rodenhuizedok-ec20-field
     ] ;
     tss:summary [
-        tss:from "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:until "2026-01-01T00:00:00+00:00"^^xsd:dateTime ;
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;

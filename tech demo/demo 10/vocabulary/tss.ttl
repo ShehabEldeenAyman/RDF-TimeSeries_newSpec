@@ -12,7 +12,7 @@
 # "A time of the snippet" below is an xsd:dateTime literal (the default) or an xsd:dateTimeStamp
 # literal. It should have a timezone; a time without one is read as UTC. These are:
 #   on the snippet:   tss:committedUntil, tss:from, tss:until, tss:timeBase
-#   on a summary:     tss:from, tss:until, tss:firstTime, tss:lastTime, tss:generatedAtTime
+#   on a summary:     tss:firstTime, tss:lastTime, tss:generatedAtTime
 #   on a point:       the value of the snippet's tss:timeField
 
 <https://w3id.org/tss#> a owl:Ontology ;
@@ -44,7 +44,7 @@ tss:Point a owl:Class ;
 
 tss:Summary a owl:Class ;
     rdfs:label "Summary"@en ;
-    rdfs:comment "Statistics of the values of one field in a time window, calculated from the readings. Every attribute of a summary is optional."@en ;
+    rdfs:comment "Statistics of the values of one field in the time window of its snippet, calculated from the readings. A summary has no window of its own. Every attribute of a summary is optional."@en ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:Format a owl:Class ;
@@ -101,15 +101,15 @@ tss:committedUntil a owl:DatatypeProperty ;
 
 tss:from a owl:DatatypeProperty ;
     rdfs:label "from"@en ;
-    rdfs:comment "The start of a time window, included. On a snippet, the window its readings cover; on a summary, the window it was calculated over. A time of the snippet."@en ;
-    rdfs:domain [ a owl:Class ; owl:unionOf ( tss:Snippet tss:Summary ) ] ;
+    rdfs:comment "The start of the snippet's time window, included: the window its readings cover. A summary has no window of its own: it covers the snippet's window. A time of the snippet."@en ;
+    rdfs:domain tss:Snippet ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:until a owl:DatatypeProperty ;
     rdfs:label "until"@en ;
-    rdfs:comment "The end of a time window, not included; it comes after tss:from. A time of the snippet."@en ;
-    rdfs:domain [ a owl:Class ; owl:unionOf ( tss:Snippet tss:Summary ) ] ;
+    rdfs:comment "The end of the snippet's time window, not included; it comes after tss:from. A time of the snippet."@en ;
+    rdfs:domain tss:Snippet ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
@@ -356,56 +356,56 @@ tss:missingValuePolicy a owl:ObjectProperty ;
 
 tss:count a owl:DatatypeProperty ;
     rdfs:label "count"@en ;
-    rdfs:comment "How many values the field has in the summary's window: a whole number, 0 or more."@en ;
+    rdfs:comment "How many values the field has in the snippet's time window: a whole number, 0 or more."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range xsd:integer ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:missing a owl:DatatypeProperty ;
     rdfs:label "missing"@en ;
-    rdfs:comment "How many readings in the summary's window have an empty value for the field: a whole number, 0 or more. Readings that do not exist (time gaps) are not counted."@en ;
+    rdfs:comment "How many readings in the snippet's time window have an empty value for the field: a whole number, 0 or more. Readings that do not exist (time gaps) are not counted."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range xsd:integer ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:firstTime a owl:DatatypeProperty ;
     rdfs:label "first time"@en ;
-    rdfs:comment "The time of the first reading in the summary's window with a value for the field. A time of the snippet."@en ;
+    rdfs:comment "The time of the first reading in the snippet's time window with a value for the field. A time of the snippet."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:lastTime a owl:DatatypeProperty ;
     rdfs:label "last time"@en ;
-    rdfs:comment "The time of the last reading in the summary's window with a value for the field. A time of the snippet."@en ;
+    rdfs:comment "The time of the last reading in the snippet's time window with a value for the field. A time of the snippet."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:observedMinimum a owl:DatatypeProperty ;
     rdfs:label "observed minimum"@en ;
-    rdfs:comment "The smallest value of the field in the summary's window: a number. It does not replace the expected tss:minimum."@en ;
+    rdfs:comment "The smallest value of the field in the snippet's time window: a number. It does not replace the expected tss:minimum."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:observedMaximum a owl:DatatypeProperty ;
     rdfs:label "observed maximum"@en ;
-    rdfs:comment "The largest value of the field in the summary's window: a number. It does not replace the expected tss:maximum."@en ;
+    rdfs:comment "The largest value of the field in the snippet's time window: a number. It does not replace the expected tss:maximum."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:mean a owl:DatatypeProperty ;
     rdfs:label "mean"@en ;
-    rdfs:comment "The unweighted arithmetic mean of the field's values in the summary's window: a number."@en ;
+    rdfs:comment "The unweighted arithmetic mean of the field's values in the snippet's time window: a number."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:median a owl:DatatypeProperty ;
     rdfs:label "median"@en ;
-    rdfs:comment "The median of the field's values in the summary's window: a number. For an even number of values, the mean of the middle two."@en ;
+    rdfs:comment "The median of the field's values in the snippet's time window: a number. For an even number of values, the mean of the middle two."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .

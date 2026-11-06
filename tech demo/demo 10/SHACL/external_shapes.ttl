@@ -64,8 +64,9 @@
 #   Not allowed:  D3 a tss:baseline without tss:valueEncoding tss:DeltaFromBaseline,
 #                    and a tss:valueEncoding on the time field (sh:Violation)
 #
-# The summary (optional tss:summary on a field)
-#   Optional:  Q1 from   Q2 until   Q3 missing-value policy   Q4 count   Q5 missing
+# The summary (optional tss:summary on a field): it covers the snippet's time window
+#   Not allowed: Q1 from, Q2 until: a summary has no window of its own
+#   Optional:  Q3 missing-value policy   Q4 count   Q5 missing
 #              Q6 first time   Q7 last time   Q8 observed minimum   Q9 observed maximum
 #              Q10 mean   Q11 median   Q12 generated at time
 # An absent summary or an empty summary node is valid. Each supplied attribute
@@ -496,7 +497,7 @@ ext:TimezoneShape a sh:NodeShape ;
                     $this tss:hasField ?field .
                     ?field tss:summary ?summary .
                     ?summary ?property ?value .
-                    FILTER (?property IN (tss:from, tss:until, tss:firstTime, tss:lastTime, tss:generatedAtTime))
+                    FILTER (?property IN (tss:firstTime, tss:lastTime, tss:generatedAtTime))
                     BIND (CONCAT("a summary's ", REPLACE(STR(?property), "^.*#", "tss:")) AS ?where)
                 }
                 FILTER (isLiteral(?value) && STR(?value) != "" && !REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"))
@@ -736,19 +737,17 @@ ext:SummaryShape a sh:NodeShape ;
     sh:nodeKind sh:BlankNodeOrIRI ;
     sh:property [
         sh:name "Q1 from" ;
-        sh:group ext:Optional ;
+        sh:group ext:NotAllowed ;
         sh:path tss:from ;
-        sh:maxCount 1 ;
-        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
-        sh:message "tss:from must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
+        sh:maxCount 0 ;
+        sh:message "Q1 not allowed: a summary has no window of its own; it covers the snippet's time window, so it has no tss:from." ;
     ] ;
     sh:property [
         sh:name "Q2 until" ;
-        sh:group ext:Optional ;
+        sh:group ext:NotAllowed ;
         sh:path tss:until ;
-        sh:maxCount 1 ;
-        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
-        sh:message "tss:until must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
+        sh:maxCount 0 ;
+        sh:message "Q2 not allowed: a summary has no window of its own; it covers the snippet's time window, so it has no tss:until." ;
     ] ;
     sh:property [
         sh:name "Q3 missing-value policy" ;
