@@ -65,7 +65,7 @@ ex:zevenaarshaven-ts-snippet
 # tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
 # Numeric aggregates are for the conductivity field, in its declared unit.
 # Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
-# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
+# Observed extrema do not replace the expected tss:minimum / tss:maximum range.
 # tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
 # The time summary describes the times on the grid, not the steps in the file.
 

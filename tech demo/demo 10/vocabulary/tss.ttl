@@ -9,7 +9,8 @@
 # The terms of the RDF Time Series Snippets vocabulary (tss:): the snippet, its fields, the
 # summaries of their values, the points of an embedded snippet, and the values they take.
 #
-# "A time of the snippet" below is an xsd:dateTime literal. These are:
+# "A time of the snippet" below is an xsd:dateTime literal (the default) or an xsd:dateTimeStamp
+# literal. It should have a timezone; a time without one is read as UTC. These are:
 #   on the snippet:   tss:committedUntil, tss:from, tss:until, tss:timeBase
 #   on a summary:     tss:from, tss:until, tss:firstTime, tss:lastTime, tss:generatedAtTime
 #   on a point:       the value of the snippet's tss:timeField
@@ -28,7 +29,7 @@
 
 tss:Snippet a owl:Class ;
     rdfs:label "Snippet"@en ;
-    rdfs:comment "A time series snippet: the readings of one or more time series in a time window, described by the snippet's fields. The readings are either points in the metadata itself (tss:embedded true) or rows of an external data file (tss:embedded false)."@en ;
+    rdfs:comment "A time series snippet: the readings of one or more time series in a time window, described by the snippet's fields. The readings are either points in the metadata itself (tss:embedded true) or rows of an external data file (tss:embedded false). A metadata document describes one or more snippets, all embedded or all with an external data file, and each is read on its own."@en ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:Field a owl:Class ;
@@ -38,7 +39,7 @@ tss:Field a owl:Class ;
 
 tss:Point a owl:Class ;
     rdfs:label "Point"@en ;
-    rdfs:comment "One reading of an embedded snippet: a node that the snippet links to with tss:hasPoint. It is not typed: its type follows from tss:hasPoint. Each of its values is a triple with the field's IRI as predicate and a literal of the field's tss:datatype; a missing value has no triple. The points of a snippet are unordered."@en ;
+    rdfs:comment "One reading of an embedded snippet: a node that the snippet links to with tss:hasPoint. It is not typed: its type follows from tss:hasPoint. Each of its values is a triple with the field's IRI as predicate and a literal of the field's tss:datatype; a missing value has no triple, and a value with the empty text \"\" is no value either. The points of a snippet are unordered."@en ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:Summary a owl:Class ;
@@ -78,7 +79,7 @@ tss:Parquet a tss:Format ;
 
 tss:ExcludeEmptyValues a tss:MissingValuePolicy ;
     rdfs:label "Exclude empty values"@en ;
-    rdfs:comment "Empty values are not values: nulls, absent values and empty strings (\"\") are left out of tss:count and of every statistic, and tss:missing counts them. A string of only whitespace is a value."@en ;
+    rdfs:comment "Empty values are not values: nulls, absent values and empty strings (\"\") are left out of tss:count and of every statistic, and tss:missing counts them. A string of only whitespace is a value. An empty string and no value are the same thing, so the empty string cannot be the value of a field."@en ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:DeltaFromBaseline a tss:ValueEncoding ;
@@ -114,14 +115,14 @@ tss:until a owl:DatatypeProperty ;
 
 tss:mutable a owl:DatatypeProperty ;
     rdfs:label "mutable"@en ;
-    rdfs:comment "true when readings may still be added to the snippet; false when its readings are final."@en ;
+    rdfs:comment "true when the snippet is append-only: readings may be added, but none is changed or removed. false when its readings are final: none is added, changed or removed."@en ;
     rdfs:domain tss:Snippet ;
     rdfs:range xsd:boolean ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:embedded a owl:DatatypeProperty ;
     rdfs:label "embedded"@en ;
-    rdfs:comment "true when the readings are points in the metadata itself (tss:Point, tss:hasPoint); false when they are in an external data file (tss:dataFile)."@en ;
+    rdfs:comment "true when the readings are points in the metadata itself (tss:Point, tss:hasPoint); false when they are in an external data file (tss:dataFile). All snippets of a metadata document have the same tss:embedded."@en ;
     rdfs:domain tss:Snippet ;
     rdfs:range xsd:boolean ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
@@ -147,14 +148,14 @@ tss:hasField a owl:ObjectProperty ;
 
 tss:timeField a owl:ObjectProperty ;
     rdfs:label "time field"@en ;
-    rdfs:comment "The field of the snippet that holds the time of each reading. Its values are times of the snippet, so its tss:datatype is xsd:dateTime. In a snippet with a time grid the data file has no column for it: a row's time is computed from its step (tss:stepField)."@en ;
+    rdfs:comment "The field of the snippet that holds the time of each reading. Its values are times of the snippet, so its tss:datatype is xsd:dateTime or xsd:dateTimeStamp. In a snippet with a time grid the data file has no column for it: a row's time is computed from its step (tss:stepField)."@en ;
     rdfs:domain tss:Snippet ;
     rdfs:range tss:Field ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:key a owl:ObjectProperty ;
     rdfs:label "key"@en ;
-    rdfs:comment "A field of the snippet whose values identify a reading: no two readings have the same values for all tss:key fields. Two times that are the same moment are the same value."@en ;
+    rdfs:comment "A field of the snippet whose values identify a reading: no two readings have the same values for all tss:key fields. A snippet without tss:key has its tss:timeField as key. Two times that are the same moment are the same value."@en ;
     rdfs:domain tss:Snippet ;
     rdfs:range tss:Field ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
@@ -271,14 +272,14 @@ tss:language a owl:DatatypeProperty ;
 
 tss:minimum a owl:DatatypeProperty ;
     rdfs:label "minimum"@en ;
-    rdfs:comment "The smallest allowed reading of the field: a number. No reading of the field is below it."@en ;
+    rdfs:comment "The expected smallest reading of the field: a number. It is informative: a reading below it is still a reading of the field."@en ;
     rdfs:domain tss:Field ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:maximum a owl:DatatypeProperty ;
     rdfs:label "maximum"@en ;
-    rdfs:comment "The largest allowed reading of the field: a number, not below tss:minimum. No reading of the field is above it."@en ;
+    rdfs:comment "The expected largest reading of the field: a number, not below tss:minimum. It is informative: a reading above it is still a reading of the field."@en ;
     rdfs:domain tss:Field ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
@@ -383,14 +384,14 @@ tss:lastTime a owl:DatatypeProperty ;
 
 tss:observedMinimum a owl:DatatypeProperty ;
     rdfs:label "observed minimum"@en ;
-    rdfs:comment "The smallest value of the field in the summary's window: a number. It does not replace the allowed tss:minimum."@en ;
+    rdfs:comment "The smallest value of the field in the summary's window: a number. It does not replace the expected tss:minimum."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:observedMaximum a owl:DatatypeProperty ;
     rdfs:label "observed maximum"@en ;
-    rdfs:comment "The largest value of the field in the summary's window: a number. It does not replace the allowed tss:maximum."@en ;
+    rdfs:comment "The largest value of the field in the summary's window: a number. It does not replace the expected tss:maximum."@en ;
     rdfs:domain tss:Summary ;
     rdfs:range rdfs:Literal ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .

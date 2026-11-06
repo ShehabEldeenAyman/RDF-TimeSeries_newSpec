@@ -60,8 +60,8 @@ ex:rodenhuizedok-snippet
 # tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
 # Numeric aggregates are for conductivity fields, in their declared units if known.
 # Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
-# All present readings are included regardless of quality codes or allowed bounds.
-# Observed extrema do not replace the allowed tss:minimum / tss:maximum bounds.
+# All present readings are included regardless of quality codes or the expected range.
+# Observed extrema do not replace the expected tss:minimum / tss:maximum range.
 # For embedded data these summaries describe only the supplied sample points.
 # tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
 

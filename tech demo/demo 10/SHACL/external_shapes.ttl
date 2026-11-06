@@ -18,17 +18,22 @@
 # statements that have no effect; with -w (allow warnings) they don't fail the run.
 # These shapes only look at the metadata, not at the data file itself.
 #
+# A time (tss:committedUntil, tss:from, tss:until, tss:timeBase, the summary times and the values
+# of the time field) is an xsd:dateTime, the default, or an xsd:dateTimeStamp. It should have a
+# timezone; a time without one is read as UTC (S23 warns).
+#
 # The snippet (tss:Snippet)
-#   Required:  S17 committed until (one xsd:dateTime: the last time the snippet and its
-#                  data were checked to be up to date)
-#   Required:  S1 the snippet (exactly one)      S7  embedded (false)
-#              S3 mutable                       S8  data file
+#   Required:  S17 committed until (one time: the last time the snippet and its data were
+#                  checked to be up to date)
+#   Required:  S1 the snippet (one or more, each read on its own)    S7  embedded (false)
+#              S3 mutable (true: append-only)   S8  data file
 #              S4 time field                    S9  format (tss:CSV or tss:Parquet)
-#              S5 key (at least one)
 #              S6 has field (at least one)
-#              S20 time field datatype (xsd:dateTime: every time of a snippet is an xsd:dateTime)
+#              S20 time field datatype (xsd:dateTime, or xsd:dateTimeStamp)
+#              S24 one kind: every snippet of the document is external (no mixing)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
-#              S18 time base (one xsd:dateTime: the time of step 0)
+#              S5 key (default: the time field)
+#              S18 time base (one time: the time of step 0)
 #              S19 time step (one xsd:duration of more than zero)
 #              S18 and S19 come together: a tss:timeBase needs a tss:timeStep, and the other way round
 #              S21 step field: with a time grid, exactly one: the field whose column holds the
@@ -39,6 +44,8 @@
 #   Not allowed: S22 has point (tss:hasPoint: the readings of an external snippet are the
 #                rows of its data file, not points in the metadata)
 #   Not used:  S15 delimiter and encoding on a tss:Parquet snippet (warning)
+#   Warning:   S23 timezone: every time in the metadata has a timezone (a time without one
+#              is read as UTC). The times in the data file are not checked.
 #
 # The fields (tss:Field, and every object of tss:hasField)
 #   Required:  F1 the field: typed tss:Field, and a field of exactly one snippet
@@ -63,7 +70,7 @@
 #              Q10 mean   Q11 median   Q12 generated at time
 # An absent summary or an empty summary node is valid. Each supplied attribute
 # has at most one value of the stated type. These shapes do not recompute statistics
-# or compare observed extrema with the allowed tss:minimum / tss:maximum bounds.
+# or compare observed extrema with the expected tss:minimum / tss:maximum range.
 #
 # Any other property (tss:header, tss:observedProperty, tss:unit, tss:sensor,
 # tss:featureOfInterest, tss:describesField, tss:language, ...) is allowed and not checked.
@@ -117,8 +124,7 @@ ext:SnippetExistsShape a sh:NodeShape ;
         sh:group ext:Required ;
         sh:path [ sh:inversePath rdf:type ] ;
         sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:message "The metadata must describe exactly one tss:Snippet." ;
+        sh:message "The metadata must describe at least one tss:Snippet; each snippet is read on its own." ;
     ] .
 
 
@@ -134,16 +140,16 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:committedUntil ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "The snippet needs exactly one tss:committedUntil, an xsd:dateTime: the last time the snippet and its data were checked to be up to date." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "The snippet needs exactly one tss:committedUntil, an xsd:dateTime (or xsd:dateTimeStamp): the last time the snippet and its data were checked to be up to date." ;
     ] ;
     sh:property [
         sh:name "S2 from" ;
         sh:group ext:Optional ;
         sh:path tss:from ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "tss:from must be one xsd:dateTime: the start of the time window." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:from must be one xsd:dateTime (or xsd:dateTimeStamp): the start of the time window." ;
     ] ;
     sh:property [
         sh:name "S3 mutable" ;
@@ -152,7 +158,7 @@ ext:SnippetShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
-        sh:message "The snippet needs exactly one tss:mutable, true or false." ;
+        sh:message "The snippet needs exactly one tss:mutable: true (append-only: rows may be added to the data file, but none is changed or removed) or false (no row is added, changed or removed)." ;
     ] ;
     sh:property [
         sh:name "S4 time field" ;
@@ -165,11 +171,10 @@ ext:SnippetShape a sh:NodeShape ;
     ] ;
     sh:property [
         sh:name "S5 key" ;
-        sh:group ext:Required ;
+        sh:group ext:Optional ;
         sh:path tss:key ;
-        sh:minCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "The snippet needs at least one tss:key: the field(s) whose values identify a row." ;
+        sh:message "tss:key must name the field(s) whose values identify a row; a snippet without tss:key has its time field as key." ;
     ] ;
     sh:property [
         sh:name "S6 has field" ;
@@ -256,8 +261,8 @@ ext:SnippetShape a sh:NodeShape ;
         sh:group ext:Optional ;
         sh:path tss:until ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "tss:until must be one xsd:dateTime: the end of the time window (not included)." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:until must be one xsd:dateTime (or xsd:dateTimeStamp): the end of the time window (not included)." ;
     ] ;
     # The time grid: step n is at tss:timeBase + n × tss:timeStep
     sh:property [
@@ -265,8 +270,8 @@ ext:SnippetShape a sh:NodeShape ;
         sh:group ext:Optional ;
         sh:path tss:timeBase ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "tss:timeBase must be one xsd:dateTime: the time of step 0 of the snippet's time grid." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:timeBase must be one xsd:dateTime (or xsd:dateTimeStamp): the time of step 0 of the snippet's time grid." ;
     ] ;
     sh:property [
         sh:name "S19 time step" ;
@@ -319,13 +324,13 @@ ext:SnippetShape a sh:NodeShape ;
     # xsd:dateTime
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a snippet is an xsd:dateTime." ;
+        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a snippet is an xsd:dateTime (or xsd:dateTimeStamp)." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:timeField ?timeField .
                 ?timeField tss:datatype ?value .
-                FILTER (!sameTerm(?value, xsd:dateTime))
+                FILTER (!sameTerm(?value, xsd:dateTime) && !sameTerm(?value, xsd:dateTimeStamp))
             }""" ;
     ] ;
 
@@ -337,7 +342,10 @@ ext:SnippetShape a sh:NodeShape ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:from ?from ; tss:until ?value .
-                FILTER (?value <= ?from)
+                # The moments: a time without a timezone is read as UTC
+                BIND (xsd:dateTime(IF(REGEX(STR(?from), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?from), CONCAT(STR(?from), "Z"))) AS ?start)
+                BIND (xsd:dateTime(IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z"))) AS ?end)
+                FILTER (BOUND(?start) && BOUND(?end) && ?end <= ?start)
             }""" ;
     ] ;
 
@@ -442,6 +450,56 @@ ext:ParquetSnippetShape a sh:NodeShape ;
                 $this tss:format tss:Parquet ; ?property ?value .
                 FILTER (?property IN (tss:delimiter, tss:encoding))
                 BIND (IF(?property = tss:delimiter, "tss:delimiter", "tss:encoding") AS ?name)
+            }""" ;
+    ] .
+
+
+# --- S24: one kind of snippet per document --------------------------------------
+# A document describes embedded snippets or external snippets, never both, so that one set
+# of rules (and one shapes file) reads all of its snippets.
+
+ext:OneKindShape a sh:NodeShape ;
+    sh:targetClass tss:Snippet ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S24 one kind: the document also describes a snippet with tss:embedded {?value}; all snippets of a document are embedded, or all are external, never both." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:embedded ?mine .
+                ?other a tss:Snippet ; tss:embedded ?value .
+                FILTER (?other != $this && ?value != ?mine)
+            }""" ;
+    ] .
+
+
+# --- S23: every time has a timezone ----------------------------------------------
+# A shape of its own, because a SPARQL check takes its severity from its shape. A time
+# without a timezone is read as UTC, so the metadata still conforms: S23 only warns.
+
+ext:TimezoneShape a sh:NodeShape ;
+    sh:targetClass tss:Snippet ;
+    sh:severity sh:Warning ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S23 timezone: {?value} ({?where}) has no timezone, so it is read as UTC. Every time SHOULD have a timezone, such as Z or +02:00." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT DISTINCT $this ?value ?where WHERE {
+                {
+                    # A time of the snippet
+                    $this ?property ?value .
+                    FILTER (?property IN (tss:committedUntil, tss:from, tss:until, tss:timeBase))
+                    BIND (CONCAT("the snippet's ", REPLACE(STR(?property), "^.*#", "tss:")) AS ?where)
+                } UNION {
+                    # A time of a summary
+                    $this tss:hasField ?field .
+                    ?field tss:summary ?summary .
+                    ?summary ?property ?value .
+                    FILTER (?property IN (tss:from, tss:until, tss:firstTime, tss:lastTime, tss:generatedAtTime))
+                    BIND (CONCAT("a summary's ", REPLACE(STR(?property), "^.*#", "tss:")) AS ?where)
+                }
+                FILTER (isLiteral(?value) && STR(?value) != "" && !REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"))
             }""" ;
     ] .
 
@@ -657,7 +715,7 @@ ext:FieldShape a sh:NodeShape ;
             }""" ;
     ] ;
 
-    # F8: the allowed range is not empty
+    # F8: the expected range is not empty
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "F8 maximum: tss:maximum ({?value}) is below tss:minimum." ;
@@ -681,16 +739,16 @@ ext:SummaryShape a sh:NodeShape ;
         sh:group ext:Optional ;
         sh:path tss:from ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "tss:from must be one xsd:dateTime when supplied." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:from must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
     ] ;
     sh:property [
         sh:name "Q2 until" ;
         sh:group ext:Optional ;
         sh:path tss:until ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "tss:until must be one xsd:dateTime when supplied." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:until must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
     ] ;
     sh:property [
         sh:name "Q3 missing-value policy" ;
@@ -723,16 +781,16 @@ ext:SummaryShape a sh:NodeShape ;
         sh:group ext:Optional ;
         sh:path tss:firstTime ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "tss:firstTime must be one xsd:dateTime when supplied." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:firstTime must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
     ] ;
     sh:property [
         sh:name "Q7 last time" ;
         sh:group ext:Optional ;
         sh:path tss:lastTime ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "tss:lastTime must be one xsd:dateTime when supplied." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:lastTime must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
     ] ;
     sh:property [
         sh:name "Q8 observed minimum" ;
@@ -771,6 +829,6 @@ ext:SummaryShape a sh:NodeShape ;
         sh:group ext:Optional ;
         sh:path tss:generatedAtTime ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTime ;
-        sh:message "tss:generatedAtTime must be one xsd:dateTime when supplied." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:generatedAtTime must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
     ] .
