@@ -49,7 +49,7 @@
 #   Optional:     S7 label    S8 produced by    S9 key (default: the time field)
 #                 S10 from    S11 until (after from)
 #   Not allowed:  S12 tss:dataFile, tss:format, tss:delimiter, tss:encoding, tss:header:
-#                 they describe an external data file; tss:points: the points are RDF;
+#                 they describe an external data file;
 #                 tss:timeBase, tss:timeStep, tss:stepField: a time grid is only for an
 #                 external data file, so every point states its own time (P1)
 #   Warning:      S23 timezone: every time has a timezone (a time without one is read as UTC)
@@ -282,14 +282,6 @@ emb:SnippetShape a sh:NodeShape ;
         sh:path tss:header ;
         sh:maxCount 0 ;
         sh:message "S12 not allowed: tss:header describes a CSV data file, not embedded points." ;
-    ] ;
-    # Not allowed: a JSON literal can't be appended to, so the points are RDF nodes instead
-    sh:property [
-        sh:name "S12 points" ;
-        sh:group emb:NotAllowed ;
-        sh:path tss:points ;
-        sh:maxCount 0 ;
-        sh:message "S12 not allowed: tss:points (a JSON literal) is not used; each point is an RDF node that the snippet links to with tss:hasPoint, in a statement at the end of the document." ;
     ] ;
     # Not allowed: a time grid is only for an external data file; every point states its own time (P1)
     sh:property [

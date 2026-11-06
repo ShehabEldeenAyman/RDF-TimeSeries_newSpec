@@ -47,6 +47,7 @@ tss:Snippet a owl:Class ;
 tss:Field a owl:Class ;
     rdfs:label "Field"@en ;
     rdfs:comment "A field of a snippet: one column of its readings, such as the time or one series of values. It says where its values are (tss:columnName, tss:columnIndex) and how to read them (tss:datatype)."@en ;
+    skos:closeMatch csvw:Column ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:Point a owl:Class ;
@@ -266,6 +267,7 @@ tss:columnName a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:comment "The name of the field's column, unique within its snippet."@en ;
     rdfs:domain tss:Field ;
     rdfs:range xsd:string ;
+    skos:closeMatch csvw:name ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:columnIndex a owl:DatatypeProperty, owl:FunctionalProperty ;
