@@ -1,0 +1,125 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+
+# One day (2021-03-04, UTC) of the Waterinfo EC20 series of Kanaal Gent-Terneuzen Zevenaarshaven (NL),
+# taken from waterinfo_289441042.csv: 43 readings on a 15-minute rhythm, with gaps.
+# The data file does not hold the readings themselves. The value field states
+# tss:valueEncoding tss:DeltaFromBaseline and a tss:baseline, and its column ("value_delta")
+# holds the difference from that baseline: the reading is tss:baseline + the value in the file.
+# A value encoding is only for a snippet with an external data file; the points of an embedded
+# snippet state the readings themselves.
+# Snippet windows are [from, until). tss:key identifies the field whose values identify a row.
+# The snippet and its fields have their own IRIs (ex:zevenaarshaven-vd-...); the sensor, the feature
+# of interest and the station are the same real-world things as in the other Zevenaarshaven
+# documents, so they keep their IRIs.
+
+ex:zevenaarshaven-vd-snippet
+    a tss:CSVSnippet ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), 2021-03-04, value delta"@en ;
+    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
+    tss:snippetDescription [
+        dcterms:spatial [
+            a dcterms:Location ;
+            rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
+        ]
+    ] ;
+    tss:mutable false ;
+    tss:producedBy ex:289441042 ;
+    tss:from "2021-03-04T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2021-03-05T00:00:00Z"^^xsd:dateTime ;
+    # Committed until: the last time the snippet and its data were checked to be up to date.
+    tss:committedUntil "2026-11-05T12:20:10Z"^^xsd:dateTime ;
+    tss:dataFile <../data/waterinfo_289441042_value_delta.csv> ;
+    # The "time" column of the data file holds UTC times such as 2021-03-04T00:30:00Z:
+    # xsd:dateTime texts, each with a timezone.
+    tss:timeField ex:zevenaarshaven-vd-time-field ;
+    tss:key ex:zevenaarshaven-vd-time-field ;
+    tss:hasField ex:zevenaarshaven-vd-time-field,
+        ex:zevenaarshaven-vd-value-field ;
+    tss:delimiter "," ;
+    tss:header true ;
+    tss:encoding "utf-8" .
+
+# Generated column summaries (calculated from the actual data, not example values).
+# Each summary covers the existing rows in the snippet's window [tss:from, tss:until);
+# a summary has no window of its own.
+# tss:ExcludeEmptyValues excludes nulls, absent values and empty strings ("");
+# whitespace-only strings are not treated as empty. tss:count counts present values;
+# tss:missing counts empty values in existing rows, not absent timestamps or time gaps.
+# tss:firstTime / tss:lastTime are the first/last timestamps with a present field value.
+# Numeric aggregates are for the conductivity field, in its declared unit.
+# Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
+# Observed extrema do not replace the expected tss:minimum / tss:maximum range.
+# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# The value summary describes the readings (baseline + difference), not the differences in the file.
+
+ex:zevenaarshaven-vd-time-field
+    a tss:Field ;
+    tss:columnName "time" ;
+    tss:columnIndex 0 ;
+    rdfs:label "Observation time"@en ;
+    tss:datatype xsd:dateTime ;
+    rdfs:comment "Observation time (UTC), 15-minute rhythm"@en ;
+    tss:fieldDescription [
+        dcterms:description "Observation time (UTC), 15-minute rhythm"@en
+    ] ;
+    tss:summary [
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "43"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+    ] .
+
+ex:zevenaarshaven-vd-value-field
+    a tss:Field ;
+    tss:columnName "value_delta" ;
+    tss:columnIndex 1 ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:datatype xsd:double ;
+    rdfs:comment "Electrical conductivity at 20 °C, stated in the data file as the difference from the baseline"@en ;
+    # How the data file states this field's values: tss:DeltaFromBaseline, each value is the
+    # difference from the field's tss:baseline. A field without tss:valueEncoding states the
+    # readings themselves.
+    tss:valueEncoding tss:DeltaFromBaseline ;
+    # The baseline of the readings, a literal of the field's tss:datatype:
+    # reading = tss:baseline + the value in the file, summed exactly on the decimal values of the
+    # two texts (4750 + -33.9 = 4716.1), then read as the field's tss:datatype.
+    tss:baseline "4750"^^xsd:double ;
+    # The expected range describes the readings, not the differences in the file.
+    tss:minimum "0"^^xsd:double ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-zevenaarshaven-ec20 ;
+    tss:featureOfInterest ex:water-zevenaarshaven ;
+    tss:fieldDescription [
+        dcterms:description "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven
+    ] ;
+    tss:summary [
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "43"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:observedMinimum "4457.92"^^xsd:double ;
+        tss:observedMaximum "4883.63"^^xsd:double ;
+        tss:mean "4637.250697674419"^^xsd:double ;
+        tss:median "4627.68"^^xsd:double ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+    ] .
+
+# What the first rows of the data file mean:
+#   time                    value_delta   reading (4750 + value_delta)
+#   2021-03-04T00:30:00Z    -33.9         4716.1
+#   2021-03-04T01:00:00Z    25.96         4775.96
+#   2021-03-04T01:30:00Z    -33.33        4716.67
