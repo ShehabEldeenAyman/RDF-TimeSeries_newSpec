@@ -26,7 +26,9 @@
 #   array with one object per point, keyed by the fields' tss:columnName, e.g.
 #     tss:points """[ { "time": "2021-03-03T23:15:00Z", "ec20": "4797.72" } ]"""^^rdf:JSON
 #   A value is a JSON string in the lexical form of its field's tss:datatype; "", null or a
-#   missing key is no value; "[]" holds no points.
+#   missing key is no value; "[]" holds no points. Every field of a tss:EmbeddedPointSnippet
+#   states its key, tss:columnName (S25). A field of a tss:EmbeddedRDFMessagesSnippet needs no
+#   column name: the field's IRI is the predicate of its values.
 #   SHACL does not look inside a literal: these shapes check that tss:points is there and holds
 #   a JSON array, but not the points in it. The point checks (P1-P7, F9, and the times of the
 #   points in S23) read the RDF points of a tss:EmbeddedRDFMessagesSnippet.
@@ -63,6 +65,8 @@
 #                    of a field of the snippet is in a point of that snippet
 #                 S6 points of a tss:EmbeddedPointSnippet: exactly one tss:points, an rdf:JSON
 #                    literal that holds a JSON array
+#                 S25 JSON keys: every field of a tss:EmbeddedPointSnippet states a
+#                    tss:columnName, its key in the JSON points
 #   Optional:     S7 label    S8 produced by    S9 key (default: the time field)
 #                 S10 from    S11 until (after from)
 #   Not allowed:  S12 tss:dataFile, tss:delimiter, tss:encoding, tss:header: they describe an
@@ -73,11 +77,14 @@
 #                 tss:EmbeddedPointSnippet: each class writes its points in one way
 #   Warning:      S23 timezone: every time has a timezone (a time without one is read as UTC)
 #
-# The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl
+# The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl,
+# except F2: a column name is optional here
 #   Required:  F1 the field: typed tss:Field, and a field of exactly one snippet
-#              F2 column name (unique within the snippet)
 #              F3 datatype
-#   Optional:  F4 column index (unique within the snippet)   F5 label   F6 comment
+#   Optional:  F2 column name (unique within the snippet; required for a field of a
+#                 tss:EmbeddedPointSnippet, see S25; a field of a tss:EmbeddedRDFMessagesSnippet
+#                 needs none, since its IRI is the predicate of its values)
+#              F4 column index (unique within the snippet)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
 #              F10 summary (each summary attribute is also optional)
 #   Warning:   F9 some point has a value for the field (the RDF points)
@@ -473,11 +480,26 @@ emb:PointSnippetShape a sh:NodeShape ;
         sh:message "tss:points must hold a JSON array of objects, one per point, such as [ { \"time\": \"2021-03-03T23:15:00Z\", \"ec20\": \"4797.72\" } ]; \"[]\" holds no points." ;
     ] ;
     sh:property [
+        sh:name "S25 JSON keys" ;
+        sh:group emb:Required ;
+        sh:path tss:hasField ;
+        sh:node emb:JSONKeyShape ;
+        sh:message "S25: every field of a tss:EmbeddedPointSnippet needs a tss:columnName, its key in the JSON points." ;
+    ] ;
+    sh:property [
         sh:name "S12 has point" ;
         sh:group emb:NotAllowed ;
         sh:path tss:hasPoint ;
         sh:maxCount 0 ;
         sh:message "S12 not allowed: the points of a tss:EmbeddedPointSnippet are the objects in its tss:points; tss:hasPoint links the RDF points of a tss:EmbeddedRDFMessagesSnippet." ;
+    ] .
+
+# S25: a field of a tss:EmbeddedPointSnippet has a column name (F2 checks its form)
+emb:JSONKeyShape a sh:NodeShape ;
+    sh:property [
+        sh:path tss:columnName ;
+        sh:minCount 1 ;
+        sh:message "S25: a field of a tss:EmbeddedPointSnippet needs a tss:columnName, its key in the JSON points." ;
     ] .
 
 emb:RDFMessagesSnippetShape a sh:NodeShape ;
@@ -515,16 +537,6 @@ emb:FieldShape a sh:NodeShape ;
         sh:message "A field must be a field (tss:hasField) of exactly one snippet." ;
     ] ;
     sh:property [
-        sh:name "F2 column name" ;
-        sh:group emb:Required ;
-        sh:path tss:columnName ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:string ;
-        sh:minLength 1 ;
-        sh:message "A field needs exactly one tss:columnName, a non-empty text: the name of its column (in JSON points: its key)." ;
-    ] ;
-    sh:property [
         sh:name "F3 datatype" ;
         sh:group emb:Required ;
         sh:path tss:datatype ;
@@ -535,6 +547,16 @@ emb:FieldShape a sh:NodeShape ;
     ] ;
 
     # Optional
+    # F2: a field of a tss:EmbeddedPointSnippet must state its column name (S25)
+    sh:property [
+        sh:name "F2 column name" ;
+        sh:group emb:Optional ;
+        sh:path tss:columnName ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:minLength 1 ;
+        sh:message "tss:columnName must be one non-empty text: the field's key in JSON points. A field of a tss:EmbeddedRDFMessagesSnippet needs none." ;
+    ] ;
     sh:property [
         sh:name "F4 column index" ;
         sh:group emb:Optional ;

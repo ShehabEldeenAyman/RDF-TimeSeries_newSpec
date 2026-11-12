@@ -53,7 +53,7 @@ tss:EmbeddedPointSnippet a owl:Class ;
 
 tss:EmbeddedRDFMessagesSnippet a owl:Class ;
     rdfs:label "Embedded RDF messages snippet"@en ;
-    rdfs:comment "A snippet whose readings are in the metadata itself, as RDF: each reading is a node (tss:Point) that the snippet links to with tss:hasPoint, in a statement of its own, with one triple per value."@en ;
+    rdfs:comment "A snippet whose readings are in the metadata itself, as RDF: each reading is a node (tss:Point) that the snippet links to with tss:hasPoint, in a statement of its own, with one triple per value: the predicate is the IRI of the field, so its fields need no tss:columnName."@en ;
     rdfs:subClassOf tss:Snippet ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
@@ -80,7 +80,7 @@ tss:ArrowSnippet a owl:Class ;
 
 tss:Field a owl:Class ;
     rdfs:label "Field"@en ;
-    rdfs:comment "A field of a snippet: one column of its readings, such as the time or one series of values. It says where its values are (tss:columnName, tss:columnIndex) and how to read them (tss:datatype)."@en ;
+    rdfs:comment "A field of a snippet: one column of its readings, such as the time or one series of values. It says where its values are (tss:columnName, tss:columnIndex) and how to read them (tss:datatype). In the RDF points of a tss:EmbeddedRDFMessagesSnippet, the field's IRI is the predicate of its values, so it needs no column name."@en ;
     skos:closeMatch csvw:Column ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
@@ -276,7 +276,7 @@ tss:stepField a owl:ObjectProperty, owl:FunctionalProperty ;
 
 tss:columnName a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:label "column name"@en ;
-    rdfs:comment "The name of the field's column in a data file, or its key in the JSON points of a tss:EmbeddedPointSnippet; unique within its snippet."@en ;
+    rdfs:comment "The name of the field's column in a data file, or its key in the JSON points of a tss:EmbeddedPointSnippet; unique within its snippet. Required for a field of an external snippet (except the time field of a snippet with a time grid) and of a tss:EmbeddedPointSnippet; optional for a field of a tss:EmbeddedRDFMessagesSnippet, whose values are named by the field's IRI."@en ;
     rdfs:domain tss:Field ;
     rdfs:range xsd:string ;
     skos:closeMatch csvw:name ;

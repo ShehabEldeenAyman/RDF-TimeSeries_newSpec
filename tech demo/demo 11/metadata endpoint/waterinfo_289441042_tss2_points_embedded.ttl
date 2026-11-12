@@ -12,7 +12,7 @@
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
 # Snippet windows are [from, until).
 # tss:key identifies the field whose values uniquely identify a row.
-# tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
+# The fields state no tss:columnName: in RDF points, the IRI of a field is the predicate of its values.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # One embedded snippet contains both series, with one shared time field.
@@ -42,7 +42,7 @@ ex:zevenaarshaven-snippet
         ex:zevenaarshaven-ec20-value-field,
         ex:zevenaarshaven-quality-color-value-field .
 
-# Generated column summaries (calculated from the actual data, not example values).
+# Generated field summaries (calculated from the actual data, not example values).
 # Each summary covers the existing rows/points in the snippet's window [tss:from, tss:until);
 # a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
@@ -58,7 +58,6 @@ ex:zevenaarshaven-snippet
 
 ex:zevenaarshaven-time-field
     a tss:Field ;
-    tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
     tss:fieldDescription [
@@ -75,7 +74,6 @@ ex:zevenaarshaven-time-field
 
 ex:zevenaarshaven-ec20-value-field
     a tss:Field ;
-    tss:columnName "ec20" ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;
@@ -105,7 +103,6 @@ ex:zevenaarshaven-ec20-value-field
 
 ex:zevenaarshaven-quality-color-value-field
     a tss:Field ;
-    tss:columnName "qualityColor" ;
     rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:string ;
     tss:observedProperty ex:qualityCodeColor ;

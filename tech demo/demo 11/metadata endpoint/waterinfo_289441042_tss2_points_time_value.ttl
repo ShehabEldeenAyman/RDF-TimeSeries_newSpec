@@ -12,10 +12,11 @@
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
 # Snippet windows are [from, until).
 # tss:key identifies the field whose values uniquely identify a row.
+# The fields state no tss:columnName: in RDF points, the IRI of a field is the predicate of its values.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # A copy of waterinfo_289441042_tss2_points_embedded.ttl with one series only: each point
-# holds just "time" and "value" (the EC20 reading); the quality code colour is left out.
+# holds just a time and a value (the EC20 reading); the quality code colour is left out.
 # The snippet and its fields have their own IRIs (ex:zevenaarshaven-tv-...), so the two documents
 # never describe the same node in two ways; the sensor, the feature of interest and the station
 # are the same real-world things, so they keep their IRIs.
@@ -43,7 +44,7 @@ ex:zevenaarshaven-tv-snippet
     tss:hasField ex:zevenaarshaven-tv-time-field,
         ex:zevenaarshaven-tv-value-field .
 
-# Generated column summaries (calculated from the actual data, not example values).
+# Generated field summaries (calculated from the actual data, not example values).
 # Each summary covers the existing rows/points in the snippet's window [tss:from, tss:until);
 # a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
@@ -58,7 +59,6 @@ ex:zevenaarshaven-tv-snippet
 
 ex:zevenaarshaven-tv-time-field
     a tss:Field ;
-    tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
     tss:fieldDescription [
@@ -75,7 +75,6 @@ ex:zevenaarshaven-tv-time-field
 
 ex:zevenaarshaven-tv-value-field
     a tss:Field ;
-    tss:columnName "value" ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;

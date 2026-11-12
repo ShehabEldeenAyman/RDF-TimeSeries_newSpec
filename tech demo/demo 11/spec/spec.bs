@@ -8,7 +8,7 @@ Repository: KNowledgeOnWebScale/rdf-timeseriessnippets
 URL: https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/
 Editor: Pieter Colpaert, https://pietercolpaert.be
 Editor: Shehab Abdelfatah, https://www.linkedin.com/in/shehabeldeen-abdelfatah-289123365/
-Abstract: RDF Time Series Snippets describes a snippet of time series data with RDF. The readings stay compact: inside the metadata, as one small RDF node per reading or as one JSON literal, or in an external source. RDF describes the snippet (where its readings are, which period they cover, whether readings may still be added) and each of its fields (the column name and datatype of its values, how they are stated, and what they observe, in which unit, with which sensor). The readings can be summarised and expanded into observations.
+Abstract: RDF Time Series Snippets describes a snippet of time series data with RDF. The readings stay compact: inside the metadata, as one small RDF node per reading or as one JSON literal, or in an external source. RDF describes the snippet (where its readings are, which period they cover, whether readings may still be added) and each of its fields (the datatype of its values, where they are in a data file or JSON point, how they are stated, and what they observe, in which unit, with which sensor). The readings can be summarised and expanded into observations.
 Markup Shorthands: markdown yes, css no
 Boilerplate: conformance no
 </pre>
@@ -21,7 +21,7 @@ With RDF Time Series Snippets, a publisher keeps the readings compact and descri
 
 - A [=Snippet=] describes a table of readings: every [=Point=] has one time and values for one or more [=Fields=]. Series that are measured together share one [=Time Field=].
 - The class of a snippet says where its readings are: embedded in the metadata, as one small RDF node per point (`tss:EmbeddedRDFMessagesSnippet`) or as one JSON literal (`tss:EmbeddedPointSnippet`), or kept in an external Parquet, CSV or Arrow data file (`tss:ParquetSnippet`, `tss:CSVSnippet`, `tss:ArrowSnippet`). The same field descriptions read them all.
-- Each field states the column name and datatype of its values and, optionally, what they observe, in which unit, with which sensor, of which feature of interest.
+- Each field states the datatype of its values and, for a data file or JSON points, its column name; optionally, it states what they observe, in which unit, with which sensor, of which feature of interest. In RDF points, the IRI of the field names its values, so it needs no column name.
 - A data file can give the time of each row as a step on a regular [=Time Grid=], and state the values of a field as differences from a baseline (`tss:valueEncoding`).
 
 The metadata also states the [=Time Window=] of the readings, whether readings may still be added, when the snippet and its data were last checked to be up to date, and an optional [=Stored Summary=] of each field.
@@ -64,13 +64,11 @@ ex:snippet
 ex:time-field
     a tss:Field ;
     rdfs:label "Observation time"@en ;
-    tss:columnName "time" ;
     tss:datatype xsd:dateTime .
 
 ex:value-field
     a tss:Field ;
     rdfs:label "Electrical conductivity"@en ;
-    tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;
     tss:maximum "10000"^^xsd:double ;
@@ -106,7 +104,7 @@ ex:snippet tss:hasPoint [
 ```
 </div>
 
-The snippet is a `tss:EmbeddedRDFMessagesSnippet`: it links to each point with `tss:hasPoint`, one statement per point, and the IRIs of the fields are the predicates of the point's values. Expanded into observations ([[#expanding]]), every value of a [=Measured Field=] becomes one observation, with a link back to the snippet, the time of its point and what its field says. Written with SOSA [[VOCAB-SSN]] and `dcterms:source` ([[#sosa-mapping]]), the first two observations are:
+The snippet is a `tss:EmbeddedRDFMessagesSnippet`: it links to each point with `tss:hasPoint`, one statement per point, and the IRIs of the fields are the predicates of the point's values, so the fields state no column name. Expanded into observations ([[#expanding]]), every value of a [=Measured Field=] becomes one observation, with a link back to the snippet, the time of its point and what its field says. Written with SOSA [[VOCAB-SSN]] and `dcterms:source` ([[#sosa-mapping]]), the first two observations are:
 
 <div class="example" id="example-observations">
 ```turtle
@@ -282,14 +280,14 @@ ex:snippet
 
 # Fields # {#fields}
 
-Each [=Field=] is a `tss:Field`, linked from exactly one snippet with `tss:hasField`. The same field description reads a column of a data file, a key of the JSON points and the values of the RDF points. In an RDF point, the IRI of a field is the predicate of its values, so the fields of a `tss:EmbeddedRDFMessagesSnippet` are IRIs.
+Each [=Field=] is a `tss:Field`, linked from exactly one snippet with `tss:hasField`. The same field description reads a column of a data file, a key of the JSON points and the values of the RDF points. In an RDF point, the IRI of a field is the predicate of its values, so the fields of a `tss:EmbeddedRDFMessagesSnippet` are IRIs and need no `tss:columnName`.
 
 <table class="data">
 <thead>
 <tr><th>Property</th><th>Value</th><th>Required</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tss:columnName</code></td><td>non-empty text</td><td>required; none for the time field of a snippet with a [=Time Grid=]</td><td>the name of the field's column (the CSV header, the Parquet or Arrow column), or its key in the JSON points; unique within the snippet</td></tr>
+<tr><td><code>tss:columnName</code></td><td>non-empty text</td><td>required for a field of an external snippet, except the time field of a snippet with a [=Time Grid=], which has none; required for a field of a <code>tss:EmbeddedPointSnippet</code>; optional for a field of a <code>tss:EmbeddedRDFMessagesSnippet</code></td><td>the name of the field's column (the CSV header, the Parquet or Arrow column), or its key in the JSON points; unique within the snippet</td></tr>
 <tr><td><code>tss:datatype</code></td><td>IRI</td><td>required</td><td>the datatype of the values, such as <code>xsd:double</code></td></tr>
 <tr><td><code>tss:columnIndex</code></td><td><code>xsd:integer</code>, 0 or more</td><td>optional; none for the time field of a snippet with a [=Time Grid=]</td><td>the position of the column, the first being 0; unique within the snippet</td></tr>
 <tr><td><code>tss:language</code></td><td>language tag</td><td>optional</td><td>the language of the values of an <code>rdf:langString</code> field</td></tr>
@@ -343,12 +341,10 @@ ex:weather-snippet
 
 ex:weather-time-field
     a tss:Field ;
-    tss:columnName "time" ;
     tss:datatype xsd:dateTime .
 
 ex:temperature-field
     a tss:Field ;
-    tss:columnName "temperature" ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:Temperature ;
     tss:unit unit:DEG_C ;
@@ -357,7 +353,6 @@ ex:temperature-field
 
 ex:humidity-field
     a tss:Field ;
-    tss:columnName "humidity" ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;
     tss:maximum "100"^^xsd:double ;
@@ -409,19 +404,16 @@ ex:two-series-snippet
 
 ex:two-series-time-field
     a tss:Field ;
-    tss:columnName "time" ;
     tss:datatype xsd:dateTime .
 
 ex:two-series-value-field
     a tss:Field ;
-    tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 
 ex:two-series-status-field
     a tss:Field ;
-    tss:columnName "status" ;
     tss:datatype xsd:string ;
     tss:describesField ex:two-series-value-field .
 
@@ -468,6 +460,7 @@ An [=Embedded Snippet=] keeps its points in the metadata. Its class says how the
 A `tss:EmbeddedRDFMessagesSnippet` keeps its points as RDF. The snippet links to each [=Point=] with `tss:hasPoint`, and a point is a point of exactly one snippet. Every node that a snippet links to with `tss:hasPoint` is a point: its type follows from that link, so a point states no `rdf:type`. It needs no identifier either, so it is usually a blank node, written as one statement at the end of the document, as in <a href="#example-embedded-snippet">the embedded example</a>. A [=Write=] then adds a point by appending one statement ([[#updating]]).
 
 - Each value of a point is one triple: the point is the subject, the IRI of the field the predicate, and the object a literal with the field's `tss:datatype` ([[#datatypes]]).
+- The fields need no `tss:columnName`: the IRI of a field names its values. A field MAY state one, for example to name its column when the snippet is written to a data file; it has no effect on reading the RDF points.
 - A point has no triple for a field it has no value for: that is an [=Empty Value=]. A value with the empty text `""` is no value either.
 - Every value of a field of the snippet MUST be in a point of that snippet.
 - Every property of a point SHOULD be a field of its snippet. Values of other properties are not values of the snippet.
@@ -478,7 +471,7 @@ No property of a point has a meaning of its own: the fields say what each value 
 
 A `tss:EmbeddedPointSnippet` MUST have exactly one `tss:points`: a literal with datatype `rdf:JSON` [[JSON-LD11]] whose value is a JSON array of JSON objects, one object per [=Point=]. The empty array `[]` holds no points.
 
-- The keys of an object are the `tss:columnName` of the snippet's fields. A point has no key for a field it has no value for.
+- The keys of an object are the `tss:columnName` of the snippet's fields, so every field of a `tss:EmbeddedPointSnippet` MUST state a `tss:columnName`. A point has no key for a field it has no value for.
 - A value SHOULD be a JSON string that holds the lexical form of the field's datatype: `"2.50"`, not `2.50`. A JSON number loses its text when it is read: `2.50` may come back as `2.5` or as `2.5E0`.
 - A missing key, `null` and `""` are an [=Empty Value=]: the point has no value for that field.
 - A key MUST NOT start with `@`, as JSON-LD keywords such as `@context` and `@id` do.
