@@ -180,9 +180,9 @@ tss:timeField a owl:ObjectProperty, owl:FunctionalProperty ;
     rdfs:subPropertyOf tss:hasField ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
-tss:key a owl:ObjectProperty ;
+tss:key a owl:ObjectProperty, owl:FunctionalProperty ;
     rdfs:label "key"@en ;
-    rdfs:comment "A field of the snippet whose values identify a reading: no two readings have the same values for all tss:key fields. A snippet without tss:key has its tss:timeField as key. Two times that are the same moment are the same value."@en ;
+    rdfs:comment "The field of the snippet whose values identify a reading: always its tss:timeField. A snippet states at most one tss:key, and it is the time field; a snippet without tss:key has its time field as key too. No two readings have the same time; two times that are the same moment are the same time."@en ;
     rdfs:domain tss:Snippet ;
     rdfs:range tss:Field ;
     rdfs:subPropertyOf tss:hasField ;

@@ -36,7 +36,8 @@
 #              S20 time field datatype (xsd:dateTimeStamp)
 #              S24 one kind: every snippet of the document is external (no mixing)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
-#              S5 key (default: the time field)
+#              S5 key: at most one tss:key, and it is the time field (the key is always the
+#                 time field, also when tss:key is not stated)
 #              S18 time base (one time: the time of step 0)
 #              S19 time step (one xsd:duration of more than zero)
 #              S18 and S19 come together: a tss:timeBase needs a tss:timeStep, and the other way round
@@ -183,8 +184,9 @@ ext:SnippetShape a sh:NodeShape ;
         sh:name "S5 key" ;
         sh:group ext:Optional ;
         sh:path tss:key ;
+        sh:maxCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "tss:key must name the field(s) whose values identify a row; a snippet without tss:key has its time field as key." ;
+        sh:message "tss:key must be one field, the time field: its values identify a row. A snippet without tss:key has its time field as key." ;
     ] ;
     sh:property [
         sh:name "S6 has field" ;
@@ -290,7 +292,7 @@ ext:SnippetShape a sh:NodeShape ;
         sh:message "S22 not allowed: tss:points holds the JSON points of a tss:EmbeddedPointSnippet; the readings of an external snippet are the rows of its data file." ;
     ] ;
 
-    # S4 and S5: the time field and the key are fields of this snippet
+    # S4: the time field is a field of this snippet; S5: the key is the time field
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "S4 time field: tss:timeField must be one of the snippet's own fields (tss:hasField)." ;
@@ -303,12 +305,12 @@ ext:SnippetShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S5 key: every tss:key must be one of the snippet's own fields (tss:hasField)." ;
+        sh:message "S5 key: tss:key is {?value}, but the key of a snippet is its time field (tss:timeField): no two rows have the same time." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:key ?value .
-                FILTER NOT EXISTS { $this tss:hasField ?value }
+                FILTER NOT EXISTS { $this tss:timeField ?value }
             }""" ;
     ] ;
 

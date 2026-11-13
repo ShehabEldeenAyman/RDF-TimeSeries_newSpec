@@ -10,7 +10,7 @@
 # The new TSS schema, field, snippet and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
 # Snippet windows are [from, until).
-# tss:key identifies the field whose values uniquely identify a row.
+# tss:key is the time field: no two rows have the same time.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 

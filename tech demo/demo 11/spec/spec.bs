@@ -148,7 +148,7 @@ A <dfn>Point</dfn> is one row of a [=Snippet=]: one time, and at most one value 
 
 The <dfn>Time Field</dfn> of a snippet is the field that holds the time of each point (`tss:timeField`).
 
-The <dfn>Key</dfn> of a snippet is the field, or the fields, whose values identify a point (`tss:key`). When a snippet does not state a key, its key is the time field.
+The <dfn>Key</dfn> of a snippet is the field whose values identify a point: its [=Time Field=] (`tss:key`).
 
 The <dfn>Time Window</dfn> of a snippet is the period from `tss:from` (included) until `tss:until` (not included). A point lies in the window when its time is not before `tss:from` and before `tss:until`. A bound that is not stated leaves that side of the window open.
 
@@ -185,7 +185,7 @@ A metadata document MUST describe at least one snippet. Each snippet in the docu
 <tr><td><code>tss:committedUntil</code></td><td>a time ([[#times]])</td><td>required</td><td>required</td></tr>
 <tr><td><code>tss:hasField</code></td><td>a <code>tss:Field</code></td><td>required, one or more</td><td>required, one or more</td></tr>
 <tr><td><code>tss:timeField</code></td><td>one of its fields</td><td>required</td><td>required</td></tr>
-<tr><td><code>tss:key</code></td><td>one of its fields</td><td>optional, one or more; default: the time field</td><td>optional, one or more; default: the time field</td></tr>
+<tr><td><code>tss:key</code></td><td>its time field</td><td>optional; default: the time field</td><td>optional; default: the time field</td></tr>
 <tr><td><code>tss:from</code></td><td>a time ([[#times]])</td><td>optional</td><td>optional</td></tr>
 <tr><td><code>tss:until</code></td><td>a time ([[#times]]), after <code>tss:from</code></td><td>optional</td><td>optional</td></tr>
 <tr><td><code>tss:hasPoint</code></td><td>a point</td><td>not allowed</td><td>for a <code>tss:EmbeddedRDFMessagesSnippet</code>: optional, any number; otherwise not allowed</td></tr>
@@ -243,7 +243,9 @@ The `tss:datatype` of the time field MUST be `xsd:dateTimeStamp`. A time stated 
 
 `tss:timeField` names the [=Time Field=]. It MUST be one of the snippet's own fields (`tss:hasField`). Every point MUST have a time: its value for the time field. In a data file with a [=Time Grid=], the time of a row is the time of its step ([[#time-grid]]).
 
-`tss:key` names the field or fields whose values identify a point. When a snippet does not state `tss:key`, its key is its time field. Each key field MUST be one of the snippet's own fields. No two points may have the same values for all key fields; two times that are the same moment are the same value. In all the examples, the key is the time field.
+`tss:key` names the field whose values identify a point: the [=Key=]. The key of a snippet is always its time field: a snippet states at most one `tss:key`, and when it states one, it MUST be its time field (`tss:timeField`). When a snippet does not state `tss:key`, its key is still its time field. No two points may have the same time; two times that are the same moment are the same time.
+
+Note: The key has one field because a [=Field=] identifies its series: the sensor, the feature of interest and the observed property are stated once, on the field, not in a column of the points. A second key field, such as a station, would put several series in one field, and their observations and summaries could not be told apart. Several stations at the same time are written as one field per station, or as one snippet per station.
 
 ### The time window ### {#window}
 
@@ -899,7 +901,7 @@ Note: The expansion does not keep every value: a field without `tss:observedProp
 
 An [=Embedded Snippet=] with `tss:mutable true` is append-only: a [=Write=] adds points, and never changes or removes an existing point. A Write that adds one point:
 
-1. Checks the new point: every value is in the lexical form of its field's datatype, and no other point has the same [=Key=].
+1. Checks the new point: every value is in the lexical form of its field's datatype, and no other point has the same time (the [=Key=]).
 2. Adds the new point, and leaves the other points as they are. In a `tss:EmbeddedRDFMessagesSnippet`, it appends one statement that links the snippet to a new node with `tss:hasPoint`, with one triple for each of its values. In a `tss:EmbeddedPointSnippet`, it writes a new `tss:points`: the existing points, unchanged, plus the new one as a JSON object whose values are JSON strings.
 3. Widens the [=Time Window=] when needed, so that the new point lies in it: `tss:from` becomes the earlier of `tss:from` and the time of the new point, and `tss:until` becomes a time after the time of the new point when it was not already. The writer chooses that time, and it MUST be after the time of the newest point, since `tss:until` is not in the window. A side that the snippet leaves open stays open.
 4. Sets `tss:committedUntil` to the time of the write.

@@ -67,7 +67,9 @@
 #                    literal that holds a JSON array
 #                 S25 JSON keys: every field of a tss:EmbeddedPointSnippet states a
 #                    tss:columnName, its key in the JSON points
-#   Optional:     S7 label    S8 produced by    S9 key (default: the time field)
+#   Optional:     S7 label    S8 produced by
+#                 S9 key: at most one tss:key, and it is the time field (the key is always the
+#                    time field, also when tss:key is not stated)
 #                 S10 from    S11 until (after from)
 #   Not allowed:  S12 tss:dataFile, tss:delimiter, tss:encoding, tss:header: they describe an
 #                 external data file;
@@ -96,9 +98,8 @@
 # The points of a tss:EmbeddedRDFMessagesSnippet (the nodes that it links to with tss:hasPoint)
 #   Required:  P1 time: every point has a value for the tss:timeField
 #              P2 time window: every time is from tss:from (included) until tss:until (not included)
-#              P3 key: no two points have the same value(s) for the key field(s): the tss:key
-#                 fields, or the time field when no tss:key is stated; the same moment
-#                 written in two ways counts as the same
+#              P3 key: no two points have the same time (the key is the time field); the
+#                 same moment written in two ways counts as the same
 #              P4 datatype: every value is a literal with its field's tss:datatype,
 #                 and a valid value of it (xsd:dateTime, xsd:dateTimeStamp (with a timezone),
 #                 xsd:date, xsd:double, xsd:float, xsd:decimal, the integer types and
@@ -243,8 +244,9 @@ emb:SnippetShape a sh:NodeShape ;
         sh:name "S9 key" ;
         sh:group emb:Optional ;
         sh:path tss:key ;
+        sh:maxCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "tss:key must name the field(s) whose values identify a point; a snippet without tss:key has its time field as key." ;
+        sh:message "tss:key must be one field, the time field: its values identify a point. A snippet without tss:key has its time field as key." ;
     ] ;
     sh:property [
         sh:name "S10 from" ;
@@ -314,7 +316,7 @@ emb:SnippetShape a sh:NodeShape ;
         sh:message "S12 not allowed: tss:stepField names the step column of a data file; every embedded point states its own time." ;
     ] ;
 
-    # S4 and S9: the time field and the key are fields of this snippet
+    # S4: the time field is a field of this snippet; S9: the key is the time field
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "S4 time field: tss:timeField must be one of the snippet's own fields (tss:hasField)." ;
@@ -327,12 +329,12 @@ emb:SnippetShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S9 key: every tss:key must be one of the snippet's own fields (tss:hasField)." ;
+        sh:message "S9 key: tss:key is {?value}, but the key of a snippet is its time field (tss:timeField): no two points have the same time." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:key ?value .
-                FILTER NOT EXISTS { $this tss:hasField ?value }
+                FILTER NOT EXISTS { $this tss:timeField ?value }
             }""" ;
     ] ;
 
@@ -777,60 +779,26 @@ emb:PointsShape a sh:NodeShape ;
             }""" ;
     ] ;
 
-    # P3: the key identifies a point. Two points have the same key when they have the
-    # same value for every tss:key field (most snippets have one key field: the time).
+    # P3: the key identifies a point. The key is the time field, so no two points have the same
+    # time. The same moment written in two ways (2021-03-03T23:15:00Z and 2021-03-03T23:15:00+00:00,
+    # or 2021-03-03T23:15:00 without a timezone, which S23 reports and which is read as UTC here)
+    # is the same time too.
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "P3 key: more than one point has the tss:key value {?value}." ;
+        sh:message "P3 key: more than one point has the time {?value}." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
-                # The key fields: the tss:key fields, or the time field when there are none
-                { $this tss:key ?key }
-                UNION
-                { $this tss:timeField ?key . FILTER NOT EXISTS { $this tss:key ?anyKey } }
-                $this tss:hasPoint ?point, ?other .
-                ?point ?key ?value .
-                ?other ?key ?value .
-                FILTER (?other != ?point && (!isLiteral(?value) || STR(?value) != ""))
-                # ... and no other key field where the two points differ
-                FILTER NOT EXISTS {
-                    $this tss:key ?otherKey .
-                    ?point ?otherKey ?mine .
-                    FILTER (!isLiteral(?mine) || STR(?mine) != "")
-                    FILTER NOT EXISTS { ?other ?otherKey ?mine }
-                }
-            }""" ;
-    ] ;
-
-    # P3: the same moment written in two ways (2021-03-03T23:15:00Z, 2021-03-03T23:15:00+00:00, or
-    # 2021-03-03T23:15:00 without a timezone, which S23 reports and which is read as UTC here)
-    # is the same key value too.
-    # (The check above compares the texts.)
-    sh:sparql [
-        a sh:SPARQLConstraint ;
-        sh:message "P3 key: more than one point has the time {?value} (written in different ways)." ;
-        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
-        sh:select """
-            SELECT DISTINCT $this ?value WHERE {
-                # The time field is a key: a tss:key, or the key when no tss:key is stated
                 $this tss:timeField ?timeField .
-                FILTER (EXISTS { $this tss:key ?timeField } || NOT EXISTS { $this tss:key ?anyKey })
                 $this tss:hasPoint ?point . ?point ?timeField ?value .
                 $this tss:hasPoint ?other . ?other ?timeField ?otherTime .
-                FILTER (?other != ?point && !sameTerm(?value, ?otherTime))
+                FILTER (?other != ?point && isLiteral(?value) && STR(?value) != "")
                 # The moments (S23 reports a time without a timezone; here it is read as UTC)
                 BIND (xsd:dateTime(IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z"))) AS ?moment)
                 BIND (xsd:dateTime(IF(REGEX(STR(?otherTime), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?otherTime), CONCAT(STR(?otherTime), "Z"))) AS ?otherMoment)
-                FILTER (BOUND(?moment) && BOUND(?otherMoment) && ?moment = ?otherMoment)
-                # ... and no other key field where the two points differ
-                FILTER NOT EXISTS {
-                    $this tss:key ?otherKey .
-                    FILTER (?otherKey != ?timeField)
-                    ?point ?otherKey ?mine .
-                    FILTER (!isLiteral(?mine) || STR(?mine) != "")
-                    FILTER NOT EXISTS { ?other ?otherKey ?mine }
-                }
+                # The same text, or (for valid times) the same moment
+                FILTER (sameTerm(?value, ?otherTime)
+                    || (BOUND(?moment) && BOUND(?otherMoment) && ?moment = ?otherMoment))
             }""" ;
     ] ;
 

@@ -13,7 +13,7 @@
 # holds the difference from that baseline: the reading is tss:baseline + the value in the file.
 # A value encoding is only for a snippet with an external data file; the points of an embedded
 # snippet state the readings themselves.
-# Snippet windows are [from, until). tss:key identifies the field whose values identify a row.
+# Snippet windows are [from, until). tss:key is the time field: no two rows have the same time.
 # The snippet and its fields have their own IRIs (ex:zevenaarshaven-vd-...); the sensor, the feature
 # of interest and the station are the same real-world things as in the other Zevenaarshaven
 # documents, so they keep their IRIs.
