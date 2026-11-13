@@ -30,18 +30,18 @@ ex:zevenaarshaven-ts-snippet
     ] ;
     tss:mutable false ;
     tss:producedBy ex:289441042 ;
-    tss:from "2021-03-04T00:00:00Z"^^xsd:dateTime ;
-    tss:until "2021-03-05T00:00:00Z"^^xsd:dateTime ;
+    tss:from "2021-03-04T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2021-03-05T00:00:00Z"^^xsd:dateTimeStamp ;
     # Committed until: the last time the snippet and its data were checked to be up to date.
-    tss:committedUntil "2026-11-05T12:20:10Z"^^xsd:dateTime ;
+    tss:committedUntil "2026-11-05T12:20:10Z"^^xsd:dateTimeStamp ;
     tss:dataFile <../data/waterinfo_289441042_time_step.csv> ;
     tss:timeField ex:zevenaarshaven-ts-time-field ;
     tss:key ex:zevenaarshaven-ts-time-field ;
     # The time grid of the rows: step n is at tss:timeBase + n × tss:timeStep. The rows state
-    # no time: each row's time is the time of its step, an xsd:dateTime like tss:timeBase.
+    # no time: each row's time is the time of its step, an xsd:dateTimeStamp like tss:timeBase.
     # tss:timeBase is the anchor of the grid, not a bound of the window: it stays fixed when
     # tss:from or tss:until change, so no row's time ever moves.
-    tss:timeBase "2021-03-04T00:00:00Z"^^xsd:dateTime ;
+    tss:timeBase "2021-03-04T00:00:00Z"^^xsd:dateTimeStamp ;
     # tss:timeStep is an xsd:duration of more than zero. With years or months the steps are
     # calendar steps, not equal lengths of time (a month has 28 to 31 days); this grid steps
     # every 15 minutes.
@@ -73,7 +73,7 @@ ex:zevenaarshaven-ts-snippet
 ex:zevenaarshaven-ts-time-field
     a tss:Field ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTime ;
+    tss:datatype xsd:dateTimeStamp ;
     rdfs:comment "Observation time (UTC): tss:timeBase + step × tss:timeStep"@en ;
     tss:fieldDescription [
         dcterms:description "Observation time (UTC): tss:timeBase + step × tss:timeStep"@en
@@ -82,9 +82,9 @@ ex:zevenaarshaven-ts-time-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:zevenaarshaven-ts-step-field
@@ -101,9 +101,9 @@ ex:zevenaarshaven-ts-step-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:zevenaarshaven-ts-value-field
@@ -129,13 +129,13 @@ ex:zevenaarshaven-ts-value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTimeStamp ;
         tss:observedMinimum "4457.92"^^xsd:double ;
         tss:observedMaximum "4883.63"^^xsd:double ;
         tss:mean "4637.250697674419"^^xsd:double ;
         tss:median "4627.68"^^xsd:double ;
-        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTimeStamp
     ] .
 
 # What the first rows of the data file mean:

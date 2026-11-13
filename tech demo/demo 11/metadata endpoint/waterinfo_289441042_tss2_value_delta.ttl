@@ -30,13 +30,13 @@ ex:zevenaarshaven-vd-snippet
     ] ;
     tss:mutable false ;
     tss:producedBy ex:289441042 ;
-    tss:from "2021-03-04T00:00:00Z"^^xsd:dateTime ;
-    tss:until "2021-03-05T00:00:00Z"^^xsd:dateTime ;
+    tss:from "2021-03-04T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2021-03-05T00:00:00Z"^^xsd:dateTimeStamp ;
     # Committed until: the last time the snippet and its data were checked to be up to date.
-    tss:committedUntil "2026-11-05T12:20:10Z"^^xsd:dateTime ;
+    tss:committedUntil "2026-11-05T12:20:10Z"^^xsd:dateTimeStamp ;
     tss:dataFile <../data/waterinfo_289441042_value_delta.csv> ;
     # The "time" column of the data file holds UTC times such as 2021-03-04T00:30:00Z:
-    # xsd:dateTime texts, each with a timezone.
+    # xsd:dateTimeStamp texts (a timezone is required).
     tss:timeField ex:zevenaarshaven-vd-time-field ;
     tss:key ex:zevenaarshaven-vd-time-field ;
     tss:hasField ex:zevenaarshaven-vd-time-field,
@@ -63,7 +63,7 @@ ex:zevenaarshaven-vd-time-field
     tss:columnName "time" ;
     tss:columnIndex 0 ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTime ;
+    tss:datatype xsd:dateTimeStamp ;
     rdfs:comment "Observation time (UTC), 15-minute rhythm"@en ;
     tss:fieldDescription [
         dcterms:description "Observation time (UTC), 15-minute rhythm"@en
@@ -72,9 +72,9 @@ ex:zevenaarshaven-vd-time-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:zevenaarshaven-vd-value-field
@@ -109,13 +109,13 @@ ex:zevenaarshaven-vd-value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTimeStamp ;
         tss:observedMinimum "4457.92"^^xsd:double ;
         tss:observedMaximum "4883.63"^^xsd:double ;
         tss:mean "4637.250697674419"^^xsd:double ;
         tss:median "4627.68"^^xsd:double ;
-        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTimeStamp
     ] .
 
 # What the first rows of the data file mean:

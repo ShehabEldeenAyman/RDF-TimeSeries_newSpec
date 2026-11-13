@@ -28,13 +28,13 @@ ex:grootdok-snippet
     ] ;
     tss:mutable false ;
     tss:producedBy ex:station-grootdok ;
-    tss:from "2021-03-03T23:45:00Z"^^xsd:dateTime ;
-    tss:until "2025-12-18T23:15:00Z"^^xsd:dateTime ;
+    tss:from "2021-03-03T23:45:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2025-12-18T23:15:00Z"^^xsd:dateTimeStamp ;
     # Committed until: the last time the snippet and its data were checked to be up to date.
-    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTimeStamp ;
     tss:dataFile <../data/waterinfo_289423042.csv> ;
     # The "Timestamp" column of the data file holds UTC times such as 2021-03-03T23:45:00Z:
-    # xsd:dateTime texts, each with a timezone.
+    # xsd:dateTimeStamp texts (a timezone is required).
     tss:timeField ex:grootdok-time-field ;
     tss:key ex:grootdok-time-field ;
     tss:hasField ex:grootdok-ts_id-field,
@@ -80,9 +80,9 @@ ex:grootdok-ts_id-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:grootdok-time-field
@@ -90,7 +90,7 @@ ex:grootdok-time-field
     tss:columnName "Timestamp" ;
     tss:columnIndex 1 ;
     rdfs:label "Timestamp"@en ;
-    tss:datatype xsd:dateTime ;
+    tss:datatype xsd:dateTimeStamp ;
     rdfs:comment "Observation time (UTC)"@en ;
     tss:fieldDescription [
         dcterms:description "Observation time (UTC)"@en
@@ -99,9 +99,9 @@ ex:grootdok-time-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:grootdok-ec20-field
@@ -127,13 +127,13 @@ ex:grootdok-ec20-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
         tss:observedMinimum "125.57"^^xsd:double ;
         tss:observedMaximum "19035.51"^^xsd:double ;
         tss:mean "4429.554312357016"^^xsd:double ;
         tss:median "3375.36"^^xsd:double ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:grootdok-interpolation-type-field
@@ -152,9 +152,9 @@ ex:grootdok-interpolation-type-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:grootdok-quality-code-field
@@ -173,9 +173,9 @@ ex:grootdok-quality-code-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:grootdok-quality-code-name-field
@@ -194,9 +194,9 @@ ex:grootdok-quality-code-name-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:grootdok-quality-code-description-field
@@ -215,9 +215,9 @@ ex:grootdok-quality-code-description-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:grootdok-quality-code-color-field
@@ -238,7 +238,7 @@ ex:grootdok-quality-code-color-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .

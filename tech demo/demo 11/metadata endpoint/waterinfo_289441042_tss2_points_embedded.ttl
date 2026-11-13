@@ -31,13 +31,13 @@ ex:zevenaarshaven-snippet
     ] ;
     tss:mutable false ;
     tss:producedBy ex:289441042 ;
-    # The points' times are xsd:dateTime literals with a timezone, such as 2021-03-03T23:15:00Z.
+    # The points' times are xsd:dateTimeStamp literals (a timezone is required), such as 2021-03-03T23:15:00Z.
     tss:timeField ex:zevenaarshaven-time-field ;
     tss:key ex:zevenaarshaven-time-field ;
-    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
     # Committed until: the last time the snippet and its data were checked to be up to date.
-    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTimeStamp ;
     tss:hasField ex:zevenaarshaven-time-field,
         ex:zevenaarshaven-ec20-value-field,
         ex:zevenaarshaven-quality-color-value-field .
@@ -59,7 +59,7 @@ ex:zevenaarshaven-snippet
 ex:zevenaarshaven-time-field
     a tss:Field ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTime ;
+    tss:datatype xsd:dateTimeStamp ;
     tss:fieldDescription [
         dcterms:description "Observation time"@en
     ] ;
@@ -67,9 +67,9 @@ ex:zevenaarshaven-time-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "5"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:zevenaarshaven-ec20-value-field
@@ -92,13 +92,13 @@ ex:zevenaarshaven-ec20-value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "5"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTimeStamp ;
         tss:observedMinimum "4716.1"^^xsd:double ;
         tss:observedMaximum "4797.72"^^xsd:double ;
         tss:mean "4750.588"^^xsd:double ;
         tss:median "4745.36"^^xsd:double ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:zevenaarshaven-quality-color-value-field
@@ -116,9 +116,9 @@ ex:zevenaarshaven-quality-color-value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "5"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 # Points: one RDF node per point, at the end of the document, so that a new point of a
@@ -128,31 +128,31 @@ ex:zevenaarshaven-quality-color-value-field
 # The points are unordered (sort by the value of the tss:timeField).
 
 ex:zevenaarshaven-snippet tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double ;
     ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .
 
 ex:zevenaarshaven-snippet tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-03T23:30:00Z"^^xsd:dateTime ;
+    ex:zevenaarshaven-time-field "2021-03-03T23:30:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-ec20-value-field "4717.8"^^xsd:double ;
     ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .
 
 ex:zevenaarshaven-snippet tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-03T23:45:00Z"^^xsd:dateTime ;
+    ex:zevenaarshaven-time-field "2021-03-03T23:45:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-ec20-value-field "4745.36"^^xsd:double ;
     ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .
 
 ex:zevenaarshaven-snippet tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-04T00:30:00Z"^^xsd:dateTime ;
+    ex:zevenaarshaven-time-field "2021-03-04T00:30:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-ec20-value-field "4716.1"^^xsd:double ;
     ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .
 
 ex:zevenaarshaven-snippet tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-04T01:00:00Z"^^xsd:dateTime ;
+    ex:zevenaarshaven-time-field "2021-03-04T01:00:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-ec20-value-field "4775.96"^^xsd:double ;
     ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .

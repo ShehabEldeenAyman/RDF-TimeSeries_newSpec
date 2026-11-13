@@ -15,7 +15,7 @@
 #   one triple, with the field's IRI as predicate and a literal typed by the field's
 #   tss:datatype, e.g.
 #     ex:zevenaarshaven-snippet tss:hasPoint [
-#         ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+#         ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
 #         ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double
 #     ] .
 #   Each point is one Turtle statement, so a mutable snippet gets a new point by appending one
@@ -47,13 +47,13 @@
 # things that look wrong; with -w (allow warnings) they don't fail the run.
 #
 # A time (tss:committedUntil, tss:from, tss:until, the summary times and the values of the time
-# field) is an xsd:dateTime, the default, or an xsd:dateTimeStamp. It should have a timezone;
-# a time without one is read as UTC (S23 warns).
+# field) is an xsd:dateTimeStamp: an xsd:dateTime whose timezone (Z or an offset such as
+# +02:00) cannot be left out. A time without a timezone does not conform (S23).
 #
 # The snippet (tss:EmbeddedPointSnippet or tss:EmbeddedRDFMessagesSnippet)
 #   Required:  S17 committed until (one time: the last time the snippet and its data were
 #                  checked to be up to date)
-#              S20 time field datatype (xsd:dateTime, or xsd:dateTimeStamp)
+#              S20 time field datatype (xsd:dateTimeStamp)
 #   Required:     S1 the snippet (one or more embedded snippets, each read on its own)
 #                 S3 snippet class: every snippet states exactly one of the five snippet classes
 #                    (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet,
@@ -75,7 +75,7 @@
 #                 external data file, so every point states its own time (P1);
 #                 tss:points on a tss:EmbeddedRDFMessagesSnippet, and tss:hasPoint on a
 #                 tss:EmbeddedPointSnippet: each class writes its points in one way
-#   Warning:      S23 timezone: every time has a timezone (a time without one is read as UTC)
+#   Required:     S23 timezone: every time has a timezone (an xsd:dateTimeStamp)
 #
 # The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl,
 # except F2: a column name is optional here
@@ -193,8 +193,8 @@ emb:SnippetShape a sh:NodeShape ;
         sh:path tss:committedUntil ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
-        sh:message "The snippet needs exactly one tss:committedUntil, an xsd:dateTime (or xsd:dateTimeStamp): the last time the snippet and its data were checked to be up to date." ;
+        sh:datatype xsd:dateTimeStamp ;
+        sh:message "The snippet needs exactly one tss:committedUntil, an xsd:dateTimeStamp (with a timezone): the last time the snippet and its data were checked to be up to date." ;
     ] ;
     sh:property [
         sh:name "S2 mutable" ;
@@ -251,16 +251,16 @@ emb:SnippetShape a sh:NodeShape ;
         sh:group emb:Optional ;
         sh:path tss:from ;
         sh:maxCount 1 ;
-        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
-        sh:message "tss:from must be one xsd:dateTime (or xsd:dateTimeStamp): the start of the time window." ;
+        sh:datatype xsd:dateTimeStamp ;
+        sh:message "tss:from must be one xsd:dateTimeStamp (with a timezone): the start of the time window." ;
     ] ;
     sh:property [
         sh:name "S11 until" ;
         sh:group emb:Optional ;
         sh:path tss:until ;
         sh:maxCount 1 ;
-        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
-        sh:message "tss:until must be one xsd:dateTime (or xsd:dateTimeStamp): the end of the time window (not included)." ;
+        sh:datatype xsd:dateTimeStamp ;
+        sh:message "tss:until must be one xsd:dateTimeStamp (with a timezone): the end of the time window (not included)." ;
     ] ;
     # Not allowed: these describe an external data file
     sh:property [
@@ -337,16 +337,16 @@ emb:SnippetShape a sh:NodeShape ;
     ] ;
 
     # S20: the time field's values are times of the snippet, and every time of a snippet is an
-    # xsd:dateTime
+    # xsd:dateTimeStamp
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a snippet is an xsd:dateTime (or xsd:dateTimeStamp)." ;
+        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a snippet is an xsd:dateTimeStamp (with a timezone)." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:timeField ?timeField .
                 ?timeField tss:datatype ?value .
-                FILTER (!sameTerm(?value, xsd:dateTime) && !sameTerm(?value, xsd:dateTimeStamp))
+                FILTER (!sameTerm(?value, xsd:dateTimeStamp))
             }""" ;
     ] ;
 
@@ -358,7 +358,7 @@ emb:SnippetShape a sh:NodeShape ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:from ?from ; tss:until ?value .
-                # The moments: a time without a timezone is read as UTC
+                # The moments (S23 reports a time without a timezone; here it is read as UTC)
                 BIND (xsd:dateTime(IF(REGEX(STR(?from), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?from), CONCAT(STR(?from), "Z"))) AS ?start)
                 BIND (xsd:dateTime(IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z"))) AS ?end)
                 FILTER (BOUND(?start) && BOUND(?end) && ?end <= ?start)
@@ -420,15 +420,14 @@ emb:OneKindShape a sh:NodeShape ;
 
 
 # --- S23: every time has a timezone ----------------------------------------------
-# A shape of its own, because a SPARQL check takes its severity from its shape. A time
-# without a timezone is read as UTC, so the metadata still conforms: S23 only warns.
+# Every time is an xsd:dateTimeStamp, whose timezone cannot be left out: a time without one
+# does not conform. (The sh:datatype checks only compare the datatype IRI; S23 reads the text.)
 
 emb:TimezoneShape a sh:NodeShape ;
     sh:targetClass tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet ;
-    sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S23 timezone: {?value} ({?where}) has no timezone, so it is read as UTC. Every time SHOULD have a timezone, such as Z or +02:00." ;
+        sh:message "S23 timezone: {?value} ({?where}) has no timezone. Every time MUST have a timezone, such as Z or +02:00 (xsd:dateTimeStamp)." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT DISTINCT $this ?value ?where WHERE {
@@ -543,7 +542,7 @@ emb:FieldShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
-        sh:message "A field needs exactly one tss:datatype, an IRI such as xsd:double or xsd:dateTime." ;
+        sh:message "A field needs exactly one tss:datatype, an IRI such as xsd:double or xsd:dateTimeStamp." ;
     ] ;
 
     # Optional
@@ -745,8 +744,8 @@ emb:PointsShape a sh:NodeShape ;
     # P2: every time is inside the window [tss:from, tss:until).
     # xsd:dateTime(...) gives no value for a time that is not a valid date-time;
     # P4 reports those, so they are skipped here. A time without a timezone (of a point, or
-    # tss:from / tss:until) is read as UTC, as everything that reads the points does: it gets
-    # a "Z" before it is compared. (Otherwise SPARQL would take it as before every tss:from.)
+    # tss:from / tss:until) does not conform (S23, P4); here it is read as UTC so the window is
+    # still checked: it gets a "Z" before it is compared.
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "P2 time window: the point at {?value} is before tss:from." ;
@@ -805,7 +804,8 @@ emb:PointsShape a sh:NodeShape ;
     ] ;
 
     # P3: the same moment written in two ways (2021-03-03T23:15:00Z, 2021-03-03T23:15:00+00:00, or
-    # 2021-03-03T23:15:00 without a timezone, which is read as UTC) is the same key value too.
+    # 2021-03-03T23:15:00 without a timezone, which S23 reports and which is read as UTC here)
+    # is the same key value too.
     # (The check above compares the texts.)
     sh:sparql [
         a sh:SPARQLConstraint ;
@@ -819,7 +819,7 @@ emb:PointsShape a sh:NodeShape ;
                 $this tss:hasPoint ?point . ?point ?timeField ?value .
                 $this tss:hasPoint ?other . ?other ?timeField ?otherTime .
                 FILTER (?other != ?point && !sameTerm(?value, ?otherTime))
-                # The moments: a time without a timezone is read as UTC
+                # The moments (S23 reports a time without a timezone; here it is read as UTC)
                 BIND (xsd:dateTime(IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z"))) AS ?moment)
                 BIND (xsd:dateTime(IF(REGEX(STR(?otherTime), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?otherTime), CONCAT(STR(?otherTime), "Z"))) AS ?otherMoment)
                 FILTER (BOUND(?moment) && BOUND(?otherMoment) && ?moment = ?otherMoment)
@@ -1043,16 +1043,16 @@ emb:SummaryShape a sh:NodeShape ;
         sh:group emb:Optional ;
         sh:path tss:firstTime ;
         sh:maxCount 1 ;
-        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
-        sh:message "tss:firstTime must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
+        sh:datatype xsd:dateTimeStamp ;
+        sh:message "tss:firstTime must be one xsd:dateTimeStamp (with a timezone) when supplied." ;
     ] ;
     sh:property [
         sh:name "Q7 last time" ;
         sh:group emb:Optional ;
         sh:path tss:lastTime ;
         sh:maxCount 1 ;
-        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
-        sh:message "tss:lastTime must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
+        sh:datatype xsd:dateTimeStamp ;
+        sh:message "tss:lastTime must be one xsd:dateTimeStamp (with a timezone) when supplied." ;
     ] ;
     sh:property [
         sh:name "Q8 observed minimum" ;
@@ -1091,6 +1091,6 @@ emb:SummaryShape a sh:NodeShape ;
         sh:group emb:Optional ;
         sh:path tss:generatedAtTime ;
         sh:maxCount 1 ;
-        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
-        sh:message "tss:generatedAtTime must be one xsd:dateTime (or xsd:dateTimeStamp) when supplied." ;
+        sh:datatype xsd:dateTimeStamp ;
+        sh:message "tss:generatedAtTime must be one xsd:dateTimeStamp (with a timezone) when supplied." ;
     ] .

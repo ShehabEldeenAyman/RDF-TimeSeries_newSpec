@@ -29,13 +29,13 @@ ex:rodenhuizedok-snippet
     ] ;
     tss:mutable false ;
     tss:producedBy ex:station-rodenhuizedok ;
-    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
     # Committed until: the last time the snippet and its data were checked to be up to date.
-    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTime ;
+    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTimeStamp ;
     tss:dataFile <../data/waterinfo_289429042.parquet> ;
     # The "Timestamp" column of the data file is a native Parquet timestamp (UTC, in
-    # microseconds, all whole seconds), read as xsd:dateTime.
+    # microseconds, all whole seconds), read as xsd:dateTimeStamp.
     tss:timeField ex:rodenhuizedok-time-field ;
     tss:key ex:rodenhuizedok-time-field ;
     tss:hasField ex:rodenhuizedok-ts_id-field,
@@ -77,16 +77,16 @@ ex:rodenhuizedok-ts_id-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:rodenhuizedok-time-field
     a tss:Field ;
     tss:columnName "Timestamp" ;
     rdfs:label "Timestamp"@en ;
-    tss:datatype xsd:dateTime ;
+    tss:datatype xsd:dateTimeStamp ;
     rdfs:comment "Observation time (UTC)."@en ;
     tss:fieldDescription [
         dcterms:description "Observation time (UTC)."@en
@@ -95,9 +95,9 @@ ex:rodenhuizedok-time-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:rodenhuizedok-ec20-field
@@ -122,13 +122,13 @@ ex:rodenhuizedok-ec20-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTimeStamp ;
         tss:observedMinimum "475.51"^^xsd:double ;
         tss:observedMaximum "19526.76"^^xsd:double ;
         tss:mean "6334.6262085658955"^^xsd:double ;
         tss:median "5531.94"^^xsd:double ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:rodenhuizedok-interpolation-type-field
@@ -146,9 +146,9 @@ ex:rodenhuizedok-interpolation-type-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:rodenhuizedok-quality-code-field
@@ -166,9 +166,9 @@ ex:rodenhuizedok-quality-code-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:rodenhuizedok-quality-code-name-field
@@ -186,9 +186,9 @@ ex:rodenhuizedok-quality-code-name-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:rodenhuizedok-quality-code-description-field
@@ -207,9 +207,9 @@ ex:rodenhuizedok-quality-code-description-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
 
 ex:rodenhuizedok-quality-code-color-field
@@ -229,7 +229,7 @@ ex:rodenhuizedok-quality-code-color-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "158022"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
-        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTime ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
+        tss:lastTime "2025-12-31T23:45:00+00:00"^^xsd:dateTimeStamp ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
     ] .
