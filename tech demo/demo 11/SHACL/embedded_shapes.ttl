@@ -10,7 +10,7 @@
 # TSS conformance shapes for EMBEDDED data: a snippet whose points are inside the metadata
 # itself. Its class says how they are written:
 #
-#   tss:EmbeddedRDFMessagesSnippet: the points are RDF. Each point is a node of its own, linked
+#   tss:EmbeddedRDFSnippet: the points are RDF. Each point is a node of its own, linked
 #   from its snippet with tss:hasPoint in a statement at the end of the document. Each value is
 #   one triple, with the field's IRI as predicate and a literal typed by the field's
 #   tss:datatype, e.g.
@@ -22,16 +22,16 @@
 #   to the end of the document. A missing value has no triple. A snippet may have no points
 #   (yet). The points of a snippet are the nodes it links to:  <snippet> tss:hasPoint ?point .
 #
-#   tss:EmbeddedPointSnippet: the points are JSON. One rdf:JSON literal, tss:points, holds a JSON
+#   tss:EmbeddedJSONSnippet: the points are JSON. One rdf:JSON literal, tss:points, holds a JSON
 #   array with one object per point, keyed by the fields' tss:columnName, e.g.
 #     tss:points """[ { "time": "2021-03-03T23:15:00Z", "ec20": "4797.72" } ]"""^^rdf:JSON
 #   A value is a JSON string in the lexical form of its field's tss:datatype; "", null or a
-#   missing key is no value; "[]" holds no points. Every field of a tss:EmbeddedPointSnippet
-#   states its key, tss:columnName (S25). A field of a tss:EmbeddedRDFMessagesSnippet needs no
+#   missing key is no value; "[]" holds no points. Every field of a tss:EmbeddedJSONSnippet
+#   states its key, tss:columnName (S25). A field of a tss:EmbeddedRDFSnippet needs no
 #   column name: the field's IRI is the predicate of its values.
 #   SHACL does not look inside a literal: these shapes check that tss:points is there and holds
 #   a JSON array, but not the points in it. The point checks (P1-P7, F9, and the times of the
-#   points in S23) read the RDF points of a tss:EmbeddedRDFMessagesSnippet.
+#   points in S23) read the RDF points of a tss:EmbeddedRDFSnippet.
 #
 # A tss:ParquetSnippet, tss:CSVSnippet or tss:ArrowSnippet is checked with external_shapes.ttl.
 #
@@ -50,22 +50,22 @@
 # field) is an xsd:dateTimeStamp: an xsd:dateTime whose timezone (Z or an offset such as
 # +02:00) cannot be left out. A time without a timezone does not conform (S23).
 #
-# The snippet (tss:EmbeddedPointSnippet or tss:EmbeddedRDFMessagesSnippet)
+# The snippet (tss:EmbeddedJSONSnippet or tss:EmbeddedRDFSnippet)
 #   Required:  S17 committed until (one time: the last time the snippet and its data were
 #                  checked to be up to date)
 #              S20 time field datatype (xsd:dateTimeStamp)
 #   Required:     S1 the snippet (one or more embedded snippets, each read on its own)
 #                 S3 snippet class: every snippet states exactly one of the five snippet classes
-#                    (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet,
+#                    (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet,
 #                    tss:CSVSnippet, tss:ArrowSnippet)
 #                 S24 one kind: every snippet of the document is embedded (no mixing)
 #                 S2 mutable (true: append-only)  S4 time field  S5 has field (at least one)
-#                 S6 points of a tss:EmbeddedRDFMessagesSnippet: every point is a node that exactly
-#                    one tss:EmbeddedRDFMessagesSnippet links to with tss:hasPoint, and every value
+#                 S6 points of a tss:EmbeddedRDFSnippet: every point is a node that exactly
+#                    one tss:EmbeddedRDFSnippet links to with tss:hasPoint, and every value
 #                    of a field of the snippet is in a point of that snippet
-#                 S6 points of a tss:EmbeddedPointSnippet: exactly one tss:points, an rdf:JSON
+#                 S6 points of a tss:EmbeddedJSONSnippet: exactly one tss:points, an rdf:JSON
 #                    literal that holds a JSON array
-#                 S25 JSON keys: every field of a tss:EmbeddedPointSnippet states a
+#                 S25 JSON keys: every field of a tss:EmbeddedJSONSnippet states a
 #                    tss:columnName, its key in the JSON points
 #   Optional:     S7 label    S8 produced by
 #                 S9 key: at most one tss:key, and it is the time field (the key is always the
@@ -75,8 +75,8 @@
 #                 external data file;
 #                 tss:timeBase, tss:timeStep, tss:stepField: a time grid is only for an
 #                 external data file, so every point states its own time (P1);
-#                 tss:points on a tss:EmbeddedRDFMessagesSnippet, and tss:hasPoint on a
-#                 tss:EmbeddedPointSnippet: each class writes its points in one way
+#                 tss:points on a tss:EmbeddedRDFSnippet, and tss:hasPoint on a
+#                 tss:EmbeddedJSONSnippet: each class writes its points in one way
 #   Required:     S23 timezone: every time has a timezone (an xsd:dateTimeStamp)
 #
 # The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl,
@@ -84,7 +84,7 @@
 #   Required:  F1 the field: typed tss:Field, and a field of exactly one snippet
 #              F3 datatype
 #   Optional:  F2 column name (unique within the snippet; required for a field of a
-#                 tss:EmbeddedPointSnippet, see S25; a field of a tss:EmbeddedRDFMessagesSnippet
+#                 tss:EmbeddedJSONSnippet, see S25; a field of a tss:EmbeddedRDFSnippet
 #                 needs none, since its IRI is the predicate of its values)
 #              F4 column index (unique within the snippet)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
@@ -95,7 +95,7 @@
 #   Not allowed:  D3 tss:valueEncoding and tss:baseline: a value encoding is only for an
 #                    external data file, so every point states the readings themselves
 #
-# The points of a tss:EmbeddedRDFMessagesSnippet (the nodes that it links to with tss:hasPoint)
+# The points of a tss:EmbeddedRDFSnippet (the nodes that it links to with tss:hasPoint)
 #   Required:  P1 time: every point has a value for the tss:timeField
 #              P2 time window: every time is from tss:from (included) until tss:until (not included)
 #              P3 key: no two points have the same time (the key is the time field); the
@@ -170,13 +170,13 @@ emb:SnippetExistsShape a sh:NodeShape ;
     sh:targetNode tss:Snippet ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S1 the snippet: the metadata must describe at least one embedded snippet, a tss:EmbeddedPointSnippet or a tss:EmbeddedRDFMessagesSnippet; each snippet is read on its own. A tss:ParquetSnippet, tss:CSVSnippet or tss:ArrowSnippet is checked with external_shapes.ttl." ;
+        sh:message "S1 the snippet: the metadata must describe at least one embedded snippet, a tss:EmbeddedJSONSnippet or a tss:EmbeddedRDFSnippet; each snippet is read on its own. A tss:ParquetSnippet, tss:CSVSnippet or tss:ArrowSnippet is checked with external_shapes.ttl." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this WHERE {
                 FILTER NOT EXISTS {
                     ?snippet a ?class .
-                    FILTER (?class IN (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet))
+                    FILTER (?class IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet))
                 }
             }""" ;
     ] .
@@ -185,7 +185,7 @@ emb:SnippetExistsShape a sh:NodeShape ;
 # --- The snippet ---------------------------------------------------------------
 
 emb:SnippetShape a sh:NodeShape ;
-    sh:targetClass tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet ;
+    sh:targetClass tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet ;
 
     # Required
     sh:property [
@@ -375,17 +375,17 @@ emb:SnippetShape a sh:NodeShape ;
 
 emb:SnippetClassShape a sh:NodeShape ;
     sh:targetSubjectsOf tss:hasField ;
-    sh:targetClass tss:Snippet, tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet,
+    sh:targetClass tss:Snippet, tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet,
         tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S3 snippet class: the snippet states none of the five snippet classes (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet), so nothing says where its points are." ;
+        sh:message "S3 snippet class: the snippet states none of the five snippet classes (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet), so nothing says where its points are." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this WHERE {
                 FILTER NOT EXISTS {
                     $this a ?class .
-                    FILTER (?class IN (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                    FILTER (?class IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
                 }
             }""" ;
     ] ;
@@ -396,8 +396,8 @@ emb:SnippetClassShape a sh:NodeShape ;
         sh:select """
             SELECT DISTINCT $this ?value ?other WHERE {
                 $this a ?value, ?other .
-                FILTER (?value IN (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
-                FILTER (?other IN (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                FILTER (?value IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                FILTER (?other IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
                 FILTER (STR(?value) < STR(?other))
             }""" ;
     ] .
@@ -408,7 +408,7 @@ emb:SnippetClassShape a sh:NodeShape ;
 # of rules (and one shapes file) reads all of its snippets.
 
 emb:OneKindShape a sh:NodeShape ;
-    sh:targetClass tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet ;
+    sh:targetClass tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "S24 one kind: the document also describes the external snippet {?value}; all snippets of a document are embedded, or all are external, never both." ;
@@ -426,7 +426,7 @@ emb:OneKindShape a sh:NodeShape ;
 # does not conform. (The sh:datatype checks only compare the datatype IRI; S23 reads the text.)
 
 emb:TimezoneShape a sh:NodeShape ;
-    sh:targetClass tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet ;
+    sh:targetClass tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "S23 timezone: {?value} ({?where}) has no timezone. Every time MUST have a timezone, such as Z or +02:00 (xsd:dateTimeStamp)." ;
@@ -457,12 +457,12 @@ emb:TimezoneShape a sh:NodeShape ;
 
 
 # --- S6 and S12: how the points are written ---------------------------------------
-# A tss:EmbeddedPointSnippet writes its points as JSON, in one tss:points literal; a
-# tss:EmbeddedRDFMessagesSnippet writes them as RDF nodes that it links to with tss:hasPoint.
+# A tss:EmbeddedJSONSnippet writes its points as JSON, in one tss:points literal; a
+# tss:EmbeddedRDFSnippet writes them as RDF nodes that it links to with tss:hasPoint.
 # SHACL does not look inside the JSON: S6 only checks that it holds an array.
 
-emb:PointSnippetShape a sh:NodeShape ;
-    sh:targetClass tss:EmbeddedPointSnippet ;
+emb:JSONSnippetShape a sh:NodeShape ;
+    sh:targetClass tss:EmbeddedJSONSnippet ;
     sh:property [
         sh:name "S6 points" ;
         sh:group emb:Required ;
@@ -470,7 +470,7 @@ emb:PointSnippetShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:datatype rdf:JSON ;
-        sh:message "A tss:EmbeddedPointSnippet needs exactly one tss:points: an rdf:JSON literal with its points, a JSON array of objects." ;
+        sh:message "A tss:EmbeddedJSONSnippet needs exactly one tss:points: an rdf:JSON literal with its points, a JSON array of objects." ;
     ] ;
     sh:property [
         sh:name "S6 points hold a JSON array" ;
@@ -485,32 +485,32 @@ emb:PointSnippetShape a sh:NodeShape ;
         sh:group emb:Required ;
         sh:path tss:hasField ;
         sh:node emb:JSONKeyShape ;
-        sh:message "S25: every field of a tss:EmbeddedPointSnippet needs a tss:columnName, its key in the JSON points." ;
+        sh:message "S25: every field of a tss:EmbeddedJSONSnippet needs a tss:columnName, its key in the JSON points." ;
     ] ;
     sh:property [
         sh:name "S12 has point" ;
         sh:group emb:NotAllowed ;
         sh:path tss:hasPoint ;
         sh:maxCount 0 ;
-        sh:message "S12 not allowed: the points of a tss:EmbeddedPointSnippet are the objects in its tss:points; tss:hasPoint links the RDF points of a tss:EmbeddedRDFMessagesSnippet." ;
+        sh:message "S12 not allowed: the points of a tss:EmbeddedJSONSnippet are the objects in its tss:points; tss:hasPoint links the RDF points of a tss:EmbeddedRDFSnippet." ;
     ] .
 
-# S25: a field of a tss:EmbeddedPointSnippet has a column name (F2 checks its form)
+# S25: a field of a tss:EmbeddedJSONSnippet has a column name (F2 checks its form)
 emb:JSONKeyShape a sh:NodeShape ;
     sh:property [
         sh:path tss:columnName ;
         sh:minCount 1 ;
-        sh:message "S25: a field of a tss:EmbeddedPointSnippet needs a tss:columnName, its key in the JSON points." ;
+        sh:message "S25: a field of a tss:EmbeddedJSONSnippet needs a tss:columnName, its key in the JSON points." ;
     ] .
 
-emb:RDFMessagesSnippetShape a sh:NodeShape ;
-    sh:targetClass tss:EmbeddedRDFMessagesSnippet ;
+emb:RDFSnippetShape a sh:NodeShape ;
+    sh:targetClass tss:EmbeddedRDFSnippet ;
     sh:property [
         sh:name "S12 points" ;
         sh:group emb:NotAllowed ;
         sh:path tss:points ;
         sh:maxCount 0 ;
-        sh:message "S12 not allowed: the points of a tss:EmbeddedRDFMessagesSnippet are the RDF nodes it links to with tss:hasPoint; tss:points holds the JSON points of a tss:EmbeddedPointSnippet." ;
+        sh:message "S12 not allowed: the points of a tss:EmbeddedRDFSnippet are the RDF nodes it links to with tss:hasPoint; tss:points holds the JSON points of a tss:EmbeddedJSONSnippet." ;
     ] .
 
 
@@ -548,7 +548,7 @@ emb:FieldShape a sh:NodeShape ;
     ] ;
 
     # Optional
-    # F2: a field of a tss:EmbeddedPointSnippet must state its column name (S25)
+    # F2: a field of a tss:EmbeddedJSONSnippet must state its column name (S25)
     sh:property [
         sh:name "F2 column name" ;
         sh:group emb:Optional ;
@@ -556,7 +556,7 @@ emb:FieldShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:string ;
         sh:minLength 1 ;
-        sh:message "tss:columnName must be one non-empty text: the field's key in JSON points. A field of a tss:EmbeddedRDFMessagesSnippet needs none." ;
+        sh:message "tss:columnName must be one non-empty text: the field's key in JSON points. A field of a tss:EmbeddedRDFSnippet needs none." ;
     ] ;
     sh:property [
         sh:name "F4 column index" ;
@@ -702,8 +702,8 @@ emb:PointShape a sh:NodeShape ;
         sh:group emb:Required ;
         sh:path [ sh:inversePath tss:hasPoint ] ;
         sh:maxCount 1 ;
-        sh:class tss:EmbeddedRDFMessagesSnippet ;
-        sh:message "S6 points: a point is a point of exactly one tss:EmbeddedRDFMessagesSnippet: one snippet links to it with tss:hasPoint." ;
+        sh:class tss:EmbeddedRDFSnippet ;
+        sh:message "S6 points: a point is a point of exactly one tss:EmbeddedRDFSnippet: one snippet links to it with tss:hasPoint." ;
     ] .
 
 
@@ -712,7 +712,7 @@ emb:PointShape a sh:NodeShape ;
 #   $this tss:hasPoint ?point .
 
 emb:PointsShape a sh:NodeShape ;
-    sh:targetClass tss:EmbeddedRDFMessagesSnippet ;
+    sh:targetClass tss:EmbeddedRDFSnippet ;
 
     # S6: a value of a field is in a point of the snippet. A node with a value for one of
     # the snippet's fields that the snippet does not link to with tss:hasPoint (left out, or
@@ -945,7 +945,7 @@ emb:FieldRangeShape a sh:NodeShape ;
 # document, or rdf:type: a point states no type) is not read, so its values are lost.
 
 emb:PointPropertiesShape a sh:NodeShape ;
-    sh:targetClass tss:EmbeddedRDFMessagesSnippet ;
+    sh:targetClass tss:EmbeddedRDFSnippet ;
     sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;

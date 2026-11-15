@@ -12,8 +12,8 @@
 # the file: tss:CSVSnippet (a CSV file), tss:ParquetSnippet (an Apache Parquet file) or
 # tss:ArrowSnippet (an Apache Arrow IPC file). A time grid (tss:timeBase, tss:timeStep,
 # tss:stepField) and a value encoding (tss:valueEncoding, tss:baseline) are only for such a
-# snippet; the embedded shapes do not allow them. A tss:EmbeddedPointSnippet or a
-# tss:EmbeddedRDFMessagesSnippet is checked with embedded_shapes.ttl.
+# snippet; the embedded shapes do not allow them. A tss:EmbeddedJSONSnippet or a
+# tss:EmbeddedRDFSnippet is checked with embedded_shapes.ttl.
 #
 # Run:   pyshacl -s external_shapes.ttl "<metadata file>.ttl"
 # The metadata conforms when the report holds no sh:Violation. Warnings point at
@@ -29,7 +29,7 @@
 #                  checked to be up to date)
 #   Required:  S1 the snippet (one or more external snippets, each read on its own)
 #              S7 snippet class: every snippet states exactly one of the five snippet classes
-#                 (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet,
+#                 (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet,
 #                 tss:CSVSnippet, tss:ArrowSnippet); the class says how to read the data file
 #              S3 mutable (true: append-only)   S8  data file
 #              S4 time field                    S6  has field (at least one)
@@ -127,7 +127,7 @@ ext:SnippetExistsShape a sh:NodeShape ;
     sh:targetNode tss:Snippet ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S1 the snippet: the metadata must describe at least one external snippet, a tss:ParquetSnippet, tss:CSVSnippet or tss:ArrowSnippet; each snippet is read on its own. A tss:EmbeddedPointSnippet or tss:EmbeddedRDFMessagesSnippet is checked with embedded_shapes.ttl." ;
+        sh:message "S1 the snippet: the metadata must describe at least one external snippet, a tss:ParquetSnippet, tss:CSVSnippet or tss:ArrowSnippet; each snippet is read on its own. A tss:EmbeddedJSONSnippet or tss:EmbeddedRDFSnippet is checked with embedded_shapes.ttl." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this WHERE {
@@ -282,14 +282,14 @@ ext:SnippetShape a sh:NodeShape ;
         sh:group ext:NotAllowed ;
         sh:path tss:hasPoint ;
         sh:maxCount 0 ;
-        sh:message "S22 not allowed: tss:hasPoint links the RDF points of a tss:EmbeddedRDFMessagesSnippet; the readings of an external snippet are the rows of its data file." ;
+        sh:message "S22 not allowed: tss:hasPoint links the RDF points of a tss:EmbeddedRDFSnippet; the readings of an external snippet are the rows of its data file." ;
     ] ;
     sh:property [
         sh:name "S22 points" ;
         sh:group ext:NotAllowed ;
         sh:path tss:points ;
         sh:maxCount 0 ;
-        sh:message "S22 not allowed: tss:points holds the JSON points of a tss:EmbeddedPointSnippet; the readings of an external snippet are the rows of its data file." ;
+        sh:message "S22 not allowed: tss:points holds the JSON points of a tss:EmbeddedJSONSnippet; the readings of an external snippet are the rows of its data file." ;
     ] ;
 
     # S4: the time field is a field of this snippet; S5: the key is the time field
@@ -455,17 +455,17 @@ ext:ParquetArrowSnippetShape a sh:NodeShape ;
 
 ext:SnippetClassShape a sh:NodeShape ;
     sh:targetSubjectsOf tss:hasField ;
-    sh:targetClass tss:Snippet, tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet,
+    sh:targetClass tss:Snippet, tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet,
         tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S7 snippet class: the snippet states none of the five snippet classes (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet), so nothing says where its points are." ;
+        sh:message "S7 snippet class: the snippet states none of the five snippet classes (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet), so nothing says where its points are." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this WHERE {
                 FILTER NOT EXISTS {
                     $this a ?class .
-                    FILTER (?class IN (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                    FILTER (?class IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
                 }
             }""" ;
     ] ;
@@ -476,8 +476,8 @@ ext:SnippetClassShape a sh:NodeShape ;
         sh:select """
             SELECT DISTINCT $this ?value ?other WHERE {
                 $this a ?value, ?other .
-                FILTER (?value IN (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
-                FILTER (?other IN (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                FILTER (?value IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                FILTER (?other IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
                 FILTER (STR(?value) < STR(?other))
             }""" ;
     ] .
@@ -496,7 +496,7 @@ ext:OneKindShape a sh:NodeShape ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
                 ?value a ?class .
-                FILTER (?class IN (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet))
+                FILTER (?class IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet))
             }""" ;
     ] .
 

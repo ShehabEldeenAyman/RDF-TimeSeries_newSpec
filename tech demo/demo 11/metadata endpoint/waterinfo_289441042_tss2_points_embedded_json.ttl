@@ -18,7 +18,7 @@
 # A copy of waterinfo_289441042_tss2_points_embedded.ttl whose points are JSON instead of RDF.
 # One embedded snippet contains both series, with one shared time field.
 # The snippet window applies to all fields; the points are five-reading samples.
-# A tss:EmbeddedPointSnippet keeps its points in one rdf:JSON literal, tss:points: a JSON array
+# A tss:EmbeddedJSONSnippet keeps its points in one rdf:JSON literal, tss:points: a JSON array
 # with one object per point, keyed by the fields' tss:columnName. Each value is a JSON string in
 # the lexical form of its field's tss:datatype. "", null or a missing key means no value; the
 # points are unordered (sort by the tss:timeField).
@@ -27,7 +27,7 @@
 # are the same real-world things, so they keep their IRIs.
 
 ex:zevenaarshaven-json-snippet
-    a tss:EmbeddedPointSnippet ;
+    a tss:EmbeddedJSONSnippet ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), JSON points"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [

@@ -20,7 +20,7 @@
 # The points are RDF at the end of this document (see "Points" below).
 
 ex:zevenaarshaven-snippet
-    a tss:EmbeddedRDFMessagesSnippet ;
+    a tss:EmbeddedRDFSnippet ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
     tss:snippetDescription [

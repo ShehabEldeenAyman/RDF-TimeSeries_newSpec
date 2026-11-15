@@ -20,7 +20,7 @@ Representing time series in RDF drastically raises the verbosity, as each readin
 With RDF Time Series Snippets, a publisher keeps the readings compact and describes them with RDF:
 
 - A [=Snippet=] describes a table of readings: every [=Point=] has one time and values for one or more [=Fields=]. Series that are measured together share one [=Time Field=].
-- The class of a snippet says where its readings are: embedded in the metadata, as one small RDF node per point (`tss:EmbeddedRDFMessagesSnippet`) or as one JSON literal (`tss:EmbeddedPointSnippet`), or kept in an external Parquet, CSV or Arrow data file (`tss:ParquetSnippet`, `tss:CSVSnippet`, `tss:ArrowSnippet`). The same field descriptions read them all.
+- The class of a snippet says where its readings are: embedded in the metadata, as one small RDF node per point (`tss:EmbeddedRDFSnippet`) or as one JSON literal (`tss:EmbeddedJSONSnippet`), or kept in an external Parquet, CSV or Arrow data file (`tss:ParquetSnippet`, `tss:CSVSnippet`, `tss:ArrowSnippet`). The same field descriptions read them all.
 - Each field states the datatype of its values and, for a data file or JSON points, its column name; optionally, it states what they observe, in which unit, with which sensor, of which feature of interest. In RDF points, the IRI of the field names its values, so it needs no column name.
 - A data file can give the time of each row as a step on a regular [=Time Grid=], and state the values of a field as differences from a baseline (`tss:valueEncoding`).
 
@@ -49,7 +49,7 @@ This example is a complete [=Embedded Snippet=]: five conductivity readings of o
 @prefix ex: <https://example.org/ex#> .
 
 ex:snippet
-    a tss:EmbeddedRDFMessagesSnippet ;
+    a tss:EmbeddedRDFSnippet ;
     rdfs:label "Conductivity readings"@en ;
     tss:mutable true ;
     tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
@@ -104,7 +104,7 @@ ex:snippet tss:hasPoint [
 ```
 </div>
 
-The snippet is a `tss:EmbeddedRDFMessagesSnippet`: it links to each point with `tss:hasPoint`, one statement per point, and the IRIs of the fields are the predicates of the point's values, so the fields state no column name. Expanded into observations ([[#expanding]]), every value of a [=Measured Field=] becomes one observation, with a link back to the snippet, the time of its point and what its field says. Written with SOSA [[VOCAB-SSN]] and `dcterms:source` ([[#sosa-mapping]]), the first two observations are:
+The snippet is a `tss:EmbeddedRDFSnippet`: it links to each point with `tss:hasPoint`, one statement per point, and the IRIs of the fields are the predicates of the point's values, so the fields state no column name. Expanded into observations ([[#expanding]]), every value of a [=Measured Field=] becomes one observation, with a link back to the snippet, the time of its point and what its field says. Written with SOSA [[VOCAB-SSN]] and `dcterms:source` ([[#sosa-mapping]]), the first two observations are:
 
 <div class="example" id="example-observations">
 ```turtle
@@ -152,7 +152,7 @@ The <dfn>Key</dfn> of a snippet is the field whose values identify a point: its 
 
 The <dfn>Time Window</dfn> of a snippet is the period from `tss:from` (included) until `tss:until` (not included). A point lies in the window when its time is not before `tss:from` and before `tss:until`. A bound that is not stated leaves that side of the window open.
 
-An <dfn>Embedded Snippet</dfn> keeps its points in the metadata: a `tss:EmbeddedRDFMessagesSnippet` as RDF nodes that it links to with `tss:hasPoint`, a `tss:EmbeddedPointSnippet` as one JSON literal, `tss:points`. An <dfn>External Snippet</dfn> keeps them in a data file, `tss:dataFile`: a `tss:ParquetSnippet`, a `tss:CSVSnippet` or a `tss:ArrowSnippet`.
+An <dfn>Embedded Snippet</dfn> keeps its points in the metadata: a `tss:EmbeddedRDFSnippet` as RDF nodes that it links to with `tss:hasPoint`, a `tss:EmbeddedJSONSnippet` as one JSON literal, `tss:points`. An <dfn>External Snippet</dfn> keeps them in a data file, `tss:dataFile`: a `tss:ParquetSnippet`, a `tss:CSVSnippet` or a `tss:ArrowSnippet`.
 
 The <dfn id="dfn-time-grid">Time Grid</dfn> of an external snippet is a series of times at regular steps: step 0 at `tss:timeBase`, and every next step `tss:timeStep` later ([[#time-grid]]).
 
@@ -188,8 +188,8 @@ A metadata document MUST describe at least one snippet. Each snippet in the docu
 <tr><td><code>tss:key</code></td><td>its time field</td><td>optional; default: the time field</td><td>optional; default: the time field</td></tr>
 <tr><td><code>tss:from</code></td><td>a time ([[#times]])</td><td>optional</td><td>optional</td></tr>
 <tr><td><code>tss:until</code></td><td>a time ([[#times]]), after <code>tss:from</code></td><td>optional</td><td>optional</td></tr>
-<tr><td><code>tss:hasPoint</code></td><td>a point</td><td>not allowed</td><td>for a <code>tss:EmbeddedRDFMessagesSnippet</code>: optional, any number; otherwise not allowed</td></tr>
-<tr><td><code>tss:points</code></td><td><code>rdf:JSON</code> literal</td><td>not allowed</td><td>for a <code>tss:EmbeddedPointSnippet</code>: required; otherwise not allowed</td></tr>
+<tr><td><code>tss:hasPoint</code></td><td>a point</td><td>not allowed</td><td>for a <code>tss:EmbeddedRDFSnippet</code>: optional, any number; otherwise not allowed</td></tr>
+<tr><td><code>tss:points</code></td><td><code>rdf:JSON</code> literal</td><td>not allowed</td><td>for a <code>tss:EmbeddedJSONSnippet</code>: required; otherwise not allowed</td></tr>
 <tr><td><code>tss:dataFile</code></td><td>IRI</td><td>required</td><td>not allowed</td></tr>
 <tr><td><code>tss:delimiter</code></td><td>one character</td><td>optional, for a <code>tss:CSVSnippet</code>; default <code>","</code></td><td>not allowed</td></tr>
 <tr><td><code>tss:encoding</code></td><td>text, such as <code>"utf-8"</code></td><td>optional, for a <code>tss:CSVSnippet</code>; default <code>"utf-8"</code></td><td>not allowed</td></tr>
@@ -212,8 +212,8 @@ The class of a snippet says where its points are and how to read them. `tss:Snip
 <tr><th>Class</th><th>Where the points are</th><th>Section</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tss:EmbeddedPointSnippet</code></td><td>in the metadata, as one JSON literal, <code>tss:points</code></td><td>[[#json-points]]</td></tr>
-<tr><td><code>tss:EmbeddedRDFMessagesSnippet</code></td><td>in the metadata, as RDF nodes that the snippet links to with <code>tss:hasPoint</code></td><td>[[#rdf-points]]</td></tr>
+<tr><td><code>tss:EmbeddedJSONSnippet</code></td><td>in the metadata, as one JSON literal, <code>tss:points</code></td><td>[[#json-points]]</td></tr>
+<tr><td><code>tss:EmbeddedRDFSnippet</code></td><td>in the metadata, as RDF nodes that the snippet links to with <code>tss:hasPoint</code></td><td>[[#rdf-points]]</td></tr>
 <tr><td><code>tss:ParquetSnippet</code></td><td>in a Parquet data file, <code>tss:dataFile</code></td><td>[[#parquet]]</td></tr>
 <tr><td><code>tss:CSVSnippet</code></td><td>in a CSV data file, <code>tss:dataFile</code></td><td>[[#csv]]</td></tr>
 <tr><td><code>tss:ArrowSnippet</code></td><td>in an Arrow data file, <code>tss:dataFile</code></td><td>[[#arrow]]</td></tr>
@@ -222,7 +222,7 @@ The class of a snippet says where its points are and how to read them. `tss:Snip
 
 Every snippet MUST state exactly one snippet class as its `rdf:type`. A consumer selects the rules for a snippet by this one class: a snippet without a snippet class does not say where its readings are.
 
-- An [=Embedded Snippet=] keeps its points in the metadata itself ([[#points]]). Every point states its own time and its readings themselves. The snippet MUST NOT state `tss:dataFile`, `tss:delimiter`, `tss:encoding` or `tss:header`, which describe a data file, nor `tss:timeBase`, `tss:timeStep` or `tss:stepField`, which describe a [=Time Grid=] ([[#time-grid]]). Its fields MUST NOT state a value encoding ([[#value-encoding]]). A `tss:EmbeddedPointSnippet` has no `tss:hasPoint`, and a `tss:EmbeddedRDFMessagesSnippet` has no `tss:points`.
+- An [=Embedded Snippet=] keeps its points in the metadata itself ([[#points]]). Every point states its own time and its readings themselves. The snippet MUST NOT state `tss:dataFile`, `tss:delimiter`, `tss:encoding` or `tss:header`, which describe a data file, nor `tss:timeBase`, `tss:timeStep` or `tss:stepField`, which describe a [=Time Grid=] ([[#time-grid]]). Its fields MUST NOT state a value encoding ([[#value-encoding]]). A `tss:EmbeddedJSONSnippet` has no `tss:hasPoint`, and a `tss:EmbeddedRDFSnippet` has no `tss:points`.
 - An [=External Snippet=] keeps its points in the data file `tss:dataFile`, read as its class says ([[#data-files]]). It has no `tss:hasPoint` and no `tss:points`.
 
 All snippets of a document MUST be embedded snippets, or all MUST be external snippets: a document never describes both.
@@ -282,14 +282,14 @@ ex:snippet
 
 # Fields # {#fields}
 
-Each [=Field=] is a `tss:Field`, linked from exactly one snippet with `tss:hasField`. The same field description reads a column of a data file, a key of the JSON points and the values of the RDF points. In an RDF point, the IRI of a field is the predicate of its values, so the fields of a `tss:EmbeddedRDFMessagesSnippet` are IRIs and need no `tss:columnName`.
+Each [=Field=] is a `tss:Field`, linked from exactly one snippet with `tss:hasField`. The same field description reads a column of a data file, a key of the JSON points and the values of the RDF points. In an RDF point, the IRI of a field is the predicate of its values, so the fields of a `tss:EmbeddedRDFSnippet` are IRIs and need no `tss:columnName`.
 
 <table class="data">
 <thead>
 <tr><th>Property</th><th>Value</th><th>Required</th><th>Meaning</th></tr>
 </thead>
 <tbody>
-<tr><td><code>tss:columnName</code></td><td>non-empty text</td><td>required for a field of an external snippet, except the time field of a snippet with a [=Time Grid=], which has none; required for a field of a <code>tss:EmbeddedPointSnippet</code>; optional for a field of a <code>tss:EmbeddedRDFMessagesSnippet</code></td><td>the name of the field's column (the CSV header, the Parquet or Arrow column), or its key in the JSON points; unique within the snippet</td></tr>
+<tr><td><code>tss:columnName</code></td><td>non-empty text</td><td>required for a field of an external snippet, except the time field of a snippet with a [=Time Grid=], which has none; required for a field of a <code>tss:EmbeddedJSONSnippet</code>; optional for a field of a <code>tss:EmbeddedRDFSnippet</code></td><td>the name of the field's column (the CSV header, the Parquet or Arrow column), or its key in the JSON points; unique within the snippet</td></tr>
 <tr><td><code>tss:datatype</code></td><td>IRI</td><td>required</td><td>the datatype of the values, such as <code>xsd:double</code></td></tr>
 <tr><td><code>tss:columnIndex</code></td><td><code>xsd:integer</code>, 0 or more</td><td>optional; none for the time field of a snippet with a [=Time Grid=]</td><td>the position of the column, the first being 0; unique within the snippet</td></tr>
 <tr><td><code>tss:language</code></td><td>language tag</td><td>optional</td><td>the language of the values of an <code>rdf:langString</code> field</td></tr>
@@ -330,7 +330,7 @@ Several measured fields share one time field, each with its own property, unit a
 
 ```turtle
 ex:weather-snippet
-    a tss:EmbeddedRDFMessagesSnippet ;
+    a tss:EmbeddedRDFSnippet ;
     rdfs:label "Weather station readings"@en ;
     tss:mutable false ;
     tss:committedUntil "2024-05-12T09:00:00Z"^^xsd:dateTimeStamp ;
@@ -393,7 +393,7 @@ Two series in one embedded snippet: a value, and a status that describes it.
 
 ```turtle
 ex:two-series-snippet
-    a tss:EmbeddedRDFMessagesSnippet ;
+    a tss:EmbeddedRDFSnippet ;
     tss:mutable false ;
     tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
@@ -450,7 +450,7 @@ ex:value-field
 
 # Embedded points # {#points}
 
-An [=Embedded Snippet=] keeps its points in the metadata. Its class says how they are written: as RDF nodes in a `tss:EmbeddedRDFMessagesSnippet` ([[#rdf-points]]), or as one JSON literal in a `tss:EmbeddedPointSnippet` ([[#json-points]]). Either way:
+An [=Embedded Snippet=] keeps its points in the metadata. Its class says how they are written: as RDF nodes in a `tss:EmbeddedRDFSnippet` ([[#rdf-points]]), or as one JSON literal in a `tss:EmbeddedJSONSnippet` ([[#json-points]]). Either way:
 
 - Every point has a value for the time field ([[#time-and-key]]), and states its readings themselves: an embedded snippet has no [=Time Grid=] and no value encoding.
 - A point has at most one value for each field.
@@ -459,7 +459,7 @@ An [=Embedded Snippet=] keeps its points in the metadata. Its class says how the
 
 ## RDF points ## {#rdf-points}
 
-A `tss:EmbeddedRDFMessagesSnippet` keeps its points as RDF. The snippet links to each [=Point=] with `tss:hasPoint`, and a point is a point of exactly one snippet. Every node that a snippet links to with `tss:hasPoint` is a point: its type follows from that link, so a point states no `rdf:type`. It needs no identifier either, so it is usually a blank node, written as one statement at the end of the document, as in <a href="#example-embedded-snippet">the embedded example</a>. A [=Write=] then adds a point by appending one statement ([[#updating]]).
+A `tss:EmbeddedRDFSnippet` keeps its points as RDF. The snippet links to each [=Point=] with `tss:hasPoint`, and a point is a point of exactly one snippet. Every node that a snippet links to with `tss:hasPoint` is a point: its type follows from that link, so a point states no `rdf:type`. It needs no identifier either, so it is usually a blank node, written as one statement at the end of the document, as in <a href="#example-embedded-snippet">the embedded example</a>. A [=Write=] then adds a point by appending one statement ([[#updating]]).
 
 - Each value of a point is one triple: the point is the subject, the IRI of the field the predicate, and the object a literal with the field's `tss:datatype` ([[#datatypes]]).
 - The fields need no `tss:columnName`: the IRI of a field names its values. A field MAY state one, for example to name its column when the snippet is written to a data file; it has no effect on reading the RDF points.
@@ -471,9 +471,9 @@ No property of a point has a meaning of its own: the fields say what each value 
 
 ## JSON points ## {#json-points}
 
-A `tss:EmbeddedPointSnippet` MUST have exactly one `tss:points`: a literal with datatype `rdf:JSON` [[JSON-LD11]] whose value is a JSON array of JSON objects, one object per [=Point=]. The empty array `[]` holds no points.
+A `tss:EmbeddedJSONSnippet` MUST have exactly one `tss:points`: a literal with datatype `rdf:JSON` [[JSON-LD11]] whose value is a JSON array of JSON objects, one object per [=Point=]. The empty array `[]` holds no points.
 
-- The keys of an object are the `tss:columnName` of the snippet's fields, so every field of a `tss:EmbeddedPointSnippet` MUST state a `tss:columnName`. A point has no key for a field it has no value for.
+- The keys of an object are the `tss:columnName` of the snippet's fields, so every field of a `tss:EmbeddedJSONSnippet` MUST state a `tss:columnName`. A point has no key for a field it has no value for.
 - A value SHOULD be a JSON string that holds the lexical form of the field's datatype: `"2.50"`, not `2.50`. A JSON number loses its text when it is read: `2.50` may come back as `2.5` or as `2.5E0`.
 - A missing key, `null` and `""` are an [=Empty Value=]: the point has no value for that field.
 - A key MUST NOT start with `@`, as JSON-LD keywords such as `@context` and `@id` do.
@@ -486,7 +486,7 @@ The readings of <a href="#example-embedded-snippet">the embedded example</a> as 
 
 ```turtle
 ex:json-snippet
-    a tss:EmbeddedPointSnippet ;
+    a tss:EmbeddedJSONSnippet ;
     tss:mutable true ;
     tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
@@ -902,7 +902,7 @@ Note: The expansion does not keep every value: a field without `tss:observedProp
 An [=Embedded Snippet=] with `tss:mutable true` is append-only: a [=Write=] adds points, and never changes or removes an existing point. A Write that adds one point:
 
 1. Checks the new point: every value is in the lexical form of its field's datatype, and no other point has the same time (the [=Key=]).
-2. Adds the new point, and leaves the other points as they are. In a `tss:EmbeddedRDFMessagesSnippet`, it appends one statement that links the snippet to a new node with `tss:hasPoint`, with one triple for each of its values. In a `tss:EmbeddedPointSnippet`, it writes a new `tss:points`: the existing points, unchanged, plus the new one as a JSON object whose values are JSON strings.
+2. Adds the new point, and leaves the other points as they are. In a `tss:EmbeddedRDFSnippet`, it appends one statement that links the snippet to a new node with `tss:hasPoint`, with one triple for each of its values. In a `tss:EmbeddedJSONSnippet`, it writes a new `tss:points`: the existing points, unchanged, plus the new one as a JSON object whose values are JSON strings.
 3. Widens the [=Time Window=] when needed, so that the new point lies in it: `tss:from` becomes the earlier of `tss:from` and the time of the new point, and `tss:until` becomes a time after the time of the new point when it was not already. The writer chooses that time, and it MUST be after the time of the newest point, since `tss:until` is not in the window. A side that the snippet leaves open stays open.
 4. Sets `tss:committedUntil` to the time of the write.
 5. Recomputes every [=Stored Summary=] of the snippet from the points in the new window: its `tss:generatedAtTime` becomes the time of the write, and every number it states is computed again. Its `tss:missingValuePolicy` stays.
@@ -933,7 +933,7 @@ An [=External Snippet=] is never changed this way: managing the data file of an 
 </thead>
 <tbody>
 <tr><td><code>tss:Snippet</code></td><td>class</td><td>-</td><td>[[#the-snippet]]</td></tr>
-<tr><td><code>tss:EmbeddedPointSnippet</code>, <code>tss:EmbeddedRDFMessagesSnippet</code>, <code>tss:ParquetSnippet</code>, <code>tss:CSVSnippet</code>, <code>tss:ArrowSnippet</code></td><td>class, subclass of <code>tss:Snippet</code></td><td>-</td><td>[[#storage]]</td></tr>
+<tr><td><code>tss:EmbeddedJSONSnippet</code>, <code>tss:EmbeddedRDFSnippet</code>, <code>tss:ParquetSnippet</code>, <code>tss:CSVSnippet</code>, <code>tss:ArrowSnippet</code></td><td>class, subclass of <code>tss:Snippet</code></td><td>-</td><td>[[#storage]]</td></tr>
 <tr><td><code>tss:Field</code></td><td>class</td><td>-</td><td>[[#fields]]</td></tr>
 <tr><td><code>tss:Point</code></td><td>class</td><td>-</td><td>[[#points]]</td></tr>
 <tr><td><code>tss:Summary</code></td><td>class</td><td>-</td><td>[[#summaries]]</td></tr>
@@ -943,8 +943,8 @@ An [=External Snippet=] is never changed this way: managing the data file of an 
 <tr><td><code>tss:mutable</code>, <code>tss:committedUntil</code></td><td>property</td><td>snippet</td><td>[[#change]]</td></tr>
 <tr><td><code>tss:hasField</code>, <code>tss:timeField</code>, <code>tss:key</code></td><td>property</td><td>snippet</td><td>[[#time-and-key]]</td></tr>
 <tr><td><code>tss:from</code>, <code>tss:until</code></td><td>property</td><td>snippet</td><td>[[#window]]</td></tr>
-<tr><td><code>tss:hasPoint</code></td><td>property</td><td><code>tss:EmbeddedRDFMessagesSnippet</code></td><td>[[#rdf-points]]</td></tr>
-<tr><td><code>tss:points</code></td><td>property</td><td><code>tss:EmbeddedPointSnippet</code></td><td>[[#json-points]]</td></tr>
+<tr><td><code>tss:hasPoint</code></td><td>property</td><td><code>tss:EmbeddedRDFSnippet</code></td><td>[[#rdf-points]]</td></tr>
+<tr><td><code>tss:points</code></td><td>property</td><td><code>tss:EmbeddedJSONSnippet</code></td><td>[[#json-points]]</td></tr>
 <tr><td><code>tss:dataFile</code></td><td>property</td><td>external snippet</td><td>[[#data-files]]</td></tr>
 <tr><td><code>tss:delimiter</code>, <code>tss:header</code>, <code>tss:encoding</code></td><td>property</td><td><code>tss:CSVSnippet</code></td><td>[[#csv]]</td></tr>
 <tr><td><code>tss:timeBase</code>, <code>tss:timeStep</code>, <code>tss:stepField</code></td><td>property</td><td>external snippet</td><td>[[#time-grid]]</td></tr>

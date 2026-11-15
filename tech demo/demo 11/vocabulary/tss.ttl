@@ -41,18 +41,18 @@
 
 tss:Snippet a owl:Class ;
     rdfs:label "Snippet"@en ;
-    rdfs:comment "A time series snippet: the readings of one or more time series in a time window, described by the snippet's fields. A snippet is an instance of exactly one of the five subclasses of tss:Snippet, which says where its readings are and how they are written: in the metadata itself (tss:EmbeddedPointSnippet, tss:EmbeddedRDFMessagesSnippet) or in an external data file (tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet). A metadata document describes one or more snippets, all embedded or all with an external data file, and each is read on its own."@en ;
+    rdfs:comment "A time series snippet: the readings of one or more time series in a time window, described by the snippet's fields. A snippet is an instance of exactly one of the five subclasses of tss:Snippet, which says where its readings are and how they are written: in the metadata itself (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet) or in an external data file (tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet). A metadata document describes one or more snippets, all embedded or all with an external data file, and each is read on its own."@en ;
     rdfs:subClassOf dcat:Dataset ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
-tss:EmbeddedPointSnippet a owl:Class ;
-    rdfs:label "Embedded point snippet"@en ;
+tss:EmbeddedJSONSnippet a owl:Class ;
+    rdfs:label "Embedded JSON snippet"@en ;
     rdfs:comment "A snippet whose readings are in the metadata itself, as JSON: one rdf:JSON literal, tss:points, holds a JSON array with one object per reading, keyed by the tss:columnName of the snippet's fields."@en ;
     rdfs:subClassOf tss:Snippet ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
-tss:EmbeddedRDFMessagesSnippet a owl:Class ;
-    rdfs:label "Embedded RDF messages snippet"@en ;
+tss:EmbeddedRDFSnippet a owl:Class ;
+    rdfs:label "Embedded RDF snippet"@en ;
     rdfs:comment "A snippet whose readings are in the metadata itself, as RDF: each reading is a node (tss:Point) that the snippet links to with tss:hasPoint, in a statement of its own, with one triple per value: the predicate is the IRI of the field, so its fields need no tss:columnName."@en ;
     rdfs:subClassOf tss:Snippet ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
@@ -76,17 +76,17 @@ tss:ArrowSnippet a owl:Class ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 [] a owl:AllDisjointClasses ;
-    owl:members ( tss:EmbeddedPointSnippet tss:EmbeddedRDFMessagesSnippet tss:ParquetSnippet tss:CSVSnippet tss:ArrowSnippet ) .
+    owl:members ( tss:EmbeddedJSONSnippet tss:EmbeddedRDFSnippet tss:ParquetSnippet tss:CSVSnippet tss:ArrowSnippet ) .
 
 tss:Field a owl:Class ;
     rdfs:label "Field"@en ;
-    rdfs:comment "A field of a snippet: one column of its readings, such as the time or one series of values. It says where its values are (tss:columnName, tss:columnIndex) and how to read them (tss:datatype). In the RDF points of a tss:EmbeddedRDFMessagesSnippet, the field's IRI is the predicate of its values, so it needs no column name."@en ;
+    rdfs:comment "A field of a snippet: one column of its readings, such as the time or one series of values. It says where its values are (tss:columnName, tss:columnIndex) and how to read them (tss:datatype). In the RDF points of a tss:EmbeddedRDFSnippet, the field's IRI is the predicate of its values, so it needs no column name."@en ;
     skos:closeMatch csvw:Column ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:Point a owl:Class ;
     rdfs:label "Point"@en ;
-    rdfs:comment "One reading of a tss:EmbeddedRDFMessagesSnippet: a node that the snippet links to with tss:hasPoint. It is not typed: its type follows from tss:hasPoint. Each of its values is a triple with the field's IRI as predicate and a literal of the field's tss:datatype; a missing value has no triple, and a value with the empty text \"\" is no value either. The points of a snippet are unordered."@en ;
+    rdfs:comment "One reading of a tss:EmbeddedRDFSnippet: a node that the snippet links to with tss:hasPoint. It is not typed: its type follows from tss:hasPoint. Each of its values is a triple with the field's IRI as predicate and a literal of the field's tss:datatype; a missing value has no triple, and a value with the empty text \"\" is no value either. The points of a snippet are unordered."@en ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:Summary a owl:Class ;
@@ -195,15 +195,15 @@ tss:key a owl:ObjectProperty, owl:FunctionalProperty ;
 
 tss:hasPoint a owl:ObjectProperty ;
     rdfs:label "has point"@en ;
-    rdfs:comment "A point of a tss:EmbeddedRDFMessagesSnippet: one reading in the metadata itself. Each of the point's values is a triple with the point as subject and the field's IRI as predicate. Every point is a point of exactly one snippet, and every object of tss:hasPoint is a point. Other snippets have no tss:hasPoint: the readings of a tss:EmbeddedPointSnippet are in tss:points, and those of a snippet with an external data file are the rows of the file."@en ;
-    rdfs:domain tss:EmbeddedRDFMessagesSnippet ;
+    rdfs:comment "A point of a tss:EmbeddedRDFSnippet: one reading in the metadata itself. Each of the point's values is a triple with the point as subject and the field's IRI as predicate. Every point is a point of exactly one snippet, and every object of tss:hasPoint is a point. Other snippets have no tss:hasPoint: the readings of a tss:EmbeddedJSONSnippet are in tss:points, and those of a snippet with an external data file are the rows of the file."@en ;
+    rdfs:domain tss:EmbeddedRDFSnippet ;
     rdfs:range tss:Point ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
 tss:points a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:label "points"@en ;
-    rdfs:comment "The readings of a tss:EmbeddedPointSnippet: one rdf:JSON literal whose value is a JSON array with one JSON object per reading. The keys of an object are the tss:columnName of the snippet's fields, and each value should be a JSON string that holds the lexical form of its field's tss:datatype. A missing key, null and the empty string \"\" are no value. No key starts with @. The objects are unordered, and \"[]\" holds no readings."@en ;
-    rdfs:domain tss:EmbeddedPointSnippet ;
+    rdfs:comment "The readings of a tss:EmbeddedJSONSnippet: one rdf:JSON literal whose value is a JSON array with one JSON object per reading. The keys of an object are the tss:columnName of the snippet's fields, and each value should be a JSON string that holds the lexical form of its field's tss:datatype. A missing key, null and the empty string \"\" are no value. No key starts with @. The objects are unordered, and \"[]\" holds no readings."@en ;
+    rdfs:domain tss:EmbeddedJSONSnippet ;
     rdfs:range rdf:JSON ;
     rdfs:isDefinedBy <https://w3id.org/tss#> .
 
@@ -276,7 +276,7 @@ tss:stepField a owl:ObjectProperty, owl:FunctionalProperty ;
 
 tss:columnName a owl:DatatypeProperty, owl:FunctionalProperty ;
     rdfs:label "column name"@en ;
-    rdfs:comment "The name of the field's column in a data file, or its key in the JSON points of a tss:EmbeddedPointSnippet; unique within its snippet. Required for a field of an external snippet (except the time field of a snippet with a time grid) and of a tss:EmbeddedPointSnippet; optional for a field of a tss:EmbeddedRDFMessagesSnippet, whose values are named by the field's IRI."@en ;
+    rdfs:comment "The name of the field's column in a data file, or its key in the JSON points of a tss:EmbeddedJSONSnippet; unique within its snippet. Required for a field of an external snippet (except the time field of a snippet with a time grid) and of a tss:EmbeddedJSONSnippet; optional for a field of a tss:EmbeddedRDFSnippet, whose values are named by the field's IRI."@en ;
     rdfs:domain tss:Field ;
     rdfs:range xsd:string ;
     skos:closeMatch csvw:name ;
@@ -291,7 +291,7 @@ tss:columnIndex a owl:DatatypeProperty, owl:FunctionalProperty ;
 
 tss:datatype a owl:ObjectProperty, owl:FunctionalProperty ;
     rdfs:label "datatype"@en ;
-    rdfs:comment "The datatype that reads the field's values. In a tss:EmbeddedRDFMessagesSnippet, every value of the field is a literal of this datatype. In the JSON points of a tss:EmbeddedPointSnippet and in a data file, it interprets the text of each value; a data file keeps its native types."@en ;
+    rdfs:comment "The datatype that reads the field's values. In a tss:EmbeddedRDFSnippet, every value of the field is a literal of this datatype. In the JSON points of a tss:EmbeddedJSONSnippet and in a data file, it interprets the text of each value; a data file keeps its native types."@en ;
     rdfs:domain tss:Field ;
     rdfs:range rdfs:Datatype ;
     skos:closeMatch csvw:datatype ;
