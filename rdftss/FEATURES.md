@@ -1,0 +1,127 @@
+# RDFTSS library: feature analysis
+
+The `rdftss` library should be the one place for working with RDF Time Series Snippets: reading the metadata and the data, converting data between formats and into observations, aligning units with QUDT, parsing RDF, and testing conformance. This document lists candidate features, as a basis for choosing the scope. Nothing is implemented yet.
+
+The library targets the latest specification, in [`tech demo/demo 11`](<../tech demo/demo 11/>): [`spec/spec.bs`](<../tech demo/demo 11/spec/spec.bs>), [`vocabulary/tss.ttl`](<../tech demo/demo 11/vocabulary/tss.ttl>) and the shapes in [`SHACL/`](<../tech demo/demo 11/SHACL/>). Demos 1–10 hold working code for many of the features below, but none of them implements the demo 11 model: demo 10 still reads one `tss:Source` with `tss:embedded`, `tss:format` and `tss:pointOf`.
+
+Each description ends with its basis:
+
+- *Port*: a demo has working code, which must move to the demo 11 model.
+- *New*: the demo 11 specification requires or describes it, and no demo implements it.
+- *Beyond spec*: the specification does not ask for it; it serves the library's own goals.
+
+## 1. Metadata and RDF parsing
+
+| Feature | Description |
+|---|---|
+| Document loading | Read a metadata document from a path, URL or string in Turtle, N-Triples, N3, RDF/XML, TriG or N-Quads, with an explicit base IRI, so relative IRIs such as `<../data/x.csv>` resolve the same way in every tool. JSON-LD is refused, or read without remote contexts. *Port: demo 10 `documents.py`, `rdf.js`.* |
+| Exact lexical forms | Keep the text of every literal as written: `" 12 "^^xsd:double` stays `" 12 "`, so checks can report it instead of rdflib normalising it away. Safe when several parses run at once. *Port: demo 10 `parse_exact` and `NORMALIZE_LOCK` in `tss2rdf.py`.* |
+| Snippets and their classes | Find every snippet of a document and pick its reading rules from its one snippet class. Report a snippet with no class or with several, and a document that mixes embedded and external snippets. *New: demo 10 reads exactly one `tss:Source`.* |
+| Object model | Typed `Snippet`, `Field`, `Point`, `Summary`, `TimeGrid` and `ValueEncoding` objects, with the spec's defaults filled in (delimiter `,`, encoding `utf-8`, header `true`, key = time field) and each field's role: time, step, measured or describing. Terms are compared by full IRI, so prefixes never matter; statements the model does not cover stay reachable. *Port: demo 10 `source_reading.py`, `tss.js`.* |
+| Vocabulary bundle | Constants for every `tss:` term, and the demo 11 `tss.ttl` and SHACL shapes inside the package, so the library works offline and can say which version of the specification it implements. *New.* |
+
+## 2. Reading the data
+
+| Feature | Description |
+|---|---|
+| One point reader | One call gives the points of any snippet in time order: the time, and per field the decoded value and the original text, with `None` for an empty value. Strict mode stops at the errors the spec names, such as a point without a time, and says where; lenient mode collects them. *Port: demo 10 `data_reading.py`.* |
+| RDF points | Read the nodes that a snippet links to with `tss:hasPoint`: one literal per field IRI, where no triple or `""` is an empty value. Refuse a node as a value and two values for one field; warn about properties that are not fields. *Port: demo 10 `point_graph`, which still uses `tss:pointOf`.* |
+| JSON points | Parse the `rdf:JSON` array in `tss:points`, keyed by column name: `null`, `""` and a missing key are empty values. Refuse keys that start with `@`; warn about JSON numbers and booleans, whose text is lost, and about keys that name no field. *New: demo 10 no longer reads JSON points.* |
+| CSV files | Read RFC 4180 CSV with `tss:delimiter`, `tss:encoding` and `tss:header`: columns by name, or by `tss:columnIndex` when there is no header. Never guess the delimiter; check that the header names every field's column; read in chunks. *Port: demo 10 `data_reading.py`, `files.py`.* |
+| Parquet files | Read columns by name and write each native value in the lexical form of the spec's Parquet table: UTC times as `…Z`, DECIMAL with exactly *scale* fraction digits, `INF` and `NaN`. Check that the field's datatype is allowed for the column type; refuse unsupported types, and a timestamp without timezone as the time column. *Port: demo 10 reads Parquet with DuckDB; the type table is new.* |
+| Arrow IPC files | The same for Arrow IPC files, with the spec's Arrow table. A dictionary-encoded column is read as the values it encodes. *New.* |
+| Finding the data file | Resolve `tss:dataFile` against the document IRI. Read a local file, download an HTTP(S) file only when allowed (with caching and a size limit), or take a file or stream from the caller. An optional sandbox folder blocks paths that escape it with `..`. *Port: demo 10 `files.py`, `dataSource.js`.* |
+| Times | Parse `xsd:dateTimeStamp` with its required timezone, and compare times as moments: `…Z` and `…+00:00` are the same time. Keep the nanoseconds of Parquet and Arrow timestamps, which Python's `datetime` drops. *Port in part: demo 10 `value_reading.py`; the required timezone is new.* |
+| Time window | Apply [`tss:from`, `tss:until`), with an open side where a bound is missing. Rows of an external snippet outside the window are skipped; a point of an embedded snippet outside it is an error. *Port.* |
+| Time grid | Give each row the time `tss:timeBase` + n × `tss:timeStep`, where n is its step, with XML Schema duration arithmetic: each part of the step is multiplied by n, and months are calendar months (2021-01-31 + P1M = 2021-02-28). Check that every step is a whole number of 0 or more, and unique. *New.* |
+| Value encoding | Decode `tss:DeltaFromBaseline` values as baseline + value, computed exactly on the decimals, then read as the field's datatype. Encodings are pluggable, so the spec can add more. *New.* |
+| Values and datatypes | Check each value against the lexical form of its datatype: the numeric and integer types, `xsd:boolean`, and `xsd:dateTime`, `xsd:dateTimeStamp` and `xsd:date` with real calendar days. Return Python values (`Decimal`, `float`, `int`, `bool`, `datetime`, or text with the field's `tss:language`) next to the original text. *Port: demo 10 `value_reading.py`, `LEXICAL_FORMS`.* |
+| DataFrames | Return a snippet's points, in the window and decoded, as a pandas or Polars DataFrame or an Arrow table, with the field IRIs, labels and units as column metadata. *New.* |
+
+## 3. Querying and analysis
+
+| Feature | Description |
+|---|---|
+| Filters | Select points by time range, value range and the values of describing fields (for example, only readings whose quality code is "good"). Flag values outside `tss:minimum` and `tss:maximum` as suspicious without dropping them, as the spec allows. *Port: demo 10 `/query`, `/filter-columns`.* |
+| Statistics | Count, empty values, mean, median, minimum, maximum, and first and last time of a selection, with the definitions of the stored summaries. *Port: demo 10 `query_helpers.py`.* |
+| Gaps | Find the usual step (the most frequent interval) and list the longer intervals as gaps, with the total missing time. On a time grid, list the missing steps. *Port: demo 10 `find_gaps`; the grid part is new.* |
+| Resampling | Aggregate the readings per hour, per day or per any period, as mean, minimum or maximum, in UTC. *Port: demo 10 `resample_readings`.* |
+| SQL | A DuckDB database with one table per snippet and metadata tables for snippets, fields and summaries. Read-only and locked down (no files, network or extensions), with limits on rows, size and time, and example queries. *Port: demo 10 `sql_box.py`, `sql_routes.py`.* |
+
+## 4. Discovery across documents
+
+| Feature | Description |
+|---|---|
+| Catalogue | Load many metadata documents into one catalogue, one named graph per document. A catalogue may hold embedded and external snippets side by side; it is never treated as one document. *Port: demo 11 competency-question runner.* |
+| Discovery queries | Find snippets by observed property, feature of interest, sensor, unit and window overlap, and say how to read them: class, data file or embedded predicate, field bindings, grid and encoding parameters, mutability, `tss:committedUntil` and summaries. This turns CQ1–CQ8 into functions; the YAML runner, with its SPARQL-results JSON export, stays available for the evaluation. *Port: demo 11 `evaluation/competency_questions`.* |
+| DCAT export | Write a DCAT catalogue of the snippets (`tss:Snippet` is a subclass of `dcat:Dataset`), with a distribution for each data file and its media type. *Port: demo 10 `catalog_routes.py`.* |
+
+## 5. Materialisation and conversion
+
+| Feature | Description |
+|---|---|
+| Expansion to observations | A conforming expander: one observation per value of a measured field inside the window, with the decoded value, the time of the point or step, a `dcterms:source` link back to the snippet, and the concise bounded description of every IRI it uses, without TSS statements. Handles several snippets per document. *Port: demo 10 `tss2rdf.py`, to extend to the five classes, grids and encodings.* |
+| Observation vocabularies | SOSA, QUDT and Dublin Core by default, following the spec's informative mapping; other vocabularies through pluggable mappings, since the spec leaves the choice to the implementer. *Port for SOSA; other mappings beyond spec.* |
+| Streaming RDF output | Write N-Triples or N-Quads in batches with fresh blank nodes, so memory stays bounded for millions of triples. Write to a temporary file and replace the output only on success; report counts per field and give a short Turtle preview. *Port: demo 10 `write_batch`, `exact_turtle`.* |
+| Storage conversion | Convert a snippet between the five classes: CSV, Parquet and Arrow into each other, and external into embedded RDF or JSON points and back. Write the data and rewrite the metadata (class, column names, CSV properties) so the result conforms; a snippet that changes between embedded and external goes into a new document, since a document cannot mix them. *New; demo 10 `csv2parquet.py` and demo 4 `csv_to_points.py` covered parts.* |
+| Grid and delta encoding | Turn a time grid into an explicit time column, or detect a regular step and store steps instead; decode delta-from-baseline values, or encode them against a chosen baseline. *New.* |
+| Split, merge and subset | Split a long snippet into windowed snippets, for example per month, each with its own window and summaries; merge snippets that share their fields; keep a subset of the fields. *Beyond spec.* |
+| Observations to snippets | The reverse of expansion: group SOSA observations by observed property, sensor, feature of interest and unit into fields that share one time field, and write a snippet with its data. *Beyond spec.* |
+| CSVW interop | Write CSVW table metadata for a CSV snippet (`tss:Field` is a close match of `csvw:Column`), so CSVW tools can read the file, and import the CSVW descriptions of demos 2–5 as fields. *Beyond spec.* |
+
+## 6. Units and QUDT alignment
+
+| Feature | Description |
+|---|---|
+| QUDT data | A pinned, offline copy of the QUDT units and quantity kinds: labels, symbols, UCUM codes, dimension vectors, conversion multipliers and offsets. It can be refreshed on demand. *Beyond spec.* |
+| Unit checks and lookup | Check that `tss:unit` is a known QUDT unit that is not deprecated (suggest the replacement), and that it applies to the field's `tss:observedProperty` when that is a quantity kind. Fix near misses such as `https://qudt.org/vocab/…` for `http://qudt.org/vocab/…`; both occur in this repository. Suggest unit IRIs from a symbol, UCUM code or label (`µS/cm` → `unit:MicroS-PER-CentiM`). *Beyond spec.* |
+| Unit conversion | Convert values between two units with the same dimension vector through their QUDT multipliers and offsets, such as µS/cm to S/m or °C to K, and refuse incompatible pairs. *Beyond spec.* |
+| Snippet alignment | Convert one or more snippets to a target unit, such as the SI unit of their quantity kind, as new data and metadata (`tss:unit`, `tss:minimum`, `tss:maximum`, baselines and summaries) or as observations. An affine conversion carries the stored summaries over without reading the data; for a delta-encoded field the baseline takes the offset and the differences only the multiplier. *Beyond spec.* |
+| Discovery by quantity kind | Find series by quantity kind whatever their unit, and optionally through QUDT broader or exact matches. The competency questions now match exact IRIs only. *Beyond spec.* |
+
+## 7. Conformance testing
+
+| Feature | Description |
+|---|---|
+| SHACL validation | Validate with the bundled demo 11 shapes, embedded or external as the snippet classes say, or with custom shapes. Parse with exact lexical forms so check P4 sees malformed values. Return the report as RDF and as a summary: conforms or not, counts per severity, and check IDs such as S23. *Port: demo 10 `shacl_report.py`.* |
+| Data checks beyond SHACL | Check what the shapes cannot see: the contents of JSON points, and of data files (lexical forms, timezones, unique times, steps), Parquet and Arrow column types against `tss:datatype`, and a CSV header against the column names. *New.* |
+| One report | Merge SHACL results and these checks into one report with shared check IDs and locations (CSV line, row number, point time), as text, JSON or `sh:ValidationReport`, with a verdict for each conformance class: metadata document and data. *New.* |
+| Summary verification | Recompute each `tss:summary` from the data in the window and compare count, missing, first and last time, minimum, maximum, mean and median, naming the numbers that are out of date. *Port: demo 10 summary check in the Query tab and the SQL box.* |
+| Conformance test suite | Small valid and invalid documents and data files, at least one per MUST and MUST NOT, each with its check ID and expected result. They test this library as consumer, expander and writer, and can test other implementations. *New.* |
+
+## 8. Writing and publishing
+
+| Feature | Description |
+|---|---|
+| Appending points | A conforming writer for mutable embedded snippets: check that the new point's values have their lexical forms and that no point has the same time, append one `tss:hasPoint` statement or rewrite `tss:points` with string values, widen the window, set `tss:committedUntil`, recompute the summaries, and keep the change only if the document still conforms. *Port: demo 10 `appendPoints.js`, `metadataUpdate.js` (browser only, old model).* |
+| Document writing | Write a document as Turtle with its own prefixes, summaries nested, and RDF points last, one statement each, so that a later append adds text at the end. Numbers and booleans keep their full form. Changes to `tss:committedUntil`, the window and the summaries keep the document's comments and layout. *Port: demo 10 `documentTurtle`, `exact_turtle`; keeping the layout is new, since demo 10 drops comments.* |
+| Summary generation | Compute and attach `tss:summary` nodes for chosen fields over the window, with `tss:ExcludeEmptyValues`, numeric attributes only on numeric fields, and `tss:generatedAtTime`. *Port in part: demo 10 `metadataUpdate.js`.* |
+| Metadata scaffolding | Draft a metadata document from a data file: fields from the column names and native types (per the Parquet and Arrow tables), the time column, a time grid when the steps are regular, the window and the summaries. The author then adds what each field observes. *New.* |
+| Builder API | Build snippets and fields in code, from scratch or from a DataFrame, and write them only after they pass validation. *New.* |
+| External snippet upkeep | For an append-only data file: append rows, move `tss:committedUntil` forward (also after a check that finds nothing new), and refresh the window and the summaries. The spec leaves data-file management to the publisher. *Beyond spec; demo 1's publisher did this for CSV.* |
+
+## 9. Tooling and integration
+
+| Feature | Description |
+|---|---|
+| Command line | An `rdftss` command with subcommands such as `info`, `validate`, `read`, `query`, `sql`, `expand`, `convert`, `summarize`, `append`, `migrate`, `units` and `cq`, replacing the separate scripts `tss2rdf.py`, `shacl_report.py`, `csv2parquet.py`, `csv_to_points.py` and `evaluation_runner.py`. *Port.* |
+| Migration | Rewrite documents written for `main` or demos 7–10 in demo 11 terms, following the changelog's [migration table](<../tech demo/demo 11/CHANGELOG.md#migration-from-main-to-demo-11>): `tss:Source`, `tss:embedded`, `tss:format`, `tss:pointOf`, `tss:modifiedAt`, `prov:generatedAtTime`, `xsd:dateTime` times and keys with several fields. List what needs a person's decision, such as a time without a timezone. *New.* |
+| Dashboard service layer | Optional FastAPI routers for the catalogue, data, queries, SQL, SHACL and RDF generation, so the dashboard's backend becomes a thin layer over the library. *Port: demo 10 `*_routes.py`.* |
+| Browser use | Keep the core pure Python, with DuckDB and pyarrow as optional extras, so the dashboard can run the library in the browser through Pyodide, as it already runs pyshacl. This would replace the JavaScript ports in `frontend/src/browser/`, which must now be kept equal to the Python by hand. *Beyond spec.* |
+| Untrusted input | No JSON-LD remote contexts, data files only inside an allowed folder, network access off by default, limits on size and time, and locked-down SQL. *Port: demo 10 security rules.* |
+| Scale | Stream rows and triples so memory stays bounded; the demo data expands to up to 440,000 observations and 3.4 million triples per document. Push the time window down into Parquet and Arrow reads. *Port, to improve.* |
+
+## 10. Possible extensions
+
+| Feature | Description |
+|---|---|
+| LDES publication | Publish windowed snippets as members of a Linked Data Event Stream, with TREE fragmentation by time, so clients can page through the history. *Beyond spec.* |
+| Live ingestion | Feed readings from a live channel, such as MQTT with SenML as in demo 1, into a mutable snippet with the append rules. *Beyond spec.* |
+| Triple store loading | Load expanded observations into a SPARQL store such as Fuseki or Oxigraph, with one named graph per snippet. *Beyond spec.* |
+
+## Open decisions
+
+- **Language.** Python first, since rdflib, pyshacl, DuckDB and pyarrow already do the work in the demos, with browser use through Pyodide; or also a JavaScript or TypeScript package for web clients.
+- **Specification version.** The demo 11 vocabulary still says `0.2.0`, although it breaks compatibility with `main`. The library needs a version number to report and check against.
+- **Home of the vocabulary and shapes.** Copy them into the package, or make the package their one home, which the demos and the specification repository then reference.
+- **First release.** QUDT alignment is a stated goal. LDES publication, live ingestion and triple-store loading could wait, or live in add-on packages.
