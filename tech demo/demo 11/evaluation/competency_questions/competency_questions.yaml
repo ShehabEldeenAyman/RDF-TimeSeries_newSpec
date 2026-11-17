@@ -1,0 +1,162 @@
+competency questions:
+  Semantic discovery:
+  - id: CQ1
+    question: Which snippets describe a specified observed property for a specified feature of interest?
+    example: Find conductivity series for Water Body A.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/rdftss-cq/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT DISTINCT ?snippet ?field WHERE {
+          ?snippet tss:hasField ?field .
+          ?field tss:observedProperty ex:ElectricalConductivity ;
+                 tss:featureOfInterest ex:WaterBodyA .
+      } ORDER BY ?snippet ?field
+    interpretation: Exact domain IRI matching; no inference or vocabulary alignment is performed. Matching metadata does not establish payload availability.
+  - id: CQ2
+    question: Which relevant snippets have declared temporal windows overlapping a requested interval?
+    example: Find conductivity series for Water Body A overlapping [2026-01-01T00:00:00Z, 2026-01-02T00:00:00Z).
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/rdftss-cq/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT DISTINCT ?snippet ?from ?until WHERE {
+          ?snippet tss:hasField ?field .
+          ?field tss:observedProperty ex:ElectricalConductivity ;
+                 tss:featureOfInterest ex:WaterBodyA .
+          OPTIONAL { ?snippet tss:from ?from }
+          OPTIONAL { ?snippet tss:until ?until }
+          FILTER (!BOUND(?from) || xsd:dateTime(STR(?from)) < "2026-01-02T00:00:00Z"^^xsd:dateTime)
+          FILTER (!BOUND(?until) || xsd:dateTime(STR(?until)) > "2026-01-01T00:00:00Z"^^xsd:dateTime)
+      } ORDER BY ?snippet
+    interpretation: Absent bounds are open. Assumes conforming timestamps and nonempty declared windows. Boundary-touching windows do not overlap. A matching window does not guarantee readings exist in it.
+  Source access:
+  - id: CQ3
+    question: Where are the readings of relevant snippets located, and how are they represented?
+    example: Locate external CSV, Parquet and Arrow references or embedded access predicates for conductivity series concerning Water Body A.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/rdftss-cq/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT DISTINCT ?snippet ?profile ?source ?accessPredicate WHERE {
+          ?snippet tss:hasField ?field .
+          ?field tss:observedProperty ex:ElectricalConductivity ;
+                 tss:featureOfInterest ex:WaterBodyA .
+          VALUES ?profile { tss:CSVSnippet tss:ParquetSnippet tss:ArrowSnippet tss:EmbeddedJSONSnippet tss:EmbeddedRDFSnippet }
+          ?snippet a ?profile .
+          {
+              VALUES ?profile { tss:CSVSnippet tss:ParquetSnippet tss:ArrowSnippet }
+              ?snippet tss:dataFile ?source .
+              BIND(tss:dataFile AS ?accessPredicate)
+          } UNION {
+              VALUES ?profile { tss:EmbeddedJSONSnippet }
+              BIND(tss:points AS ?accessPredicate)
+          } UNION {
+              VALUES ?profile { tss:EmbeddedRDFSnippet }
+              BIND(tss:hasPoint AS ?accessPredicate)
+          }
+      } ORDER BY ?snippet
+    interpretation: Embedded results identify the snippet and predicate in the queried catalog, not a new file URL. No JSON literals or point readings are selected. External URLs are not dereferenced.
+  - id: CQ4
+    question: Which fields identify timestamps and the requested measurement, and how are they bound to the representation?
+    example: Inspect bindings for direct CSV, Parquet, Arrow, JSON, RDF and time-grid representations.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/rdftss-cq/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT DISTINCT ?snippet ?profile ?timeField ?timeColumn ?timeIndex
+                      ?valueField ?valueColumn ?valueIndex WHERE {
+          VALUES ?snippet { ex:csvSnippet ex:parquetSnippet ex:arrowSnippet ex:jsonSnippet ex:rdfSnippet ex:gridSnippet }
+          VALUES ?profile { tss:CSVSnippet tss:ParquetSnippet tss:ArrowSnippet tss:EmbeddedJSONSnippet tss:EmbeddedRDFSnippet }
+          ?snippet a ?profile ; tss:timeField ?timeField ; tss:hasField ?valueField .
+          ?valueField tss:observedProperty ex:ElectricalConductivity .
+          OPTIONAL { ?timeField tss:columnName ?timeColumn }
+          OPTIONAL { ?timeField tss:columnIndex ?timeIndex }
+          OPTIONAL { ?valueField tss:columnName ?valueColumn }
+          OPTIONAL { ?valueField tss:columnIndex ?valueIndex }
+      } ORDER BY ?snippet
+    interpretation: For RDF points, field IRIs are the predicates. JSON uses column names as keys. Derived time fields have no column; CQ6 retrieves grid parameters. Unbound values are not automatically errors.
+  Interpretation metadata:
+  - id: CQ5
+    question: What datatype and semantic context describe the selected measurement field?
+    example: Retrieve measurement context for the selected CSV conductivity series.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/rdftss-cq/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT ?field ?datatype ?property ?unit ?sensor ?feature WHERE {
+          VALUES ?snippet { ex:csvSnippet }
+          ?snippet tss:hasField ?field .
+          ?field tss:observedProperty ?property ; tss:datatype ?datatype .
+          VALUES ?property { ex:ElectricalConductivity }
+          OPTIONAL { ?field tss:unit ?unit }
+          OPTIONAL { ?field tss:sensor ?sensor }
+          OPTIONAL { ?field tss:featureOfInterest ?feature }
+      } ORDER BY ?field
+    interpretation: Reports supplied context, not independently verified domain truth. Missing optional descriptions remain unbound.
+  - id: CQ6
+    question: What declared parameters are needed to reconstruct timestamps or measurement values from a selected external source?
+    example: Compare direct, time-grid and baseline-difference descriptions without decoding their payloads.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/rdftss-cq/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT ?snippet ?source ?field ?timeBase ?timeStep ?stepField ?stepColumn ?stepIndex ?encoding ?baseline WHERE {
+          VALUES ?snippet { ex:csvSnippet ex:gridSnippet ex:deltaSnippet }
+          ?snippet tss:dataFile ?source ; tss:hasField ?field .
+          ?field tss:observedProperty ex:ElectricalConductivity .
+          OPTIONAL { ?snippet tss:timeBase ?timeBase }
+          OPTIONAL { ?snippet tss:timeStep ?timeStep }
+          OPTIONAL {
+              ?snippet tss:stepField ?stepField .
+              OPTIONAL { ?stepField tss:columnName ?stepColumn }
+              OPTIONAL { ?stepField tss:columnIndex ?stepIndex }
+          }
+          OPTIONAL { ?field tss:valueEncoding ?encoding }
+          OPTIONAL { ?field tss:baseline ?baseline }
+      } ORDER BY ?snippet
+    interpretation: Parameters are optional independently so incomplete declarations remain visible. This is retrieval, not validation. No timestamp or measurement reconstruction is performed.
+  Source assessment:
+  - id: CQ7
+    question: What update policy is declared for selected sources, and when were they last checked?
+    example: Compare immutable CSV and append-only Parquet source descriptions.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/rdftss-cq/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT ?snippet ?mutable ?checkedAt WHERE {
+          VALUES ?snippet { ex:csvSnippet ex:parquetSnippet }
+          ?snippet tss:mutable ?mutable ; tss:committedUntil ?checkedAt .
+      } ORDER BY ?snippet
+    interpretation: committedUntil is the declared check/write time, not the newest measurement or a completeness watermark. The query does not verify publisher behavior.
+  - id: CQ8
+    question: Which declared summaries are available for selected measurement fields, and what snippet windows do they describe?
+    example: Retrieve available CSV statistics and preserve a Parquet result with no summary.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/rdftss-cq/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT ?snippet ?field ?from ?until ?summary ?count ?missing ?minimum ?maximum ?generatedAt WHERE {
+          VALUES ?snippet { ex:csvSnippet ex:parquetSnippet }
+          ?snippet tss:hasField ?field .
+          ?field tss:observedProperty ex:ElectricalConductivity .
+          OPTIONAL { ?snippet tss:from ?from }
+          OPTIONAL { ?snippet tss:until ?until }
+          OPTIONAL {
+              ?field tss:summary ?summary .
+              OPTIONAL { ?summary tss:count ?count }
+              OPTIONAL { ?summary tss:missing ?missing }
+              OPTIONAL { ?summary tss:observedMinimum ?minimum }
+              OPTIONAL { ?summary tss:observedMaximum ?maximum }
+              OPTIONAL { ?summary tss:generatedAtTime ?generatedAt }
+          }
+      } ORDER BY ?snippet
+    interpretation: Summary numbers are synthetic publisher declarations. They are not recomputed or verified. An absent summary is retained as an unbound result; missing counts do not count absent timestamps.
