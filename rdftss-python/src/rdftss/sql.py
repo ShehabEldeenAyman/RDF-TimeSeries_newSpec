@@ -110,6 +110,7 @@ class Database:
     def __init__(self, snippets, *, max_rows: int = 10_000, max_bytes: int = 50_000_000, timeout: float = 30.0,
                  memory_limit: str = "1GB", threads: int = 4, strict: bool = True):
         duckdb = require("duckdb", "SQL queries", "sql")
+        require("pytz", "SQL queries", "sql")   # DuckDB needs it for times with a timezone, but doesn't install it
         self._duckdb = duckdb
         self.max_rows, self.max_bytes, self.timeout = max_rows, max_bytes, timeout
         snippets = list(getattr(snippets, "snippets", snippets))

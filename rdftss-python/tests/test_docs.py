@@ -1,4 +1,5 @@
-"""The documentation's code runs, and the bundled vocabulary is the one of demo 11."""
+"""The documentation's code runs, requirements.txt lists every dependency, and the bundled
+vocabulary is the one of demo 11."""
 import contextlib
 import io
 import re
@@ -39,6 +40,17 @@ def test_the_quickstart_runs(tmp_path, monkeypatch):
     with contextlib.redirect_stdout(io.StringIO()) as output:
         runpy.run_path(str(EXAMPLES / "quickstart.py"), run_name="__main__")
     assert "Same points: True" in output.getvalue()
+
+
+def test_the_requirements_file_lists_every_dependency():
+    tomllib = pytest.importorskip("tomllib")    # Python 3.11 and newer
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    wanted = set(project["dependencies"]).union(*project["optional-dependencies"].values())
+    text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+    lines = [line.split("#")[0].strip() for line in text.splitlines()]
+    assert {line for line in lines if line and not line.startswith("-")} == wanted, \
+        "requirements.txt and pyproject.toml list different packages"
+    assert "-e ." in lines, "requirements.txt should also install rdftss itself"
 
 
 def test_the_bundled_vocabulary():

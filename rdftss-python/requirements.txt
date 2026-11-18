@@ -1,0 +1,16 @@
+# Every Python library rdftss uses, and rdftss itself.
+# Install them all with one command, run from this folder:
+#
+#     pip install -r requirements.txt
+#
+# rdftss needs only rdflib; the others add features (see "Install" in README.md).
+
+rdflib>=7.0        # reading the RDF of metadata documents
+pyarrow>=14        # Parquet and Arrow files
+pandas>=2.0        # snippet.to_pandas()
+polars>=0.20       # snippet.to_polars()
+duckdb>=1.0        # snippet.sql() and rdftss.Database
+pytz>=2020.1       # DuckDB needs it for times with a timezone, but doesn't install it
+pytest>=7          # running the tests
+
+-e .               # rdftss itself, from this folder: changes to src/ apply at once

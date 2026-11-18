@@ -25,9 +25,9 @@ files = ["pyarrow>=14"]
 # DataFrames
 pandas = ["pyarrow>=14", "pandas>=2.0"]
 polars = ["pyarrow>=14", "polars>=0.20"]
-# SQL with DuckDB
-sql = ["pyarrow>=14", "duckdb>=1.0"]
-all = ["pyarrow>=14", "pandas>=2.0", "polars>=0.20", "duckdb>=1.0"]
+# SQL with DuckDB, which needs pytz for times with a timezone but doesn't install it
+sql = ["pyarrow>=14", "duckdb>=1.0", "pytz>=2020.1"]
+all = ["pyarrow>=14", "pandas>=2.0", "polars>=0.20", "duckdb>=1.0", "pytz>=2020.1"]
 test = ["pytest>=7"]
 
 [tool.setuptools.packages.find]

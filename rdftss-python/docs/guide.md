@@ -1,6 +1,6 @@
 # rdftss guide
 
-This guide shows every feature of rdftss with the example documents in [`examples/`](../examples/). The code runs from the `rdftss` folder. Each section stands on its own.
+This guide shows every feature of rdftss with the example documents in [`examples/`](../examples/). The code runs from the library's main folder, the one with `pyproject.toml`. Each section stands on its own.
 
 1. [Loading a document](#1-loading-a-document)
 2. [Snippets and fields](#2-snippets-and-fields)
