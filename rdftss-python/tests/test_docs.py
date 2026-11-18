@@ -24,7 +24,7 @@ def code_blocks():
 
 
 def test_the_code_in_the_readme_and_the_guide_runs(tmp_path, monkeypatch):
-    for package in ("pandas", "polars", "duckdb"):
+    for package in ("pandas", "polars"):
         pytest.importorskip(package)
     shutil.copytree(EXAMPLES, tmp_path / "examples")
     (tmp_path / "out").mkdir()
@@ -56,6 +56,15 @@ def test_the_requirements_file_lists_every_dependency():
 def test_the_bundled_vocabulary():
     graph = vocabulary_graph()
     assert (URIRef("https://w3id.org/tss#"), OWL.versionInfo, Literal(SPEC_VERSION)) in graph
+
+
+@pytest.mark.skipif(not DEMO_11.exists(), reason="the demo 11 folder is not next to rdftss")
+@pytest.mark.parametrize("name", ["embedded_shapes.ttl", "external_shapes.ttl"])
+def test_the_bundled_shapes_are_those_of_demo_11(name):
+    from rdftss.validation import SHAPES_FOLDER
+
+    assert (SHAPES_FOLDER / name).read_bytes() == (DEMO_11 / "SHACL" / name).read_bytes(), \
+        f"the shapes of demo 11 changed: copy SHACL/{name} to src/rdftss/shapes/"
 
 
 @pytest.mark.skipif(not DEMO_11.exists(), reason="the demo 11 folder is not next to rdftss")

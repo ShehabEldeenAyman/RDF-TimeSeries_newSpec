@@ -436,7 +436,7 @@ class Snippet:
     - :meth:`read` gives the points, in time order; :meth:`iter_points` streams them.
     - :meth:`statistics`, :meth:`gaps`, :meth:`resample`: analysis of the points.
     - :meth:`to_pandas`, :meth:`to_polars`, :meth:`to_arrow`: DataFrames and tables.
-    - :meth:`sql`: SQL with DuckDB.
+    - :meth:`sparql`: SPARQL queries over the points and the metadata.
     - :meth:`expand`: observations (SOSA by default); :meth:`convert`: another storage class.
     """
 
@@ -697,13 +697,21 @@ class Snippet:
         """The points in the window as a polars DataFrame. See :meth:`Points.to_polars`."""
         return self.read().to_polars(**options)
 
-    def sql(self, query: str, **limits):
-        """Run one read-only SQL query on this snippet with DuckDB. The table of the points is
-        called ``points`` (and also by the snippet's name). See :class:`rdftss.sql.Database`."""
-        from .sql import Database
+    def verify_summaries(self, **options):
+        """Recompute this snippet's stored summaries from the data, and compare. See
+        :func:`rdftss.summaries.verify_summaries`."""
+        from .summaries import verify_summaries
 
-        with Database([self], **limits) as database:
-            return database.query(query)
+        return verify_summaries(self, **options)
+
+    def sparql(self, query: str, **options):
+        """Run one read-only SPARQL query on this snippet: its points (``tss:hasPoint``, one
+        triple per field value) and its document's metadata. ``options`` are those of
+        :class:`rdftss.sparql.TripleStore`; for several queries, make a store once."""
+        from .sparql import TripleStore
+
+        with TripleStore([self], **options) as store:
+            return store.query(query)
 
     # -- materialisation -------------------------------------------------------------------------
 

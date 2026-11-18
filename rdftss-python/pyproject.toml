@@ -10,13 +10,13 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "RDF Time Series Snippets contributors"}]
-keywords = ["rdf", "time series", "linked data", "sosa", "qudt", "parquet", "arrow", "csv"]
+keywords = ["rdf", "sparql", "time series", "linked data", "sosa", "qudt", "parquet", "arrow", "csv"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Topic :: Scientific/Engineering",
 ]
-# rdflib is the only required package. The extras add what some features need.
+# rdflib is the only required package: it also runs the SPARQL queries. The extras add what some features need.
 dependencies = ["rdflib>=7.0"]
 
 [project.optional-dependencies]
@@ -25,16 +25,16 @@ files = ["pyarrow>=14"]
 # DataFrames
 pandas = ["pyarrow>=14", "pandas>=2.0"]
 polars = ["pyarrow>=14", "polars>=0.20"]
-# SQL with DuckDB, which needs pytz for times with a timezone but doesn't install it
-sql = ["pyarrow>=14", "duckdb>=1.0", "pytz>=2020.1"]
-all = ["pyarrow>=14", "pandas>=2.0", "polars>=0.20", "duckdb>=1.0", "pytz>=2020.1"]
+# SHACL validation with the specification's shapes
+shacl = ["pyshacl>=0.25"]
+all = ["pyarrow>=14", "pandas>=2.0", "polars>=0.20", "pyshacl>=0.25"]
 test = ["pytest>=7"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-rdftss = ["vocabulary/*.ttl", "py.typed"]
+rdftss = ["vocabulary/*.ttl", "shapes/*.ttl", "py.typed"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

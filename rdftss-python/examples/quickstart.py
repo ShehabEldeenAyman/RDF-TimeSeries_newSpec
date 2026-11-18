@@ -2,8 +2,9 @@
 
     python examples/quickstart.py
 
-It reads a snippet, analyses it, queries it with SQL, finds snippets across documents, expands
-one into observations and converts it to Parquet. Files it writes go to a temporary folder.
+It reads a snippet, analyses it, queries it with SPARQL, finds snippets across documents, expands
+one into observations, converts it to Parquet, and checks documents against the specification.
+Files it writes go to a temporary folder.
 """
 import tempfile
 from pathlib import Path
@@ -50,11 +51,12 @@ def main() -> None:
     except rdftss.MissingDependencyError as error:
         print(error)
 
-    title("6. SQL")
-    try:
-        print(snippet.sql("SELECT quality, count(*) AS n, round(avg(value), 2) AS mean FROM points GROUP BY quality"))
-    except rdftss.MissingDependencyError as error:
-        print(error)
+    title("6. SPARQL")
+    print(snippet.sparql("""
+        SELECT ?quality (COUNT(?point) AS ?n) (ROUND(AVG(?value) * 100) / 100 AS ?mean)
+        WHERE { ?point ex:csv-value-field ?value ; ex:csv-quality-field ?quality . }
+        GROUP BY ?quality ORDER BY DESC(?n)
+    """))
 
     title("7. Find snippets across documents")
     documents = [rdftss.load(path) for path in sorted(HERE.glob("*.ttl"))]
@@ -74,6 +76,12 @@ def main() -> None:
         print("Same points:", [p["value"] for p in converted.snippet().read()] == [p["value"] for p in points])
     except rdftss.MissingDependencyError as error:
         print(error)
+    title("10. Check the documents against the specification")
+    try:
+        print(rdftss.load(HERE / "readings_grid.ttl").validate())
+    except rdftss.MissingDependencyError as error:
+        print(error)
+    print(embedded.verify_summaries())
     print(f"\nFiles written to {out}")
 
 

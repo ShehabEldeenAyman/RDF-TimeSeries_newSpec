@@ -153,12 +153,27 @@ class Document:
 
         return expand(self, destination, **options)
 
-    def sql(self, query: str, **limits):
-        """Run one read-only SQL query over all snippets of the document. See :class:`rdftss.sql.Database`."""
-        from .sql import Database
+    def validate(self, **options):
+        """Validate the document with the specification's SHACL shapes (or yours). See
+        :func:`rdftss.validation.validate`."""
+        from .validation import validate
 
-        with Database(self.snippets, **limits) as database:
-            return database.query(query)
+        return validate(self, **options)
+
+    def verify_summaries(self, **options):
+        """Recompute every stored summary of the document's snippets from the data, and compare.
+        See :func:`rdftss.summaries.verify_summaries`."""
+        from .summaries import verify_summaries
+
+        return verify_summaries(self, **options)
+
+    def sparql(self, query: str, **options):
+        """Run one read-only SPARQL query over the document and the points of all its snippets.
+        See :class:`rdftss.sparql.TripleStore`."""
+        from .sparql import TripleStore
+
+        with TripleStore(self.snippets, **options) as store:
+            return store.query(query)
 
     def to_turtle(self, path=None) -> str:
         """The document as Turtle: literals keep their text, and RDF points come last, one

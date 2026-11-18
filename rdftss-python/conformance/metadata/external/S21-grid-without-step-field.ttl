@@ -1,0 +1,34 @@
+# A time grid without a tss:stepField.
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:snippet
+    a tss:CSVSnippet ;
+    tss:mutable false ;
+    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:dataFile <readings.csv> ;
+    tss:timeBase "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeStep "PT15M"^^xsd:duration ;
+    tss:timeField ex:time-field ;
+    tss:hasField ex:time-field, ex:step-field, ex:value-field .
+
+ex:time-field
+    a tss:Field ;
+    tss:datatype xsd:dateTimeStamp .
+
+ex:step-field
+    a tss:Field ;
+    tss:columnName "step" ;
+    tss:datatype xsd:integer .
+
+ex:value-field
+    a tss:Field ;
+    tss:columnName "value" ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity .

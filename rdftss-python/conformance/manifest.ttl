@@ -1,0 +1,1660 @@
+# The TSS conformance test suite: every test, its input and its expected result.
+# Written by make_suite.py; docs/conformance.md explains the test types and how to run them.
+@prefix mf: <http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix tsst: <https://w3id.org/tss/tests#> .
+
+<> a mf:Manifest ;
+    rdfs:label "TSS conformance tests" ;
+    rdfs:comment "Tests of conforming metadata documents (SHACL), consumers (reading), stored summaries and expanders." ;
+    rdfs:seeAlso <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/> ;
+    mf:entries (
+        <#embedded-valid-rdf-points>
+        <#embedded-valid-json-points>
+        <#embedded-valid-open-window>
+        <#embedded-valid-times-with-offsets>
+        <#embedded-valid-empty-text-is-no-value>
+        <#embedded-valid-no-points-yet>
+        <#embedded-valid-empty-json-array>
+        <#embedded-S2-mutable-missing>
+        <#embedded-S2-mutable-not-a-boolean>
+        <#embedded-S3-two-snippet-classes>
+        <#embedded-S4-time-field-missing>
+        <#embedded-S4-time-field-not-a-field-of-the-snippet>
+        <#embedded-S5-no-fields>
+        <#embedded-S6-value-outside-a-point>
+        <#embedded-S6-json-points-not-rdf-json>
+        <#embedded-S6-json-points-not-an-array>
+        <#embedded-S6-json-points-missing>
+        <#embedded-S7-label-not-a-literal>
+        <#embedded-S8-produced-by-a-literal>
+        <#embedded-S9-key-not-the-time-field>
+        <#embedded-S9-two-keys>
+        <#embedded-S10-from-a-date>
+        <#embedded-S11-until-before-from>
+        <#embedded-S12-data-file>
+        <#embedded-S12-delimiter>
+        <#embedded-S12-encoding>
+        <#embedded-S12-header>
+        <#embedded-S12-time-base>
+        <#embedded-S12-time-step>
+        <#embedded-S12-step-field>
+        <#embedded-S12-points-on-an-rdf-snippet>
+        <#embedded-S12-has-point-on-a-json-snippet>
+        <#embedded-S17-committed-until-missing>
+        <#embedded-S17-committed-until-a-date-time>
+        <#embedded-S20-time-field-datatype>
+        <#embedded-S23-from-without-timezone>
+        <#embedded-S23-point-time-without-timezone>
+        <#embedded-S23-summary-time-without-timezone>
+        <#embedded-S25-json-field-without-column-name>
+        <#embedded-F1-field-not-typed>
+        <#embedded-F1-field-of-two-snippets>
+        <#embedded-F2-empty-column-name>
+        <#embedded-F2-duplicate-column-names>
+        <#embedded-F3-datatype-missing>
+        <#embedded-F3-datatype-a-literal>
+        <#embedded-F4-negative-column-index>
+        <#embedded-F4-duplicate-column-indexes>
+        <#embedded-F5-label-not-a-literal>
+        <#embedded-F6-comment-not-a-literal>
+        <#embedded-F7-minimum-not-a-number>
+        <#embedded-F8-maximum-below-minimum>
+        <#embedded-F9-field-without-values>
+        <#embedded-F10-summary-a-literal>
+        <#embedded-D3-value-encoding-on-an-embedded-field>
+        <#embedded-D3-baseline-on-an-embedded-field>
+        <#embedded-P1-point-without-time>
+        <#embedded-P2-point-before-from>
+        <#embedded-P2-point-at-until>
+        <#embedded-P3-two-points-at-the-same-moment>
+        <#embedded-P4-value-not-in-lexical-form>
+        <#embedded-P4-value-with-another-datatype>
+        <#embedded-P5-value-above-maximum>
+        <#embedded-P6-point-with-a-type>
+        <#embedded-P7-two-values-for-one-field>
+        <#embedded-Q1-summary-with-from>
+        <#embedded-Q2-summary-with-until>
+        <#embedded-Q3-policy-a-literal>
+        <#embedded-Q4-count-a-decimal>
+        <#embedded-Q4-count-negative>
+        <#embedded-Q5-missing-negative>
+        <#embedded-Q6-first-time-a-date>
+        <#embedded-Q7-last-time-a-date>
+        <#embedded-Q8-observed-minimum-a-string>
+        <#embedded-Q9-observed-maximum-a-string>
+        <#embedded-Q10-mean-a-string>
+        <#embedded-Q11-median-a-string>
+        <#embedded-Q12-generated-at-time-a-date>
+        <#external-valid-csv>
+        <#external-valid-csv-no-header>
+        <#external-valid-parquet>
+        <#external-valid-arrow>
+        <#external-valid-time-grid>
+        <#external-valid-delta-from-baseline>
+        <#external-valid-open-window>
+        <#external-S3-mutable-missing>
+        <#external-S4-time-field-missing>
+        <#external-S4-time-field-not-a-field-of-the-snippet>
+        <#external-S5-key-not-the-time-field>
+        <#external-S6-no-fields>
+        <#external-S7-two-snippet-classes>
+        <#external-S8-data-file-missing>
+        <#external-S8-data-file-a-literal>
+        <#external-S10-delimiter-two-characters>
+        <#external-S11-encoding-empty>
+        <#external-S12-label-not-a-literal>
+        <#external-S13-produced-by-a-literal>
+        <#external-S14-until-before-from>
+        <#external-S15-delimiter-on-parquet>
+        <#external-S15-encoding-on-arrow>
+        <#external-S17-committed-until-missing>
+        <#external-S19-time-base-without-time-step>
+        <#external-S18-time-base-a-date>
+        <#external-S18-time-step-without-time-base>
+        <#external-S19-time-step-zero>
+        <#external-S19-time-step-negative>
+        <#external-S20-time-field-datatype>
+        <#external-S21-grid-without-step-field>
+        <#external-S21-step-field-not-an-integer>
+        <#external-S21-step-field-without-a-grid>
+        <#external-S22-has-point>
+        <#external-S22-points>
+        <#external-S23-committed-until-without-timezone>
+        <#external-S23-time-base-without-timezone>
+        <#external-F1-field-not-typed>
+        <#external-F2-column-name-missing>
+        <#external-F2-duplicate-column-names>
+        <#external-F2-grid-time-field-with-a-column-name>
+        <#external-F3-datatype-missing>
+        <#external-F4-duplicate-column-indexes>
+        <#external-F8-maximum-below-minimum>
+        <#external-D1-unknown-value-encoding>
+        <#external-D1-delta-without-baseline>
+        <#external-D2-baseline-with-another-datatype>
+        <#external-D3-baseline-without-value-encoding>
+        <#external-D3-value-encoding-on-the-time-field>
+        <#external-Q2-summary-with-until>
+        <#external-F5-label-not-a-literal>
+        <#external-F6-comment-not-a-literal>
+        <#external-F7-minimum-not-a-number>
+        <#external-F10-summary-a-literal>
+        <#external-Q1-summary-with-from>
+        <#external-Q3-policy-a-literal>
+        <#external-Q4-count-a-decimal>
+        <#external-Q4-count-negative>
+        <#external-Q5-missing-negative>
+        <#external-Q6-first-time-a-date>
+        <#external-Q7-last-time-a-date>
+        <#external-Q8-observed-minimum-a-string>
+        <#external-Q9-observed-maximum-a-string>
+        <#external-Q10-mean-a-string>
+        <#external-Q11-median-a-string>
+        <#external-Q12-generated-at-time-a-date>
+        <#external-S2-from-a-date>
+        <#mixed-S1-no-snippet>
+        <#mixed-S24-embedded-and-external-snippets>
+        <#reading-rdf-points>
+        <#reading-json-empty-values>
+        <#reading-csv-delimiter>
+        <#reading-csv-no-header>
+        <#reading-csv-time-window>
+        <#reading-csv-time-offsets>
+        <#reading-time-grid>
+        <#reading-time-grid-calendar-months>
+        <#reading-delta-from-baseline>
+        <#reading-texts-kept>
+        <#reading-parquet>
+        <#reading-arrow>
+        <#reading-error-csv-point-without-time>
+        <#reading-error-csv-value-not-in-lexical-form>
+        <#reading-error-json-point-without-time>
+        <#reading-error-json-value-not-in-lexical-form>
+        <#summaries-up-to-date>
+        <#summaries-out-of-date>
+        <#summaries-out-of-date-first-time>
+        <#summaries-empty-values>
+        <#summaries-same-moment>
+        <#summaries-decoded-values>
+        <#summaries-window>
+        <#expansion-rdf-points>
+        <#expansion-measured-fields-only>
+        <#expansion-time-grid-and-delta>
+    ) .
+
+<#embedded-valid-rdf-points> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-rdf-points" ; ;
+    rdfs:comment "The specification's embedded example: RDF points and a stored summary." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#embedded-example> ; ;
+    mf:action <metadata/embedded/valid-rdf-points.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-valid-json-points> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-json-points" ; ;
+    rdfs:comment "The same readings as JSON points." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#json-points> ; ;
+    mf:action <metadata/embedded/valid-json-points.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-valid-open-window> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-open-window" ; ;
+    rdfs:comment "A snippet without tss:from and tss:until: the window is open on both sides." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <metadata/embedded/valid-open-window.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-valid-times-with-offsets> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-times-with-offsets" ; ;
+    rdfs:comment "A point's time with an offset instead of Z." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
+    mf:action <metadata/embedded/valid-times-with-offsets.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-valid-empty-text-is-no-value> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-empty-text-is-no-value" ; ;
+    rdfs:comment "An empty text (\"\") is no value, so it is not checked against xsd:double." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#points> ; ;
+    mf:action <metadata/embedded/valid-empty-text-is-no-value.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-valid-no-points-yet> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-no-points-yet" ; ;
+    rdfs:comment "A snippet may have no points yet." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <metadata/embedded/valid-no-points-yet.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-valid-empty-json-array> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-empty-json-array" ; ;
+    rdfs:comment "\"[]\" holds no points." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#json-points> ; ;
+    mf:action <metadata/embedded/valid-empty-json-array.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-S2-mutable-missing> a tsst:MetadataTest ; ;
+    mf:name "embedded-S2-mutable-missing" ; ;
+    rdfs:comment "The snippet has no tss:mutable." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
+    mf:action <metadata/embedded/S2-mutable-missing.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S2" .
+
+<#embedded-S2-mutable-not-a-boolean> a tsst:MetadataTest ; ;
+    mf:name "embedded-S2-mutable-not-a-boolean" ; ;
+    rdfs:comment "tss:mutable is the string \"yes\", not an xsd:boolean." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
+    mf:action <metadata/embedded/S2-mutable-not-a-boolean.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S2" .
+
+<#embedded-S3-two-snippet-classes> a tsst:MetadataTest ; ;
+    mf:name "embedded-S3-two-snippet-classes" ; ;
+    rdfs:comment "The snippet states two snippet classes." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S3-two-snippet-classes.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S3" .
+
+<#embedded-S4-time-field-missing> a tsst:MetadataTest ; ;
+    mf:name "embedded-S4-time-field-missing" ; ;
+    rdfs:comment "The snippet has no tss:timeField." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/embedded/S4-time-field-missing.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S4" .
+
+<#embedded-S4-time-field-not-a-field-of-the-snippet> a tsst:MetadataTest ; ;
+    mf:name "embedded-S4-time-field-not-a-field-of-the-snippet" ; ;
+    rdfs:comment "The time field is not one of the snippet's fields." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/embedded/S4-time-field-not-a-field-of-the-snippet.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S4" .
+
+<#embedded-S5-no-fields> a tsst:MetadataTest ; ;
+    mf:name "embedded-S5-no-fields" ; ;
+    rdfs:comment "The snippet has no tss:hasField." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/S5-no-fields.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S5" .
+
+<#embedded-S6-value-outside-a-point> a tsst:MetadataTest ; ;
+    mf:name "embedded-S6-value-outside-a-point" ; ;
+    rdfs:comment "A value of a field is on a node that the snippet does not link to with tss:hasPoint." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <metadata/embedded/S6-value-outside-a-point.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S6" .
+
+<#embedded-S6-json-points-not-rdf-json> a tsst:MetadataTest ; ;
+    mf:name "embedded-S6-json-points-not-rdf-json" ; ;
+    rdfs:comment "tss:points is a plain string, not an rdf:JSON literal." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#json-points> ; ;
+    mf:action <metadata/embedded/S6-json-points-not-rdf-json.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S6" .
+
+<#embedded-S6-json-points-not-an-array> a tsst:MetadataTest ; ;
+    mf:name "embedded-S6-json-points-not-an-array" ; ;
+    rdfs:comment "tss:points holds a JSON object, not an array." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#json-points> ; ;
+    mf:action <metadata/embedded/S6-json-points-not-an-array.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S6" .
+
+<#embedded-S6-json-points-missing> a tsst:MetadataTest ; ;
+    mf:name "embedded-S6-json-points-missing" ; ;
+    rdfs:comment "A tss:EmbeddedJSONSnippet without tss:points." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#json-points> ; ;
+    mf:action <metadata/embedded/S6-json-points-missing.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S6" .
+
+<#embedded-S7-label-not-a-literal> a tsst:MetadataTest ; ;
+    mf:name "embedded-S7-label-not-a-literal" ; ;
+    rdfs:comment "The snippet's label is an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#provenance> ; ;
+    mf:action <metadata/embedded/S7-label-not-a-literal.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S7" .
+
+<#embedded-S8-produced-by-a-literal> a tsst:MetadataTest ; ;
+    mf:name "embedded-S8-produced-by-a-literal" ; ;
+    rdfs:comment "tss:producedBy is a literal, not an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#provenance> ; ;
+    mf:action <metadata/embedded/S8-produced-by-a-literal.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S8" .
+
+<#embedded-S9-key-not-the-time-field> a tsst:MetadataTest ; ;
+    mf:name "embedded-S9-key-not-the-time-field" ; ;
+    rdfs:comment "The key is not the time field." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/embedded/S9-key-not-the-time-field.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S9" .
+
+<#embedded-S9-two-keys> a tsst:MetadataTest ; ;
+    mf:name "embedded-S9-two-keys" ; ;
+    rdfs:comment "The snippet states two keys." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/embedded/S9-two-keys.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S9" .
+
+<#embedded-S10-from-a-date> a tsst:MetadataTest ; ;
+    mf:name "embedded-S10-from-a-date" ; ;
+    rdfs:comment "tss:from is an xsd:date, not an xsd:dateTimeStamp." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <metadata/embedded/S10-from-a-date.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S10" .
+
+<#embedded-S11-until-before-from> a tsst:MetadataTest ; ;
+    mf:name "embedded-S11-until-before-from" ; ;
+    rdfs:comment "tss:until is before tss:from." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <metadata/embedded/S11-until-before-from.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S11" .
+
+<#embedded-S12-data-file> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-data-file" ; ;
+    rdfs:comment "An embedded snippet states tss:dataFile." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-data-file.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S12-delimiter> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-delimiter" ; ;
+    rdfs:comment "An embedded snippet states tss:delimiter." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-delimiter.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S12-encoding> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-encoding" ; ;
+    rdfs:comment "An embedded snippet states tss:encoding." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-encoding.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S12-header> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-header" ; ;
+    rdfs:comment "An embedded snippet states tss:header." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-header.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S12-time-base> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-time-base" ; ;
+    rdfs:comment "An embedded snippet states tss:timeBase." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-time-base.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S12-time-step> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-time-step" ; ;
+    rdfs:comment "An embedded snippet states tss:timeStep." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-time-step.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S12-step-field> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-step-field" ; ;
+    rdfs:comment "An embedded snippet states tss:stepField." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-step-field.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S12-points-on-an-rdf-snippet> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-points-on-an-rdf-snippet" ; ;
+    rdfs:comment "An embedded snippet states tss:points." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-points-on-an-rdf-snippet.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S12-has-point-on-a-json-snippet> a tsst:MetadataTest ; ;
+    mf:name "embedded-S12-has-point-on-a-json-snippet" ; ;
+    rdfs:comment "A tss:EmbeddedJSONSnippet with an RDF point." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/embedded/S12-has-point-on-a-json-snippet.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#embedded-S17-committed-until-missing> a tsst:MetadataTest ; ;
+    mf:name "embedded-S17-committed-until-missing" ; ;
+    rdfs:comment "The snippet has no tss:committedUntil." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
+    mf:action <metadata/embedded/S17-committed-until-missing.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S17" .
+
+<#embedded-S17-committed-until-a-date-time> a tsst:MetadataTest ; ;
+    mf:name "embedded-S17-committed-until-a-date-time" ; ;
+    rdfs:comment "tss:committedUntil is an xsd:dateTime, not an xsd:dateTimeStamp." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
+    mf:action <metadata/embedded/S17-committed-until-a-date-time.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S17" .
+
+<#embedded-S20-time-field-datatype> a tsst:MetadataTest ; ;
+    mf:name "embedded-S20-time-field-datatype" ; ;
+    rdfs:comment "The time field's datatype is xsd:dateTime." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/embedded/S20-time-field-datatype.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S20" .
+
+<#embedded-S23-from-without-timezone> a tsst:MetadataTest ; ;
+    mf:name "embedded-S23-from-without-timezone" ; ;
+    rdfs:comment "tss:from has no timezone." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
+    mf:action <metadata/embedded/S23-from-without-timezone.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S23" .
+
+<#embedded-S23-point-time-without-timezone> a tsst:MetadataTest ; ;
+    mf:name "embedded-S23-point-time-without-timezone" ; ;
+    rdfs:comment "The time of a point has no timezone." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
+    mf:action <metadata/embedded/S23-point-time-without-timezone.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S23" .
+
+<#embedded-S23-summary-time-without-timezone> a tsst:MetadataTest ; ;
+    mf:name "embedded-S23-summary-time-without-timezone" ; ;
+    rdfs:comment "The tss:generatedAtTime of a summary has no timezone." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
+    mf:action <metadata/embedded/S23-summary-time-without-timezone.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S23" .
+
+<#embedded-S25-json-field-without-column-name> a tsst:MetadataTest ; ;
+    mf:name "embedded-S25-json-field-without-column-name" ; ;
+    rdfs:comment "A field of a tss:EmbeddedJSONSnippet has no tss:columnName, its key in the JSON points." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#json-points> ; ;
+    mf:action <metadata/embedded/S25-json-field-without-column-name.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S25" .
+
+<#embedded-F1-field-not-typed> a tsst:MetadataTest ; ;
+    mf:name "embedded-F1-field-not-typed" ; ;
+    rdfs:comment "A field is not typed tss:Field." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/F1-field-not-typed.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F1" .
+
+<#embedded-F1-field-of-two-snippets> a tsst:MetadataTest ; ;
+    mf:name "embedded-F1-field-of-two-snippets" ; ;
+    rdfs:comment "One field is a field of two snippets." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/F1-field-of-two-snippets.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F1" .
+
+<#embedded-F2-empty-column-name> a tsst:MetadataTest ; ;
+    mf:name "embedded-F2-empty-column-name" ; ;
+    rdfs:comment "A column name is empty." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/F2-empty-column-name.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F2" .
+
+<#embedded-F2-duplicate-column-names> a tsst:MetadataTest ; ;
+    mf:name "embedded-F2-duplicate-column-names" ; ;
+    rdfs:comment "Two fields of a snippet have the same column name." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/F2-duplicate-column-names.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F2" .
+
+<#embedded-F3-datatype-missing> a tsst:MetadataTest ; ;
+    mf:name "embedded-F3-datatype-missing" ; ;
+    rdfs:comment "A field has no tss:datatype." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#datatypes> ; ;
+    mf:action <metadata/embedded/F3-datatype-missing.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F3" .
+
+<#embedded-F3-datatype-a-literal> a tsst:MetadataTest ; ;
+    mf:name "embedded-F3-datatype-a-literal" ; ;
+    rdfs:comment "tss:datatype is a literal, not an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#datatypes> ; ;
+    mf:action <metadata/embedded/F3-datatype-a-literal.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F3" .
+
+<#embedded-F4-negative-column-index> a tsst:MetadataTest ; ;
+    mf:name "embedded-F4-negative-column-index" ; ;
+    rdfs:comment "A column index is negative." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/F4-negative-column-index.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F4" .
+
+<#embedded-F4-duplicate-column-indexes> a tsst:MetadataTest ; ;
+    mf:name "embedded-F4-duplicate-column-indexes" ; ;
+    rdfs:comment "Two fields of a snippet have the same column index." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/F4-duplicate-column-indexes.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F4" .
+
+<#embedded-F5-label-not-a-literal> a tsst:MetadataTest ; ;
+    mf:name "embedded-F5-label-not-a-literal" ; ;
+    rdfs:comment "A field's label is an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/F5-label-not-a-literal.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F5" .
+
+<#embedded-F6-comment-not-a-literal> a tsst:MetadataTest ; ;
+    mf:name "embedded-F6-comment-not-a-literal" ; ;
+    rdfs:comment "A field's comment is an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/embedded/F6-comment-not-a-literal.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F6" .
+
+<#embedded-F7-minimum-not-a-number> a tsst:MetadataTest ; ;
+    mf:name "embedded-F7-minimum-not-a-number" ; ;
+    rdfs:comment "tss:minimum is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#meaning> ; ;
+    mf:action <metadata/embedded/F7-minimum-not-a-number.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F7" .
+
+<#embedded-F8-maximum-below-minimum> a tsst:MetadataTest ; ;
+    mf:name "embedded-F8-maximum-below-minimum" ; ;
+    rdfs:comment "tss:maximum is below tss:minimum (and so every value is above it: P5)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#meaning> ; ;
+    mf:action <metadata/embedded/F8-maximum-below-minimum.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F8" ;
+    tsst:warning "P5" .
+
+<#embedded-F9-field-without-values> a tsst:MetadataTest ; ;
+    mf:name "embedded-F9-field-without-values" ; ;
+    rdfs:comment "No point has a value for one of the fields (a warning)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <metadata/embedded/F9-field-without-values.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true ;
+    tsst:warning "F9" .
+
+<#embedded-F10-summary-a-literal> a tsst:MetadataTest ; ;
+    mf:name "embedded-F10-summary-a-literal" ; ;
+    rdfs:comment "tss:summary is a literal, not a node." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/F10-summary-a-literal.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "F10" .
+
+<#embedded-D3-value-encoding-on-an-embedded-field> a tsst:MetadataTest ; ;
+    mf:name "embedded-D3-value-encoding-on-an-embedded-field" ; ;
+    rdfs:comment "A field of an embedded snippet states a value encoding." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <metadata/embedded/D3-value-encoding-on-an-embedded-field.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "D3" .
+
+<#embedded-D3-baseline-on-an-embedded-field> a tsst:MetadataTest ; ;
+    mf:name "embedded-D3-baseline-on-an-embedded-field" ; ;
+    rdfs:comment "A field of an embedded snippet states a baseline." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <metadata/embedded/D3-baseline-on-an-embedded-field.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "D3" .
+
+<#embedded-P1-point-without-time> a tsst:MetadataTest ; ;
+    mf:name "embedded-P1-point-without-time" ; ;
+    rdfs:comment "A point has no time." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <metadata/embedded/P1-point-without-time.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "P1" .
+
+<#embedded-P2-point-before-from> a tsst:MetadataTest ; ;
+    mf:name "embedded-P2-point-before-from" ; ;
+    rdfs:comment "A point lies before tss:from." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <metadata/embedded/P2-point-before-from.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "P2" .
+
+<#embedded-P2-point-at-until> a tsst:MetadataTest ; ;
+    mf:name "embedded-P2-point-at-until" ; ;
+    rdfs:comment "A point lies at tss:until, which is not in the window." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <metadata/embedded/P2-point-at-until.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "P2" .
+
+<#embedded-P3-two-points-at-the-same-moment> a tsst:MetadataTest ; ;
+    mf:name "embedded-P3-two-points-at-the-same-moment" ; ;
+    rdfs:comment "Two points have the same time, written in two ways (08:15Z and 10:15+02:00)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/embedded/P3-two-points-at-the-same-moment.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "P3" .
+
+<#embedded-P4-value-not-in-lexical-form> a tsst:MetadataTest ; ;
+    mf:name "embedded-P4-value-not-in-lexical-form" ; ;
+    rdfs:comment "A value \" 4722.4 \" with spaces is not in the lexical form of xsd:double." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#datatypes> ; ;
+    mf:action <metadata/embedded/P4-value-not-in-lexical-form.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "P4" .
+
+<#embedded-P4-value-with-another-datatype> a tsst:MetadataTest ; ;
+    mf:name "embedded-P4-value-with-another-datatype" ; ;
+    rdfs:comment "A value is an xsd:decimal literal, but the field's datatype is xsd:double." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#datatypes> ; ;
+    mf:action <metadata/embedded/P4-value-with-another-datatype.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "P4" .
+
+<#embedded-P5-value-above-maximum> a tsst:MetadataTest ; ;
+    mf:name "embedded-P5-value-above-maximum" ; ;
+    rdfs:comment "A value is above tss:maximum: suspicious, but valid (a warning)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#meaning> ; ;
+    mf:action <metadata/embedded/P5-value-above-maximum.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true ;
+    tsst:warning "P5" .
+
+<#embedded-P6-point-with-a-type> a tsst:MetadataTest ; ;
+    mf:name "embedded-P6-point-with-a-type" ; ;
+    rdfs:comment "A point states an rdf:type, which is not a field (a warning)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <metadata/embedded/P6-point-with-a-type.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true ;
+    tsst:warning "P6" .
+
+<#embedded-P7-two-values-for-one-field> a tsst:MetadataTest ; ;
+    mf:name "embedded-P7-two-values-for-one-field" ; ;
+    rdfs:comment "A point has two values for one field." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <metadata/embedded/P7-two-values-for-one-field.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "P7" .
+
+<#embedded-Q1-summary-with-from> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q1-summary-with-from" ; ;
+    rdfs:comment "A summary states its own tss:from." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q1-summary-with-from.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q1" .
+
+<#embedded-Q2-summary-with-until> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q2-summary-with-until" ; ;
+    rdfs:comment "A summary states its own tss:until." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q2-summary-with-until.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q2" .
+
+<#embedded-Q3-policy-a-literal> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q3-policy-a-literal" ; ;
+    rdfs:comment "tss:missingValuePolicy is a literal, not an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q3-policy-a-literal.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q3" .
+
+<#embedded-Q4-count-a-decimal> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q4-count-a-decimal" ; ;
+    rdfs:comment "tss:count is an xsd:decimal." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q4-count-a-decimal.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q4" .
+
+<#embedded-Q4-count-negative> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q4-count-negative" ; ;
+    rdfs:comment "tss:count is negative." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q4-count-negative.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q4" .
+
+<#embedded-Q5-missing-negative> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q5-missing-negative" ; ;
+    rdfs:comment "tss:missing is negative." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q5-missing-negative.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q5" .
+
+<#embedded-Q6-first-time-a-date> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q6-first-time-a-date" ; ;
+    rdfs:comment "tss:firstTime is an xsd:date." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q6-first-time-a-date.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q6" .
+
+<#embedded-Q7-last-time-a-date> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q7-last-time-a-date" ; ;
+    rdfs:comment "tss:lastTime is an xsd:date." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q7-last-time-a-date.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q7" .
+
+<#embedded-Q8-observed-minimum-a-string> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q8-observed-minimum-a-string" ; ;
+    rdfs:comment "tss:observedMinimum is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q8-observed-minimum-a-string.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q8" .
+
+<#embedded-Q9-observed-maximum-a-string> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q9-observed-maximum-a-string" ; ;
+    rdfs:comment "tss:observedMaximum is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q9-observed-maximum-a-string.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q9" .
+
+<#embedded-Q10-mean-a-string> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q10-mean-a-string" ; ;
+    rdfs:comment "tss:mean is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q10-mean-a-string.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q10" .
+
+<#embedded-Q11-median-a-string> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q11-median-a-string" ; ;
+    rdfs:comment "tss:median is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q11-median-a-string.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q11" .
+
+<#embedded-Q12-generated-at-time-a-date> a tsst:MetadataTest ; ;
+    mf:name "embedded-Q12-generated-at-time-a-date" ; ;
+    rdfs:comment "tss:generatedAtTime is an xsd:date." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/Q12-generated-at-time-a-date.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "Q12" .
+
+<#external-valid-csv> a tsst:MetadataTest ; ;
+    mf:name "external-valid-csv" ; ;
+    rdfs:comment "A CSV snippet with a window, a key and a stored summary." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#csv> ; ;
+    mf:action <metadata/external/valid-csv.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-valid-csv-no-header> a tsst:MetadataTest ; ;
+    mf:name "external-valid-csv-no-header" ; ;
+    rdfs:comment "A CSV file without a header line, with ';' as delimiter: columns by tss:columnIndex." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#csv> ; ;
+    mf:action <metadata/external/valid-csv-no-header.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-valid-parquet> a tsst:MetadataTest ; ;
+    mf:name "external-valid-parquet" ; ;
+    rdfs:comment "A Parquet snippet." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#parquet> ; ;
+    mf:action <metadata/external/valid-parquet.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-valid-arrow> a tsst:MetadataTest ; ;
+    mf:name "external-valid-arrow" ; ;
+    rdfs:comment "An Arrow snippet." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#arrow> ; ;
+    mf:action <metadata/external/valid-arrow.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-valid-time-grid> a tsst:MetadataTest ; ;
+    mf:name "external-valid-time-grid" ; ;
+    rdfs:comment "A time grid: tss:timeBase, tss:timeStep and a step field." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/valid-time-grid.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-valid-delta-from-baseline> a tsst:MetadataTest ; ;
+    mf:name "external-valid-delta-from-baseline" ; ;
+    rdfs:comment "A value encoding: differences from a baseline." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <metadata/external/valid-delta-from-baseline.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-valid-open-window> a tsst:MetadataTest ; ;
+    mf:name "external-valid-open-window" ; ;
+    rdfs:comment "No tss:from and no tss:until." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <metadata/external/valid-open-window.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-S3-mutable-missing> a tsst:MetadataTest ; ;
+    mf:name "external-S3-mutable-missing" ; ;
+    rdfs:comment "The snippet has no tss:mutable." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
+    mf:action <metadata/external/S3-mutable-missing.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S3" .
+
+<#external-S4-time-field-missing> a tsst:MetadataTest ; ;
+    mf:name "external-S4-time-field-missing" ; ;
+    rdfs:comment "The snippet has no tss:timeField." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/external/S4-time-field-missing.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S4" .
+
+<#external-S4-time-field-not-a-field-of-the-snippet> a tsst:MetadataTest ; ;
+    mf:name "external-S4-time-field-not-a-field-of-the-snippet" ; ;
+    rdfs:comment "The time field is not one of the snippet's fields." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/external/S4-time-field-not-a-field-of-the-snippet.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S4" .
+
+<#external-S5-key-not-the-time-field> a tsst:MetadataTest ; ;
+    mf:name "external-S5-key-not-the-time-field" ; ;
+    rdfs:comment "The key is not the time field." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/external/S5-key-not-the-time-field.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S5" .
+
+<#external-S6-no-fields> a tsst:MetadataTest ; ;
+    mf:name "external-S6-no-fields" ; ;
+    rdfs:comment "The snippet has no tss:hasField." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/external/S6-no-fields.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S6" .
+
+<#external-S7-two-snippet-classes> a tsst:MetadataTest ; ;
+    mf:name "external-S7-two-snippet-classes" ; ;
+    rdfs:comment "The snippet states two snippet classes." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/external/S7-two-snippet-classes.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S7" .
+
+<#external-S8-data-file-missing> a tsst:MetadataTest ; ;
+    mf:name "external-S8-data-file-missing" ; ;
+    rdfs:comment "The snippet has no tss:dataFile." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#data-files> ; ;
+    mf:action <metadata/external/S8-data-file-missing.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S8" .
+
+<#external-S8-data-file-a-literal> a tsst:MetadataTest ; ;
+    mf:name "external-S8-data-file-a-literal" ; ;
+    rdfs:comment "tss:dataFile is a string, not an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#data-files> ; ;
+    mf:action <metadata/external/S8-data-file-a-literal.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S8" .
+
+<#external-S10-delimiter-two-characters> a tsst:MetadataTest ; ;
+    mf:name "external-S10-delimiter-two-characters" ; ;
+    rdfs:comment "tss:delimiter has two characters." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#csv> ; ;
+    mf:action <metadata/external/S10-delimiter-two-characters.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S10" .
+
+<#external-S11-encoding-empty> a tsst:MetadataTest ; ;
+    mf:name "external-S11-encoding-empty" ; ;
+    rdfs:comment "tss:encoding is empty." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#csv> ; ;
+    mf:action <metadata/external/S11-encoding-empty.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S11" .
+
+<#external-S12-label-not-a-literal> a tsst:MetadataTest ; ;
+    mf:name "external-S12-label-not-a-literal" ; ;
+    rdfs:comment "The snippet's label is an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#provenance> ; ;
+    mf:action <metadata/external/S12-label-not-a-literal.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S12" .
+
+<#external-S13-produced-by-a-literal> a tsst:MetadataTest ; ;
+    mf:name "external-S13-produced-by-a-literal" ; ;
+    rdfs:comment "tss:producedBy is a literal, not an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#provenance> ; ;
+    mf:action <metadata/external/S13-produced-by-a-literal.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S13" .
+
+<#external-S14-until-before-from> a tsst:MetadataTest ; ;
+    mf:name "external-S14-until-before-from" ; ;
+    rdfs:comment "tss:until is before tss:from." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <metadata/external/S14-until-before-from.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S14" .
+
+<#external-S15-delimiter-on-parquet> a tsst:MetadataTest ; ;
+    mf:name "external-S15-delimiter-on-parquet" ; ;
+    rdfs:comment "tss:delimiter on a Parquet snippet has no effect (a warning)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#parquet> ; ;
+    mf:action <metadata/external/S15-delimiter-on-parquet.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true ;
+    tsst:warning "S15" .
+
+<#external-S15-encoding-on-arrow> a tsst:MetadataTest ; ;
+    mf:name "external-S15-encoding-on-arrow" ; ;
+    rdfs:comment "tss:encoding on an Arrow snippet has no effect (a warning)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#arrow> ; ;
+    mf:action <metadata/external/S15-encoding-on-arrow.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true ;
+    tsst:warning "S15" .
+
+<#external-S17-committed-until-missing> a tsst:MetadataTest ; ;
+    mf:name "external-S17-committed-until-missing" ; ;
+    rdfs:comment "The snippet has no tss:committedUntil." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
+    mf:action <metadata/external/S17-committed-until-missing.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S17" .
+
+<#external-S19-time-base-without-time-step> a tsst:MetadataTest ; ;
+    mf:name "external-S19-time-base-without-time-step" ; ;
+    rdfs:comment "A tss:timeBase without a tss:timeStep: the time step is missing." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/S19-time-base-without-time-step.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S19" .
+
+<#external-S18-time-base-a-date> a tsst:MetadataTest ; ;
+    mf:name "external-S18-time-base-a-date" ; ;
+    rdfs:comment "tss:timeBase is an xsd:date." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/S18-time-base-a-date.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S18" .
+
+<#external-S18-time-step-without-time-base> a tsst:MetadataTest ; ;
+    mf:name "external-S18-time-step-without-time-base" ; ;
+    rdfs:comment "A tss:timeStep without a tss:timeBase: the time base is missing." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/S18-time-step-without-time-base.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S18" .
+
+<#external-S19-time-step-zero> a tsst:MetadataTest ; ;
+    mf:name "external-S19-time-step-zero" ; ;
+    rdfs:comment "The time step is zero." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/S19-time-step-zero.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S19" .
+
+<#external-S19-time-step-negative> a tsst:MetadataTest ; ;
+    mf:name "external-S19-time-step-negative" ; ;
+    rdfs:comment "The time step is negative." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/S19-time-step-negative.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S19" .
+
+<#external-S20-time-field-datatype> a tsst:MetadataTest ; ;
+    mf:name "external-S20-time-field-datatype" ; ;
+    rdfs:comment "The time field's datatype is xsd:dateTime." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-and-key> ; ;
+    mf:action <metadata/external/S20-time-field-datatype.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S20" .
+
+<#external-S21-grid-without-step-field> a tsst:MetadataTest ; ;
+    mf:name "external-S21-grid-without-step-field" ; ;
+    rdfs:comment "A time grid without a tss:stepField." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/S21-grid-without-step-field.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S21" .
+
+<#external-S21-step-field-not-an-integer> a tsst:MetadataTest ; ;
+    mf:name "external-S21-step-field-not-an-integer" ; ;
+    rdfs:comment "The step field's datatype is xsd:decimal." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/S21-step-field-not-an-integer.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S21" .
+
+<#external-S21-step-field-without-a-grid> a tsst:MetadataTest ; ;
+    mf:name "external-S21-step-field-without-a-grid" ; ;
+    rdfs:comment "A tss:stepField without a time grid." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/S21-step-field-without-a-grid.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S21" .
+
+<#external-S22-has-point> a tsst:MetadataTest ; ;
+    mf:name "external-S22-has-point" ; ;
+    rdfs:comment "An external snippet with an RDF point." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/external/S22-has-point.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S22" .
+
+<#external-S22-points> a tsst:MetadataTest ; ;
+    mf:name "external-S22-points" ; ;
+    rdfs:comment "An external snippet with JSON points." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/external/S22-points.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S22" .
+
+<#external-S23-committed-until-without-timezone> a tsst:MetadataTest ; ;
+    mf:name "external-S23-committed-until-without-timezone" ; ;
+    rdfs:comment "tss:committedUntil has no timezone." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
+    mf:action <metadata/external/S23-committed-until-without-timezone.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S23" .
+
+<#external-S23-time-base-without-timezone> a tsst:MetadataTest ; ;
+    mf:name "external-S23-time-base-without-timezone" ; ;
+    rdfs:comment "tss:timeBase has no timezone." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
+    mf:action <metadata/external/S23-time-base-without-timezone.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S23" .
+
+<#external-F1-field-not-typed> a tsst:MetadataTest ; ;
+    mf:name "external-F1-field-not-typed" ; ;
+    rdfs:comment "A field is not typed tss:Field." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/external/F1-field-not-typed.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F1" .
+
+<#external-F2-column-name-missing> a tsst:MetadataTest ; ;
+    mf:name "external-F2-column-name-missing" ; ;
+    rdfs:comment "A field of an external snippet has no tss:columnName." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#data-files> ; ;
+    mf:action <metadata/external/F2-column-name-missing.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F2" .
+
+<#external-F2-duplicate-column-names> a tsst:MetadataTest ; ;
+    mf:name "external-F2-duplicate-column-names" ; ;
+    rdfs:comment "Two fields of a snippet have the same column name." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#data-files> ; ;
+    mf:action <metadata/external/F2-duplicate-column-names.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F2" .
+
+<#external-F2-grid-time-field-with-a-column-name> a tsst:MetadataTest ; ;
+    mf:name "external-F2-grid-time-field-with-a-column-name" ; ;
+    rdfs:comment "On a time grid, the time field has no column, so no tss:columnName." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <metadata/external/F2-grid-time-field-with-a-column-name.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F2" .
+
+<#external-F3-datatype-missing> a tsst:MetadataTest ; ;
+    mf:name "external-F3-datatype-missing" ; ;
+    rdfs:comment "A field has no tss:datatype." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#datatypes> ; ;
+    mf:action <metadata/external/F3-datatype-missing.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F3" .
+
+<#external-F4-duplicate-column-indexes> a tsst:MetadataTest ; ;
+    mf:name "external-F4-duplicate-column-indexes" ; ;
+    rdfs:comment "Two fields of a snippet have the same column index." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#data-files> ; ;
+    mf:action <metadata/external/F4-duplicate-column-indexes.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F4" .
+
+<#external-F8-maximum-below-minimum> a tsst:MetadataTest ; ;
+    mf:name "external-F8-maximum-below-minimum" ; ;
+    rdfs:comment "tss:maximum is below tss:minimum." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#meaning> ; ;
+    mf:action <metadata/external/F8-maximum-below-minimum.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F8" .
+
+<#external-D1-unknown-value-encoding> a tsst:MetadataTest ; ;
+    mf:name "external-D1-unknown-value-encoding" ; ;
+    rdfs:comment "A value encoding the specification does not define." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <metadata/external/D1-unknown-value-encoding.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "D1" .
+
+<#external-D1-delta-without-baseline> a tsst:MetadataTest ; ;
+    mf:name "external-D1-delta-without-baseline" ; ;
+    rdfs:comment "tss:DeltaFromBaseline without a tss:baseline." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <metadata/external/D1-delta-without-baseline.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "D1" .
+
+<#external-D2-baseline-with-another-datatype> a tsst:MetadataTest ; ;
+    mf:name "external-D2-baseline-with-another-datatype" ; ;
+    rdfs:comment "The baseline is an xsd:integer, but the field's datatype is xsd:double." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <metadata/external/D2-baseline-with-another-datatype.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "D2" .
+
+<#external-D3-baseline-without-value-encoding> a tsst:MetadataTest ; ;
+    mf:name "external-D3-baseline-without-value-encoding" ; ;
+    rdfs:comment "A tss:baseline without tss:valueEncoding tss:DeltaFromBaseline." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <metadata/external/D3-baseline-without-value-encoding.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "D3" .
+
+<#external-D3-value-encoding-on-the-time-field> a tsst:MetadataTest ; ;
+    mf:name "external-D3-value-encoding-on-the-time-field" ; ;
+    rdfs:comment "The time field states a value encoding." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <metadata/external/D3-value-encoding-on-the-time-field.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "D3" .
+
+<#external-Q2-summary-with-until> a tsst:MetadataTest ; ;
+    mf:name "external-Q2-summary-with-until" ; ;
+    rdfs:comment "A summary states its own tss:until." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q2-summary-with-until.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q2" .
+
+<#external-F5-label-not-a-literal> a tsst:MetadataTest ; ;
+    mf:name "external-F5-label-not-a-literal" ; ;
+    rdfs:comment "A field's label is an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/external/F5-label-not-a-literal.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F5" .
+
+<#external-F6-comment-not-a-literal> a tsst:MetadataTest ; ;
+    mf:name "external-F6-comment-not-a-literal" ; ;
+    rdfs:comment "A field's comment is an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#fields> ; ;
+    mf:action <metadata/external/F6-comment-not-a-literal.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F6" .
+
+<#external-F7-minimum-not-a-number> a tsst:MetadataTest ; ;
+    mf:name "external-F7-minimum-not-a-number" ; ;
+    rdfs:comment "tss:minimum is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#meaning> ; ;
+    mf:action <metadata/external/F7-minimum-not-a-number.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F7" .
+
+<#external-F10-summary-a-literal> a tsst:MetadataTest ; ;
+    mf:name "external-F10-summary-a-literal" ; ;
+    rdfs:comment "tss:summary is a literal, not a node." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/F10-summary-a-literal.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "F10" .
+
+<#external-Q1-summary-with-from> a tsst:MetadataTest ; ;
+    mf:name "external-Q1-summary-with-from" ; ;
+    rdfs:comment "A summary states its own tss:from." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q1-summary-with-from.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q1" .
+
+<#external-Q3-policy-a-literal> a tsst:MetadataTest ; ;
+    mf:name "external-Q3-policy-a-literal" ; ;
+    rdfs:comment "tss:missingValuePolicy is a literal, not an IRI." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q3-policy-a-literal.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q3" .
+
+<#external-Q4-count-a-decimal> a tsst:MetadataTest ; ;
+    mf:name "external-Q4-count-a-decimal" ; ;
+    rdfs:comment "tss:count is an xsd:decimal." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q4-count-a-decimal.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q4" .
+
+<#external-Q4-count-negative> a tsst:MetadataTest ; ;
+    mf:name "external-Q4-count-negative" ; ;
+    rdfs:comment "tss:count is negative." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q4-count-negative.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q4" .
+
+<#external-Q5-missing-negative> a tsst:MetadataTest ; ;
+    mf:name "external-Q5-missing-negative" ; ;
+    rdfs:comment "tss:missing is negative." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q5-missing-negative.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q5" .
+
+<#external-Q6-first-time-a-date> a tsst:MetadataTest ; ;
+    mf:name "external-Q6-first-time-a-date" ; ;
+    rdfs:comment "tss:firstTime is an xsd:date." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q6-first-time-a-date.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q6" .
+
+<#external-Q7-last-time-a-date> a tsst:MetadataTest ; ;
+    mf:name "external-Q7-last-time-a-date" ; ;
+    rdfs:comment "tss:lastTime is an xsd:date." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q7-last-time-a-date.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q7" .
+
+<#external-Q8-observed-minimum-a-string> a tsst:MetadataTest ; ;
+    mf:name "external-Q8-observed-minimum-a-string" ; ;
+    rdfs:comment "tss:observedMinimum is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q8-observed-minimum-a-string.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q8" .
+
+<#external-Q9-observed-maximum-a-string> a tsst:MetadataTest ; ;
+    mf:name "external-Q9-observed-maximum-a-string" ; ;
+    rdfs:comment "tss:observedMaximum is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q9-observed-maximum-a-string.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q9" .
+
+<#external-Q10-mean-a-string> a tsst:MetadataTest ; ;
+    mf:name "external-Q10-mean-a-string" ; ;
+    rdfs:comment "tss:mean is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q10-mean-a-string.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q10" .
+
+<#external-Q11-median-a-string> a tsst:MetadataTest ; ;
+    mf:name "external-Q11-median-a-string" ; ;
+    rdfs:comment "tss:median is a string, not a number." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q11-median-a-string.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q11" .
+
+<#external-Q12-generated-at-time-a-date> a tsst:MetadataTest ; ;
+    mf:name "external-Q12-generated-at-time-a-date" ; ;
+    rdfs:comment "tss:generatedAtTime is an xsd:date." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/Q12-generated-at-time-a-date.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "Q12" .
+
+<#external-S2-from-a-date> a tsst:MetadataTest ; ;
+    mf:name "external-S2-from-a-date" ; ;
+    rdfs:comment "tss:from is an xsd:date, not an xsd:dateTimeStamp." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <metadata/external/S2-from-a-date.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S2" .
+
+<#mixed-S1-no-snippet> a tsst:MetadataTest ; ;
+    mf:name "mixed-S1-no-snippet" ; ;
+    rdfs:comment "A document that describes no snippet; both shapes files report it." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#the-snippet> ; ;
+    mf:action <metadata/mixed/S1-no-snippet.ttl> ;
+    tsst:shapes "embedded", "external" ;
+    tsst:conforms false ;
+    tsst:violation "S1" .
+
+<#mixed-S24-embedded-and-external-snippets> a tsst:MetadataTest ; ;
+    mf:name "mixed-S24-embedded-and-external-snippets" ; ;
+    rdfs:comment "A document with an embedded and an external snippet." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#storage> ; ;
+    mf:action <metadata/mixed/S24-embedded-and-external-snippets.ttl> ;
+    tsst:shapes "embedded", "external" ;
+    tsst:conforms false ;
+    tsst:violation "S24" .
+
+<#reading-rdf-points> a tsst:ReadTest ; ;
+    mf:name "reading-rdf-points" ; ;
+    rdfs:comment "RDF points: one node per point, the field IRIs as predicates." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <reading/rdf-points/metadata.ttl> ;
+    mf:result <reading/rdf-points/expected.csv> .
+
+<#reading-json-empty-values> a tsst:ReadTest ; ;
+    mf:name "reading-json-empty-values" ; ;
+    rdfs:comment "JSON points: \"\", null and a missing key are empty values." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#json-points> ; ;
+    mf:action <reading/json-empty-values/metadata.ttl> ;
+    mf:result <reading/json-empty-values/expected.csv> .
+
+<#reading-csv-delimiter> a tsst:ReadTest ; ;
+    mf:name "reading-csv-delimiter" ; ;
+    rdfs:comment "A CSV file with ';' as delimiter and a header line." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#csv> ; ;
+    mf:action <reading/csv-delimiter/metadata.ttl> ;
+    mf:result <reading/csv-delimiter/expected.csv> .
+
+<#reading-csv-no-header> a tsst:ReadTest ; ;
+    mf:name "reading-csv-no-header" ; ;
+    rdfs:comment "A CSV file without a header line: columns by tss:columnIndex." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#csv> ; ;
+    mf:action <reading/csv-no-header/metadata.ttl> ;
+    mf:result <reading/csv-no-header/expected.csv> .
+
+<#reading-csv-time-window> a tsst:ReadTest ; ;
+    mf:name "reading-csv-time-window" ; ;
+    rdfs:comment "Only the rows in [tss:from, tss:until) are points; times compare as moments." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#window> ; ;
+    mf:action <reading/csv-time-window/metadata.ttl> ;
+    mf:result <reading/csv-time-window/expected.csv> .
+
+<#reading-csv-time-offsets> a tsst:ReadTest ; ;
+    mf:name "reading-csv-time-offsets" ; ;
+    rdfs:comment "Times with offsets are the same moments as in Z." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
+    mf:action <reading/csv-time-offsets/metadata.ttl> ;
+    mf:result <reading/csv-time-offsets/expected.csv> .
+
+<#reading-time-grid> a tsst:ReadTest ; ;
+    mf:name "reading-time-grid" ; ;
+    rdfs:comment "On a time grid, the time of a row is tss:timeBase + step × tss:timeStep." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <reading/time-grid/metadata.ttl> ;
+    mf:result <reading/time-grid/expected.csv> .
+
+<#reading-time-grid-calendar-months> a tsst:ReadTest ; ;
+    mf:name "reading-time-grid-calendar-months" ; ;
+    rdfs:comment "A step of P1M from 31 January: n months are added at once, and the day is clamped to the month." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#time-grid> ; ;
+    mf:action <reading/time-grid-calendar-months/metadata.ttl> ;
+    mf:result <reading/time-grid-calendar-months/expected.csv> .
+
+<#reading-delta-from-baseline> a tsst:ReadTest ; ;
+    mf:name "reading-delta-from-baseline" ; ;
+    rdfs:comment "The specification's delta example: 4750 + 60.5 and 4750 + (-27.6)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <reading/delta-from-baseline/metadata.ttl> ;
+    mf:result <reading/delta-from-baseline/expected.csv> .
+
+<#reading-texts-kept> a tsst:ReadTest ; ;
+    mf:name "reading-texts-kept" ; ;
+    rdfs:comment "A text keeps its spaces, and a text of only spaces is a value, not an empty value." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#datatypes> ; ;
+    mf:action <reading/texts-kept/metadata.ttl> ;
+    mf:result <reading/texts-kept/expected.csv> .
+
+<#reading-parquet> a tsst:ReadTest ; ;
+    mf:name "reading-parquet" ; ;
+    rdfs:comment "A Parquet file: a UTC timestamp column and a DOUBLE column." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#parquet> ; ;
+    mf:action <reading/parquet/metadata.ttl> ;
+    mf:result <reading/parquet/expected.csv> .
+
+<#reading-arrow> a tsst:ReadTest ; ;
+    mf:name "reading-arrow" ; ;
+    rdfs:comment "An Arrow IPC file: nanosecond UTC timestamps and a DOUBLE column." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#arrow> ; ;
+    mf:action <reading/arrow/metadata.ttl> ;
+    mf:result <reading/arrow/expected.csv> .
+
+<#reading-error-csv-point-without-time> a tsst:ReadTest ; ;
+    mf:name "reading-error-csv-point-without-time" ; ;
+    rdfs:comment "A row without a time is an error." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#expanding> ; ;
+    mf:action <reading/error-csv-point-without-time/metadata.ttl> ;
+    mf:result tsst:Error .
+
+<#reading-error-csv-value-not-in-lexical-form> a tsst:ReadTest ; ;
+    mf:name "reading-error-csv-value-not-in-lexical-form" ; ;
+    rdfs:comment "A value that is not in the lexical form of its datatype (a decimal comma) is an error." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#expanding> ; ;
+    mf:action <reading/error-csv-value-not-in-lexical-form/metadata.ttl> ;
+    mf:result tsst:Error .
+
+<#reading-error-json-point-without-time> a tsst:ReadTest ; ;
+    mf:name "reading-error-json-point-without-time" ; ;
+    rdfs:comment "A JSON point without a time is an error." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#expanding> ; ;
+    mf:action <reading/error-json-point-without-time/metadata.ttl> ;
+    mf:result tsst:Error .
+
+<#reading-error-json-value-not-in-lexical-form> a tsst:ReadTest ; ;
+    mf:name "reading-error-json-value-not-in-lexical-form" ; ;
+    rdfs:comment "A JSON value \"high\" is not in the lexical form of xsd:double: an error." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#expanding> ; ;
+    mf:action <reading/error-json-value-not-in-lexical-form/metadata.ttl> ;
+    mf:result tsst:Error .
+
+<#summaries-up-to-date> a tsst:SummaryTest ; ;
+    mf:name "summaries-up-to-date" ; ;
+    rdfs:comment "The summary of the embedded example matches its three points." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <summaries/up-to-date/metadata.ttl> ;
+    tsst:upToDate true .
+
+<#summaries-out-of-date> a tsst:SummaryTest ; ;
+    mf:name "summaries-out-of-date" ; ;
+    rdfs:comment "A point was added, but tss:count and tss:mean were not recomputed." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <summaries/out-of-date/metadata.ttl> ;
+    tsst:upToDate false ;
+    tsst:outOfDate "tss:count" ;
+    tsst:outOfDate "tss:mean" .
+
+<#summaries-out-of-date-first-time> a tsst:SummaryTest ; ;
+    mf:name "summaries-out-of-date-first-time" ; ;
+    rdfs:comment "tss:firstTime is not the time of the first point with a value." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <summaries/out-of-date-first-time/metadata.ttl> ;
+    tsst:upToDate false ;
+    tsst:outOfDate "tss:firstTime" .
+
+<#summaries-empty-values> a tsst:SummaryTest ; ;
+    mf:name "summaries-empty-values" ; ;
+    rdfs:comment "tss:ExcludeEmptyValues: an empty value is counted in tss:missing and left out of the numbers." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <summaries/empty-values/metadata.ttl> ;
+    tsst:upToDate true .
+
+<#summaries-same-moment> a tsst:SummaryTest ; ;
+    mf:name "summaries-same-moment" ; ;
+    rdfs:comment "tss:lastTime written with an offset is the same moment as the last point's time." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
+    mf:action <summaries/same-moment/metadata.ttl> ;
+    tsst:upToDate true .
+
+<#summaries-decoded-values> a tsst:SummaryTest ; ;
+    mf:name "summaries-decoded-values" ; ;
+    rdfs:comment "The numbers of a summary are computed from the decoded values." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <summaries/decoded-values/metadata.ttl> ;
+    tsst:upToDate true .
+
+<#summaries-window> a tsst:SummaryTest ; ;
+    mf:name "summaries-window" ; ;
+    rdfs:comment "Only the points in the window count: rows outside it are left out." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <summaries/window/metadata.ttl> ;
+    tsst:upToDate true .
+
+<#expansion-rdf-points> a tsst:ExpansionTest ; ;
+    mf:name "expansion-rdf-points" ; ;
+    rdfs:comment "The embedded example: one observation per value, with what its field says." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#expanding> ; ;
+    mf:action <expansion/rdf-points/metadata.ttl> ;
+    mf:result <expansion/rdf-points/expected.csv> .
+
+<#expansion-measured-fields-only> a tsst:ExpansionTest ; ;
+    mf:name "expansion-measured-fields-only" ; ;
+    rdfs:comment "An empty value gives no observation, and neither does a field without tss:observedProperty." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#expanding> ; ;
+    mf:action <expansion/measured-fields-only/metadata.ttl> ;
+    mf:result <expansion/measured-fields-only/expected.csv> .
+
+<#expansion-time-grid-and-delta> a tsst:ExpansionTest ; ;
+    mf:name "expansion-time-grid-and-delta" ; ;
+    rdfs:comment "On a time grid with a value encoding: the time of each step, and the decoded value." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#value-encoding> ; ;
+    mf:action <expansion/time-grid-and-delta/metadata.ttl> ;
+    mf:result <expansion/time-grid-and-delta/expected.csv> .

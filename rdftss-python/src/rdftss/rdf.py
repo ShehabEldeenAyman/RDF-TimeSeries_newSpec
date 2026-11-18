@@ -28,6 +28,7 @@ booleans keep their text as well.
 from __future__ import annotations
 
 import io
+import logging
 import threading
 import warnings
 
@@ -58,6 +59,11 @@ def parse_rdf(source=None, *, data=None, format: str | None = None, base: str | 
     with NORMALIZE_LOCK:
         normalize = rdflib.NORMALIZE_LITERALS
         rdflib.NORMALIZE_LITERALS = False
+        # rdflib logs a traceback for every literal that misses its datatype's lexical form;
+        # rdftss reports such values itself, where they matter.
+        term_logger = logging.getLogger("rdflib.term")
+        level = term_logger.level
+        term_logger.setLevel(logging.CRITICAL)
         try:
             with warnings.catch_warnings():  # rdflib 7.6 uses its own deprecated Dataset.default_context
                 warnings.filterwarnings("ignore", message=".*default_context is deprecated", category=DeprecationWarning)
@@ -73,6 +79,7 @@ def parse_rdf(source=None, *, data=None, format: str | None = None, base: str | 
             raise DocumentError(f"Can't read {what} as RDF: {error}") from None
         finally:
             rdflib.NORMALIZE_LITERALS = normalize
+            term_logger.setLevel(level)
     graph = Graph()
     for prefix, namespace in dataset.namespaces():
         graph.bind(prefix, namespace, override=True, replace=True)

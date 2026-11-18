@@ -1,4 +1,4 @@
-"""Statistics, ranges, gaps, steps, resampling, filters, DataFrames, SQL and discovery."""
+"""Statistics, ranges, gaps, steps, resampling, filters, DataFrames, SPARQL and discovery."""
 from datetime import timedelta
 from decimal import Decimal
 
@@ -6,7 +6,7 @@ import pytest
 
 import rdftss
 
-from conftest import DEMO_11
+from conftest import DEMO_11, snippet_text
 
 
 class TestStatistics:
@@ -117,50 +117,98 @@ class TestFrames:
         assert "Electrical conductivity" in table.schema.names
 
 
-class TestSQL:
-    @pytest.fixture(autouse=True)
-    def duckdb(self):
-        pytest.importorskip("duckdb")
-
+class TestSPARQL:
     def test_a_query(self, example):
-        result = example("readings_csv.ttl").snippet().sql("SELECT count(*) AS n, round(avg(value), 2) AS mean FROM points")
-        assert result.columns == ["n", "mean"] and result.rows[0][0] == 85
+        result = example("readings_csv.ttl").snippet().sparql(
+            "SELECT (COUNT(?point) AS ?n) (ROUND(AVG(?value) * 100) / 100 AS ?mean) "
+            "WHERE { ?point ex:csv-value-field ?value }")
+        assert result.columns == ["n", "mean"] and result.rows == [(85, Decimal("4751.34"))]
 
-    def test_metadata_tables(self, example):
-        result = example("embedded_rdf.ttl").sql("SELECT sql_column, role, unit FROM fields ORDER BY role")
-        assert ("value_field", "measured", "http://qudt.org/vocab/unit/MicroS-PER-CentiM") in result.rows
-        summary = example("embedded_rdf.ttl").sql("SELECT value_count, mean FROM summaries")
-        assert summary.rows == [(5, 4757.54)]
+    def test_values_keep_their_text_and_are_decoded(self, example):
+        result = example("readings_delta.ttl").snippet().sparql(
+            "SELECT ?value WHERE { ?point ex:delta-value-field ?value ; ex:delta-time-field ?time } ORDER BY ?time LIMIT 1")
+        assert str(result.terms[0][0]) == "4747.00" and result.rows[0][0] == 4747.0
 
-    def test_only_one_reading_statement(self, example):
+    def test_every_storage_class_gives_the_same_points(self, example):
+        query = """SELECT (COUNT(?point) AS ?n) (MIN(?value) AS ?low) (MAX(?value) AS ?high) (MIN(?time) AS ?first)
+                   WHERE { ?snippet tss:hasPoint ?point ; tss:hasField ?field ; tss:timeField ?time_field .
+                           ?field tss:observedProperty quantitykind:ElectricConductivity .
+                           ?point ?field ?value ; ?time_field ?time }"""
+        answers = {str(example(name).snippet().sparql(query).rows) for name in (
+            "readings_csv.ttl", "readings_no_header.ttl", "readings_grid.ttl", "readings_delta.ttl",
+            "readings_parquet.ttl", "readings_arrow.ttl")}
+        assert len(answers) == 1 and "85" in answers.pop()
+
+    def test_times_compare_as_moments(self, make):
+        document = make(snippet_text("EmbeddedRDFSnippet") + """
+ex:s tss:hasPoint [ ex:time "2024-05-12T10:30:00+02:00"^^xsd:dateTimeStamp ; ex:value "1"^^xsd:double ] ,
+                  [ ex:time "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ; ex:value "2"^^xsd:double ] .
+""")
+        ordered = document.sparql("SELECT ?value WHERE { ?point ex:time ?time ; ex:value ?value } ORDER BY ?time")
+        assert [row[0] for row in ordered] == [2.0, 1.0]
+        later = document.sparql('SELECT ?value WHERE { ?point ex:time ?time ; ex:value ?value '
+                                'FILTER(?time > "2024-05-12T08:15:00Z"^^xsd:dateTime) }')
+        assert later.rows == [(1.0,)]
+
+    def test_the_metadata_and_the_stored_summaries(self, example):
+        result = example("embedded_rdf.ttl").sparql(
+            "SELECT ?count ?mean WHERE { ?field tss:summary ?summary . ?summary tss:count ?count ; tss:mean ?mean }")
+        assert result.rows == [(5, 4757.54)]
+        fields = example("readings_csv.ttl").sparql("SELECT ?field WHERE { ?field tss:unit unit:MicroS-PER-CentiM }")
+        assert [str(row[0]) for row in fields] == ["https://example.org/ex#csv-value-field"]
+
+    def test_embedded_points_are_there_once(self, example):
+        result = example("embedded_rdf.ttl").sparql("SELECT (COUNT(?point) AS ?n) WHERE { ?snippet tss:hasPoint ?point }")
+        assert result.rows == [(5,)]
+
+    def test_ask_and_construct(self, example):
         snippet = example("readings_csv.ttl").snippet()
-        from rdftss.sql import SQLError
+        assert snippet.sparql("ASK { ?point ex:csv-value-field ?value FILTER(?value > 4800) }") is True
+        graph = snippet.sparql("CONSTRUCT { ?field ?p ?o } WHERE { ?field a tss:Field ; ?p ?o }")
+        assert len(graph) > 10
 
-        with pytest.raises(SQLError, match="exactly one"):
-            snippet.sql("SELECT 1; SELECT 2")
-        with pytest.raises(SQLError, match="reading queries"):
-            snippet.sql("CREATE TABLE x (i INT)")
+    def test_only_reading_queries(self, example):
+        with pytest.raises(rdftss.QueryError, match="can't be read"):
+            example("readings_csv.ttl").snippet().sparql("INSERT DATA { <a:b> <a:c> <a:d> }")
 
-    def test_no_files_and_no_settings(self, example):
-        from rdftss.sql import SQLError
-
+    def test_no_other_servers_and_no_downloads(self, example):
         snippet = example("readings_csv.ttl").snippet()
-        with pytest.raises(SQLError):
-            snippet.sql("SELECT * FROM read_csv('/etc/hostname')")
-        with pytest.raises(SQLError):
-            snippet.sql("SET enable_external_access = true")
+        with pytest.raises(rdftss.QueryError, match="SERVICE"):
+            snippet.sparql("SELECT * WHERE { SERVICE <http://localhost:9/sparql> { ?s ?p ?o } }")
+        with pytest.raises(rdftss.QueryError, match="FROM"):
+            snippet.sparql("SELECT * FROM <http://localhost:9/graph.ttl> WHERE { ?s ?p ?o }")
 
     def test_row_limit(self, example):
-        result = example("readings_csv.ttl").snippet().sql("SELECT * FROM points", max_rows=10)
+        result = example("readings_csv.ttl").snippet().sparql("SELECT * WHERE { ?s ?p ?o }", max_rows=10)
         assert len(result) == 10 and result.more_rows
 
+    def test_time_limit(self, example):
+        import threading
+
+        with pytest.raises(rdftss.QueryError, match="stopped after"):
+            example("readings_csv.ttl").snippet().sparql(
+                "SELECT (COUNT(*) AS ?n) WHERE { ?a ?b ?c . ?d ?e ?f . ?g ?h ?i }", timeout=0.5)
+        assert not any(thread.name == "rdftss-sparql" and thread.is_alive() for thread in threading.enumerate())
+
     def test_several_snippets(self, example):
-        with rdftss.Database([example("readings_csv.ttl").snippet(), example("readings_parquet.ttl").snippet()]) as db:
-            assert set(db.tables) == {"csv_snippet", "parquet_snippet"}
-            assert "points" not in db.describe().split('View')[0]
-            result = db.query("SELECT count(*) FROM csv_snippet c JOIN parquet_snippet p ON c.time = p.time AND c.value = p.value")
-            assert result.rows[0][0] == 85
-            assert len(db.examples()) >= 3
+        snippets = [example("readings_csv.ttl").snippet(), example("readings_parquet.ttl").snippet()]
+        with rdftss.TripleStore(snippets) as store:
+            assert [count for _, count in store.loaded] == [85, 85]
+            assert "ex:parquet-value-field" in store.describe()
+            result = store.query("""SELECT (COUNT(*) AS ?n) WHERE {
+                ex:csv-snippet tss:hasPoint ?a . ?a ex:csv-time-field ?time ; ex:csv-value-field ?value .
+                ex:parquet-snippet tss:hasPoint ?b . ?b ex:parquet-time-field ?other ; ex:parquet-value-field ?number .
+                FILTER(?time = ?other && ?value = ?number) }""")
+            assert result.rows == [(85,)]     # the same values: "4747.00" in the CSV file is 4747.0 in Parquet
+            for query in store.examples():
+                store.query(query)
+
+    def test_a_period_and_some_fields(self, example):
+        snippet = example("readings_csv.ttl").snippet()
+        with rdftss.TripleStore([snippet], between=("2024-05-12T06:00:00Z", "2024-05-12T12:00:00Z"),
+                                fields=["value"]) as store:
+            assert store.loaded[0][1] == 24
+            assert not store.query("ASK { ?point ex:csv-quality-field ?quality }")
 
 
 class TestDiscovery:

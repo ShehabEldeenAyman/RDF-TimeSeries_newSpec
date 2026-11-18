@@ -1,8 +1,8 @@
 # RDFTSS library: feature analysis
 
-The `rdftss` library should be the one place for working with RDF Time Series Snippets: reading the metadata and the data, converting data between formats and into observations, aligning units with QUDT, parsing RDF, and testing conformance. This document lists candidate features, as a basis for choosing the scope. Nothing is implemented yet.
+The `rdftss` library should be the one place for working with RDF Time Series Snippets: reading the metadata and the data, converting data between formats and into observations, aligning units with QUDT, parsing RDF, and testing conformance. This document lists candidate features, as a basis for choosing the scope.
 
-**Status (rdftss 0.1.0):** sections 1–5 are implemented, see the [README](README.md) and the [guide](docs/guide.md). Decisions taken while building them: a `Document` holds one source, and several sources are several objects (no catalogue object; `rdftss.find()` searches a list of them); data files on the web are downloaded by default; *DCAT export* and *CSVW interop* are **pinned**: not built for now.
+**Status (rdftss 0.1.0):** sections 1–5 are implemented, see the [README](README.md) and the [guide](docs/guide.md). Decisions taken while building them: a `Document` holds one source, and several sources are several objects (no catalogue object; `rdftss.find()` searches a list of them); data files on the web are downloaded by default; *DCAT export* and *CSVW interop* are **pinned**: not built for now; the SQL feature became **SPARQL** (rdflib, no DuckDB). In section 7, *SHACL validation*, *Summary verification* and the *Conformance test suite* are implemented, see [docs/conformance.md](docs/conformance.md); *Data checks beyond SHACL* is postponed and *One report* is not needed for now.
 
 The library targets the latest specification, in [`tech demo/demo 11`](<../tech demo/demo 11/>): [`spec/spec.bs`](<../tech demo/demo 11/spec/spec.bs>), [`vocabulary/tss.ttl`](<../tech demo/demo 11/vocabulary/tss.ttl>) and the shapes in [`SHACL/`](<../tech demo/demo 11/SHACL/>). Demos 1–10 hold working code for many of the features below, but none of them implements the demo 11 model: demo 10 still reads one `tss:Source` with `tss:embedded`, `tss:format` and `tss:pointOf`.
 
@@ -48,7 +48,7 @@ Each description ends with its basis:
 | Statistics | Count, empty values, mean, median, minimum, maximum, and first and last time of a selection, with the definitions of the stored summaries. *Port: demo 10 `query_helpers.py`.* |
 | Gaps | Find the usual step (the most frequent interval) and list the longer intervals as gaps, with the total missing time. On a time grid, list the missing steps. *Port: demo 10 `find_gaps`; the grid part is new.* |
 | Resampling | Aggregate the readings per hour, per day or per any period, as mean, minimum or maximum, in UTC. *Port: demo 10 `resample_readings`.* |
-| SQL | A DuckDB database with one table per snippet and metadata tables for snippets, fields and summaries. Read-only and locked down (no files, network or extensions), with limits on rows, size and time, and example queries. *Port: demo 10 `sql_box.py`, `sql_routes.py`.* |
+| SPARQL | **Done (replaces SQL).** SPARQL queries with rdflib over one in-memory graph of the metadata and the points: every snippet's points as `tss:hasPoint` nodes, one triple per value with the field IRI as predicate, whatever the storage class. Read only: no SPARQL Update, `SERVICE` or `FROM`; limits on rows, size and time; example queries. *Was: a DuckDB database (demo 10 `sql_box.py`, `sql_routes.py`); replaced at the author's request.* |
 
 ## 4. Discovery across documents
 
@@ -85,11 +85,11 @@ Each description ends with its basis:
 
 | Feature | Description |
 |---|---|
-| SHACL validation | Validate with the bundled demo 11 shapes, embedded or external as the snippet classes say, or with custom shapes. Parse with exact lexical forms so check P4 sees malformed values. Return the report as RDF and as a summary: conforms or not, counts per severity, and check IDs such as S23. *Port: demo 10 `shacl_report.py`.* |
-| Data checks beyond SHACL | Check what the shapes cannot see: the contents of JSON points, and of data files (lexical forms, timezones, unique times, steps), Parquet and Arrow column types against `tss:datatype`, and a CSV header against the column names. *New.* |
-| One report | Merge SHACL results and these checks into one report with shared check IDs and locations (CSV line, row number, point time), as text, JSON or `sh:ValidationReport`, with a verdict for each conformance class: metadata document and data. *New.* |
-| Summary verification | Recompute each `tss:summary` from the data in the window and compare count, missing, first and last time, minimum, maximum, mean and median, naming the numbers that are out of date. *Port: demo 10 summary check in the Query tab and the SQL box.* |
-| Conformance test suite | Small valid and invalid documents and data files, at least one per MUST and MUST NOT, each with its check ID and expected result. They test this library as consumer, expander and writer, and can test other implementations. *New.* |
+| SHACL validation | **Done.** Validate with the bundled demo 11 shapes, embedded or external as the snippet classes say, or with custom shapes. Parse with exact lexical forms so check P4 sees malformed values. Return the report as RDF and as a summary: conforms or not, counts per severity, and check IDs such as S23. *Port: demo 10 `shacl_report.py`.* |
+| Data checks beyond SHACL | **Postponed.** Check what the shapes cannot see: the contents of JSON points, and of data files (lexical forms, timezones, unique times, steps), Parquet and Arrow column types against `tss:datatype`, and a CSV header against the column names. *New.* |
+| One report | **Not needed for now.** Merge SHACL results and these checks into one report with shared check IDs and locations (CSV line, row number, point time), as text, JSON or `sh:ValidationReport`, with a verdict for each conformance class: metadata document and data. *New.* |
+| Summary verification | **Done.** Recompute each `tss:summary` from the data in the window and compare count, missing, first and last time, minimum, maximum, mean and median, naming the numbers that are out of date. *Port: demo 10 summary check in the Query tab and the SQL box.* |
+| Conformance test suite | **Done (first version: 171 tests, see [docs/conformance.md](docs/conformance.md)).** Small valid and invalid documents and data files, at least one per MUST and MUST NOT, each with its check ID and expected result. They test this library as consumer, expander and writer, and can test other implementations. *New.* |
 
 ## 8. Writing and publishing
 
@@ -106,11 +106,11 @@ Each description ends with its basis:
 
 | Feature | Description |
 |---|---|
-| Command line | An `rdftss` command with subcommands such as `info`, `validate`, `read`, `query`, `sql`, `expand`, `convert`, `summarize`, `append`, `migrate`, `units` and `cq`, replacing the separate scripts `tss2rdf.py`, `shacl_report.py`, `csv2parquet.py`, `csv_to_points.py` and `evaluation_runner.py`. *Port.* |
+| Command line | An `rdftss` command with subcommands such as `info`, `validate`, `read`, `query`, `sparql`, `expand`, `convert`, `summarize`, `append`, `migrate`, `units` and `cq`, replacing the separate scripts `tss2rdf.py`, `shacl_report.py`, `csv2parquet.py`, `csv_to_points.py` and `evaluation_runner.py`. *Port.* |
 | Migration | Rewrite documents written for `main` or demos 7–10 in demo 11 terms, following the changelog's [migration table](<../tech demo/demo 11/CHANGELOG.md#migration-from-main-to-demo-11>): `tss:Source`, `tss:embedded`, `tss:format`, `tss:pointOf`, `tss:modifiedAt`, `prov:generatedAtTime`, `xsd:dateTime` times and keys with several fields. List what needs a person's decision, such as a time without a timezone. *New.* |
-| Dashboard service layer | Optional FastAPI routers for the catalogue, data, queries, SQL, SHACL and RDF generation, so the dashboard's backend becomes a thin layer over the library. *Port: demo 10 `*_routes.py`.* |
-| Browser use | Keep the core pure Python, with DuckDB and pyarrow as optional extras, so the dashboard can run the library in the browser through Pyodide, as it already runs pyshacl. This would replace the JavaScript ports in `frontend/src/browser/`, which must now be kept equal to the Python by hand. *Beyond spec.* |
-| Untrusted input | No JSON-LD remote contexts, data files only inside an allowed folder, network access off by default, limits on size and time, and locked-down SQL. *Port: demo 10 security rules.* |
+| Dashboard service layer | Optional FastAPI routers for the catalogue, data, queries, SPARQL, SHACL and RDF generation, so the dashboard's backend becomes a thin layer over the library. *Port: demo 10 `*_routes.py`.* |
+| Browser use | Keep the core pure Python, with pyarrow and pyshacl as optional extras, so the dashboard can run the library in the browser through Pyodide, as it already runs pyshacl. This would replace the JavaScript ports in `frontend/src/browser/`, which must now be kept equal to the Python by hand. *Beyond spec.* |
+| Untrusted input | No JSON-LD remote contexts, data files only inside an allowed folder, network access off by default, limits on size and time, and read-only SPARQL. *Port: demo 10 security rules.* |
 | Scale | Stream rows and triples so memory stays bounded; the demo data expands to up to 440,000 observations and 3.4 million triples per document. Push the time window down into Parquet and Arrow reads. *Port, to improve.* |
 
 ## 10. Possible extensions

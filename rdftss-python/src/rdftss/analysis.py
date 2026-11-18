@@ -58,10 +58,14 @@ class Statistics:
                 "first_time": self.first_time_text, "last_time": self.last_time_text,
                 "minimum": self.minimum, "maximum": self.maximum, "mean": self.mean, "median": self.median}
 
-    def differences(self, summary=None) -> dict:
+    def differences(self, summary=None, *, tolerance: float = 1e-12) -> dict:
         """The attributes in which a stored summary (by default the field's ``tss:summary``)
         differs from these statistics, as ``{name: (stored, computed)}``. Attributes the summary
-        does not state are not compared. An empty dict means the summary is up to date."""
+        does not state are not compared. An empty dict means the summary is up to date.
+
+        Times are compared as moments. Floating-point numbers are the same within a relative
+        ``tolerance``, since their sum depends on the order of the additions; decimals and
+        integers must be equal."""
         summary = summary if summary is not None else self.field.summary
         if summary is None:
             return {}
@@ -79,7 +83,7 @@ class Statistics:
                 same = computed is not None and stored.instant == _instant_of(computed)
                 stored_shown = stored.text
             else:
-                same = _same_number(stored, computed)
+                same = _same_number(stored, computed, tolerance)
                 stored_shown = stored
             if not same:
                 found[name] = (stored_shown, computed)
@@ -103,7 +107,7 @@ def _instant_of(text):
     return to_instant(text)
 
 
-def _same_number(stored, computed) -> bool:
+def _same_number(stored, computed, tolerance: float = 1e-12) -> bool:
     if computed is None:
         return False
     try:
@@ -111,7 +115,7 @@ def _same_number(stored, computed) -> bool:
             a, b = float(stored), float(computed)
             if math.isnan(a) and math.isnan(b):
                 return True
-            return math.isclose(a, b, rel_tol=1e-12, abs_tol=1e-12)
+            return math.isclose(a, b, rel_tol=tolerance, abs_tol=tolerance)
         return Decimal(stored) == Decimal(computed)
     except (TypeError, ValueError, ArithmeticError):
         return stored == computed

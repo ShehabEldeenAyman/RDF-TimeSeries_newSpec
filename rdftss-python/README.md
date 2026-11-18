@@ -1,6 +1,6 @@
 # rdftss
 
-A Python library for **RDF Time Series Snippets** (TSS). It reads metadata documents and their data in all five storage classes, queries and analyses the points, finds snippets across documents, expands snippets into observations, and converts them from one storage class to another.
+A Python library for **RDF Time Series Snippets** (TSS). It reads metadata documents and their data in all five storage classes, queries the points with SPARQL and analyses them, finds snippets across documents, expands snippets into observations, and converts them from one storage class to another. It also checks documents against the specification: with its SHACL shapes, by recomputing stored summaries, and with a conformance test suite.
 
 It implements the [RDF Time Series Snippets specification](https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/), with the vocabulary `https://w3id.org/tss#` at version 0.2.0, which comes with the package. The [guide](docs/guide.md) explains every feature in detail.
 
@@ -30,8 +30,8 @@ pip install -r requirements.txt
 To install only what you need:
 
 ```bash
-pip install -e .            # rdflib only: RDF and JSON points, CSV files
-pip install -e ".[all]"     # also Parquet and Arrow, pandas, polars and SQL
+pip install -e .            # rdflib only: RDF and JSON points, CSV files, SPARQL
+pip install -e ".[all]"     # also Parquet and Arrow, pandas, polars and SHACL validation
 ```
 
 | Extra | Adds | Needed for |
@@ -39,7 +39,7 @@ pip install -e ".[all]"     # also Parquet and Arrow, pandas, polars and SQL
 | `files` | pyarrow | Parquet and Arrow files, `to_arrow()` |
 | `pandas` | pyarrow, pandas | `to_pandas()` |
 | `polars` | pyarrow, polars | `to_polars()` |
-| `sql` | pyarrow, duckdb, pytz | `sql()` and `Database` |
+| `shacl` | pyshacl | `validate()` |
 
 A feature whose package is missing raises an error that tells you what to install.
 
@@ -69,12 +69,15 @@ The examples use the documents in [`examples/`](examples/) and run from this fol
 3. [Read the points](#3-read-the-points)
 4. [Select points](#4-select-points)
 5. [Statistics, gaps and resampling](#5-statistics-gaps-and-resampling)
-6. [DataFrames and SQL](#6-dataframes-and-sql)
-7. [Where the data files come from](#7-where-the-data-files-come-from)
-8. [Find snippets across documents](#8-find-snippets-across-documents)
-9. [Expand into observations](#9-expand-into-observations)
-10. [Convert to another storage class](#10-convert-to-another-storage-class)
-11. [Handle errors](#11-handle-errors)
+6. [DataFrames](#6-dataframes)
+7. [Query with SPARQL](#7-query-with-sparql)
+8. [Where the data files come from](#8-where-the-data-files-come-from)
+9. [Find snippets across documents](#9-find-snippets-across-documents)
+10. [Expand into observations](#10-expand-into-observations)
+11. [Convert to another storage class](#11-convert-to-another-storage-class)
+12. [Validate a document with SHACL](#12-validate-a-document-with-shacl)
+13. [Check stored summaries](#13-check-stored-summaries)
+14. [Handle errors](#14-handle-errors)
 
 ### 1. Load a document
 
@@ -178,9 +181,9 @@ stored = rdftss.load("examples/embedded_rdf.ttl").snippet()
 stored.statistics().differences()           # {}: the summary matches the data
 ```
 
-### 6. DataFrames and SQL
+### 6. DataFrames
 
-A DataFrame has one column per field, with values typed by their datatype. SQL runs in DuckDB, in memory: each snippet is a table, and the view `points` is the snippet itself. The database is locked down: no files, no network, one reading statement per query, and limits on rows, size and time.
+A DataFrame has one column per field, with values typed by their datatype.
 
 ```python
 import rdftss
@@ -190,21 +193,56 @@ snippet = rdftss.load("examples/readings_csv.ttl").snippet()
 frame = snippet.to_pandas()               # indexed by time (UTC)
 frame["value"].resample("1h").mean()      # from here on, it is plain pandas
 snippet.to_polars()                       # or polars; to_arrow() gives a pyarrow Table
+```
 
-result = snippet.sql("""
-    SELECT quality, count(*) AS n, round(avg(value), 2) AS mean
-    FROM points GROUP BY quality ORDER BY n DESC
+### 7. Query with SPARQL
+
+SPARQL queries run in memory, with rdflib, on one graph that holds the points and the metadata. Whatever its storage class, each snippet's points are in the graph as embedded RDF points: the snippet links to each point with `tss:hasPoint`, and a point has one triple per value, with the field's IRI as the predicate. The document's own statements are there as well, so a query can join the points with their fields, units, sensors and summaries. Every query knows the document's prefixes.
+
+```python
+import rdftss
+
+snippet = rdftss.load("examples/readings_csv.ttl").snippet()
+
+# The number of readings and their mean per quality code
+result = snippet.sparql("""
+    SELECT ?quality (COUNT(?point) AS ?n) (ROUND(AVG(?value) * 100) / 100 AS ?mean)
+    WHERE { ?point ex:csv-value-field ?value ; ex:csv-quality-field ?quality . }
+    GROUP BY ?quality ORDER BY DESC(?n)
 """)
 print(result)
 # quality | n  | mean
 # --------+----+--------
 # good    | 81 | 4751.58
 # suspect | 4  | 4746.49
+result.rows                 # [('good', 81, Decimal('4751.58')), ('suspect', 4, Decimal('4746.49'))]
+
+# Points and metadata together: every value measured in µS/cm, from 23:00 on
+result = snippet.sparql("""
+    SELECT ?time ?value WHERE {
+        ?snippet tss:hasPoint ?point ; tss:timeField ?time_field .
+        ?field tss:unit unit:MicroS-PER-CentiM .
+        ?point ?time_field ?time ; ?field ?value .
+        FILTER(?time >= "2024-05-12T23:00:00Z"^^xsd:dateTime)
+    } ORDER BY ?time
+""")
+len(result)                 # 4
+
+# For several queries or several snippets, build the graph once
+with rdftss.TripleStore([snippet]) as store:
+    print(store.describe())             # the predicate and datatype of each field
+    print(store.examples()[0])          # example queries with the snippet's own IRIs
+    store.query("ASK { ?point ex:csv-value-field ?value FILTER(?value > 4800) }")   # True
 ```
 
-For several snippets in one database, use `rdftss.Database([snippet1, snippet2])`.
+Good to know:
 
-### 7. Where the data files come from
+- **Times compare as moments.** rdflib can't compare `xsd:dateTimeStamp` values, so in the graph every time is an `xsd:dateTime` literal with the same text: `…T10:00:00+02:00` equals `…T08:00:00Z`.
+- **Values keep the text of the data.** A shared variable matches identical RDF terms, so `"4747.00"` from a CSV file doesn't match `"4747.0"` from a Parquet file. To compare numbers, use two variables and `FILTER(?a = ?b)`.
+- **Queries only read.** SPARQL Update is not accepted, `SERVICE` and `FROM` are refused (they would reach other servers), and an answer is limited to 10,000 rows and 30 seconds by default (`max_rows=`, `timeout=`).
+- **The graph lives in memory.** 200,000 points with three fields take about 10 seconds to load and over 1 GB. Load only the period and the fields you need: `TripleStore([snippet], between=(start, end), fields=["value"])`.
+
+### 8. Where the data files come from
 
 `tss:dataFile` is resolved against the document's own address. So a relative path finds the data next to the document, both on disk and online.
 
@@ -224,7 +262,7 @@ snippet.set_data_file("examples/sample-data/readings.csv")    # a path or a bina
 len(snippet.read())                                           # 85
 ```
 
-### 8. Find snippets across documents
+### 9. Find snippets across documents
 
 A `Document` holds one metadata document. To search several, load them and give the list to `find`. It matches IRIs exactly, with each document's own prefixes; windows that only touch do not overlap.
 
@@ -248,7 +286,7 @@ for match in matches:
 rdftss.find(documents, unit="unit:MicroS-PER-CentiM", kind="parquet")    # also: sensor, mutable, label
 ```
 
-### 9. Expand into observations
+### 10. Expand into observations
 
 Each value of a measured field inside the window becomes a SOSA observation, written with SOSA, QUDT and Dublin Core as the specification's informative mapping does. The output also holds what the document says about the sensors, features of interest, observed properties and units, and no TSS terms. A file is replaced only when the whole expansion worked.
 
@@ -267,7 +305,7 @@ len(graph)                # 44 triples
 
 `expand(..., mapping=...)` writes the observations with another vocabulary; the guide shows how.
 
-### 10. Convert to another storage class
+### 11. Convert to another storage class
 
 `convert` writes a snippet in another storage class (`"csv"`, `"parquet"`, `"arrow"`, `"json"` or `"rdf"`), as a new metadata document plus data file, and returns the new document. The points, labels, window and the meaning of every field stay the same.
 
@@ -288,7 +326,49 @@ len(parts.snippets)                                                           # 
 
 `subset`, `merge` and `from_observations` are in the [guide](docs/guide.md#10-converting-snippets).
 
-### 11. Handle errors
+### 12. Validate a document with SHACL
+
+`validate()` checks a metadata document with the SHACL shapes of the specification, which come with the package. The snippet classes choose the shapes: one file for embedded snippets, which also checks their RDF points, and one for external snippets, which checks the metadata but not the data file. The document is checked as it is written, so a value such as `" 4810.5 "^^xsd:double` is found. It needs `pyshacl` (the `shacl` extra).
+
+```python
+import rdftss
+
+report = rdftss.load("examples/embedded_rdf.ttl").validate()
+report.conforms         # True: no violation (warnings don't change that)
+print(report)           # examples/embedded_rdf.ttl: CONFORMS (0 violations, 0 warnings) with the embedded shapes
+
+# The same document with a time that has no timezone
+text = open("examples/embedded_rdf.ttl").read().replace('tss:from "2024-05-12T08:00:00Z"', 'tss:from "2024-05-12T08:00:00"')
+report = rdftss.loads(text).validate()
+report.conforms         # False
+for result in report.results:
+    print(result)       # Violation  S23   ex:snippet  S23 timezone: 2024-05-12T08:00:00 (the snippet's tss:from) has no timezone. ...
+report.checks           # {'S23'}: the IDs of the checks that failed
+report.to_turtle("out/report.ttl")      # the sh:ValidationReport as RDF
+```
+
+Every check has an ID: S for the snippet, F for a field, P for an RDF point, D for a value encoding and Q for a summary. `validate(shapes=...)` takes `"embedded"`, `"external"` or your own shapes file. [docs/conformance.md](docs/conformance.md) explains the checks and the conformance test suite.
+
+### 13. Check stored summaries
+
+A stored `tss:summary` is not refreshed by itself. `verify_summaries()` recomputes every number a summary states from the points in the time window, and names the numbers that differ. Times are compared as moments, and floating-point numbers within a relative `tolerance` (1e-12).
+
+```python
+import rdftss
+
+report = rdftss.load("examples/embedded_rdf.ttl").verify_summaries()
+report.up_to_date       # True
+print(report)
+# 1 stored summary: 1 up to date, 0 out of date
+#   ex:value-field: up to date (tss:count, tss:missing, tss:firstTime, tss:lastTime, ...)
+
+# A summary that was not recomputed after a change
+text = open("examples/embedded_rdf.ttl").read().replace('tss:count "5"', 'tss:count "4"')
+report = rdftss.loads(text).verify_summaries()
+print(report.out_of_date[0])        # ex:value-field: OUT OF DATE: tss:count is 4, the data gives 5
+```
+
+### 14. Handle errors
 
 Reading stops at the first data error that the specification names, and says where it is. With `strict=False`, the bad value is left out and the problem is listed instead. Every error rdftss raises is an `rdftss.RDFTSSError`.
 
@@ -322,11 +402,12 @@ print(rdftss.load("examples/readings_csv.ttl").all_issues)    # No issues.
 | Loading and RDF | `load(path_or_url)`, `loads(text)`, `Document`, `Snippet`, `Field`, `describe()`, `field("name")`, `how_to_read()` |
 | Reading the data | `read(strict=, window=, fields=)`, `iter_points()`, `Point`, `set_data_file()`; RDF and JSON points, CSV, Parquet and Arrow; time grids; `tss:DeltaFromBaseline` |
 | Data files | local paths, `http(s)` downloads (`allow_network=True` by default), `cache_folder`, `data_folder` (sandbox) |
-| Querying and analysis | `between`, `where`, `having`, `statistics` (+ `differences()` from the stored summary), `outside_expected_range`, `gaps`, `missing_steps`, `resample`, `to_pandas`/`to_polars`/`to_arrow`, `sql()` and `Database` (DuckDB, locked down) |
+| Querying and analysis | `between`, `where`, `having`, `statistics` (+ `differences()` from the stored summary), `outside_expected_range`, `gaps`, `missing_steps`, `resample`, `to_pandas`/`to_polars`/`to_arrow`, `sparql()` and `TripleStore` (SPARQL with rdflib, read only) |
 | Discovery | `rdftss.find(documents, observed_property=, feature_of_interest=, sensor=, unit=, overlapping=, kind=, mutable=)` |
+| Conformance | `validate()` (the specification's SHACL shapes, or yours), `verify_summaries()`, and the test suite in [`conformance/`](conformance/) |
 | Materialisation | `expand()` (SOSA by default, or your own `ObservationMapping`; N-Triples or N-Quads, streamed), `observations()`, `convert(to=, time_grid=, encode=, decode=, keep_texts=)`, `subset`, `split`, `merge`, `from_observations` |
 
-Not in this version yet: QUDT alignment, conformance testing (SHACL shapes and data checks), appending points to a snippet, and a command line.
+Not in this version yet: QUDT alignment, checks of the data beyond what the SHACL shapes see, appending points to a snippet, and a command line.
 
 ## Example documents
 
@@ -345,7 +426,8 @@ The tests use the example documents. They check, among other things:
 - every rule the spec calls an error;
 - the Parquet and Arrow type tables;
 - conversions between every pair of classes that must keep the same points;
-- the code in this README and in the guide, which runs as part of the tests.
+- the code in this README and in the guide, which runs as part of the tests;
+- the conformance test suite in [`conformance/`](conformance/): 171 tests of metadata documents, reading, stored summaries and expansion ([docs/conformance.md](docs/conformance.md)).
 
 ## Choices this version makes
 
