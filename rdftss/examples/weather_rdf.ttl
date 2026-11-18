@@ -1,0 +1,59 @@
+# The multi-sensor example of the specification: three measured fields share one time field.
+# The point at 08:10 has no humidity.
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:weather-snippet
+    a tss:EmbeddedRDFSnippet ;
+    rdfs:label "Weather station readings"@en ;
+    tss:mutable false ;
+    tss:committedUntil "2024-05-12T09:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2024-05-12T09:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeField ex:weather-time-field ;
+    tss:hasField ex:weather-time-field,
+        ex:temperature-field,
+        ex:humidity-field .
+
+ex:weather-time-field
+    a tss:Field ;
+    tss:datatype xsd:dateTimeStamp .
+
+ex:temperature-field
+    a tss:Field ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:Temperature ;
+    tss:unit unit:DEG_C ;
+    tss:sensor ex:thermometer ;
+    tss:featureOfInterest ex:outside-air .
+
+ex:humidity-field
+    a tss:Field ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    tss:maximum "100"^^xsd:double ;
+    tss:observedProperty quantitykind:RelativeHumidity ;
+    tss:unit unit:PERCENT_RH ;
+    tss:sensor ex:hygrometer ;
+    tss:featureOfInterest ex:outside-air .
+
+ex:weather-snippet tss:hasPoint [
+    ex:weather-time-field "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    ex:temperature-field "18.2"^^xsd:double ;
+    ex:humidity-field "61.0"^^xsd:double
+] .
+
+ex:weather-snippet tss:hasPoint [
+    ex:weather-time-field "2024-05-12T08:10:00Z"^^xsd:dateTimeStamp ;
+    ex:temperature-field "18.4"^^xsd:double
+] .
+
+ex:weather-snippet tss:hasPoint [
+    ex:weather-time-field "2024-05-12T08:20:00Z"^^xsd:dateTimeStamp ;
+    ex:temperature-field "18.9"^^xsd:double ;
+    ex:humidity-field "59.5"^^xsd:double
+] .

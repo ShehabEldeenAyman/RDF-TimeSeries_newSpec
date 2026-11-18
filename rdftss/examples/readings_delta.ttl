@@ -1,0 +1,53 @@
+# CSV data file whose value column holds the difference from a baseline of 4750 (tss:DeltaFromBaseline)
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:delta-snippet
+    a tss:CSVSnippet ;
+    rdfs:label "Basin 1 conductivity, 2024-05-12 (delta)"@en ;
+    tss:mutable false ;
+    tss:committedUntil "2024-05-13T00:05:00Z"^^xsd:dateTimeStamp ;
+    tss:producedBy ex:producer ;
+    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:dataFile <sample-data/readings_delta.csv> ;
+    tss:timeField ex:delta-time-field ;
+    tss:hasField ex:delta-time-field, ex:delta-value-field, ex:delta-quality-field .
+
+ex:delta-time-field
+    a tss:Field ;
+    rdfs:label "Observation time"@en ;
+    tss:columnName "time" ;
+    tss:datatype xsd:dateTimeStamp .
+
+ex:delta-value-field
+    a tss:Field ;
+    rdfs:label "Electrical conductivity"@en ;
+    tss:columnName "value_delta" ;
+    tss:datatype xsd:double ;
+    tss:valueEncoding tss:DeltaFromBaseline ;
+    tss:baseline "4750"^^xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-1 ;
+    tss:featureOfInterest ex:feature-1 .
+
+ex:delta-quality-field
+    a tss:Field ;
+    rdfs:label "Quality code"@en ;
+    tss:columnName "quality" ;
+    tss:datatype xsd:string ;
+    tss:describesField ex:delta-value-field .
+
+ex:sensor-1 a sosa:Sensor ;
+    rdfs:label "Conductivity sensor 1"@en .
+
+ex:feature-1 a sosa:FeatureOfInterest ;
+    rdfs:label "Water of basin 1"@en .

@@ -1,0 +1,55 @@
+# CSV data file without a header line: the columns are found by tss:columnIndex
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:noheader-snippet
+    a tss:CSVSnippet ;
+    rdfs:label "Basin 1 conductivity, 2024-05-12 (noheader)"@en ;
+    tss:mutable false ;
+    tss:committedUntil "2024-05-13T00:05:00Z"^^xsd:dateTimeStamp ;
+    tss:producedBy ex:producer ;
+    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:dataFile <sample-data/readings_no_header.csv> ;
+    tss:header false ;
+    tss:timeField ex:noheader-time-field ;
+    tss:hasField ex:noheader-time-field, ex:noheader-value-field, ex:noheader-quality-field .
+
+ex:noheader-time-field
+    a tss:Field ;
+    rdfs:label "Observation time"@en ;
+    tss:columnName "time" ;
+    tss:columnIndex 0 ;
+    tss:datatype xsd:dateTimeStamp .
+
+ex:noheader-value-field
+    a tss:Field ;
+    rdfs:label "Electrical conductivity"@en ;
+    tss:columnName "value" ;
+    tss:columnIndex 1 ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-1 ;
+    tss:featureOfInterest ex:feature-1 .
+
+ex:noheader-quality-field
+    a tss:Field ;
+    rdfs:label "Quality code"@en ;
+    tss:columnName "quality" ;
+    tss:columnIndex 2 ;
+    tss:datatype xsd:string ;
+    tss:describesField ex:noheader-value-field .
+
+ex:sensor-1 a sosa:Sensor ;
+    rdfs:label "Conductivity sensor 1"@en .
+
+ex:feature-1 a sosa:FeatureOfInterest ;
+    rdfs:label "Water of basin 1"@en .

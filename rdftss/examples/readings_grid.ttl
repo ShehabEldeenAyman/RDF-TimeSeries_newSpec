@@ -1,0 +1,59 @@
+# CSV data file on a time grid: each row states its step; its time is tss:timeBase + step x tss:timeStep
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:grid-snippet
+    a tss:CSVSnippet ;
+    rdfs:label "Basin 1 conductivity, 2024-05-12 (grid)"@en ;
+    tss:mutable false ;
+    tss:committedUntil "2024-05-13T00:05:00Z"^^xsd:dateTimeStamp ;
+    tss:producedBy ex:producer ;
+    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:dataFile <sample-data/readings_grid.csv> ;
+    tss:timeBase "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeStep "PT15M"^^xsd:duration ;
+    tss:stepField ex:grid-step-field ;
+    tss:timeField ex:grid-time-field ;
+    tss:hasField ex:grid-time-field, ex:grid-value-field, ex:grid-quality-field, ex:grid-step-field .
+
+ex:grid-time-field
+    a tss:Field ;
+    rdfs:label "Observation time"@en ;
+    tss:datatype xsd:dateTimeStamp .
+
+ex:grid-value-field
+    a tss:Field ;
+    rdfs:label "Electrical conductivity"@en ;
+    tss:columnName "value" ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-1 ;
+    tss:featureOfInterest ex:feature-1 .
+
+ex:grid-quality-field
+    a tss:Field ;
+    rdfs:label "Quality code"@en ;
+    tss:columnName "quality" ;
+    tss:datatype xsd:string ;
+    tss:describesField ex:grid-value-field .
+
+ex:grid-step-field
+    a tss:Field ;
+    rdfs:label "Step"@en ;
+    tss:columnName "step" ;
+    tss:datatype xsd:integer .
+
+ex:sensor-1 a sosa:Sensor ;
+    rdfs:label "Conductivity sensor 1"@en .
+
+ex:feature-1 a sosa:FeatureOfInterest ;
+    rdfs:label "Water of basin 1"@en .

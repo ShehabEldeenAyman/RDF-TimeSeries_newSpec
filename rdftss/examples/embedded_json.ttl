@@ -1,0 +1,41 @@
+# The JSON points example of the specification: the readings of embedded_rdf.ttl as one
+# rdf:JSON literal (tss:EmbeddedJSONSnippet). The keys are the fields' tss:columnName.
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:json-snippet
+    a tss:EmbeddedJSONSnippet ;
+    rdfs:label "Conductivity readings, JSON points"@en ;
+    tss:mutable true ;
+    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeField ex:json-time-field ;
+    tss:hasField ex:json-time-field,
+        ex:json-value-field ;
+    tss:points """[
+        { "time": "2024-05-12T08:00:00Z", "value": "4810.5" },
+        { "time": "2024-05-12T08:15:00Z", "value": "4722.4" },
+        { "time": "2024-05-12T08:30:00Z", "value": "4751.9" },
+        { "time": "2024-05-12T09:15:00Z", "value": "4719.3" },
+        { "time": "2024-05-12T09:45:00Z", "value": "4783.6" }
+      ]"""^^rdf:JSON .
+
+ex:json-time-field
+    a tss:Field ;
+    tss:columnName "time" ;
+    tss:datatype xsd:dateTimeStamp .
+
+ex:json-value-field
+    a tss:Field ;
+    tss:columnName "value" ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-1 ;
+    tss:featureOfInterest ex:feature-1 .

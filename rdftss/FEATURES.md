@@ -2,6 +2,8 @@
 
 The `rdftss` library should be the one place for working with RDF Time Series Snippets: reading the metadata and the data, converting data between formats and into observations, aligning units with QUDT, parsing RDF, and testing conformance. This document lists candidate features, as a basis for choosing the scope. Nothing is implemented yet.
 
+**Status (rdftss 0.1.0):** sections 1–5 are implemented, see the [README](README.md) and the [guide](docs/guide.md). Decisions taken while building them: a `Document` holds one source, and several sources are several objects (no catalogue object; `rdftss.find()` searches a list of them); data files on the web are downloaded by default; *DCAT export* and *CSVW interop* are **pinned**: not built for now.
+
 The library targets the latest specification, in [`tech demo/demo 11`](<../tech demo/demo 11/>): [`spec/spec.bs`](<../tech demo/demo 11/spec/spec.bs>), [`vocabulary/tss.ttl`](<../tech demo/demo 11/vocabulary/tss.ttl>) and the shapes in [`SHACL/`](<../tech demo/demo 11/SHACL/>). Demos 1–10 hold working code for many of the features below, but none of them implements the demo 11 model: demo 10 still reads one `tss:Source` with `tss:embedded`, `tss:format` and `tss:pointOf`.
 
 Each description ends with its basis:
@@ -14,7 +16,7 @@ Each description ends with its basis:
 
 | Feature | Description |
 |---|---|
-| Document loading | Read a metadata document from a path, URL or string in Turtle, N-Triples, N3, RDF/XML, TriG or N-Quads, with an explicit base IRI, so relative IRIs such as `<../data/x.csv>` resolve the same way in every tool. JSON-LD is refused, or read without remote contexts. *Port: demo 10 `documents.py`, `rdf.js`.* |
+| Document loading | Read a metadata document from a path, URL or string in any syntax rdflib knows (Turtle, N-Triples, N3, RDF/XML, TriG, N-Quads, JSON-LD); rdflib finds the syntax from the file name or media type. The base IRI is the document's address unless given, so relative IRIs such as `<../data/x.csv>` resolve the same way in every tool. *Port: demo 10 `documents.py`, `rdf.js`.* |
 | Exact lexical forms | Keep the text of every literal as written: `" 12 "^^xsd:double` stays `" 12 "`, so checks can report it instead of rdflib normalising it away. Safe when several parses run at once. *Port: demo 10 `parse_exact` and `NORMALIZE_LOCK` in `tss2rdf.py`.* |
 | Snippets and their classes | Find every snippet of a document and pick its reading rules from its one snippet class. Report a snippet with no class or with several, and a document that mixes embedded and external snippets. *New: demo 10 reads exactly one `tss:Source`.* |
 | Object model | Typed `Snippet`, `Field`, `Point`, `Summary`, `TimeGrid` and `ValueEncoding` objects, with the spec's defaults filled in (delimiter `,`, encoding `utf-8`, header `true`, key = time field) and each field's role: time, step, measured or describing. Terms are compared by full IRI, so prefixes never matter; statements the model does not cover stay reachable. *Port: demo 10 `source_reading.py`, `tss.js`.* |
@@ -30,7 +32,7 @@ Each description ends with its basis:
 | CSV files | Read RFC 4180 CSV with `tss:delimiter`, `tss:encoding` and `tss:header`: columns by name, or by `tss:columnIndex` when there is no header. Never guess the delimiter; check that the header names every field's column; read in chunks. *Port: demo 10 `data_reading.py`, `files.py`.* |
 | Parquet files | Read columns by name and write each native value in the lexical form of the spec's Parquet table: UTC times as `…Z`, DECIMAL with exactly *scale* fraction digits, `INF` and `NaN`. Check that the field's datatype is allowed for the column type; refuse unsupported types, and a timestamp without timezone as the time column. *Port: demo 10 reads Parquet with DuckDB; the type table is new.* |
 | Arrow IPC files | The same for Arrow IPC files, with the spec's Arrow table. A dictionary-encoded column is read as the values it encodes. *New.* |
-| Finding the data file | Resolve `tss:dataFile` against the document IRI. Read a local file, download an HTTP(S) file only when allowed (with caching and a size limit), or take a file or stream from the caller. An optional sandbox folder blocks paths that escape it with `..`. *Port: demo 10 `files.py`, `dataSource.js`.* |
+| Finding the data file | Resolve `tss:dataFile` against the document IRI. Read a local file, download an HTTP(S) file (on by default, can be turned off; kept per document, or in a cache folder that is checked with the server before reuse; with a size limit), or take a file or stream from the caller. An optional sandbox folder blocks paths that escape it with `..`. *Port: demo 10 `files.py`, `dataSource.js`.* |
 | Times | Parse `xsd:dateTimeStamp` with its required timezone, and compare times as moments: `…Z` and `…+00:00` are the same time. Keep the nanoseconds of Parquet and Arrow timestamps, which Python's `datetime` drops. *Port in part: demo 10 `value_reading.py`; the required timezone is new.* |
 | Time window | Apply [`tss:from`, `tss:until`), with an open side where a bound is missing. Rows of an external snippet outside the window are skipped; a point of an embedded snippet outside it is an error. *Port.* |
 | Time grid | Give each row the time `tss:timeBase` + n × `tss:timeStep`, where n is its step, with XML Schema duration arithmetic: each part of the step is multiplied by n, and months are calendar months (2021-01-31 + P1M = 2021-02-28). Check that every step is a whole number of 0 or more, and unique. *New.* |
@@ -52,9 +54,9 @@ Each description ends with its basis:
 
 | Feature | Description |
 |---|---|
-| Catalogue | Load many metadata documents into one catalogue, one named graph per document. A catalogue may hold embedded and external snippets side by side; it is never treated as one document. *Port: demo 11 competency-question runner.* |
-| Discovery queries | Find snippets by observed property, feature of interest, sensor, unit and window overlap, and say how to read them: class, data file or embedded predicate, field bindings, grid and encoding parameters, mutability, `tss:committedUntil` and summaries. This turns CQ1–CQ8 into functions; the YAML runner, with its SPARQL-results JSON export, stays available for the evaluation. *Port: demo 11 `evaluation/competency_questions`.* |
-| DCAT export | Write a DCAT catalogue of the snippets (`tss:Snippet` is a subclass of `dcat:Dataset`), with a distribution for each data file and its media type. *Port: demo 10 `catalog_routes.py`.* |
+| ~~Catalogue~~ | *Dropped:* a `Document` holds one source; to work with several, load several. The discovery queries below take a list of documents. |
+| Discovery queries | `rdftss.find(documents, ...)`: find snippets by observed property, feature of interest, sensor, unit and window overlap, and say how to read them: class, data file or embedded predicate, field bindings, grid and encoding parameters, mutability, `tss:committedUntil` and summaries. This turns CQ1–CQ8 into functions; the YAML runner, with its SPARQL-results JSON export, stays available for the evaluation. *Port: demo 11 `evaluation/competency_questions`.* |
+| DCAT export | **Pinned.** Write a DCAT catalogue of the snippets (`tss:Snippet` is a subclass of `dcat:Dataset`), with a distribution for each data file and its media type. *Port: demo 10 `catalog_routes.py`.* |
 
 ## 5. Materialisation and conversion
 
@@ -67,7 +69,7 @@ Each description ends with its basis:
 | Grid and delta encoding | Turn a time grid into an explicit time column, or detect a regular step and store steps instead; decode delta-from-baseline values, or encode them against a chosen baseline. *New.* |
 | Split, merge and subset | Split a long snippet into windowed snippets, for example per month, each with its own window and summaries; merge snippets that share their fields; keep a subset of the fields. *Beyond spec.* |
 | Observations to snippets | The reverse of expansion: group SOSA observations by observed property, sensor, feature of interest and unit into fields that share one time field, and write a snippet with its data. *Beyond spec.* |
-| CSVW interop | Write CSVW table metadata for a CSV snippet (`tss:Field` is a close match of `csvw:Column`), so CSVW tools can read the file, and import the CSVW descriptions of demos 2–5 as fields. *Beyond spec.* |
+| CSVW interop | **Pinned.** Write CSVW table metadata for a CSV snippet (`tss:Field` is a close match of `csvw:Column`), so CSVW tools can read the file, and import the CSVW descriptions of demos 2–5 as fields. *Beyond spec.* |
 
 ## 6. Units and QUDT alignment
 

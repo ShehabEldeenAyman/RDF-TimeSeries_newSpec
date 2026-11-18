@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rdftss"
+version = "0.1.0"
+description = "Read, query, discover, expand and convert RDF Time Series Snippets (TSS)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "RDF Time Series Snippets contributors"}]
+keywords = ["rdf", "time series", "linked data", "sosa", "qudt", "parquet", "arrow", "csv"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering",
+]
+# rdflib is the only required package. The extras add what some features need.
+dependencies = ["rdflib>=7.0"]
+
+[project.optional-dependencies]
+# Parquet and Arrow files, and writing them
+files = ["pyarrow>=14"]
+# DataFrames
+pandas = ["pyarrow>=14", "pandas>=2.0"]
+polars = ["pyarrow>=14", "polars>=0.20"]
+# SQL with DuckDB
+sql = ["pyarrow>=14", "duckdb>=1.0"]
+all = ["pyarrow>=14", "pandas>=2.0", "polars>=0.20", "duckdb>=1.0"]
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+rdftss = ["vocabulary/*.ttl", "py.typed"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
