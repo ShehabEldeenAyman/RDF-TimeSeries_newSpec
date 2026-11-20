@@ -38,8 +38,7 @@ RDF_SNIPPET = """
 ex:snippet
     a tss:EmbeddedRDFSnippet ;
     rdfs:label "Conductivity readings"@en ;
-    tss:mutable true ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:producedBy ex:producer ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -106,6 +105,14 @@ RDF = PREFIXES + RDF_SNIPPET + RDF_VALUE_FIELD + RDF_POINTS
 #: The stored summary of the value field, with every attribute.
 SUMMARY = RDF_VALUE_FIELD[RDF_VALUE_FIELD.index("\n    tss:summary ["):RDF_VALUE_FIELD.index("\n    ] .") + len("\n    ]")]
 
+#: The embedded example as a growing snippet: an RDF Message Log, without tss:immutable and without
+#: the summary; the description is the first message, and each point a message of its own.
+RDF_LOG = ('VERSION "1.2-messages"\n' + PREFIXES + RDF_SNIPPET.replace("    tss:immutable true ;\n", "")
+           + RDF_VALUE_FIELD.replace(" ;" + SUMMARY, "") + "MESSAGE\n"
+           + "".join(part.strip() + "\nMESSAGE\n" for part in RDF_POINTS.split("\n\n")))
+#: The last message of a log that ends the snippet: tss:immutable true, and the summary.
+RDF_LOG_END = "ex:snippet tss:immutable true .\n\nex:value-field" + SUMMARY + " .\nMESSAGE\n"
+
 JSON_ARRAY = """[
   { "time": "2024-05-12T08:00:00Z", "value": "4810.5" },
   { "time": "2024-05-12T08:15:00Z", "value": "4722.4" },
@@ -113,15 +120,14 @@ JSON_ARRAY = """[
 ]"""
 
 
-def json_document(array: str = JSON_ARRAY, extra_fields: str = "", more: str = "") -> str:
-    """A tss:EmbeddedJSONSnippet with these points."""
+def json_document(array: str = JSON_ARRAY, extra_fields: str = "", more: str = "", immutable: bool = False) -> str:
+    """A tss:EmbeddedJSONSnippet with these points: growing, unless ``immutable``."""
+    final = "    tss:immutable true ;\n" if immutable else ""
     return PREFIXES + f"""
 ex:snippet
     a tss:EmbeddedJSONSnippet ;
     rdfs:label "Conductivity readings"@en ;
-    tss:mutable true ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+{final}    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
     tss:timeField ex:time-field ;
     tss:hasField ex:time-field, ex:value-field{extra_fields} ;
@@ -145,8 +151,11 @@ JSON = json_document()
 
 
 def external_document(kind: str = "CSVSnippet", data_file: str = "readings.csv", snippet_extra: str = "",
-                      window: bool = True, value_extra: str = "", summary: str | None = None) -> str:
-    """An external snippet (CSV, Parquet or Arrow) with a time field and a value field."""
+                      window: bool = True, value_extra: str = "", summary: str | None = None,
+                      immutable: bool = True) -> str:
+    """An external snippet (CSV, Parquet or Arrow) with a time field and a value field: immutable,
+    unless ``immutable=False`` (then give ``summary=""``: a growing snippet has no summary)."""
+    final = "    tss:immutable true ;\n" if immutable else ""
     bounds = ('    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;\n'
               '    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;\n') if window else ""
     summary = ("""
@@ -158,9 +167,7 @@ def external_document(kind: str = "CSVSnippet", data_file: str = "readings.csv",
 ex:snippet
     a tss:{kind} ;
     rdfs:label "Conductivity readings"@en ;
-    tss:mutable false ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
-    tss:producedBy ex:producer ;
+{final}    tss:producedBy ex:producer ;
 {bounds}    tss:dataFile <{data_file}> ;{snippet_extra}
     tss:timeField ex:time-field ;
     tss:key ex:time-field ;
@@ -192,8 +199,7 @@ def grid_document(time_base: str = "2024-05-12T08:00:00Z", time_step: str = "PT1
     return PREFIXES + f"""
 ex:snippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:dataFile <readings.csv> ;
     tss:timeBase "{time_base}"^^xsd:dateTimeStamp ;
     tss:timeStep "{time_step}"^^xsd:duration ;
@@ -227,8 +233,7 @@ DELTA = external_document(window=False, value_extra=DELTA_ENCODING, summary="")
 SECOND_EXTERNAL_SNIPPET = """
 ex:csv-snippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:dataFile <readings.csv> ;
     tss:timeField ex:csv-time-field ;
     tss:hasField ex:csv-time-field .
@@ -259,9 +264,13 @@ def append(more: str):
 
 
 def add_to_snippet(line: str):
-    """Add a statement about the snippet, after its tss:committedUntil."""
-    return replace('    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;',
-                   '    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;\n' + line)
+    """Add a statement about the snippet, after its tss:immutable."""
+    return replace("    tss:immutable true ;", "    tss:immutable true ;\n" + line)
+
+
+def add_json_line(line: str):
+    """Add a statement about a JSON snippet, after its label."""
+    return replace('    rdfs:label "Conductivity readings"@en ;', '    rdfs:label "Conductivity readings"@en ;\n' + line)
 
 
 def point(time: str | None, value: str | None, extra: str = "") -> str:
@@ -309,9 +318,21 @@ EMBEDDED_TESTS = [
       + " .\n" + RDF_VALUE_FIELD[RDF_VALUE_FIELD.index("\nex:sensor-1"):],
       comment="A snippet may have no points yet.", rule="rdf-points"),
     M("valid-empty-json-array", json_document("[]"), comment='"[]" holds no points.', rule="json-points"),
-    M("S2-mutable-missing", RDF, [remove("    tss:mutable true ;\n")], "The snippet has no tss:mutable.", "change"),
-    M("S2-mutable-not-a-boolean", RDF, [replace("tss:mutable true ;", 'tss:mutable "yes" ;')],
-      'tss:mutable is the string "yes", not an xsd:boolean.', "change"),
+    M("valid-growing-json-points", JSON, comment="A growing snippet: it states no tss:immutable, and has no summary.",
+      rule="change"),
+    M("valid-growing-message-log", RDF_LOG,
+      comment="A growing tss:EmbeddedRDFSnippet: an RDF Message Log, one point per message, no summary.", rule="rdf-points"),
+    M("valid-ended-message-log", RDF_LOG + RDF_LOG_END,
+      comment="A log whose last message ends the snippet: tss:immutable true and the summary.", rule="ending"),
+    M("S2-immutable-not-a-boolean", RDF, [replace("tss:immutable true ;", 'tss:immutable "yes" ;')],
+      'tss:immutable is the string "yes", not an xsd:boolean (so the snippet is growing, and its summary is S26).',
+      "change", violations=["S2", "S26"]),
+    M("S2-two-immutable-values", RDF, [replace("tss:immutable true ;", "tss:immutable true, false ;")],
+      "The snippet states tss:immutable twice.", "change"),
+    M("S26-summary-of-a-growing-snippet", json_document(more=" ;" + SUMMARY),
+      comment="A growing snippet (no tss:immutable) with a stored summary.", rule="summaries"),
+    M("S26-summary-with-immutable-false", json_document(more=" ;" + SUMMARY), [add_json_line("    tss:immutable false ;")],
+      "A snippet that states tss:immutable false, with a stored summary.", "summaries"),
     M("S3-two-snippet-classes", RDF, [replace("    a tss:EmbeddedRDFSnippet ;",
                                               "    a tss:EmbeddedRDFSnippet, tss:EmbeddedJSONSnippet ;")],
       "The snippet states two snippet classes.", "storage"),
@@ -356,11 +377,6 @@ EMBEDDED_TESTS = [
                          ("points-on-an-rdf-snippet", '    tss:points "[]"^^rdf:JSON ;')]],
     M("S12-has-point-on-a-json-snippet", JSON, [append(point("2024-05-12T08:45:00Z", None))],
       "A tss:EmbeddedJSONSnippet with an RDF point.", "storage"),
-    M("S17-committed-until-missing", RDF, [remove('    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;\n')],
-      "The snippet has no tss:committedUntil.", "change"),
-    M("S17-committed-until-a-date-time", RDF, [replace('tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp',
-                                                       'tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTime')],
-      "tss:committedUntil is an xsd:dateTime, not an xsd:dateTimeStamp.", "change"),
     M("S20-time-field-datatype", RDF, [replace('    rdfs:label "Observation time"@en ;\n    tss:datatype xsd:dateTimeStamp .',
                                                '    rdfs:label "Observation time"@en ;\n    tss:datatype xsd:dateTime .')],
       "The time field's datatype is xsd:dateTime.", "time-and-key"),
@@ -380,8 +396,7 @@ EMBEDDED_TESTS = [
     M("F1-field-of-two-snippets", RDF, [append("""
 ex:snippet-2
     a tss:EmbeddedRDFSnippet ;
-    tss:mutable true ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:time-field-2 ;
     tss:hasField ex:time-field-2, ex:value-field .
 
@@ -484,7 +499,21 @@ EXTERNAL_TESTS = [
     M("valid-time-grid", GRID, comment="A time grid: tss:timeBase, tss:timeStep and a step field.", rule="time-grid"),
     M("valid-delta-from-baseline", DELTA, comment="A value encoding: differences from a baseline.", rule="value-encoding"),
     M("valid-open-window", external_document(window=False), comment="No tss:from and no tss:until.", rule="window"),
-    M("S3-mutable-missing", CSV, [remove("    tss:mutable false ;\n")], "The snippet has no tss:mutable.", "change"),
+    M("valid-growing-csv", external_document(immutable=False, summary=""),
+      comment="A growing CSV snippet: it states no tss:immutable, and has no summary.", rule="appending-data-files"),
+    M("valid-growing-arrow-stream", external_document("ArrowSnippet", "readings.arrows", immutable=False, summary=""),
+      comment="A growing Arrow snippet, whose data file is an Arrow IPC stream.", rule="arrow"),
+    M("S3-immutable-not-a-boolean", CSV, [replace("tss:immutable true ;", 'tss:immutable "yes" ;')],
+      'tss:immutable is the string "yes", not an xsd:boolean (so the snippet is growing, and its summary is S26).',
+      "change", violations=["S3", "S26"]),
+    M("S26-summary-of-a-growing-snippet", CSV, [remove("    tss:immutable true ;\n")],
+      "A growing CSV snippet (no tss:immutable) with a stored summary.", "summaries"),
+    M("S27-parquet-not-immutable", external_document("ParquetSnippet", "readings.parquet", immutable=False, summary=""),
+      comment="A Parquet snippet that does not state tss:immutable true: rows can't be appended to a Parquet file.",
+      rule="parquet"),
+    M("S27-parquet-immutable-false", external_document("ParquetSnippet", "readings.parquet", summary=""),
+      [replace("tss:immutable true ;", "tss:immutable false ;")],
+      "A Parquet snippet that states tss:immutable false.", "parquet"),
     M("S4-time-field-missing", CSV, [remove("    tss:timeField ex:time-field ;\n")], "The snippet has no tss:timeField.",
       "time-and-key"),
     M("S4-time-field-not-a-field-of-the-snippet", CSV,
@@ -519,8 +548,6 @@ EXTERNAL_TESTS = [
     M("S15-encoding-on-arrow", ARROW, [replace("    tss:dataFile <readings.arrow> ;",
                                                '    tss:dataFile <readings.arrow> ;\n    tss:encoding "utf-8" ;')],
       "tss:encoding on an Arrow snippet has no effect (a warning).", "arrow", warnings=["S15"]),
-    M("S17-committed-until-missing", CSV, [remove('    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;\n')],
-      "The snippet has no tss:committedUntil.", "change"),
     M("S19-time-base-without-time-step", GRID, [remove('    tss:timeStep "PT15M"^^xsd:duration ;\n')],
       "A tss:timeBase without a tss:timeStep: the time step is missing.", "time-grid"),
     M("S18-time-base-a-date", GRID, [replace('tss:timeBase "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp',
@@ -544,9 +571,8 @@ EXTERNAL_TESTS = [
       "An external snippet with an RDF point.", "storage"),
     M("S22-points", CSV, [replace("    tss:dataFile <readings.csv> ;", '    tss:dataFile <readings.csv> ;\n    tss:points "[]"^^rdf:JSON ;')],
       "An external snippet with JSON points.", "storage"),
-    M("S23-committed-until-without-timezone", CSV, [replace('tss:committedUntil "2024-05-12T09:46:10Z"',
-                                                            'tss:committedUntil "2024-05-12T09:46:10"')],
-      "tss:committedUntil has no timezone.", "times"),
+    M("S23-until-without-timezone", CSV, [replace('tss:until "2024-05-13T00:00:00Z"', 'tss:until "2024-05-13T00:00:00"')],
+      "tss:until has no timezone.", "times"),
     M("S23-time-base-without-timezone", grid_document(time_base="2024-05-12T08:00:00"),
       comment="tss:timeBase has no timezone.", rule="times"),
     M("F1-field-not-typed", CSV, [replace("ex:value-field\n    a tss:Field ;\n", "ex:value-field\n")],
@@ -677,6 +703,38 @@ READ_TESTS = [
          files={"metadata.ttl": ARROW}, arrow="readings.arrow",
          expected=csv_rows(f"time,{VALUE}", "2024-05-12T08:00:00Z,4810.5", "2024-05-12T08:15:00Z,4722.4",
                            "2024-05-12T08:30:00Z,4751.9")),
+    dict(name="rdf-message-log", rule="rdf-points",
+         comment="A growing snippet's RDF Message Log is read as the merge of its messages.",
+         files={"metadata.ttl": RDF_LOG},
+         expected=csv_rows(f"time,{VALUE}", "2024-05-12T08:00:00Z,4810.5", "2024-05-12T08:15:00Z,4722.4",
+                           "2024-05-12T08:30:00Z,4751.9")),
+    dict(name="rdf-message-log-unfinished-message", rule="range-requests",
+         comment="Text after the last message delimiter is a message still being written: it is not read.",
+         files={"metadata.ttl": RDF_LOG + 'ex:snippet tss:hasPoint [\n    ex:time-field "2024-05-12T08:45:00Z"^^xsd:dateTimeStamp ;\n'},
+         expected=csv_rows(f"time,{VALUE}", "2024-05-12T08:00:00Z,4810.5", "2024-05-12T08:15:00Z,4722.4",
+                           "2024-05-12T08:30:00Z,4751.9")),
+    dict(name="rdf-message-log-blank-node-labels", rule="rdf-points",
+         comment="Blank node labels are scoped to their message: _:p in two messages are two points.",
+         files={"metadata.ttl": RDF_LOG.split("ex:snippet tss:hasPoint")[0] + "".join(
+             f'ex:snippet tss:hasPoint _:p .\n_:p ex:time-field "{time}"^^xsd:dateTimeStamp ; ex:value-field "{value}"^^xsd:double .\nMESSAGE\n'
+             for time, value in [("2024-05-12T08:00:00Z", "4810.5"), ("2024-05-12T08:15:00Z", "4722.4")])},
+         expected=csv_rows(f"time,{VALUE}", "2024-05-12T08:00:00Z,4810.5", "2024-05-12T08:15:00Z,4722.4")),
+    dict(name="csv-growing-unfinished-record", rule="appending-data-files",
+         comment="In a growing CSV snippet, a last record without its line break is still being written: it is not read.",
+         files={"metadata.ttl": external_document(immutable=False, summary=""),
+                "readings.csv": "time,value\n2024-05-12T08:00:00Z,4810.5\n2024-05-12T08:15:00Z,4722.4"},
+         expected=csv_rows(f"time,{VALUE}", "2024-05-12T08:00:00Z,4810.5")),
+    dict(name="csv-immutable-last-record-without-line-break", rule="csv",
+         comment="In an immutable CSV snippet, a last record without a line break is read.",
+         files={"metadata.ttl": external_document(summary=""),
+                "readings.csv": "time,value\n2024-05-12T08:00:00Z,4810.5\n2024-05-12T08:15:00Z,4722.4"},
+         expected=csv_rows(f"time,{VALUE}", "2024-05-12T08:00:00Z,4810.5", "2024-05-12T08:15:00Z,4722.4")),
+    dict(name="arrow-stream", rule="arrow",
+         comment="A growing Arrow snippet: its data file is an Arrow IPC stream, told apart by its first bytes.",
+         files={"metadata.ttl": external_document("ArrowSnippet", "readings.arrows", immutable=False, summary="")},
+         arrow_stream="readings.arrows",
+         expected=csv_rows(f"time,{VALUE}", "2024-05-12T08:00:00Z,4810.5", "2024-05-12T08:15:00Z,4722.4",
+                           "2024-05-12T08:30:00Z,4751.9")),
     dict(name="error-csv-point-without-time", comment="A row without a time is an error.", rule="expanding",
          files={"metadata.ttl": external_document(summary=""),
                 "readings.csv": csv_rows("time,value", "2024-05-12T08:00:00Z,4810.5", ",4722.4")}, error=True),
@@ -706,7 +764,7 @@ SUMMARY_TESTS = [
   { "time": "2024-05-12T08:00:00Z", "value": "4810.5" },
   { "time": "2024-05-12T08:15:00Z", "value": "" },
   { "time": "2024-05-12T08:30:00Z", "value": "4751.9" }
-]""", more=""" ;
+]""", immutable=True, more=""" ;
     tss:summary [
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "2"^^xsd:integer ;
@@ -790,7 +848,7 @@ def turtle_string(text: str) -> str:
 
 
 def write_binary_files(folder: Path, test: dict) -> None:
-    if "parquet" not in test and "arrow" not in test:
+    if not {"parquet", "arrow", "arrow_stream"} & set(test):
         return
     import pyarrow as pa
     import pyarrow.ipc
@@ -805,6 +863,11 @@ def write_binary_files(folder: Path, test: dict) -> None:
         table = pa.table({"time": pa.array(times, type=pa.timestamp("ns", tz="UTC")), "value": pa.array(values, pa.float64())})
         with pa.OSFile(str(folder / test["arrow"]), "wb") as sink, pyarrow.ipc.new_file(sink, table.schema) as writer:
             writer.write_table(table)
+    if "arrow_stream" in test:  # a stream to which one record batch per row was appended
+        table = pa.table({"time": pa.array(times, type=pa.timestamp("ns", tz="UTC")), "value": pa.array(values, pa.float64())})
+        with pa.OSFile(str(folder / test["arrow_stream"]), "wb") as sink, pyarrow.ipc.new_stream(sink, table.schema) as writer:
+            for batch in table.to_batches(max_chunksize=1):
+                writer.write_batch(batch)
 
 
 def main() -> None:

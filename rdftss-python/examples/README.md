@@ -6,7 +6,8 @@ Metadata documents for every snippet class, and the data they describe. Run `pyt
 |---|---|---|
 | [`embedded_rdf.ttl`](embedded_rdf.ttl) | `tss:EmbeddedRDFSnippet` | the specification's embedded example: five points, one statement each, and a stored summary |
 | [`weather_rdf.ttl`](weather_rdf.ttl) | `tss:EmbeddedRDFSnippet` | the specification's multi-sensor example: three measured fields, one point without a humidity |
-| [`embedded_json.ttl`](embedded_json.ttl) | `tss:EmbeddedJSONSnippet` | the specification's JSON points example |
+| [`embedded_json.ttl`](embedded_json.ttl) | `tss:EmbeddedJSONSnippet` | the specification's JSON points example, a growing snippet (no `tss:immutable true`) |
+| [`growing_rdf.ttl`](growing_rdf.ttl) | `tss:EmbeddedRDFSnippet` | a growing snippet written as an RDF Message Log: one point per message |
 | [`readings_csv.ttl`](readings_csv.ttl) | `tss:CSVSnippet` | a CSV file with a header line and `;` as delimiter; a quality code that describes the value |
 | [`readings_no_header.ttl`](readings_no_header.ttl) | `tss:CSVSnippet` | a CSV file without a header line: columns by `tss:columnIndex` |
 | [`readings_grid.ttl`](readings_grid.ttl) | `tss:CSVSnippet` | a time grid: a `step` column instead of times |

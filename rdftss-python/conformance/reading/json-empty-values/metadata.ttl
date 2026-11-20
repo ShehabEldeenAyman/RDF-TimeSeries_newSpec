@@ -10,8 +10,6 @@
 ex:snippet
     a tss:EmbeddedJSONSnippet ;
     rdfs:label "Conductivity readings"@en ;
-    tss:mutable true ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
     tss:timeField ex:time-field ;

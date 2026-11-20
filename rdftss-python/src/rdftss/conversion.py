@@ -14,9 +14,9 @@ Every function writes a new metadata document (and data files) and returns it as
     rdftss.from_observations("observations.nt", iri="https://example.org/s", document="out/s.ttl")
 
 What stays the same: the points in the time window, their times (as moments) and their decoded
-values; the snippet's labels, window, mutability, ``tss:committedUntil``, summaries and every
-field's meaning (datatype, unit, observed property, sensor, ...); and what the document says
-about other things, such as the sensors. What changes is how the points are stored:
+values; the snippet's labels, window, summaries and every field's meaning (datatype, unit,
+observed property, sensor, ...); whether it is immutable (final) or growing; and what the document
+says about other things, such as the sensors. What changes is how the points are stored:
 
 - **Names.** By default the snippet and its fields get new IRIs, with a suffix such as
   ``-parquet``, so the new document never describes the same node in another way than the old
@@ -26,6 +26,10 @@ about other things, such as the sensors. What changes is how the points are stor
 - **Parquet and Arrow** store values, not texts: a value reads back with the lexical form of its
   column type (``3.0E1`` becomes ``30.0``, times become UTC ``...Z``). With ``keep_texts=True``
   every column is a string column, and every text stays exactly as it is.
+- **Immutable or growing.** A Parquet snippet is always immutable (rows can't be appended to a
+  Parquet file). A growing Arrow snippet is written in the Arrow IPC streaming format (``.arrows``),
+  an immutable one in the IPC file format. A growing snippet has no stored summaries, and a
+  growing ``tss:EmbeddedRDFSnippet`` is written as an RDF Message Log.
 """
 from __future__ import annotations
 
@@ -48,7 +52,7 @@ from .document import Document, load
 from .encodings import DeltaFromBaseline
 from .errors import DataError, require
 from .expansion import describe_iris
-from .model import SNIPPET_CLASSES, CSVDialect, Snippet, SnippetKind, TimeWindow, local_name
+from .model import ALWAYS_IMMUTABLE, SNIPPET_CLASSES, CSVDialect, Snippet, SnippetKind, TimeWindow, local_name
 from .times import Duration, Time, TimeGridMath, parse_time, time_from_instant
 from .vocab import SOSA, QUDT, TSS, TSS_FROM, XSD
 from .writing import document_turtle
@@ -60,6 +64,8 @@ SHORT_NAMES = {SnippetKind.EMBEDDED_RDF: "rdf", SnippetKind.EMBEDDED_JSON: "json
 STORAGE_PROPERTIES = (TSS.dataFile, TSS.delimiter, TSS.encoding, TSS.header, TSS.hasPoint, TSS.points,
                       TSS.timeBase, TSS.timeStep, TSS.stepField)
 COLUMN_PROPERTIES = (TSS.columnName, TSS.columnIndex, TSS.valueEncoding, TSS.baseline)
+#: Statements about changes that every target states afresh (and terms of earlier drafts, dropped).
+CHANGE_PROPERTIES = (TSS.immutable, TSS.mutable, TSS.committedUntil)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -95,7 +101,7 @@ class _Target:
     removed: set = dataclass_field(default_factory=set)
     recompute_summaries: bool = False
     data_iri: URIRef | None = None
-    committed_until: Time | None = None
+    immutable: bool = True
 
 
 def _iri_with(node, suffix):
@@ -206,7 +212,8 @@ def _plan(snippet: Snippet, kind: SnippetKind, points, *, fields=None, decode=Fa
         if kind == SnippetKind.CSV and not has_header:
             column.index = position
         position += 1
-    return _Target(kind, rename[snippet.node], columns, grid, grid_from_source, dialect, None, rename, removed)
+    return _Target(kind, rename[snippet.node], columns, grid, grid_from_source, dialect, None, rename, removed,
+                   immutable=snippet.immutable or kind in ALWAYS_IMMUTABLE)
 
 
 def auto_baseline(texts, datatype) -> str:
@@ -385,6 +392,9 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
     field_nodes = {field.node for field in snippet.fields}
     summary_columns = {column.sources[id(snippet)].node for column in target.columns
                        if column.summary and id(snippet) in column.sources}
+    if not target.immutable:  # a growing snippet has no stored summaries
+        summary_nodes = [summary for field in snippet.fields for summary in source_graph.objects(field.node, TSS.summary)]
+        skip_subjects |= {subject for subject, _, _ in _closure(source_graph, summary_nodes)}
     if target.recompute_summaries:
         for field in snippet.fields:
             if field.node in summary_columns:
@@ -409,7 +419,7 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
                 continue
             if target.window is not None and predicate in (TSS_FROM, TSS.until):
                 continue
-            if target.committed_until is not None and predicate == TSS.committedUntil:
+            if predicate in CHANGE_PROPERTIES:
                 continue
         if subject in field_nodes:
             if predicate in COLUMN_PROPERTIES:
@@ -417,6 +427,8 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
             if predicate == TSS.describesField and value in removed_nodes:
                 continue
             if target.recompute_summaries and predicate == TSS.summary and subject in summary_columns:
+                continue
+            if not target.immutable and predicate == TSS.summary:
                 continue
         graph.add((rename(subject), rename(predicate), rename(value)))
 
@@ -427,8 +439,8 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
             graph.add((node, TSS_FROM, Literal(target.window.start.text, datatype=XSD.dateTimeStamp)))
         if target.window.end is not None:
             graph.add((node, TSS.until, Literal(target.window.end.text, datatype=XSD.dateTimeStamp)))
-    if target.committed_until is not None:
-        graph.add((node, TSS.committedUntil, Literal(target.committed_until.text, datatype=XSD.dateTimeStamp)))
+    if target.immutable:
+        graph.add((node, TSS.immutable, Literal("true", datatype=XSD.boolean)))
     if target.data_iri is not None:
         graph.add((node, TSS.dataFile, target.data_iri))
     if target.csv is not None:
@@ -455,7 +467,7 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
                 graph.add((column.node, predicate, value))
 
     rows = [[_text(point, column, target) for column in target.columns] for point in points]
-    if target.recompute_summaries:
+    if target.recompute_summaries and target.immutable:
         for index, column in enumerate(target.columns):
             if column.summary:
                 _add_summary(graph, column, points, [row[index] for row in rows])
@@ -508,7 +520,9 @@ def _write_data(target: _Target, columns: list, rows: list, path: Path, keep_tex
     else:
         import pyarrow.ipc
 
-        with pa.OSFile(str(path), "wb") as sink, pyarrow.ipc.new_file(sink, table.schema) as writer:
+        # A growing snippet's data file is an IPC stream, to which record batches can be appended
+        new_writer = pyarrow.ipc.new_file if target.immutable else pyarrow.ipc.new_stream
+        with pa.OSFile(str(path), "wb") as sink, new_writer(sink, table.schema) as writer:
             writer.write_table(table)
 
 
@@ -559,8 +573,14 @@ def _add_summary(graph: Graph, column: _Column, points, texts: list) -> None:
     graph.add((summary, TSS.generatedAtTime, Literal(now.isoformat().replace("+00:00", "Z"), datatype=XSD.dateTimeStamp)))
 
 
-def _paths(kind: SnippetKind, document, data_file, stem: str):
+def _suffix(target: _Target) -> str:
+    """The file name suffix of a target's data file: ``.arrows`` for a growing Arrow stream."""
+    return ".arrows" if target.kind == SnippetKind.ARROW and not target.immutable else target.kind.suffix
+
+
+def _paths(target: _Target, document, data_file, stem: str):
     """(the document path, the data file path) for a target."""
+    kind = target.kind
     document_path = Path(document) if document is not None else None
     if kind.is_embedded:
         return document_path, None
@@ -568,7 +588,7 @@ def _paths(kind: SnippetKind, document, data_file, stem: str):
         return document_path, Path(data_file)
     if document_path is None:
         raise ValueError("Say where to write the data file: data_file=... (or document=..., to write it next to it)")
-    return document_path, document_path.with_name(stem + kind.suffix)
+    return document_path, document_path.with_name(stem + _suffix(target))
 
 
 def _finish(graph: Graph, document_path: Path | None, source: Document) -> Document:
@@ -614,7 +634,7 @@ def convert(snippet: Snippet, to=None, *, document=None, data_file=None, iri_suf
     points = snippet.read(strict=strict)
     target = _plan(snippet, kind, points, fields=fields, decode=decode, encode=encode, time_grid=time_grid,
                    csv=csv, iri_suffix=iri_suffix)
-    document_path, data_path = _paths(kind, document, data_file, document and Path(document).stem or snippet.name)
+    document_path, data_path = _paths(target, document, data_file, document and Path(document).stem or snippet.name)
     if data_path is not None:
         target.data_iri = URIRef(data_path.resolve().as_uri())
     graph = _new_graph(snippet.document)
@@ -679,7 +699,7 @@ def split(snippet: Snippet, every="month", *, to=None, document=None, folder=Non
         for column in target.columns:
             source = next(iter(column.sources.values()), None)
             column.summary = source is not None and source.summary is not None
-        data_path = folder / f"{stem}-{label}{kind.suffix}" if kind.is_external else None
+        data_path = folder / f"{stem}-{label}{_suffix(target)}" if kind.is_external else None
         if data_path is not None:
             target.data_iri = URIRef(data_path.resolve().as_uri())
         _add_snippet(snippet, target, part_points, graph, keep_texts, data_path)
@@ -709,8 +729,8 @@ def merge(snippets, *, iri=None, to=None, document=None, data_file=None, strict:
 
     The merged snippet takes its description from the first snippet, with the IRI ``iri``
     (by default the first snippet's IRI with ``-merged``), the smallest window that holds all
-    windows, the earliest ``tss:committedUntil``, decoded values and a time column, and new
-    stored summaries for the fields that had one. Two points with the same time are an error."""
+    windows, decoded values and a time column, and new stored summaries for the fields that had
+    one. It is immutable when every snippet is (or when it is a Parquet snippet), else growing. Two points with the same time are an error."""
     snippets = list(snippets)
     if not snippets:
         raise ValueError("merge needs at least one snippet")
@@ -756,9 +776,8 @@ def merge(snippets, *, iri=None, to=None, document=None, data_file=None, strict:
     ends = [snippet.window.end for snippet in snippets]
     target.window = TimeWindow(None if None in starts else min(starts, key=lambda t: t.instant),
                                None if None in ends else max(ends, key=lambda t: t.instant))
-    committed = [snippet.committed_until for snippet in snippets if snippet.committed_until is not None]
-    target.committed_until = min(committed, key=lambda t: t.instant) if committed else None
-    document_path, data_path = _paths(kind, document, data_file, Path(document).stem if document else "merged")
+    target.immutable = all(snippet.immutable for snippet in snippets) or kind in ALWAYS_IMMUTABLE
+    document_path, data_path = _paths(target, document, data_file, Path(document).stem if document else "merged")
     if data_path is not None:
         target.data_iri = URIRef(data_path.resolve().as_uri())
     graph = _new_graph(first.document)
@@ -778,7 +797,7 @@ def from_observations(source, *, iri: str, to="rdf", document=None, data_file=No
 
     Observations with the same observed property, sensor, feature of interest, unit and datatype
     become one field; all fields share one time field. ``tss:from`` is the first time and
-    ``tss:until`` one second after the last; ``tss:committedUntil`` is now. Every result time
+    ``tss:until`` one second after the last; the snippet is immutable (``tss:immutable true``). Every result time
     needs a timezone, and two different results of one field at the same time are an error.
     """
     from .rdf import parse_rdf
@@ -818,10 +837,8 @@ def from_observations(source, *, iri: str, to="rdf", document=None, data_file=No
     out.bind("xsd", XSD)
     time_field = URIRef(f"{iri}-time")
     ordered = sorted(times.values(), key=lambda time: time.instant)
-    now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     until = time_from_instant(ordered[-1].instant + 1)
-    for triple in [(snippet, RDF.type, SnippetKind.EMBEDDED_RDF.iri), (snippet, TSS.mutable, Literal("false", datatype=XSD.boolean)),
-                   (snippet, TSS.committedUntil, Literal(now, datatype=XSD.dateTimeStamp)),
+    for triple in [(snippet, RDF.type, SnippetKind.EMBEDDED_RDF.iri), (snippet, TSS.immutable, Literal("true", datatype=XSD.boolean)),
                    (snippet, TSS_FROM, Literal(ordered[0].text, datatype=XSD.dateTimeStamp)),
                    (snippet, TSS.until, Literal(until.text, datatype=XSD.dateTimeStamp)),
                    (snippet, TSS.timeField, time_field), (snippet, TSS.hasField, time_field),
@@ -870,7 +887,7 @@ def from_observations(source, *, iri: str, to="rdf", document=None, data_file=No
             target.recompute_summaries = True
             for column in target.columns:
                 column.summary = column.role != "step"
-        document_path, data_path = _paths(kind, document, data_file, Path(document).stem if document else new.name)
+        document_path, data_path = _paths(target, document, data_file, Path(document).stem if document else new.name)
         if data_path is not None:
             target.data_iri = URIRef(data_path.resolve().as_uri())
         result = _new_graph(made)

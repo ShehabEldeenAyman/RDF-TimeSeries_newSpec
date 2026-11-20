@@ -16,8 +16,13 @@
         <#embedded-valid-empty-text-is-no-value>
         <#embedded-valid-no-points-yet>
         <#embedded-valid-empty-json-array>
-        <#embedded-S2-mutable-missing>
-        <#embedded-S2-mutable-not-a-boolean>
+        <#embedded-valid-growing-json-points>
+        <#embedded-valid-growing-message-log>
+        <#embedded-valid-ended-message-log>
+        <#embedded-S2-immutable-not-a-boolean>
+        <#embedded-S2-two-immutable-values>
+        <#embedded-S26-summary-of-a-growing-snippet>
+        <#embedded-S26-summary-with-immutable-false>
         <#embedded-S3-two-snippet-classes>
         <#embedded-S4-time-field-missing>
         <#embedded-S4-time-field-not-a-field-of-the-snippet>
@@ -41,8 +46,6 @@
         <#embedded-S12-step-field>
         <#embedded-S12-points-on-an-rdf-snippet>
         <#embedded-S12-has-point-on-a-json-snippet>
-        <#embedded-S17-committed-until-missing>
-        <#embedded-S17-committed-until-a-date-time>
         <#embedded-S20-time-field-datatype>
         <#embedded-S23-from-without-timezone>
         <#embedded-S23-point-time-without-timezone>
@@ -93,7 +96,12 @@
         <#external-valid-time-grid>
         <#external-valid-delta-from-baseline>
         <#external-valid-open-window>
-        <#external-S3-mutable-missing>
+        <#external-valid-growing-csv>
+        <#external-valid-growing-arrow-stream>
+        <#external-S3-immutable-not-a-boolean>
+        <#external-S26-summary-of-a-growing-snippet>
+        <#external-S27-parquet-not-immutable>
+        <#external-S27-parquet-immutable-false>
         <#external-S4-time-field-missing>
         <#external-S4-time-field-not-a-field-of-the-snippet>
         <#external-S5-key-not-the-time-field>
@@ -108,7 +116,6 @@
         <#external-S14-until-before-from>
         <#external-S15-delimiter-on-parquet>
         <#external-S15-encoding-on-arrow>
-        <#external-S17-committed-until-missing>
         <#external-S19-time-base-without-time-step>
         <#external-S18-time-base-a-date>
         <#external-S18-time-step-without-time-base>
@@ -120,7 +127,7 @@
         <#external-S21-step-field-without-a-grid>
         <#external-S22-has-point>
         <#external-S22-points>
-        <#external-S23-committed-until-without-timezone>
+        <#external-S23-until-without-timezone>
         <#external-S23-time-base-without-timezone>
         <#external-F1-field-not-typed>
         <#external-F2-column-name-missing>
@@ -166,6 +173,12 @@
         <#reading-texts-kept>
         <#reading-parquet>
         <#reading-arrow>
+        <#reading-rdf-message-log>
+        <#reading-rdf-message-log-unfinished-message>
+        <#reading-rdf-message-log-blank-node-labels>
+        <#reading-csv-growing-unfinished-record>
+        <#reading-csv-immutable-last-record-without-line-break>
+        <#reading-arrow-stream>
         <#reading-error-csv-point-without-time>
         <#reading-error-csv-value-not-in-lexical-form>
         <#reading-error-json-point-without-time>
@@ -238,23 +251,66 @@
     tsst:shapes "embedded" ;
     tsst:conforms true .
 
-<#embedded-S2-mutable-missing> a tsst:MetadataTest ; ;
-    mf:name "embedded-S2-mutable-missing" ; ;
-    rdfs:comment "The snippet has no tss:mutable." ; ;
+<#embedded-valid-growing-json-points> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-growing-json-points" ; ;
+    rdfs:comment "A growing snippet: it states no tss:immutable, and has no summary." ; ;
     tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
-    mf:action <metadata/embedded/S2-mutable-missing.ttl> ;
+    mf:action <metadata/embedded/valid-growing-json-points.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-valid-growing-message-log> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-growing-message-log" ; ;
+    rdfs:comment "A growing tss:EmbeddedRDFSnippet: an RDF Message Log, one point per message, no summary." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <metadata/embedded/valid-growing-message-log.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-valid-ended-message-log> a tsst:MetadataTest ; ;
+    mf:name "embedded-valid-ended-message-log" ; ;
+    rdfs:comment "A log whose last message ends the snippet: tss:immutable true and the summary." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#ending> ; ;
+    mf:action <metadata/embedded/valid-ended-message-log.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms true .
+
+<#embedded-S2-immutable-not-a-boolean> a tsst:MetadataTest ; ;
+    mf:name "embedded-S2-immutable-not-a-boolean" ; ;
+    rdfs:comment "tss:immutable is the string \"yes\", not an xsd:boolean (so the snippet is growing, and its summary is S26)." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
+    mf:action <metadata/embedded/S2-immutable-not-a-boolean.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S2" ;
+    tsst:violation "S26" .
+
+<#embedded-S2-two-immutable-values> a tsst:MetadataTest ; ;
+    mf:name "embedded-S2-two-immutable-values" ; ;
+    rdfs:comment "The snippet states tss:immutable twice." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
+    mf:action <metadata/embedded/S2-two-immutable-values.ttl> ;
     tsst:shapes "embedded" ;
     tsst:conforms false ;
     tsst:violation "S2" .
 
-<#embedded-S2-mutable-not-a-boolean> a tsst:MetadataTest ; ;
-    mf:name "embedded-S2-mutable-not-a-boolean" ; ;
-    rdfs:comment "tss:mutable is the string \"yes\", not an xsd:boolean." ; ;
-    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
-    mf:action <metadata/embedded/S2-mutable-not-a-boolean.ttl> ;
+<#embedded-S26-summary-of-a-growing-snippet> a tsst:MetadataTest ; ;
+    mf:name "embedded-S26-summary-of-a-growing-snippet" ; ;
+    rdfs:comment "A growing snippet (no tss:immutable) with a stored summary." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/S26-summary-of-a-growing-snippet.ttl> ;
     tsst:shapes "embedded" ;
     tsst:conforms false ;
-    tsst:violation "S2" .
+    tsst:violation "S26" .
+
+<#embedded-S26-summary-with-immutable-false> a tsst:MetadataTest ; ;
+    mf:name "embedded-S26-summary-with-immutable-false" ; ;
+    rdfs:comment "A snippet that states tss:immutable false, with a stored summary." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/embedded/S26-summary-with-immutable-false.ttl> ;
+    tsst:shapes "embedded" ;
+    tsst:conforms false ;
+    tsst:violation "S26" .
 
 <#embedded-S3-two-snippet-classes> a tsst:MetadataTest ; ;
     mf:name "embedded-S3-two-snippet-classes" ; ;
@@ -462,24 +518,6 @@
     tsst:shapes "embedded" ;
     tsst:conforms false ;
     tsst:violation "S12" .
-
-<#embedded-S17-committed-until-missing> a tsst:MetadataTest ; ;
-    mf:name "embedded-S17-committed-until-missing" ; ;
-    rdfs:comment "The snippet has no tss:committedUntil." ; ;
-    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
-    mf:action <metadata/embedded/S17-committed-until-missing.ttl> ;
-    tsst:shapes "embedded" ;
-    tsst:conforms false ;
-    tsst:violation "S17" .
-
-<#embedded-S17-committed-until-a-date-time> a tsst:MetadataTest ; ;
-    mf:name "embedded-S17-committed-until-a-date-time" ; ;
-    rdfs:comment "tss:committedUntil is an xsd:dateTime, not an xsd:dateTimeStamp." ; ;
-    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
-    mf:action <metadata/embedded/S17-committed-until-a-date-time.ttl> ;
-    tsst:shapes "embedded" ;
-    tsst:conforms false ;
-    tsst:violation "S17" .
 
 <#embedded-S20-time-field-datatype> a tsst:MetadataTest ; ;
     mf:name "embedded-S20-time-field-datatype" ; ;
@@ -925,14 +963,58 @@
     tsst:shapes "external" ;
     tsst:conforms true .
 
-<#external-S3-mutable-missing> a tsst:MetadataTest ; ;
-    mf:name "external-S3-mutable-missing" ; ;
-    rdfs:comment "The snippet has no tss:mutable." ; ;
+<#external-valid-growing-csv> a tsst:MetadataTest ; ;
+    mf:name "external-valid-growing-csv" ; ;
+    rdfs:comment "A growing CSV snippet: it states no tss:immutable, and has no summary." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#appending-data-files> ; ;
+    mf:action <metadata/external/valid-growing-csv.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-valid-growing-arrow-stream> a tsst:MetadataTest ; ;
+    mf:name "external-valid-growing-arrow-stream" ; ;
+    rdfs:comment "A growing Arrow snippet, whose data file is an Arrow IPC stream." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#arrow> ; ;
+    mf:action <metadata/external/valid-growing-arrow-stream.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms true .
+
+<#external-S3-immutable-not-a-boolean> a tsst:MetadataTest ; ;
+    mf:name "external-S3-immutable-not-a-boolean" ; ;
+    rdfs:comment "tss:immutable is the string \"yes\", not an xsd:boolean (so the snippet is growing, and its summary is S26)." ; ;
     tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
-    mf:action <metadata/external/S3-mutable-missing.ttl> ;
+    mf:action <metadata/external/S3-immutable-not-a-boolean.ttl> ;
     tsst:shapes "external" ;
     tsst:conforms false ;
-    tsst:violation "S3" .
+    tsst:violation "S3" ;
+    tsst:violation "S26" .
+
+<#external-S26-summary-of-a-growing-snippet> a tsst:MetadataTest ; ;
+    mf:name "external-S26-summary-of-a-growing-snippet" ; ;
+    rdfs:comment "A growing CSV snippet (no tss:immutable) with a stored summary." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#summaries> ; ;
+    mf:action <metadata/external/S26-summary-of-a-growing-snippet.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S26" .
+
+<#external-S27-parquet-not-immutable> a tsst:MetadataTest ; ;
+    mf:name "external-S27-parquet-not-immutable" ; ;
+    rdfs:comment "A Parquet snippet that does not state tss:immutable true: rows can't be appended to a Parquet file." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#parquet> ; ;
+    mf:action <metadata/external/S27-parquet-not-immutable.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S27" .
+
+<#external-S27-parquet-immutable-false> a tsst:MetadataTest ; ;
+    mf:name "external-S27-parquet-immutable-false" ; ;
+    rdfs:comment "A Parquet snippet that states tss:immutable false." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#parquet> ; ;
+    mf:action <metadata/external/S27-parquet-immutable-false.ttl> ;
+    tsst:shapes "external" ;
+    tsst:conforms false ;
+    tsst:violation "S27" .
 
 <#external-S4-time-field-missing> a tsst:MetadataTest ; ;
     mf:name "external-S4-time-field-missing" ; ;
@@ -1060,15 +1142,6 @@
     tsst:conforms true ;
     tsst:warning "S15" .
 
-<#external-S17-committed-until-missing> a tsst:MetadataTest ; ;
-    mf:name "external-S17-committed-until-missing" ; ;
-    rdfs:comment "The snippet has no tss:committedUntil." ; ;
-    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#change> ; ;
-    mf:action <metadata/external/S17-committed-until-missing.ttl> ;
-    tsst:shapes "external" ;
-    tsst:conforms false ;
-    tsst:violation "S17" .
-
 <#external-S19-time-base-without-time-step> a tsst:MetadataTest ; ;
     mf:name "external-S19-time-base-without-time-step" ; ;
     rdfs:comment "A tss:timeBase without a tss:timeStep: the time step is missing." ; ;
@@ -1168,11 +1241,11 @@
     tsst:conforms false ;
     tsst:violation "S22" .
 
-<#external-S23-committed-until-without-timezone> a tsst:MetadataTest ; ;
-    mf:name "external-S23-committed-until-without-timezone" ; ;
-    rdfs:comment "tss:committedUntil has no timezone." ; ;
+<#external-S23-until-without-timezone> a tsst:MetadataTest ; ;
+    mf:name "external-S23-until-without-timezone" ; ;
+    rdfs:comment "tss:until has no timezone." ; ;
     tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#times> ; ;
-    mf:action <metadata/external/S23-committed-until-without-timezone.ttl> ;
+    mf:action <metadata/external/S23-until-without-timezone.ttl> ;
     tsst:shapes "external" ;
     tsst:conforms false ;
     tsst:violation "S23" .
@@ -1557,6 +1630,48 @@
     tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#arrow> ; ;
     mf:action <reading/arrow/metadata.ttl> ;
     mf:result <reading/arrow/expected.csv> .
+
+<#reading-rdf-message-log> a tsst:ReadTest ; ;
+    mf:name "reading-rdf-message-log" ; ;
+    rdfs:comment "A growing snippet's RDF Message Log is read as the merge of its messages." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <reading/rdf-message-log/metadata.ttl> ;
+    mf:result <reading/rdf-message-log/expected.csv> .
+
+<#reading-rdf-message-log-unfinished-message> a tsst:ReadTest ; ;
+    mf:name "reading-rdf-message-log-unfinished-message" ; ;
+    rdfs:comment "Text after the last message delimiter is a message still being written: it is not read." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#range-requests> ; ;
+    mf:action <reading/rdf-message-log-unfinished-message/metadata.ttl> ;
+    mf:result <reading/rdf-message-log-unfinished-message/expected.csv> .
+
+<#reading-rdf-message-log-blank-node-labels> a tsst:ReadTest ; ;
+    mf:name "reading-rdf-message-log-blank-node-labels" ; ;
+    rdfs:comment "Blank node labels are scoped to their message: _:p in two messages are two points." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#rdf-points> ; ;
+    mf:action <reading/rdf-message-log-blank-node-labels/metadata.ttl> ;
+    mf:result <reading/rdf-message-log-blank-node-labels/expected.csv> .
+
+<#reading-csv-growing-unfinished-record> a tsst:ReadTest ; ;
+    mf:name "reading-csv-growing-unfinished-record" ; ;
+    rdfs:comment "In a growing CSV snippet, a last record without its line break is still being written: it is not read." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#appending-data-files> ; ;
+    mf:action <reading/csv-growing-unfinished-record/metadata.ttl> ;
+    mf:result <reading/csv-growing-unfinished-record/expected.csv> .
+
+<#reading-csv-immutable-last-record-without-line-break> a tsst:ReadTest ; ;
+    mf:name "reading-csv-immutable-last-record-without-line-break" ; ;
+    rdfs:comment "In an immutable CSV snippet, a last record without a line break is read." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#csv> ; ;
+    mf:action <reading/csv-immutable-last-record-without-line-break/metadata.ttl> ;
+    mf:result <reading/csv-immutable-last-record-without-line-break/expected.csv> .
+
+<#reading-arrow-stream> a tsst:ReadTest ; ;
+    mf:name "reading-arrow-stream" ; ;
+    rdfs:comment "A growing Arrow snippet: its data file is an Arrow IPC stream, told apart by its first bytes." ; ;
+    tsst:rule <https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/#arrow> ; ;
+    mf:action <reading/arrow-stream/metadata.ttl> ;
+    mf:result <reading/arrow-stream/expected.csv> .
 
 <#reading-error-csv-point-without-time> a tsst:ReadTest ; ;
     mf:name "reading-error-csv-point-without-time" ; ;

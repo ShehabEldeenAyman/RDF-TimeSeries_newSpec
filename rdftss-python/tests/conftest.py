@@ -26,8 +26,7 @@ def snippet_text(kind="CSVSnippet", extra="", time_field="", value_field="", win
               '    tss:until "2024-05-12T10:00:00Z"^^xsd:dateTimeStamp ;\n') if window else ""
     return PREFIXES + f"""
 ex:s a tss:{kind} ;
-    tss:mutable false ;
-    tss:committedUntil "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
 {bounds}{extra}
     tss:timeField ex:time ;
     tss:hasField ex:time, ex:value{fields} .

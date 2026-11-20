@@ -1,4 +1,3 @@
-# The snippet has no tss:committedUntil.
 @prefix tss: <https://w3id.org/tss#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -9,13 +8,12 @@
 @prefix ex: <https://example.org/ex#> .
 
 ex:snippet
-    a tss:CSVSnippet ;
+    a tss:ArrowSnippet ;
     rdfs:label "Conductivity readings"@en ;
-    tss:mutable false ;
     tss:producedBy ex:producer ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:dataFile <readings.csv> ;
+    tss:dataFile <readings.arrows> ;
     tss:timeField ex:time-field ;
     tss:key ex:time-field ;
     tss:hasField ex:time-field, ex:value-field .
@@ -32,8 +30,4 @@ ex:value-field
     tss:minimum "0"^^xsd:double ;
     tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    tss:unit unit:MicroS-PER-CentiM ;
-    tss:summary [
-        tss:missingValuePolicy tss:ExcludeEmptyValues ;
-        tss:count "3"^^xsd:integer
-    ] .
+    tss:unit unit:MicroS-PER-CentiM .

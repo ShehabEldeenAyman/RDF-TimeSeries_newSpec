@@ -1,4 +1,4 @@
-# The snippet has no tss:committedUntil.
+# The snippet states tss:immutable twice.
 @prefix tss: <https://w3id.org/tss#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -11,7 +11,7 @@
 ex:snippet
     a tss:EmbeddedRDFSnippet ;
     rdfs:label "Conductivity readings"@en ;
-    tss:mutable true ;
+    tss:immutable true, false ;
     tss:producedBy ex:producer ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;

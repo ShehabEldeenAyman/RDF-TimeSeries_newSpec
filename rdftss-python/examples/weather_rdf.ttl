@@ -10,8 +10,7 @@
 ex:weather-snippet
     a tss:EmbeddedRDFSnippet ;
     rdfs:label "Weather station readings"@en ;
-    tss:mutable false ;
-    tss:committedUntil "2024-05-12T09:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-12T09:00:00Z"^^xsd:dateTimeStamp ;
     tss:timeField ex:weather-time-field ;

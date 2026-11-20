@@ -2,7 +2,7 @@
 
 A Python library for **RDF Time Series Snippets** (TSS). It reads metadata documents and their data in all five storage classes, queries the points with SPARQL and analyses them, finds snippets across documents, expands snippets into observations, and converts them from one storage class to another. It also checks documents against the specification: with its SHACL shapes, by recomputing stored summaries, and with a conformance test suite.
 
-It implements the [RDF Time Series Snippets specification](https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/), with the vocabulary `https://w3id.org/tss#` at version 0.2.0, which comes with the package. The [guide](docs/guide.md) explains every feature in detail.
+It implements the [RDF Time Series Snippets specification](https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/), with the vocabulary `https://w3id.org/tss#` at version 0.3.0, which comes with the package. The [guide](docs/guide.md) explains every feature in detail.
 
 ```python
 import rdftss
@@ -77,7 +77,8 @@ The examples use the documents in [`examples/`](examples/) and run from this fol
 11. [Convert to another storage class](#11-convert-to-another-storage-class)
 12. [Validate a document with SHACL](#12-validate-a-document-with-shacl)
 13. [Check stored summaries](#13-check-stored-summaries)
-14. [Handle errors](#14-handle-errors)
+14. [Growing snippets](#14-growing-snippets)
+15. [Handle errors](#15-handle-errors)
 
 ### 1. Load a document
 
@@ -283,7 +284,7 @@ for match in matches:
     print(match)                    # ex:csv-snippet (CSVSnippet, window [...)) in examples/readings_csv.ttl: value
     points = match.snippet.read()   # each match holds its snippet, ready to read, and the fields that matched
 
-rdftss.find(documents, unit="unit:MicroS-PER-CentiM", kind="parquet")    # also: sensor, mutable, label
+rdftss.find(documents, unit="unit:MicroS-PER-CentiM", kind="parquet")    # also: sensor, immutable, label
 ```
 
 ### 10. Expand into observations
@@ -368,7 +369,28 @@ report = rdftss.loads(text).verify_summaries()
 print(report.out_of_date[0])        # ex:value-field: OUT OF DATE: tss:count is 4, the data gives 5
 ```
 
-### 14. Handle errors
+### 14. Growing snippets
+
+A snippet that states `tss:immutable true` is final: no point is added any more. Without it, the snippet is *growing*: points may still be added, but none is changed or removed. A growing snippet has no stored summaries, and its time window does not change. The metadata document of a growing `tss:EmbeddedRDFSnippet` is an RDF Message Log: Turtle that starts with `VERSION "1.2-messages"` and ends every message with the delimiter `MESSAGE`, one point per message ([`examples/growing_rdf.ttl`](examples/growing_rdf.ttl)).
+
+```python
+import rdftss
+
+document = rdftss.load("examples/growing_rdf.ttl")
+snippet = document.snippet()
+snippet.growing                 # True: it does not state tss:immutable true
+document.message_log            # True: read as the merge of its messages
+document.messages               # 4: the description, then one message per point
+len(snippet.read())             # 3
+
+document.save("out/growing.ttl")     # written as a log again, so a new point is one more message
+
+rdftss.load("examples/readings_csv.ttl").snippet().immutable    # True
+```
+
+rdftss reads what a growing snippet holds right now. A last message without its delimiter, a last CSV record without its line break, and a last Arrow stream message that is not complete are all still being written: they are left out, with a warning. An Arrow data file can be in the IPC file format or the IPC streaming format; the first bytes of the file tell them apart.
+
+### 15. Handle errors
 
 Reading stops at the first data error that the specification names, and says where it is. With `strict=False`, the bad value is left out and the problem is listed instead. Every error rdftss raises is an `rdftss.RDFTSSError`.
 
@@ -399,19 +421,19 @@ print(rdftss.load("examples/readings_csv.ttl").all_issues)    # No issues.
 
 | Area | Main entry points |
 | --- | --- |
-| Loading and RDF | `load(path_or_url)`, `loads(text)`, `Document`, `Snippet`, `Field`, `describe()`, `field("name")`, `how_to_read()` |
+| Loading and RDF | `load(path_or_url)`, `loads(text)` (also RDF Message Logs), `Document`, `Snippet`, `Field`, `describe()`, `field("name")`, `how_to_read()` |
 | Reading the data | `read(strict=, window=, fields=)`, `iter_points()`, `Point`, `set_data_file()`; RDF and JSON points, CSV, Parquet and Arrow; time grids; `tss:DeltaFromBaseline` |
 | Data files | local paths, `http(s)` downloads (`allow_network=True` by default), `cache_folder`, `data_folder` (sandbox) |
 | Querying and analysis | `between`, `where`, `having`, `statistics` (+ `differences()` from the stored summary), `outside_expected_range`, `gaps`, `missing_steps`, `resample`, `to_pandas`/`to_polars`/`to_arrow`, `sparql()` and `TripleStore` (SPARQL with rdflib, read only) |
-| Discovery | `rdftss.find(documents, observed_property=, feature_of_interest=, sensor=, unit=, overlapping=, kind=, mutable=)` |
+| Discovery | `rdftss.find(documents, observed_property=, feature_of_interest=, sensor=, unit=, overlapping=, kind=, immutable=)` |
 | Conformance | `validate()` (the specification's SHACL shapes, or yours), `verify_summaries()`, and the test suite in [`conformance/`](conformance/) |
 | Materialisation | `expand()` (SOSA by default, or your own `ObservationMapping`; N-Triples or N-Quads, streamed), `observations()`, `convert(to=, time_grid=, encode=, decode=, keep_texts=)`, `subset`, `split`, `merge`, `from_observations` |
 
-Not in this version yet: QUDT alignment, checks of the data beyond what the SHACL shapes see, appending points to a snippet, and a command line.
+Not in this version yet: QUDT alignment, checks of the data beyond what the SHACL shapes see, appending points to a growing snippet and ending it, following a growing snippet over HTTP (polling and `Range` requests), and a command line.
 
 ## Example documents
 
-[`examples/`](examples/) has a metadata document for each storage class. Most hold the same synthetic day of conductivity readings: CSV with `;`, CSV without a header, a time grid, delta encoding, Parquet, and Arrow with a dictionary-encoded column. There are also the spec's embedded, JSON and multi-sensor examples. To see the library at work, run `python examples/quickstart.py`.
+[`examples/`](examples/) has a metadata document for each storage class. Most hold the same synthetic day of conductivity readings: CSV with `;`, CSV without a header, a time grid, delta encoding, Parquet, and Arrow with a dictionary-encoded column. There are also the spec's embedded, JSON and multi-sensor examples, and a growing snippet written as an RDF Message Log. To see the library at work, run `python examples/quickstart.py`.
 
 ## Tests
 
@@ -427,7 +449,7 @@ The tests use the example documents. They check, among other things:
 - the Parquet and Arrow type tables;
 - conversions between every pair of classes that must keep the same points;
 - the code in this README and in the guide, which runs as part of the tests;
-- the conformance test suite in [`conformance/`](conformance/): 171 tests of metadata documents, reading, stored summaries and expansion ([docs/conformance.md](docs/conformance.md)).
+- the conformance test suite in [`conformance/`](conformance/): 184 tests of metadata documents, reading, stored summaries and expansion ([docs/conformance.md](docs/conformance.md)).
 
 ## Choices this version makes
 
@@ -435,6 +457,7 @@ These are the points where the spec leaves the choice to the implementer:
 
 - **New IRIs on conversion.** `convert`, `split` and `merge` give the snippet and its fields new IRIs (with a suffix such as `-parquet`), so two documents never describe one node in two ways (`iri_suffix=None` keeps them). Field names stay the same, because every converted field states its `tss:columnName`.
 - **Parquet and Arrow store values, not texts.** After a conversion, `3.0E1` reads back as `30.0` and times read back in UTC. `keep_texts=True` stores strings instead.
-- **`split` and `merge`.** `split` makes parts only for periods that have points. `merge` takes the smallest window that holds all windows and the earliest `tss:committedUntil`.
-- **`from_observations` windows.** The window runs from the first observation until one second after the last.
+- **`split` and `merge`.** `split` makes parts only for periods that have points. `merge` takes the smallest window that holds all windows; the merged snippet is immutable when all its parts are.
+- **`from_observations` windows.** The window runs from the first observation until one second after the last, and the new snippet is immutable.
+- **Converting a growing snippet.** The copy is growing too, without summaries, except as Parquet, which is always immutable. A growing Arrow copy is written in the IPC streaming format (`.arrows`), and a growing RDF copy as an RDF Message Log.
 - **No JSON-LD guard.** JSON-LD documents are parsed by rdflib, which may download remote `@context`s. A guard against that is planned, together with the other protections for untrusted documents.

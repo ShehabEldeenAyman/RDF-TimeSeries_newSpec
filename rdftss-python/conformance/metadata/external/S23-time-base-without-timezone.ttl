@@ -10,8 +10,7 @@
 
 ex:snippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:dataFile <readings.csv> ;
     tss:timeBase "2024-05-12T08:00:00"^^xsd:dateTimeStamp ;
     tss:timeStep "PT15M"^^xsd:duration ;

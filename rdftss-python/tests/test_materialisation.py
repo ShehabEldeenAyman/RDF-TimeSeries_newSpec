@@ -166,8 +166,8 @@ class TestConversion:
 
 
 class TestEdgeCases:
-    BLANK = PREFIXES + '''_:s a tss:EmbeddedJSONSnippet ; tss:mutable false ;
-    tss:committedUntil "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ; tss:timeField _:t ; tss:hasField _:t, _:v ;
+    BLANK = PREFIXES + '''_:s a tss:EmbeddedJSONSnippet ; tss:immutable true ;
+    tss:timeField _:t ; tss:hasField _:t, _:v ;
     tss:points """[{"time": "2024-05-12T08:00:00Z", "v": "1.5"}, {"time": "2024-05-13T08:00:00Z", "v": "2.5"}]"""^^rdf:JSON .
 _:t a tss:Field ; tss:columnName "time" ; tss:datatype xsd:dateTimeStamp .
 _:v a tss:Field ; tss:columnName "v" ; tss:datatype xsd:double .'''

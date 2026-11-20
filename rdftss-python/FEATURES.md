@@ -2,7 +2,7 @@
 
 The `rdftss` library should be the one place for working with RDF Time Series Snippets: reading the metadata and the data, converting data between formats and into observations, aligning units with QUDT, parsing RDF, and testing conformance. This document lists candidate features, as a basis for choosing the scope.
 
-**Status (rdftss 0.1.0):** sections 1–5 are implemented, see the [README](README.md) and the [guide](docs/guide.md). Decisions taken while building them: a `Document` holds one source, and several sources are several objects (no catalogue object; `rdftss.find()` searches a list of them); data files on the web are downloaded by default; *DCAT export* and *CSVW interop* are **pinned**: not built for now; the SQL feature became **SPARQL** (rdflib, no DuckDB). In section 7, *SHACL validation*, *Summary verification* and the *Conformance test suite* are implemented, see [docs/conformance.md](docs/conformance.md); *Data checks beyond SHACL* is postponed and *One report* is not needed for now.
+**Status (rdftss 0.1.0):** sections 1–5 are implemented, see the [README](README.md) and the [guide](docs/guide.md). Decisions taken while building them: a `Document` holds one source, and several sources are several objects (no catalogue object; `rdftss.find()` searches a list of them); data files on the web are downloaded by default; *DCAT export* and *CSVW interop* are **pinned**: not built for now; the SQL feature became **SPARQL** (rdflib, no DuckDB). In section 7, *SHACL validation*, *Summary verification* and the *Conformance test suite* are implemented, see [docs/conformance.md](docs/conformance.md); *Data checks beyond SHACL* is postponed and *One report* is not needed for now. The library follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25) (vocabulary 0.3.0): `tss:immutable` replaces `tss:mutable` and `tss:committedUntil`, growing RDF snippets are read and written as RDF Message Logs, and growing CSV files and Arrow streams are read; following a growing snippet over HTTP is not built yet.
 
 The library targets the latest specification, in [`tech demo/demo 11`](<../tech demo/demo 11/>): [`spec/spec.bs`](<../tech demo/demo 11/spec/spec.bs>), [`vocabulary/tss.ttl`](<../tech demo/demo 11/vocabulary/tss.ttl>) and the shapes in [`SHACL/`](<../tech demo/demo 11/SHACL/>). Demos 1–10 hold working code for many of the features below, but none of them implements the demo 11 model: demo 10 still reads one `tss:Source` with `tss:embedded`, `tss:format` and `tss:pointOf`.
 
@@ -89,18 +89,19 @@ Each description ends with its basis:
 | Data checks beyond SHACL | **Postponed.** Check what the shapes cannot see: the contents of JSON points, and of data files (lexical forms, timezones, unique times, steps), Parquet and Arrow column types against `tss:datatype`, and a CSV header against the column names. *New.* |
 | One report | **Not needed for now.** Merge SHACL results and these checks into one report with shared check IDs and locations (CSV line, row number, point time), as text, JSON or `sh:ValidationReport`, with a verdict for each conformance class: metadata document and data. *New.* |
 | Summary verification | **Done.** Recompute each `tss:summary` from the data in the window and compare count, missing, first and last time, minimum, maximum, mean and median, naming the numbers that are out of date. *Port: demo 10 summary check in the Query tab and the SQL box.* |
-| Conformance test suite | **Done (first version: 171 tests, see [docs/conformance.md](docs/conformance.md)).** Small valid and invalid documents and data files, at least one per MUST and MUST NOT, each with its check ID and expected result. They test this library as consumer, expander and writer, and can test other implementations. *New.* |
+| Conformance test suite | **Done (first version: 184 tests, see [docs/conformance.md](docs/conformance.md)).** Small valid and invalid documents and data files, at least one per MUST and MUST NOT, each with its check ID and expected result. They test this library as consumer, expander and writer, and can test other implementations. *New.* |
 
 ## 8. Writing and publishing
 
 | Feature | Description |
 |---|---|
-| Appending points | A conforming writer for mutable embedded snippets: check that the new point's values have their lexical forms and that no point has the same time, append one `tss:hasPoint` statement or rewrite `tss:points` with string values, widen the window, set `tss:committedUntil`, recompute the summaries, and keep the change only if the document still conforms. *Port: demo 10 `appendPoints.js`, `metadataUpdate.js` (browser only, old model).* |
-| Document writing | Write a document as Turtle with its own prefixes, summaries nested, and RDF points last, one statement each, so that a later append adds text at the end. Numbers and booleans keep their full form. Changes to `tss:committedUntil`, the window and the summaries keep the document's comments and layout. *Port: demo 10 `documentTurtle`, `exact_turtle`; keeping the layout is new, since demo 10 drops comments.* |
+| Appending points | A conforming writer for growing embedded snippets (the spec's #updating-embedded): check that the new point's values have their lexical forms, that no point has the same time and that it lies in the time window, append one RDF message (one `tss:hasPoint` statement and a `MESSAGE` delimiter) or rewrite `tss:points` with the new object at the end, change nothing else, and keep the change only if the document still conforms. *Port: demo 10 `appendPoints.js`, `metadataUpdate.js` (browser only, old model).* |
+| Document writing | Write a document as Turtle with its own prefixes, summaries nested, and RDF points last, one statement each, so that a later append adds text at the end. Numbers and booleans keep their full form. A growing RDF snippet is written as an RDF Message Log (**done**). Ending a snippet (`tss:immutable true` and the summaries, as one last message in a log) keeps the document's comments and layout. *Port: demo 10 `documentTurtle`, `exact_turtle`; keeping the layout is new, since demo 10 drops comments.* |
 | Summary generation | Compute and attach `tss:summary` nodes for chosen fields over the window, with `tss:ExcludeEmptyValues`, numeric attributes only on numeric fields, and `tss:generatedAtTime`. *Port in part: demo 10 `metadataUpdate.js`.* |
 | Metadata scaffolding | Draft a metadata document from a data file: fields from the column names and native types (per the Parquet and Arrow tables), the time column, a time grid when the steps are regular, the window and the summaries. The author then adds what each field observes. *New.* |
 | Builder API | Build snippets and fields in code, from scratch or from a DataFrame, and write them only after they pass validation. *New.* |
-| External snippet upkeep | For an append-only data file: append rows, move `tss:committedUntil` forward (also after a check that finds nothing new), and refresh the window and the summaries. The spec leaves data-file management to the publisher. *Beyond spec; demo 1's publisher did this for CSV.* |
+| External snippet upkeep | For a growing data file: append complete CSV records ending with a line break, or complete record batches to an Arrow IPC stream (the spec's #appending-data-files), and end the snippet with `tss:immutable true` and the summaries (#ending). *New since PR #25; demo 1's publisher did this for CSV.* |
+| Following a growing snippet | Poll a growing snippet with conditional requests and `Cache-Control`, and read only the new bytes with `Range: bytes=N-` in whole units (RDF messages, CSV records, Arrow messages), with the fallback to a full re-read (the spec's #following). *New since PR #25.* |
 
 ## 9. Tooling and integration
 
@@ -118,12 +119,12 @@ Each description ends with its basis:
 | Feature | Description |
 |---|---|
 | LDES publication | Publish windowed snippets as members of a Linked Data Event Stream, with TREE fragmentation by time, so clients can page through the history. *Beyond spec.* |
-| Live ingestion | Feed readings from a live channel, such as MQTT with SenML as in demo 1, into a mutable snippet with the append rules. *Beyond spec.* |
+| Live ingestion | Feed readings from a live channel, such as MQTT with SenML as in demo 1, into a growing snippet with the append rules. *Beyond spec.* |
 | Triple store loading | Load expanded observations into a SPARQL store such as Fuseki or Oxigraph, with one named graph per snippet. *Beyond spec.* |
 
 ## Open decisions
 
 - **Language.** Python first, since rdflib, pyshacl, DuckDB and pyarrow already do the work in the demos, with browser use through Pyodide; or also a JavaScript or TypeScript package for web clients.
-- **Specification version.** The demo 11 vocabulary still says `0.2.0`, although it breaks compatibility with `main`. The library needs a version number to report and check against.
+- **Specification version.** Settled: the vocabulary is now `0.3.0` (since PR #25), and the library checks the bundled vocabulary against it.
 - **Home of the vocabulary and shapes.** Copy them into the package, or make the package their one home, which the demos and the specification repository then reference.
 - **First release.** QUDT alignment is a stated goal. LDES publication, live ingestion and triple-store loading could wait, or live in add-on packages.

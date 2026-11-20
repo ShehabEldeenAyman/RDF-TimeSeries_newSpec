@@ -11,8 +11,7 @@
 ex:snippet
     a tss:EmbeddedRDFSnippet ;
     rdfs:label "Conductivity readings"@en ;
-    tss:mutable true ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:producedBy "the producer" ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;

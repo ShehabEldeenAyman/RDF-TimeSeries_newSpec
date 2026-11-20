@@ -11,8 +11,7 @@
 ex:snippet
     a tss:EmbeddedRDFSnippet ;
     rdfs:label "Conductivity readings"@en ;
-    tss:mutable true ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:producedBy ex:producer ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -71,8 +70,7 @@ ex:snippet tss:hasPoint [
 
 ex:csv-snippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:dataFile <readings.csv> ;
     tss:timeField ex:csv-time-field ;
     tss:hasField ex:csv-time-field .

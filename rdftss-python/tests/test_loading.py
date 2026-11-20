@@ -70,7 +70,6 @@ ex:t a tss:Field ; tss:datatype xsd:dateTime .
     assert any("exactly one tss:points" in message for message in messages)
     assert any("tss:key" in message for message in messages)
     assert any("xsd:dateTimeStamp" in message for message in messages)
-    assert any("tss:mutable" in message for message in messages)
     with pytest.raises(rdftss.DocumentError, match="tss:points"):
         document.snippet().read()
 
@@ -84,7 +83,7 @@ def test_a_snippet_without_a_class_can_not_be_read(make):
 
 def test_a_document_must_not_mix_embedded_and_external_snippets(make):
     text = snippet_text(kind="EmbeddedRDFSnippet") + """
-ex:s2 a tss:CSVSnippet ; tss:mutable false ; tss:committedUntil "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+ex:s2 a tss:CSVSnippet ; tss:immutable true ;
     tss:dataFile <d.csv> ; tss:timeField ex:t2 ; tss:hasField ex:t2 .
 ex:t2 a tss:Field ; tss:columnName "time" ; tss:datatype xsd:dateTimeStamp .
 """

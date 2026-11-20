@@ -249,6 +249,8 @@ def _csv_rows(snippet, fields, reporter: Reporter):
     encoding = dialect.encoding
     if codecs.lookup(encoding).name == "utf-8":
         encoding = "utf-8-sig"  # a byte order mark at the start is not part of the first column name
+    # In a growing snippet, a last record that no line break ends yet is still being written
+    unfinished = snippet.growing and not _ends_with_line_break(source)
     if isinstance(source, Path):
         stream = open(source, "r", encoding=encoding, newline="")
     else:
@@ -276,6 +278,7 @@ def _csv_rows(snippet, fields, reporter: Reporter):
                 for field in columns:
                     positions[field] = field.column_index
             needed = max(positions.values(), default=-1) + 1
+            pending = None
             for cells in reader:
                 if not cells:
                     continue  # an empty line
@@ -288,13 +291,42 @@ def _csv_rows(snippet, fields, reporter: Reporter):
                 for field, index in positions.items():
                     text = cells[index] if index < len(cells) else ""
                     texts[field] = text if text != "" else None
-                yield RawRow(where, texts)
+                if pending is not None:
+                    yield pending
+                pending = RawRow(where, texts)
+            if pending is not None and unfinished:
+                reporter.warning("the last record has no line break yet: it is still being written, so it is not "
+                                 "read (the snippet is growing)", pending.where)
+            elif pending is not None:
+                yield pending
         except csv.Error as error:
             raise DataError(f"is not valid CSV: {error}", f"{name}, CSV line {reader.line_num}") from None
         except UnicodeDecodeError as error:
             raise DataError(f"is not valid {dialect.encoding} text (tss:encoding): {error}", name) from None
     finally:
         stream.close()
+
+
+def _ends_with_line_break(source) -> bool:
+    """Whether a data file ends with a line break (in UTF-8 and other ASCII-based encodings, or
+    UTF-16); ``True`` when that can't be known (a file object that can't seek), and for an empty file."""
+    try:
+        if isinstance(source, Path):
+            with open(source, "rb") as file:
+                file.seek(0, io.SEEK_END)
+                size = file.tell()
+                file.seek(max(0, size - 2))
+                tail = file.read()
+        else:
+            position = source.tell()
+            source.seek(0, io.SEEK_END)
+            size = source.tell()
+            source.seek(max(0, size - 2))
+            tail = source.read()
+            source.seek(position)
+    except (OSError, AttributeError, ValueError):
+        return True
+    return size == 0 or tail.endswith((b"\n", b"\r", b"\n\x00", b"\r\x00"))
 
 
 # ---------------------------------------------------------------------------------------------
@@ -472,26 +504,61 @@ def _parquet_rows(snippet, fields, reporter: Reporter):
     yield from _batch_rows(parquet.iter_batches(batch_size=BATCH_ROWS, columns=selected), columns, "Parquet", reporter)
 
 
+#: The first bytes of a file in the Arrow IPC file format; a stream starts with 0xFFFFFFFF.
+ARROW_FILE_MAGIC = b"ARROW1"
+
+
+def _first_bytes(source, count: int) -> bytes:
+    if isinstance(source, Path):
+        with open(source, "rb") as file:
+            return file.read(count)
+    start = source.read(count)
+    source.seek(0)
+    return start
+
+
+def _stream_batches(reader, snippet, name: str, reporter: Reporter):
+    """The record batches of an Arrow IPC stream. In a growing snippet's stream, a last message
+    that is not complete yet is still being written: it is left out."""
+    pa, _ = _arrow_types()
+    while True:
+        try:
+            batch = reader.read_next_batch()
+        except StopIteration:
+            return
+        except (pa.ArrowInvalid, OSError) as error:
+            if snippet.growing:
+                reporter.warning("the last message of the Arrow stream is not complete (it is still being written), "
+                                 "so it is not read", name)
+                return
+            raise DataFileError(f"{name} is not a complete Arrow IPC stream: {error}") from None
+        yield batch
+
+
 def _arrow_rows(snippet, fields, reporter: Reporter):
+    """An Arrow data file is in the IPC file format or the IPC streaming format; the first bytes
+    tell them apart (``ARROW1`` starts a file), not the file name."""
     pa, _ = _arrow_types()
     import pyarrow.ipc
 
     source = data_source(snippet)
     name = source_name(source)
+    is_file_format = _first_bytes(source, len(ARROW_FILE_MAGIC)) == ARROW_FILE_MAGIC
     handle = pa.memory_map(str(source)) if isinstance(source, Path) else source
     try:
         try:
-            reader = pyarrow.ipc.open_file(handle)
-            batches = (reader.get_batch(index) for index in range(reader.num_record_batches))
-        except pa.ArrowInvalid:
-            if hasattr(handle, "seek"):
-                handle.seek(0)
-            try:
+            if is_file_format:
+                reader = pyarrow.ipc.open_file(handle)
+                batches = (reader.get_batch(index) for index in range(reader.num_record_batches))
+            else:
                 reader = pyarrow.ipc.open_stream(handle)
-            except pa.ArrowInvalid as error:
-                raise DataFileError(f"{name} can't be read as an Arrow IPC file: {error}") from None
-            reporter.warning("is an Arrow IPC stream; the specification asks for the Arrow IPC file format", name)
-            batches = iter(reader)
+                batches = _stream_batches(reader, snippet, name, reporter)
+        except pa.ArrowInvalid as error:
+            what = "an Arrow IPC file" if is_file_format else "an Arrow IPC stream"
+            raise DataFileError(f"{name} can't be read as {what}: {error}") from None
+        if is_file_format and snippet.growing:
+            reporter.warning("is in the Arrow IPC file format, which can't be appended to: the snippet must state "
+                             "tss:immutable true (a growing Arrow snippet uses the IPC streaming format)", name)
         columns = _match_columns(snippet, fields, reader.schema, reporter, "Arrow", name)
         yield from _batch_rows(batches, columns, "Arrow", reporter)
     finally:

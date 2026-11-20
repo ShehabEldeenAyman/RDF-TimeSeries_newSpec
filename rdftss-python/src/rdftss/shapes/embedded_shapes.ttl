@@ -18,8 +18,11 @@
 #         ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
 #         ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double
 #     ] .
-#   Each point is one Turtle statement, so a mutable snippet gets a new point by appending one
-#   to the end of the document. A missing value has no triple. A snippet may have no points
+#   Each point is one Turtle statement. The metadata document of a growing snippet is an RDF
+#   Message Log (version label "1.2-messages"): a Write appends one message, ended by the
+#   delimiter MESSAGE. These shapes check the merge of the messages: a SHACL processor that
+#   cannot read a message log is given the document without its VERSION line and its
+#   delimiters. A missing value has no triple. A snippet may have no points
 #   (yet). The points of a snippet are the nodes it links to:  <snippet> tss:hasPoint ?point .
 #
 #   tss:EmbeddedJSONSnippet: the points are JSON. One rdf:JSON literal, tss:points, holds a JSON
@@ -46,20 +49,18 @@
 # The metadata conforms when the report holds no sh:Violation. Warnings point at
 # things that look wrong; with -w (allow warnings) they don't fail the run.
 #
-# A time (tss:committedUntil, tss:from, tss:until, the summary times and the values of the time
+# A time (tss:from, tss:until, the summary times and the values of the time
 # field) is an xsd:dateTimeStamp: an xsd:dateTime whose timezone (Z or an offset such as
 # +02:00) cannot be left out. A time without a timezone does not conform (S23).
 #
 # The snippet (tss:EmbeddedJSONSnippet or tss:EmbeddedRDFSnippet)
-#   Required:  S17 committed until (one time: the last time the snippet and its data were
-#                  checked to be up to date)
-#              S20 time field datatype (xsd:dateTimeStamp)
+#   Required:  S20 time field datatype (xsd:dateTimeStamp)
 #   Required:     S1 the snippet (one or more embedded snippets, each read on its own)
 #                 S3 snippet class: every snippet states exactly one of the five snippet classes
 #                    (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet,
 #                    tss:CSVSnippet, tss:ArrowSnippet)
 #                 S24 one kind: every snippet of the document is embedded (no mixing)
-#                 S2 mutable (true: append-only)  S4 time field  S5 has field (at least one)
+#                 S4 time field  S5 has field (at least one)
 #                 S6 points of a tss:EmbeddedRDFSnippet: every point is a node that exactly
 #                    one tss:EmbeddedRDFSnippet links to with tss:hasPoint, and every value
 #                    of a field of the snippet is in a point of that snippet
@@ -67,7 +68,8 @@
 #                    literal that holds a JSON array
 #                 S25 JSON keys: every field of a tss:EmbeddedJSONSnippet states a
 #                    tss:columnName, its key in the JSON points
-#   Optional:     S7 label    S8 produced by
+#   Optional:     S2 immutable (true: final; false or not stated: growing, append-only)
+#                 S7 label    S8 produced by
 #                 S9 key: at most one tss:key, and it is the time field (the key is always the
 #                    time field, also when tss:key is not stated)
 #                 S10 from    S11 until (after from)
@@ -77,6 +79,8 @@
 #                 external data file, so every point states its own time (P1);
 #                 tss:points on a tss:EmbeddedRDFSnippet, and tss:hasPoint on a
 #                 tss:EmbeddedJSONSnippet: each class writes its points in one way
+#                 S26 summary of a growing snippet: only a field of a snippet that states
+#                 tss:immutable true has a tss:summary
 #   Required:     S23 timezone: every time has a timezone (an xsd:dateTimeStamp)
 #
 # The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl,
@@ -189,22 +193,12 @@ emb:SnippetShape a sh:NodeShape ;
 
     # Required
     sh:property [
-        sh:name "S17 committed until" ;
-        sh:group emb:Required ;
-        sh:path tss:committedUntil ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:dateTimeStamp ;
-        sh:message "The snippet needs exactly one tss:committedUntil, an xsd:dateTimeStamp (with a timezone): the last time the snippet and its data were checked to be up to date." ;
-    ] ;
-    sh:property [
-        sh:name "S2 mutable" ;
-        sh:group emb:Required ;
-        sh:path tss:mutable ;
-        sh:minCount 1 ;
+        sh:name "S2 immutable" ;
+        sh:group emb:Optional ;
+        sh:path tss:immutable ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
-        sh:message "The snippet needs exactly one tss:mutable: true (append-only: points may be added, but none is changed or removed) or false (no point is added, changed or removed)." ;
+        sh:message "tss:immutable must be one xsd:boolean: true (final: no point is added, changed or removed) or false (growing: points may be added, but none is changed or removed). Not stated means false." ;
     ] ;
     sh:property [
         sh:name "S4 time field" ;
@@ -436,7 +430,7 @@ emb:TimezoneShape a sh:NodeShape ;
                 {
                     # A time of the snippet
                     $this ?property ?value .
-                    FILTER (?property IN (tss:committedUntil, tss:from, tss:until, tss:timeBase))
+                    FILTER (?property IN (tss:from, tss:until, tss:timeBase))
                     BIND (CONCAT("the snippet's ", REPLACE(STR(?property), "^.*#", "tss:")) AS ?where)
                 } UNION {
                     # A time of a summary
@@ -1061,4 +1055,24 @@ emb:SummaryShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTimeStamp ;
         sh:message "tss:generatedAtTime must be one xsd:dateTimeStamp (with a timezone) when supplied." ;
+    ] .
+
+
+# --- S26: no stored summary on a growing snippet ---------------------------------
+# A snippet that does not state tss:immutable true is growing: points may still be added, so a
+# summary would be outdated by the next Write, and its description does not change while it
+# grows. A writer adds the summaries when it ends the snippet, together with tss:immutable true.
+
+emb:GrowingSnippetSummaryShape a sh:NodeShape ;
+    sh:targetClass tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S26 summary of a growing snippet: field {?value} has a tss:summary, but the snippet does not state tss:immutable true. Only a field of an immutable snippet has a stored summary." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:hasField ?value .
+                ?value tss:summary ?summary .
+                FILTER NOT EXISTS { $this tss:immutable ?immutable . FILTER (?immutable = true) }
+            }""" ;
     ] .

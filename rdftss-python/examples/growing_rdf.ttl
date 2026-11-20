@@ -1,0 +1,50 @@
+VERSION "1.2-messages"
+# A growing snippet: it does not state tss:immutable true, so points may still be added.
+# The metadata document of a growing tss:EmbeddedRDFSnippet is an RDF Message Log: the first
+# message describes the snippet and its fields, each next message holds one point, and every
+# message ends with the delimiter MESSAGE. A writer adds a point by appending one message, and a
+# consumer that follows the snippet only reads the messages after the last one it read.
+# A growing snippet has no stored summaries, and its time window does not change.
+PREFIX tss: <https://w3id.org/tss#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+PREFIX unit: <http://qudt.org/vocab/unit/>
+PREFIX ex: <https://example.org/ex#>
+
+ex:growing-snippet
+    a tss:EmbeddedRDFSnippet ;
+    rdfs:label "Conductivity readings, still growing"@en ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeField ex:growing-time-field ;
+    tss:hasField ex:growing-time-field,
+        ex:growing-value-field .
+
+ex:growing-time-field
+    a tss:Field ;
+    rdfs:label "Observation time"@en ;
+    tss:datatype xsd:dateTimeStamp .
+
+ex:growing-value-field
+    a tss:Field ;
+    rdfs:label "Electrical conductivity"@en ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM .
+MESSAGE
+ex:growing-snippet tss:hasPoint [
+    ex:growing-time-field "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    ex:growing-value-field "4810.5"^^xsd:double
+] .
+MESSAGE
+ex:growing-snippet tss:hasPoint [
+    ex:growing-time-field "2024-05-12T08:15:00Z"^^xsd:dateTimeStamp ;
+    ex:growing-value-field "4722.4"^^xsd:double
+] .
+MESSAGE
+ex:growing-snippet tss:hasPoint [
+    ex:growing-time-field "2024-05-12T08:30:00Z"^^xsd:dateTimeStamp ;
+    ex:growing-value-field "4751.9"^^xsd:double
+] .
+MESSAGE

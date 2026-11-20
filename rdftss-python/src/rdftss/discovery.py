@@ -23,7 +23,7 @@ CQ3   ``snippet.kind``, ``snippet.data_file``, ``snippet.how_to_read()["embedded
 CQ4   ``snippet.time_field``, ``field.column_name``, ``field.column_index``, ``how_to_read()``
 CQ5   ``field.datatype``, ``field.unit``, ``field.observed_property``, ``field.describe()``
 CQ6   ``snippet.time_grid``, ``field.value_encoding``, ``snippet.csv``
-CQ7   ``snippet.mutable``, ``snippet.committed_until``
+CQ7   ``snippet.immutable`` (final) or ``snippet.growing``
 CQ8   ``field.summary``, ``snippet.window``
 ====  ======================================================================================
 
@@ -82,7 +82,7 @@ def _iris(value, snippet: Snippet) -> set | None:
 
 
 def find(objects, *, observed_property=None, feature_of_interest=None, sensor=None, unit=None,
-         overlapping=None, kind=None, mutable: bool | None = None, label: str | None = None) -> list[Match]:
+         overlapping=None, kind=None, immutable: bool | None = None, label: str | None = None) -> list[Match]:
     """The snippets of ``objects`` (a document, a snippet, or a list of them) that meet every
     criterion given.
 
@@ -92,7 +92,7 @@ def find(objects, *, observed_property=None, feature_of_interest=None, sensor=No
     - ``overlapping``: ``(start, end)``: the snippet's window overlaps ``[start, end)``. An open
       side of a window, or ``None`` here, is unbounded. Windows that only touch do not overlap.
     - ``kind``: a snippet class: ``"csv"``, ``"parquet"``, ``"arrow"``, ``"json"``, ``"rdf"``.
-    - ``mutable``: ``True`` or ``False``.
+    - ``immutable``: ``True`` for final snippets, ``False`` for growing ones.
     - ``label``: a text that the snippet's label contains (any case).
     """
     wanted_kind = SnippetKind.parse(kind) if kind is not None else None
@@ -102,7 +102,7 @@ def find(objects, *, observed_property=None, feature_of_interest=None, sensor=No
     for snippet in _snippets(objects):
         if wanted_kind is not None and snippet.kind != wanted_kind:
             continue
-        if mutable is not None and snippet.mutable != mutable:
+        if immutable is not None and snippet.immutable != immutable:
             continue
         if label is not None and not any(label.lower() in str(text).lower() for text in snippet.labels):
             continue

@@ -27,9 +27,9 @@ class TestValidation:
         assert "sh:ValidationReport" in report.to_turtle() and "S23 timezone" in report.to_turtle()
 
     def test_property_checks_have_a_group(self):
-        report = rdftss.loads(EMBEDDED.replace("    tss:mutable true ;\n", "")).validate()
+        report = rdftss.loads(EMBEDDED.replace("tss:immutable true ;", 'tss:immutable "yes" ;')).validate()
         result = next(result for result in report.violations if result.check == "S2")
-        assert result.group == "Required" and result.name == "S2 mutable"
+        assert result.group == "Optional" and result.name == "S2 immutable"
 
     def test_values_are_checked_as_written(self):
         text = EMBEDDED.replace('ex:value-field "4810.5"^^xsd:double', 'ex:value-field " 4810.5 "^^xsd:double')

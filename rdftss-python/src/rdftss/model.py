@@ -73,7 +73,7 @@ class SnippetKind(Enum):
             SnippetKind.EMBEDDED_JSON: "JSON points in the metadata (tss:points)",
             SnippetKind.CSV: "a CSV data file",
             SnippetKind.PARQUET: "a Parquet data file",
-            SnippetKind.ARROW: "an Arrow (IPC file) data file",
+            SnippetKind.ARROW: "an Arrow IPC data file (file or streaming format)",
         }[self]
 
     @property
@@ -426,7 +426,8 @@ class Snippet:
     - ``node``, ``iri``, ``name``, ``label``: who it is.
     - ``fields``: its :class:`Field` objects; ``time_field``, ``key`` and ``step_field``.
     - ``window``: its :class:`TimeWindow`.
-    - ``mutable``, ``committed_until``, ``produced_by``: changes and provenance.
+    - ``immutable``: ``True`` when the snippet is final; ``False`` (also when not stated) when it
+      is growing: points may still be added. ``growing`` is its opposite. ``produced_by``: provenance.
     - ``data_file``: the IRI of the data file of an external snippet; ``csv``: the
       :class:`CSVDialect` of a CSV snippet; ``time_grid``: its :class:`TimeGrid`, or ``None``.
     - ``issues``: what breaks the specification; ``reading_problems``: what stops reading it.
@@ -446,8 +447,7 @@ class Snippet:
         self.kind: SnippetKind | None = None
         self.labels: list[Literal] = []
         self.comments: list[Literal] = []
-        self.mutable: bool | None = None
-        self.committed_until: Time | None = None
+        self.immutable: bool = False
         self.produced_by: URIRef | None = None
         self.description = None
         self.window = TimeWindow()
@@ -464,6 +464,11 @@ class Snippet:
         self._data_override = None
 
     # -- who it is -------------------------------------------------------------------------------
+
+    @property
+    def growing(self) -> bool:
+        """Whether points may still be added: the snippet does not state ``tss:immutable true``."""
+        return not self.immutable
 
     @property
     def iri(self) -> str | None:
@@ -601,8 +606,8 @@ class Snippet:
         if self.time_grid is not None:
             lines.append(f"  time grid:  {self.time_grid} (steps in column "
                          f"{self.time_grid.step_field.column_name!r})")
-        lines.append(f"  mutable:    {self.mutable}" + (
-            f", committed until {self.committed_until.text}" if self.committed_until else ""))
+        lines.append("  changes:    " + ("immutable: final, no point is added any more" if self.immutable
+                                          else "growing: points may still be added"))
         if self.produced_by is not None:
             lines.append(f"  produced by {short(self.produced_by)}")
         lines.append(f"  fields ({len(self.fields)}):")
@@ -878,12 +883,11 @@ def _read_snippet(snippet: Snippet, owners: dict) -> None:
 
     snippet.labels = node.values(RDFS.label)
     snippet.comments = node.values(RDFS.comment)
-    snippet.mutable = node.boolean(TSS.mutable)
-    if not node.values(TSS.mutable):
-        snippet.issues.error("states no tss:mutable (true or false)", where)
-    snippet.committed_until, stated = node.time(TSS.committedUntil)
-    if not stated:
-        snippet.issues.error("states no tss:committedUntil", where)
+    snippet.immutable = node.boolean(TSS.immutable) is True
+    for old, advice in EARLIER_DRAFT_PROPERTIES.items():
+        if node.values(old):
+            snippet.issues.warning(f"{document.short(old)} is from an earlier draft of the specification: {advice}",
+                                   where)
     snippet.produced_by = node.iri(TSS.producedBy)
     snippet.description = node.one(TSS.snippetDescription)
 
@@ -954,7 +958,42 @@ def _read_snippet(snippet: Snippet, owners: dict) -> None:
                 snippet.issues.error(f"field {field.name!r}: tss:describesField {document.short(described)} "
                                      "is not a field of the same snippet", where)
 
+    _check_changes(snippet, where)
     _sort_fields(snippet)
+
+
+#: Terms of earlier drafts of the specification, and what replaces them.
+EARLIER_DRAFT_PROPERTIES = {
+    TSS.mutable: "tss:mutable false is now tss:immutable true, and tss:mutable true is the default (leave it out)",
+    TSS.committedUntil: "it is no longer used; a consumer finds out whether a growing snippet changed with "
+                        "HTTP validators (ETag, Last-Modified)",
+}
+#: The snippet classes that are always immutable, and why.
+ALWAYS_IMMUTABLE = {
+    SnippetKind.PARQUET: "rows can't be appended to a Parquet file",
+}
+
+
+def _check_changes(snippet: Snippet, where: str) -> None:
+    """The rules on growing and immutable snippets (the specification's #change)."""
+    document = snippet.document
+    if snippet.kind in ALWAYS_IMMUTABLE and not snippet.immutable:
+        snippet.issues.error(f"a {document.short(snippet.kind.iri)} must state tss:immutable true: "
+                             f"{ALWAYS_IMMUTABLE[snippet.kind]}", where)
+    if snippet.growing:
+        for field in snippet.fields:
+            if field.summary is not None:
+                snippet.issues.error(f"field {field.name!r} has a tss:summary, but the snippet is growing (it does "
+                                     "not state tss:immutable true); only an immutable snippet has stored summaries",
+                                     where)
+    if snippet.kind == SnippetKind.EMBEDDED_RDF and snippet.growing and document.message_log is False:
+        snippet.issues.error("a growing tss:EmbeddedRDFSnippet must be written as an RDF Message Log "
+                             '(VERSION "1.2-messages", and a delimiter MESSAGE after each message), so that a new '
+                             "point is appended as one more message", where)
+    if document.message_log and any(str(value).strip() in ("false", "0")
+                                    for value in document.graph.objects(snippet.node, TSS.immutable)):
+        snippet.issues.error("an RDF Message Log must not state tss:immutable false: the merge of its messages "
+                             "would state both false and true once the snippet ends (false is the default)", where)
 
 
 # ---------------------------------------------------------------------------------------------

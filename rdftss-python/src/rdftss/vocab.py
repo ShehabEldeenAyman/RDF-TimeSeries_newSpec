@@ -20,7 +20,7 @@ from rdflib.namespace import DCAT, DCTERMS, OWL, PROV, RDF, RDFS, SKOS
 
 #: The version of the RDF Time Series Snippets vocabulary that rdftss implements
 #: (``owl:versionInfo`` of the bundled ``tss.ttl``, demo 11).
-SPEC_VERSION = "0.2.0"
+SPEC_VERSION = "0.3.0"
 
 #: Where the specification is published.
 SPEC_URL = "https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/"

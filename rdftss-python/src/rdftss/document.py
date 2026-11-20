@@ -14,7 +14,8 @@ How a document is read, without guessing:
    ``tss:CSVSnippet``, ``tss:ParquetSnippet`` and ``tss:ArrowSnippet``. A table maps that class
    to its reader (see :mod:`rdftss.readers`); the name of a data file is never looked at.
 
-Every literal keeps its text exactly as written (see :mod:`rdftss.rdf` for why).
+Every literal keeps its text exactly as written (see :mod:`rdftss.rdf` for why). An RDF Message
+Log, the document of a growing ``tss:EmbeddedRDFSnippet``, is read as the merge of its messages.
 """
 from __future__ import annotations
 
@@ -26,7 +27,7 @@ from rdflib import BNode, Graph, Literal, URIRef
 from .datafiles import DataAccess
 from .errors import DocumentError, Issues
 from .model import Snippet, build_snippets, local_name
-from .rdf import parse_rdf
+from .rdf import RDFDocument, read_rdf
 from .vocab import WELL_KNOWN_PREFIXES
 
 
@@ -36,17 +37,24 @@ class Document:
     - ``snippets``: its :class:`~rdftss.model.Snippet` objects; :meth:`snippet` picks one.
     - ``graph``: the rdflib graph, with every literal's text kept exactly.
     - ``base``: the IRI that relative IRIs were resolved against; ``source``: where it came from.
+    - ``messages``: for an RDF Message Log, how many complete messages it has; ``None`` for a
+      document that is not a log, or whose text rdftss did not read (a graph given in code).
     - ``issues``: problems of the document as a whole; ``all_issues`` adds those of its snippets.
     """
 
     def __init__(self, graph: Graph, *, base: str | None = None, source: str | None = None,
-                 access: DataAccess | None = None):
+                 access: DataAccess | None = None, read: RDFDocument | None = None):
         self.graph = graph
         self.base = base
         self.source = source or base or "(text)"
         self.access = access or DataAccess()
         self.downloads: dict[str, Path] = {}  # the data files downloaded for this document, by IRI
         self.issues = Issues()
+        #: ``True`` or ``False`` when rdftss read the document's text; ``None`` for a graph given in code.
+        self.message_log: bool | None = read.is_message_log if read is not None else None
+        self.messages: int | None = read.messages if read is not None else None
+        for note in (read.notes if read is not None else []):
+            self.issues.warning(note)
         self.snippets: list[Snippet] = build_snippets(self)
         if not self.snippets:
             self.issues.error("The document describes no snippet: it must describe at least one")
@@ -177,8 +185,9 @@ class Document:
 
     def to_turtle(self, path=None) -> str:
         """The document as Turtle: literals keep their text, and RDF points come last, one
-        statement each (so a new point can be appended at the end). With ``path`` (where the
-        text will be written), ``tss:dataFile`` is written relative to it."""
+        statement each. A document with a growing ``tss:EmbeddedRDFSnippet`` is written as an RDF
+        Message Log, one message per point, so a new point is appended as one more message. With
+        ``path`` (where the text will be written), ``tss:dataFile`` is written relative to it."""
         from .writing import document_turtle
 
         return document_turtle(self.graph, document_path=path)
@@ -221,8 +230,9 @@ def load(source, *, format: str | None = None, base: str | None = None, allow_ne
                         cache_folder=Path(cache_folder) if cache_folder else None, timeout=timeout)
     if isinstance(source, os.PathLike):
         source = str(source)
-    graph = parse_rdf(source, format=format, base=base)
-    return Document(graph, base=base or _address(source), source=str(getattr(source, "name", source)), access=access)
+    read = read_rdf(source, format=format, base=base)
+    return Document(read.graph, base=base or _address(source), source=str(getattr(source, "name", source)),
+                    access=access, read=read)
 
 
 def loads(text: str | bytes, *, format: str = "turtle", base: str | None = None, **options) -> Document:
@@ -234,5 +244,5 @@ def loads(text: str | bytes, *, format: str = "turtle", base: str | None = None,
                         data_folder=Path(options["data_folder"]) if options.get("data_folder") else None,
                         cache_folder=Path(options["cache_folder"]) if options.get("cache_folder") else None,
                         timeout=options.get("timeout", 60.0))
-    graph = parse_rdf(data=text, format=format, base=base)
-    return Document(graph, base=base, source=base or "(text)", access=access)
+    read = read_rdf(data=text, format=format, base=base)
+    return Document(read.graph, base=base, source=base or "(text)", access=access, read=read)

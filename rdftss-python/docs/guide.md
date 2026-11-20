@@ -14,7 +14,8 @@ This guide shows every feature of rdftss with the example documents in [`example
 10. [Converting snippets](#10-converting-snippets)
 11. [Validating a document](#11-validating-a-document)
 12. [Checking stored summaries](#12-checking-stored-summaries)
-13. [Errors and issues](#13-errors-and-issues)
+13. [Growing snippets](#13-growing-snippets)
+14. [Errors and issues](#14-errors-and-issues)
 
 ## 1. Loading a document
 
@@ -53,7 +54,7 @@ snippet = rdftss.load("examples/readings_grid.ttl").snippet()
 snippet.kind                # SnippetKind.CSV: where the points are (the snippet's class)
 snippet.kind.is_external    # True
 snippet.window              # [2024-05-12T00:00:00Z, 2024-05-13T00:00:00Z)
-snippet.mutable, snippet.committed_until
+snippet.immutable           # True: final, no point is added any more (snippet.growing is the opposite)
 snippet.data_file           # 'file:///.../examples/sample-data/readings_grid.csv'
 snippet.csv                 # CSVDialect(delimiter=',', encoding='utf-8', header=True), defaults filled in
 snippet.time_grid           # 2024-05-12T00:00:00Z + n × PT15M
@@ -284,7 +285,7 @@ for match in rdftss.find(documents, observed_property="quantitykind:ElectricCond
     match.snippet.how_to_read()        # how to read it
 
 rdftss.find(documents, unit="unit:DEG_C")
-rdftss.find(documents, kind="parquet", mutable=False)
+rdftss.find(documents, kind="parquet", immutable=True)
 ```
 
 Prefixed names are read with each document's own prefixes; full IRIs work too. Like the evaluation's competency questions, `find` matches IRIs exactly, without inference. Windows that only touch do not overlap. The questions map onto the library like this:
@@ -297,7 +298,7 @@ Prefixed names are read with each document's own prefixes; full IRIs work too. L
 | CQ4 which fields hold the time and the values | `snippet.time_field`, `field.column_name`, `how_to_read()["fields"]` |
 | CQ5 datatype and meaning of a field | `field.datatype`, `field.unit`, `field.describe()` |
 | CQ6 grid and encoding parameters | `snippet.time_grid`, `field.value_encoding` |
-| CQ7 update policy | `snippet.mutable`, `snippet.committed_until` |
+| CQ7 final or still growing | `snippet.immutable`, `snippet.growing` |
 | CQ8 stored summaries | `field.summary`, `snippet.window` |
 
 ## 9. Expanding into observations
@@ -348,7 +349,7 @@ rdftss.convert(snippet, "csv", document="out/plain.ttl", csv={"delimiter": ",", 
 
 What stays the same and what changes:
 
-- **Kept:** the points in the window (their times as moments, and their decoded values), the labels, window, mutability, `tss:committedUntil`, summaries, and every field's meaning. What the document says about other things, such as sensors, is kept too.
+- **Kept:** the points in the window (their times as moments, and their decoded values), the labels, window, summaries, whether the snippet is immutable or growing, and every field's meaning. A Parquet copy is always immutable, and a growing copy has no summaries ([section 13](#13-growing-snippets)). What the document says about other things, such as sensors, is kept too.
 - **New IRIs:** the snippet and its fields get IRIs with a suffix (`-parquet`, …), so two documents never describe one node in two ways. `iri_suffix=None` keeps the IRIs, and field names stay the same either way.
 - **Embedded classes** state every reading themselves: a time grid becomes a time column, and encodings are decoded.
 - **Parquet and Arrow** store typed values following the specification's tables, so `3.0E1` reads back as `30.0` and times read back in UTC. `keep_texts=True` stores every value as a string, exactly as it is.
@@ -376,7 +377,7 @@ days = rdftss.split(snippet, "6h", document="out/parts.ttl")         # one snipp
 merged = rdftss.merge(days.snippets, iri="https://example.org/ex#whole", document="out/whole.ttl")
 ```
 
-Each part of a split gets its share of the window and new stored summaries. A merge needs snippets with the same fields; it gets the smallest window that holds all windows and the earliest `tss:committedUntil`.
+Each part of a split gets its share of the window and new stored summaries. A merge needs snippets with the same fields; it gets the smallest window that holds all windows, and is immutable when every part is.
 
 From observations back to a snippet:
 
@@ -463,7 +464,39 @@ rdftss.loads(text).verify_summaries(tolerance=1e-4).up_to_date    # True: a writ
 
 A snippet whose data can't be read (a missing data file, a data error) is listed in `report.not_checked`, with the reason. With `strict=False`, bad values are left out of the numbers instead.
 
-## 13. Errors and issues
+## 13. Growing snippets
+
+`tss:immutable` says whether points may still be added to a snippet. `true` means the snippet is final. `false`, or no `tss:immutable` at all, means it is *growing*: append-only, so points may be added, but none is changed or removed.
+
+```python
+document = rdftss.load("examples/growing_rdf.ttl")
+snippet = document.snippet()
+snippet.immutable, snippet.growing      # (False, True)
+document.message_log, document.messages # (True, 4)
+snippet.read()                          # the 3 points the log holds now
+document.to_turtle()[:22]               # 'VERSION "1.2-messages"'
+```
+
+The rules for a growing snippet, which rdftss reports as issues (and the SHACL shapes as S26 and S27):
+
+| Rule | Issue |
+|---|---|
+| A growing snippet has no `tss:summary` on any field (its numbers would be outdated by the next point) | error |
+| A `tss:ParquetSnippet` states `tss:immutable true` (rows can't be appended to a Parquet file) | error |
+| The document of a growing `tss:EmbeddedRDFSnippet` is an RDF Message Log | error |
+| An RDF Message Log states no `tss:immutable false` | error |
+| An Arrow data file in the IPC file format belongs to an immutable snippet | warning, when the file is read |
+| `tss:mutable` and `tss:committedUntil` are from earlier drafts | warning |
+
+**RDF Message Logs.** The document starts with `VERSION "1.2-messages"`; its first message describes the snippet and its fields, and every next message holds points. A message ends with a line that holds only `MESSAGE` (or `@message .`). rdftss reads the document as the merge of its messages: each message is parsed on its own, with the prefixes of the messages before it, so the blank node `_:p` of one message is never the `_:p` of another. Text after the last delimiter is a message still being written: it is not read, and the document gets a warning. `document.save()` writes a document with a growing RDF snippet as a log again, with one message per point.
+
+**Data files that grow.** A writer appends complete CSV records, each ended by a line break, and complete Arrow messages to an Arrow IPC stream. So when rdftss reads a growing snippet, a last CSV record without its line break, or a last Arrow message that is not complete, is still being written: it is left out, with a warning. An Arrow data file is read as an IPC file when it starts with `ARROW1`, and as an IPC stream otherwise, whatever its name.
+
+**Converting.** A converted snippet keeps being growing or immutable, except as Parquet, which is always immutable. A growing copy gets no summaries, a growing Arrow copy is an IPC stream (`.arrows`), and a growing RDF copy a Message Log.
+
+Not in rdftss yet: appending points and ending a snippet (the spec's Write and #ending), and following a growing snippet over HTTP: polling with `ETag` and `Cache-Control`, and reading only the new bytes with `Range: bytes=N-`.
+
+## 14. Errors and issues
 
 | Raised | When |
 |---|---|

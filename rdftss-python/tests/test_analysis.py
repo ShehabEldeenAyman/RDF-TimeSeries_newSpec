@@ -227,10 +227,10 @@ class TestDiscovery:
         assert len(rdftss.find(documents, overlapping=("2024-05-13T00:00:00Z", None))) == 0
         assert len(rdftss.find(documents, overlapping=(None, "2024-05-12T08:00:00Z"))) == 2
 
-    def test_by_class_and_mutability(self, example):
+    def test_by_class_and_immutability(self, example):
         documents = self.documents(example)
         assert len(rdftss.find(documents, kind="parquet")) == 1
-        assert len(rdftss.find(documents, mutable=True)) == 1
+        assert len(rdftss.find(documents, immutable=True)) == 4 and not rdftss.find(documents, immutable=False)
         assert len(rdftss.find(documents[0], label="conductivity")) == 1
 
     @pytest.mark.skipif(not DEMO_11.exists(), reason="the demo 11 folder is not next to rdftss")

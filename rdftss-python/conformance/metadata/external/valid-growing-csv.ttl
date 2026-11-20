@@ -1,4 +1,4 @@
-# The snippet has no tss:mutable.
+# A growing CSV snippet: it states no tss:immutable, and has no summary.
 @prefix tss: <https://w3id.org/tss#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -11,7 +11,6 @@
 ex:snippet
     a tss:CSVSnippet ;
     rdfs:label "Conductivity readings"@en ;
-    tss:committedUntil "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp ;
     tss:producedBy ex:producer ;
     tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -32,8 +31,4 @@ ex:value-field
     tss:minimum "0"^^xsd:double ;
     tss:maximum "10000"^^xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    tss:unit unit:MicroS-PER-CentiM ;
-    tss:summary [
-        tss:missingValuePolicy tss:ExcludeEmptyValues ;
-        tss:count "3"^^xsd:integer
-    ] .
+    tss:unit unit:MicroS-PER-CentiM .

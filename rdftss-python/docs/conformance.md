@@ -20,7 +20,7 @@ The specification's *Conformance* section defines four conformance classes. Each
 | **Conforming metadata document** | An RDF document that describes at least one snippet and meets every requirement on a metadata document, a snippet, a field, embedded points and a stored summary | The RDF is right. For an external snippet this includes the properties that describe the data file, its time grid and its value encoding, but not what is inside the data file. |
 | **Conforming data** | The points of a snippet, embedded or in its data file, that meet the requirements on points | Every point has a time (on a time grid, a step), no two points share a time, every value is in the lexical form of its datatype, and the points lie in the time window. |
 | **Conforming consumer** | Software that reads a conforming document and its data as the specification says | It picks the rules by snippet class, reads the points, times and values, decodes value encodings, applies the time window and the empty-value rules, and reports an error where the specification calls something an error. A **conforming expander** is a consumer that also expands snippets into observations. |
-| **Conforming writer** | Software that adds points to an embedded snippet only by the specification's *Write* | It appends a point, widens the window, sets `tss:committedUntil`, recomputes the summaries, and leaves the document conforming. |
+| **Conforming writer** | Software that adds points to a growing snippet only as the specification says, and ends it as the specification says | It appends a point to an embedded snippet as one more message (RDF) or at the end of `tss:points` (JSON), appends complete records to a growing data file, adds `tss:immutable true` and the summaries when the snippet ends, and leaves the document conforming. |
 
 The first two classes are about *things* (a document, data), and can be checked by looking at them. The last two are about *behaviour*, and can only be checked by giving software inputs and comparing what it does with what the specification says. That is what a test suite is for.
 
@@ -32,10 +32,10 @@ The first two classes are about *things* (a document, data), and can be checked 
 | Conforming data: RDF points | The same validation: the embedded shapes check RDF points (checks P1 to P7) | Done |
 | Conforming data: JSON points and data files | Reading reports the errors the specification names (a point without a time, a value not in its lexical form). A full data check, which would also report duplicate times and the like as a report rather than an error, is not built yet. | Partly |
 | Stored summaries are true | `document.verify_summaries()`: recomputes every number a summary states from the data, and names those that differ | Done |
-| Conforming consumer and expander | rdftss itself; the conformance test suite tests it ([section 4](#4-the-conformance-test-suite)) | Done |
-| Conforming writer | rdftss does not write points yet | Not yet |
+| Conforming consumer and expander | rdftss itself; the conformance test suite tests it ([section 4](#4-the-conformance-test-suite)). It reads RDF Message Logs and growing data files; it does not follow a growing snippet over HTTP yet (polling, `Range` requests) | Done, except following |
+| Conforming writer | rdftss does not append points or end snippets yet; it does write a growing RDF snippet as a Message Log | Not yet |
 
-A stored summary is not a conformance class of its own. A summary can be well-formed (SHACL checks that) and still be out of date, since the specification says a summary "is not refreshed by itself". `verify_summaries()` checks that its numbers are true. The [guide](guide.md#12-checking-stored-summaries) explains how the numbers are compared.
+A stored summary is not a conformance class of its own. A summary can be well-formed (SHACL checks that) and still be out of date, since nothing in the specification refreshes it: it is computed once, when the snippet ends. `verify_summaries()` checks that its numbers are true. The [guide](guide.md#12-checking-stored-summaries) explains how the numbers are compared.
 
 ## 3. The SHACL shapes and their check IDs
 
@@ -58,7 +58,7 @@ Every rule in the shapes has an ID: a letter for what it is about, and a number.
 
 | Letter | About | Examples |
 |---|---|---|
-| **S** | the snippet | S17 `tss:committedUntil` is there; S23 every time has a timezone; S24 one kind of snippet per document |
+| **S** | the snippet | S23 every time has a timezone; S24 one kind of snippet per document; S26 no summary on a growing snippet |
 | **F** | a field | F2 column name; F3 datatype; F8 maximum not below minimum |
 | **P** | an RDF point (embedded file only) | P1 has a time; P2 lies in the window; P3 no two points at one moment; P4 values in their lexical form |
 | **D** | a value encoding | D1 only `tss:DeltaFromBaseline`; D2 its baseline; D3 not allowed where it can't be |
@@ -74,7 +74,7 @@ Each property check also has a *group*, which says how strictly it applies:
 | Optional | may be left out, but must be well-formed when it is there | violation |
 | Not allowed | contradicts the kind of snippet | violation |
 
-The checks written in SPARQL have no group; their ID says where they belong. Four of them are warnings: F9 (the snippet has points, but none has a value for a field), P5 (a value outside the expected range), P6 (a point has a property that is not a field) and S15 (a delimiter or encoding on a Parquet or Arrow snippet, where it has no effect). **A document conforms when its report holds no violation.** Warnings point at things that look wrong, but don't change that.
+The checks written in SPARQL have no group; their ID says where they belong. S26 (a field of a growing snippet has a summary) and S27 (a Parquet snippet that does not state `tss:immutable true`) are among them. Four of them are warnings: F9 (the snippet has points, but none has a value for a field), P5 (a value outside the expected range), P6 (a point has a property that is not a field) and S15 (a delimiter or encoding on a Parquet or Arrow snippet, where it has no effect). **A document conforms when its report holds no violation.** Warnings point at things that look wrong, but don't change that.
 
 ### The two files number some checks differently
 
@@ -82,7 +82,7 @@ The F, P, D and Q checks mean the same in both files, but some S numbers don't:
 
 | Check | Embedded file | External file |
 |---|---|---|
-| mutable | S2 | S3 |
+| immutable | S2 | S3 |
 | snippet class | S3 | S7 |
 | has field | S5 | S6 |
 | label | S7 | S12 |
@@ -92,7 +92,7 @@ The F, P, D and Q checks mean the same in both files, but some S numbers don't:
 | until | S11 | S14 |
 | properties not allowed | S12 | S22 |
 
-The same in both: S1 (the snippet), S4 (time field), S17 (committed until), S20 (time field datatype), S23 (timezone) and S24 (one kind). Only in one file: S6 (points) and S25 (JSON keys) in the embedded file; S8 (data file), S10 (delimiter), S11 (encoding), S15 (not used), S18 (time base), S19 (time step) and S21 (step field) in the external file. So an ID alone, such as S12, is ambiguous: read it together with its file (`result.shapes` in rdftss, and `tsst:shapes` in the test suite).
+The same in both: S1 (the snippet), S4 (time field), S20 (time field datatype), S23 (timezone), S24 (one kind) and S26 (no summary on a growing snippet). S17 (committed until) is gone: the specification no longer has `tss:committedUntil`. Only in one file: S6 (points) and S25 (JSON keys) in the embedded file; S8 (data file), S10 (delimiter), S11 (encoding), S15 (not used), S18 (time base), S19 (time step), S21 (step field) and S27 (a Parquet snippet is immutable) in the external file. So an ID alone, such as S12, is ambiguous: read it together with its file (`result.shapes` in rdftss, and `tsst:shapes` in the test suite).
 
 ## 4. The conformance test suite
 
@@ -102,12 +102,12 @@ The suite is a set of small examples, each with its expected result. It makes th
 - **rdftss**: its validation, reading, summary verification and expansion;
 - **other implementations**: anyone can run the same tests, since they are plain files and a manifest, not Python code.
 
-It holds 171 tests:
+It holds 184 tests:
 
 | Kind | Tests | What they check |
 |---|---|---|
-| Metadata tests | 145 | SHACL validation: 14 valid documents, and 131 documents that each break one rule |
-| Read tests | 16 | reading points (consumer): 12 with the expected points, 4 with an expected error |
+| Metadata tests | 152 | SHACL validation: 19 valid documents, and 133 documents that each break one rule |
+| Read tests | 22 | reading points (consumer): 18 with the expected points, 4 with an expected error |
 | Summary tests | 7 | stored summaries: up to date or not, and which numbers differ |
 | Expansion tests | 3 | expanding into observations (expander) |
 
@@ -120,8 +120,8 @@ conformance/
 ├── manifest.ttl            every test: its kind, input, expected result and the rule it tests
 ├── make_suite.py           writes all the files below from tables (section 7)
 ├── metadata/
-│   ├── embedded/           77 documents for the embedded shapes, e.g. S23-from-without-timezone.ttl
-│   ├── external/           66 documents for the external shapes
+│   ├── embedded/           80 documents for the embedded shapes, e.g. S23-from-without-timezone.ttl
+│   ├── external/           70 documents for the external shapes
 │   └── mixed/              2 documents checked with both files (S1, S24)
 ├── reading/<test>/         metadata.ttl, a data file when it has one, and expected.csv
 ├── summaries/<test>/       metadata.ttl and a data file when it has one
@@ -182,6 +182,7 @@ The `tsst:` namespace is not registered at w3id.org yet. Its IRIs only name thin
 The metadata tests cover:
 
 - every snippet class and its valid forms: no window, times with offsets, an empty text as no value, no points yet, an empty JSON array, a CSV file without a header line, a time grid, a value encoding;
+- growing snippets: a growing JSON snippet, CSV snippet and Arrow stream, an RDF Message Log (validated as the merge of its messages), and a log whose last message ends the snippet;
 - every Required and Not-allowed property, and every check written in SPARQL: the time field, the key, the window, timezones, one kind of snippet, unique column names and indexes, the time grid, the value encoding, and the RDF points (time, window, key, lexical forms, one value per field);
 - every Optional property when it is malformed: a label that is an IRI, a negative `tss:count`, a summary time that is an `xsd:date`, and so on;
 - the warnings: F9, P5, P6 and S15.
@@ -209,6 +210,12 @@ The metadata tests cover:
 | `delta-from-baseline` | the specification's own example: 4750 + 60.5 = 4810.5 and 4750 + (-27.6) = 4722.4 |
 | `texts-kept` | a text keeps its spaces; a text of only spaces is a value |
 | `parquet`, `arrow` | UTC timestamp and DOUBLE columns |
+| `arrow-stream` | a growing Arrow snippet's data file is an IPC stream, told apart from an IPC file by its first bytes |
+| `rdf-message-log` | a growing snippet's RDF Message Log is read as the merge of its messages |
+| `rdf-message-log-unfinished-message` | text after the last delimiter is a message still being written, and is not read |
+| `rdf-message-log-blank-node-labels` | a blank node label belongs to its message: `_:p` in two messages is two points |
+| `csv-growing-unfinished-record` | in a growing CSV snippet, a last record without its line break is still being written, and is not read |
+| `csv-immutable-last-record-without-line-break` | in an immutable CSV snippet, the same record is read |
 | `error-csv-point-without-time`, `error-json-point-without-time` | a point without a time is an error |
 | `error-csv-value-not-in-lexical-form`, `error-json-value-not-in-lexical-form` | a value not in the lexical form of its datatype is an error |
 
@@ -284,6 +291,7 @@ When the specification changes, update the shapes and the suite together:
 ## 8. What the suite does not cover yet
 
 - **Checks of the data beyond SHACL.** The content of JSON points and of data files is only tested where the specification names an error. A full data check, which would report two rows at the same time, a time-grid step that is not a whole number, or a Parquet column type that doesn't match `tss:datatype`, is planned. rdftss already refuses most of these while reading, and its own unit tests cover them.
-- **Conforming writers.** rdftss does not add points yet. Writer tests would give a document and a new point, and check the document after the write: the point appended, the window widened, `tss:committedUntil` set and the summaries recomputed.
+- **Conforming writers.** rdftss does not add points yet. Writer tests would give a document and a new point, and check the document after the write: one more message in an RDF Message Log, or one more object at the end of `tss:points`, and nothing else changed. Tests of ending a snippet would check that `tss:immutable true` and the summaries are added.
+- **Following a growing snippet.** The specification's `Range: bytes=N-` requests and their answers (206, 416, 200) need a server, so they are not in this file-based suite.
 - **CSV dialects** (quoting, encodings, a byte-order mark) and **the Parquet and Arrow type tables.** rdftss's unit tests cover them; they could become read tests.
 - **One test per check per file.** Some checks have a single test. More cases per check, such as each way a field can be malformed, would make the suite stronger.
