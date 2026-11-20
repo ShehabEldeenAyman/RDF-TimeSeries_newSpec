@@ -15,7 +15,7 @@
 #   one triple, with the field's IRI as predicate and a literal typed by the field's
 #   tss:datatype, e.g.
 #     ex:zevenaarshaven-source tss:hasPoint [
-#         ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
+#         ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
 #         ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double
 #     ] .
 #   Each point is one Turtle statement. The metadata document of a growing source is an RDF
@@ -50,11 +50,11 @@
 # things that look wrong; with -w (allow warnings) they don't fail the run.
 #
 # A time (tss:from, tss:until, the summary times and the values of the time
-# field) is an xsd:dateTimeStamp: an xsd:dateTime whose timezone (Z or an offset such as
-# +02:00) cannot be left out. A time without a timezone does not conform (S23).
+# field) is an xsd:dateTime with a timezone (Z or an offset such as +02:00); an
+# xsd:dateTimeStamp is allowed too. A time without a timezone does not conform (S23).
 #
 # The source (tss:EmbeddedJSONSource or tss:EmbeddedRDFSource)
-#   Required:  S20 time field datatype (xsd:dateTimeStamp)
+#   Required:  S20 time field datatype (xsd:dateTime or xsd:dateTimeStamp)
 #   Required:     S1 the source (one or more embedded sources, each read on its own)
 #                 S3 source class: every source states exactly one of the five source classes
 #                    (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource,
@@ -81,7 +81,7 @@
 #                 tss:EmbeddedJSONSource: each class writes its points in one way
 #                 S26 summary of a growing source: only a field of a source that states
 #                 tss:immutable true has a tss:summary
-#   Required:     S23 timezone: every time has a timezone (an xsd:dateTimeStamp)
+#   Required:     S23 timezone: every time has a timezone, also as an xsd:dateTime
 #
 # The fields (tss:Field, and every object of tss:hasField): the same checks as in external_shapes.ttl,
 # except F2: a column name is optional here
@@ -248,16 +248,16 @@ emb:SourceShape a sh:NodeShape ;
         sh:group emb:Optional ;
         sh:path tss:from ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTimeStamp ;
-        sh:message "tss:from must be one xsd:dateTimeStamp (with a timezone): the start of the time window." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:from must be one xsd:dateTime (with a timezone): the start of the time window." ;
     ] ;
     sh:property [
         sh:name "S11 until" ;
         sh:group emb:Optional ;
         sh:path tss:until ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTimeStamp ;
-        sh:message "tss:until must be one xsd:dateTimeStamp (with a timezone): the end of the time window (not included)." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:until must be one xsd:dateTime (with a timezone): the end of the time window (not included)." ;
     ] ;
     # Not allowed: these describe an external data file
     sh:property [
@@ -334,16 +334,16 @@ emb:SourceShape a sh:NodeShape ;
     ] ;
 
     # S20: the time field's values are times of the source, and every time of a source is an
-    # xsd:dateTimeStamp
+    # xsd:dateTime with a timezone (xsd:dateTimeStamp is allowed too)
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a source is an xsd:dateTimeStamp (with a timezone)." ;
+        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a source is an xsd:dateTime (with a timezone), or an xsd:dateTimeStamp." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT $this ?value WHERE {
                 $this tss:timeField ?timeField .
                 ?timeField tss:datatype ?value .
-                FILTER (!sameTerm(?value, xsd:dateTimeStamp))
+                FILTER (!sameTerm(?value, xsd:dateTime) && !sameTerm(?value, xsd:dateTimeStamp))
             }""" ;
     ] ;
 
@@ -417,14 +417,14 @@ emb:OneKindShape a sh:NodeShape ;
 
 
 # --- S23: every time has a timezone ----------------------------------------------
-# Every time is an xsd:dateTimeStamp, whose timezone cannot be left out: a time without one
-# does not conform. (The sh:datatype checks only compare the datatype IRI; S23 reads the text.)
+# Every time is an xsd:dateTime (or xsd:dateTimeStamp) with a timezone: a time without one
+# does not conform, also when its datatype is xsd:dateTime, which allows one to be left out. (The sh:datatype checks only compare the datatype IRI; S23 reads the text.)
 
 emb:TimezoneShape a sh:NodeShape ;
     sh:targetClass tss:EmbeddedJSONSource, tss:EmbeddedRDFSource ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S23 timezone: {?value} ({?where}) has no timezone. Every time MUST have a timezone, such as Z or +02:00 (xsd:dateTimeStamp)." ;
+        sh:message "S23 timezone: {?value} ({?where}) has no timezone. Every time MUST have a timezone, such as Z or +02:00, also as an xsd:dateTime." ;
         sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
         sh:select """
             SELECT DISTINCT $this ?value ?where WHERE {
@@ -539,7 +539,7 @@ emb:FieldShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
-        sh:message "A field needs exactly one tss:datatype, an IRI such as xsd:double or xsd:dateTimeStamp." ;
+        sh:message "A field needs exactly one tss:datatype, an IRI such as xsd:double or xsd:dateTime." ;
     ] ;
 
     # Optional
@@ -1006,16 +1006,16 @@ emb:SummaryShape a sh:NodeShape ;
         sh:group emb:Optional ;
         sh:path tss:firstTime ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTimeStamp ;
-        sh:message "tss:firstTime must be one xsd:dateTimeStamp (with a timezone) when supplied." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:firstTime must be one xsd:dateTime (with a timezone) when supplied." ;
     ] ;
     sh:property [
         sh:name "Q7 last time" ;
         sh:group emb:Optional ;
         sh:path tss:lastTime ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTimeStamp ;
-        sh:message "tss:lastTime must be one xsd:dateTimeStamp (with a timezone) when supplied." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:lastTime must be one xsd:dateTime (with a timezone) when supplied." ;
     ] ;
     sh:property [
         sh:name "Q8 observed minimum" ;
@@ -1054,8 +1054,8 @@ emb:SummaryShape a sh:NodeShape ;
         sh:group emb:Optional ;
         sh:path tss:generatedAtTime ;
         sh:maxCount 1 ;
-        sh:datatype xsd:dateTimeStamp ;
-        sh:message "tss:generatedAtTime must be one xsd:dateTimeStamp (with a timezone) when supplied." ;
+        sh:or ( [ sh:datatype xsd:dateTime ] [ sh:datatype xsd:dateTimeStamp ] ) ;
+        sh:message "tss:generatedAtTime must be one xsd:dateTime (with a timezone) when supplied." ;
     ] .
 
 

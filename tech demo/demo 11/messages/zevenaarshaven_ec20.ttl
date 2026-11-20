@@ -1,0 +1,84 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix tss: <https://w3id.org/tss#> .
+@prefix ex: <https://example.org/ex#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+
+# The source that zevenaarshaven_ec20_messages.ttl streams as RDF messages.
+# A CSV source with the five readings of waterinfo_289441042_tss2_points_embedded.ttl:
+# the electrical conductivity at 20 °C (EC20) of the water at Kanaal Gent-Terneuzen
+# Zevenaarshaven (NL), and the quality code colour of each reading.
+# The source and its fields have their own IRIs (ex:zevenaarshaven-csv-...); the sensor and
+# the feature of interest are the same real-world things as in the other documents.
+
+ex:zevenaarshaven-csv-source
+    a tss:CSVSource ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), CSV"@en ;
+    tss:sourceDescription [
+        dcterms:spatial [
+            a dcterms:Location ;
+            rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
+        ]
+    ] ;
+    # Immutable: final. In the message stream, tss:immutable true and the summaries are in
+    # the ending message, not in the description message.
+    tss:immutable true ;
+    tss:producedBy ex:289441042 ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:until "2021-03-04T02:00:00Z"^^xsd:dateTime ;
+    tss:dataFile <zevenaarshaven_ec20.csv> ;
+    tss:timeField ex:zevenaarshaven-csv-time-field ;
+    tss:key ex:zevenaarshaven-csv-time-field ;
+    tss:hasField ex:zevenaarshaven-csv-time-field,
+        ex:zevenaarshaven-csv-ec20-field,
+        ex:zevenaarshaven-csv-quality-color-field .
+
+ex:zevenaarshaven-csv-time-field
+    a tss:Field ;
+    rdfs:label "Observation time"@en ;
+    tss:columnName "time" ;
+    tss:datatype xsd:dateTime .
+
+ex:zevenaarshaven-csv-ec20-field
+    a tss:Field ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:columnName "ec20" ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-zevenaarshaven-ec20 ;
+    tss:featureOfInterest ex:water-zevenaarshaven ;
+    tss:summary [
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "5"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00Z"^^xsd:dateTime ;
+        tss:observedMinimum "4716.1"^^xsd:double ;
+        tss:observedMaximum "4797.72"^^xsd:double ;
+        tss:mean "4750.588"^^xsd:double ;
+        tss:median "4745.36"^^xsd:double ;
+        tss:generatedAtTime "2026-11-20T12:00:00Z"^^xsd:dateTime
+    ] .
+
+# A describing field: the quality code colour of each EC20 reading.
+ex:zevenaarshaven-csv-quality-color-field
+    a tss:Field ;
+    rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
+    tss:columnName "quality_color" ;
+    tss:datatype xsd:string ;
+    tss:observedProperty ex:qualityCodeColor ;
+    tss:describesField ex:zevenaarshaven-csv-ec20-field ;
+    tss:summary [
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "5"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00Z"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-11-20T12:00:00Z"^^xsd:dateTime
+    ] .

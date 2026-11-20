@@ -39,12 +39,12 @@ ex:zevenaarshaven-json-source
     # Immutable: final, no reading is added any more. Only an immutable source has stored summaries.
     tss:immutable true ;
     tss:producedBy ex:289441042 ;
-    # The points' times are JSON strings in the form of an xsd:dateTimeStamp (a timezone is required), such as
+    # The points' times are JSON strings in the form of an xsd:dateTime (a timezone is required), such as
     # "2021-03-03T23:15:00Z".
     tss:timeField ex:zevenaarshaven-json-time-field ;
     tss:key ex:zevenaarshaven-json-time-field ;
-    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:hasField ex:zevenaarshaven-json-time-field,
         ex:zevenaarshaven-json-ec20-value-field,
         ex:zevenaarshaven-json-quality-color-value-field ;
@@ -74,7 +74,7 @@ ex:zevenaarshaven-json-time-field
     a tss:Field ;
     tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTimeStamp ;
+    tss:datatype xsd:dateTime ;
     tss:fieldDescription [
         dcterms:description "Observation time"@en
     ] ;
@@ -82,9 +82,9 @@ ex:zevenaarshaven-json-time-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "5"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:zevenaarshaven-json-ec20-value-field
@@ -108,13 +108,13 @@ ex:zevenaarshaven-json-ec20-value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "5"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
         tss:observedMinimum "4716.1"^^xsd:double ;
         tss:observedMaximum "4797.72"^^xsd:double ;
         tss:mean "4750.588"^^xsd:double ;
         tss:median "4745.36"^^xsd:double ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:zevenaarshaven-json-quality-color-value-field
@@ -133,7 +133,7 @@ ex:zevenaarshaven-json-quality-color-value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "5"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .

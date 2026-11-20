@@ -31,21 +31,23 @@ ex:zevenaarshaven-ts-source
     # Immutable: final, no reading is added any more. Only an immutable source has stored summaries.
     tss:immutable true ;
     tss:producedBy ex:289441042 ;
-    tss:from "2021-03-04T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2021-03-05T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2021-03-04T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2021-03-05T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <../data/waterinfo_289441042_time_step.csv> ;
     tss:timeField ex:zevenaarshaven-ts-time-field ;
     tss:key ex:zevenaarshaven-ts-time-field ;
     # The time grid of the rows: step n is at tss:timeBase + n × tss:timeStep. The rows state
-    # no time: each row's time is the time of its step, an xsd:dateTimeStamp like tss:timeBase.
+    # no time: each row's time is the time of its step, an xsd:dateTime like tss:timeBase.
     # tss:timeBase is the anchor of the grid, not a bound of the window: it stays fixed when
     # tss:from or tss:until change, so no row's time ever moves.
-    tss:timeBase "2021-03-04T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeBase "2021-03-04T00:00:00Z"^^xsd:dateTime ;
     # tss:timeStep is an xsd:duration of more than zero. With years or months the steps are
     # calendar steps, not equal lengths of time (a month has 28 to 31 days); this grid steps
     # every 15 minutes.
     tss:timeStep "PT15M"^^xsd:duration ;
-    # The field whose column holds the step of each row.
+    # Optional: the field whose column holds the step of each row. Without one, a row's step
+    # is its position in the data file, so every step needs a row; the step column lets
+    # rows be left out where there is no reading.
     tss:stepField ex:zevenaarshaven-ts-step-field ;
     tss:hasField ex:zevenaarshaven-ts-time-field,
         ex:zevenaarshaven-ts-step-field,
@@ -72,7 +74,7 @@ ex:zevenaarshaven-ts-source
 ex:zevenaarshaven-ts-time-field
     a tss:Field ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTimeStamp ;
+    tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC): tss:timeBase + step × tss:timeStep"@en ;
     tss:fieldDescription [
         dcterms:description "Observation time (UTC): tss:timeBase + step × tss:timeStep"@en
@@ -81,9 +83,9 @@ ex:zevenaarshaven-ts-time-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
     ] .
 
 ex:zevenaarshaven-ts-step-field
@@ -100,9 +102,9 @@ ex:zevenaarshaven-ts-step-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
     ] .
 
 ex:zevenaarshaven-ts-value-field
@@ -128,13 +130,13 @@ ex:zevenaarshaven-ts-value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "43"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:firstTime "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2021-03-04T23:00:00+00:00"^^xsd:dateTime ;
         tss:observedMinimum "4457.92"^^xsd:double ;
         tss:observedMaximum "4883.63"^^xsd:double ;
         tss:mean "4637.250697674419"^^xsd:double ;
         tss:median "4627.68"^^xsd:double ;
-        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTimeStamp
+        tss:generatedAtTime "2026-11-05T12:20:10+00:00"^^xsd:dateTime
     ] .
 
 # What the first rows of the data file mean:

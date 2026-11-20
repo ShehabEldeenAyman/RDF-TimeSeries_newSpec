@@ -15,13 +15,14 @@ Almost every change is breaking: a metadata document that conforms to `main` doe
 2. **The class of a source says where its readings are.** Five subclasses of `tss:Source` replace `tss:embedded` and `tss:format`: `tss:EmbeddedRDFSource`, `tss:EmbeddedJSONSource`, `tss:CSVSource`, `tss:ParquetSource` and `tss:ArrowSource`.
 3. **New: readings as RDF.** An embedded source can hold its readings as RDF nodes (`tss:hasPoint`), not only as one JSON literal.
 4. **New: Arrow data files** (`tss:ArrowSource`).
-5. **New: time grid.** A data file can give each row's time as a step on a regular grid (`tss:timeBase`, `tss:timeStep`, `tss:stepField`).
+5. **New: time grid.** A data file can give each row's time as a step on a regular grid (`tss:timeBase`, `tss:timeStep`, and optionally `tss:stepField`: without one, a row's step is its position in the file).
 6. **New: value encoding.** A data file can state values as differences from a baseline (`tss:valueEncoding`, `tss:baseline`, `tss:DeltaFromBaseline`).
-7. **Every time must have a timezone.** All times are `xsd:dateTimeStamp`.
+7. **Every time must have a timezone.** Times are `xsd:dateTime` with a timezone; `xsd:dateTimeStamp` is still allowed ([PR #33](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/33), issue #26).
 8. **The key is always the time field.** `tss:key` takes at most one value, and that value must be the time field.
 9. **`tss:modifiedAt`, `tss:committedUntil` and `tss:mutable` are removed.** The optional `tss:immutable` (default `false`) says whether a source is final; a consumer detects changes with HTTP validators.
 10. **Summaries use `tss:generatedAtTime`** in place of `prov:generatedAtTime`. Summaries get their own class, `tss:Summary`, and only an immutable source has them.
 11. **New: growing sources can be followed** ([PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25)). A growing `tss:EmbeddedRDFSource` is an RDF Message Log, data files only grow, a writer ends a source with `tss:immutable true`, and a consumer fetches only the new bytes with HTTP Range requests.
+12. **New: RDF Message Stream Profile** ([PR #33](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/33), issue #32). A stream of TSS readings holds a description message, one point message per point, and an ending message; the profile says where an engine finds their focus nodes and timestamps. New term `tss:MessageStreamProfile`. The `messages/` folder streams a conductivity source this way.
 
 ## 1. The name: RDF Time Series Sources
 
@@ -93,10 +94,12 @@ An external source MAY state its times as steps on a regular grid:
 
 - `tss:timeBase`: the time of step 0. It anchors the grid and is not a bound of the time window.
 - `tss:timeStep`: an `xsd:duration` of more than zero. Step *n* is at `tss:timeBase` + *n* × `tss:timeStep`, with calendar arithmetic for years and months.
-- `tss:stepField`: the field (`xsd:integer`) whose column holds the step of each row. Each step is a whole number of 0 or more, and no two rows are at the same step.
+- `tss:stepField` (optional): the field (`xsd:integer`) whose column holds the step of each row. Each step is a whole number of 0 or more, and no two rows are at the same step. Rows may be left out, and may be in any order.
+- Without a step field, a row's step is its position in the data file: the first row after the CSV header is step 0, and Parquet and Arrow rows are counted across row groups or record batches. Every step then has a row, with empty values for a step without readings. A growing file continues the steps by position, and a consumer that follows it with Range requests keeps count of the rows it has read ([PR #33](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/33), issue #30).
 - With a grid, the time field has no column: no `tss:columnName` and no `tss:columnIndex`.
-- `tss:timeBase` and `tss:timeStep` come together. `tss:stepField` is required with a grid and not allowed without one. An embedded source MUST NOT state a grid.
+- `tss:timeBase` and `tss:timeStep` come together. `tss:stepField` is optional with a grid and not allowed without one. An embedded source MUST NOT state a grid.
 - New definitions: [=Time Grid=] and [=Step Field=].
+- A new example shows a grid without a step field.
 
 ## 6. New: value encoding
 
@@ -112,14 +115,14 @@ A field of an external source MAY state that its values are not the readings the
 
 | | `main` | demo 11 |
 |---|---|---|
-| Datatype of the time field | SHOULD be `xsd:dateTime`; `xsd:dateTimeStamp` allowed | MUST be `xsd:dateTimeStamp` |
-| Times in the metadata (`tss:from`, `tss:until`, `tss:timeBase`, summary times) | `xsd:dateTime` | literals with datatype `xsd:dateTimeStamp` |
-| Timezone | SHOULD; a time without one is read as UTC | MUST; a time without one is not valid |
+| Datatype of the time field | SHOULD be `xsd:dateTime`; `xsd:dateTimeStamp` allowed | MUST be `xsd:dateTime` or `xsd:dateTimeStamp`; SHOULD be `xsd:dateTime` |
+| Times in the metadata (`tss:from`, `tss:until`, `tss:timeBase`, summary times) | `xsd:dateTime` | literals with datatype `xsd:dateTime` (or `xsd:dateTimeStamp`) |
+| Timezone | SHOULD; a time without one is read as UTC | MUST; a time without one is not valid, also as an `xsd:dateTime` |
 
 - A new section, `#times`, lists every time of a source and says that times are compared as the moments they stand for.
-- In the Parquet and Arrow tables, a timestamp column without a timezone can no longer hold the time field. It may still be an `xsd:dateTime` value of another field.
-- In the vocabulary, the range of `tss:from`, `tss:until`, `tss:timeBase`, `tss:firstTime`, `tss:lastTime` and `tss:generatedAtTime` is now `xsd:dateTimeStamp`.
-- `sosa:resultTime` in the observations example stays `xsd:dateTime`, the range that SOSA declares.
+- In the Parquet and Arrow tables, a timestamp column without a timezone can no longer hold the time field. A timestamp column with a timezone is read as `xsd:dateTime` or `xsd:dateTimeStamp`.
+- In the vocabulary, the range of `tss:from`, `tss:until`, `tss:timeBase`, `tss:firstTime`, `tss:lastTime` and `tss:generatedAtTime` is `xsd:dateTime`, which also matches `sosa:resultTime`.
+- An earlier version of demo 11 required `xsd:dateTimeStamp`. Following [PR #33](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/33) (issue #26), the examples, the metadata documents and the competency-question samples now use `xsd:dateTime`, because fewer RDF systems support `xsd:dateTimeStamp`. The timezone stays required: SHACL check S23 reads it from the text, for both datatypes.
 
 ## 8. The key is the time field
 
@@ -157,7 +160,7 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
 
 ## 11. Stored summaries
 
-- `prov:generatedAtTime` is now `tss:generatedAtTime`, an `rdfs:subPropertyOf prov:generatedAtTime` with range `xsd:dateTimeStamp`. The spec no longer uses PROV-O directly.
+- `prov:generatedAtTime` is now `tss:generatedAtTime`, an `rdfs:subPropertyOf prov:generatedAtTime` with range `xsd:dateTime`. The spec no longer uses PROV-O directly.
 - New classes: `tss:Summary`, the range of `tss:summary` and the domain of every summary attribute, and `tss:MissingValuePolicy`, of which `tss:ExcludeEmptyValues` is now an instance.
 - Summaries are computed from the decoded values (see [§6](#6-new-value-encoding)).
 - **Only an immutable source has summaries.** A field of a growing source MUST NOT have a `tss:summary`: a summary is computed once, from the final points, when the writer ends the source. A Write no longer recomputes summaries.
@@ -166,12 +169,12 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
 
 **Removed (7):** `tss:embedded`, `tss:format`, `tss:CSV`, `tss:Parquet`, `tss:modifiedAt`, `tss:committedUntil`, `tss:mutable`.
 
-**Added (18):**
+**Added (19):**
 
 | Kind | Terms |
 |---|---|
 | Classes | `tss:EmbeddedRDFSource`, `tss:EmbeddedJSONSource`, `tss:CSVSource`, `tss:ParquetSource`, `tss:ArrowSource`, `tss:Point`, `tss:Summary`, `tss:MissingValuePolicy`, `tss:ValueEncoding` |
-| Individual | `tss:DeltaFromBaseline` |
+| Individuals | `tss:DeltaFromBaseline`, `tss:MessageStreamProfile` (a `prof:Profile`) |
 | Properties | `tss:immutable` (replaces `tss:mutable`), `tss:hasPoint`, `tss:timeBase`, `tss:timeStep`, `tss:stepField`, `tss:valueEncoding`, `tss:baseline`, `tss:generatedAtTime` |
 
 **Changed:**
@@ -189,14 +192,14 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
 
   A field of an RDF source is not a table column, and it may have no column name.
 - **`tss:key`** becomes an `owl:FunctionalProperty`.
-- **Ranges of the time properties** become `xsd:dateTimeStamp` (see [§7](#7-times-a-timezone-is-required)).
+- **Ranges of the time properties** stay `xsd:dateTime`; the timezone is required by the specification (see [§7](#7-times-a-timezone-is-required)).
 - **Comments** of `tss:EmbeddedRDFSource` (a growing one is an RDF Message Log), `tss:ParquetSource` and `tss:ArrowSource` (when they are always immutable), `tss:summary` and `tss:generatedAtTime` (only an immutable source has summaries) follow the new rules.
 - **Ontology header:** the two editors (Pieter Colpaert, Shehab Abdelfatah) are stated as `dcterms:creator` instead of `dcterms:contributor`; `dcterms:license` is added (CC BY 4.0); the version is now 0.3.0 (`owl:versionIRI <https://w3id.org/tss/0.3.0#>`), `dcterms:modified` is 2026-11-18, and the description is updated.
 
 ## 13. Document structure
 
 - **Abstract and introduction** describe the five source classes, RDF and JSON points, the time grid and value encoding.
-- **New sections:** `#storage` (rewritten as a class table), `#times`, `#rdf-points`, `#json-points`, `#arrow`, `#time-grid`, `#value-encoding`.
+- **New sections:** `#storage` (rewritten as a class table), `#times`, `#rdf-points`, `#json-points`, `#arrow`, `#time-grid`, `#value-encoding`, `#message-profile`.
 - **The "Open issues" section is removed:**
   - "Source or Snippet": resolved (Source: the class keeps its name, and the specification is renamed to match).
   - "Mutable external source": resolved (a growing data file only grows, see [§10](#10-changes-over-time)).
@@ -209,6 +212,28 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
   - "Conforming data" covers time-grid steps.
 - **Vocabulary overview** lists the new classes and properties, grouped by where they are used.
 
+## 14. New: RDF Message Stream Profile
+
+This section follows the third part of [PR #33](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/33) (issue #32), adapted to demo 11: demo 11 does not have PR #31, so a point is still a row, and the IRI of a field is the predicate of its values.
+
+- **New section `#message-profile`**: RDF Time Series Sources is an RDF Message Stream Profile. A stream that follows it is the RDF Message Log of a `tss:EmbeddedRDFSource`: growing, or ended. The merge of its messages is a conforming metadata document.
+- **Streaming a source of another class** (`#streaming-other-sources`): a CSV, Parquet, Arrow or embedded JSON source is streamed as a `tss:EmbeddedRDFSource` of its own, with its own IRIs (such as `<#source>`, `<#value>`), that states `prov:wasDerivedFrom` the original source. It keeps the labels, window, key and fields, and leaves out what describes a data file or JSON points (`tss:dataFile`, `tss:delimiter`, `tss:encoding`, `tss:header`, `tss:points`, the time grid and its step field, `tss:columnIndex`, `tss:valueEncoding`, `tss:baseline`). Its points state their time and decoded values. Its ending message holds `tss:immutable true` and the summaries of the original source.
+- **Three kinds of messages:**
+
+  | Message | Holds | Focus nodes | Timestamp |
+  |---|---|---|---|
+  | description | the sources and their fields, without points; in a stream of an immutable source, without `tss:immutable true` and the summaries | each source | none |
+  | point | one point of one source (`tss:hasPoint`) | the point | the point's value for the time field |
+  | ending | `tss:immutable true` and the summaries | the source | none |
+
+- A point message is read with the description message of its source, which comes before it. Message order is write order, not time order.
+- **The timestamp needs the description message**: it is the value of the time field, whose IRI the description names (`tss:timeField`). In PR #33, which builds on PR #31, the time is stated with `tss:time`, a subproperty of `sosa:resultTime`, so an engine usually finds it without the description.
+- **One point per message**: the log of a growing `tss:EmbeddedRDFSource` now holds exactly one point per message (it was one or more), and a Write that adds several points appends one message per point.
+- A consumer that starts mid-stream needs the description from elsewhere; a publisher helps it by serving the metadata document at the IRI of the source. (PR #33 only says "from elsewhere".)
+- **Announcing the profile**: `<> dcterms:conformsTo tss:MessageStreamProfile` in the first description message, or an HTTP `Link: <https://w3id.org/tss#MessageStreamProfile>; rel="profile"` header. The growing log `waterinfo_289441042_tss2_points_time_value.ttl` now announces it.
+- **New example** in the specification: the CSV example streamed as a log of its own `tss:EmbeddedRDFSource`.
+- **New folder `messages/`**: a CSV source of five EC20 readings at Zevenaarshaven, streamed by `make_messages.py` into an RDF Message Log of 7 messages (description, five points, ending) of a `tss:EmbeddedRDFSource` derived from it. The merge of the log conforms to the embedded SHACL shapes.
+
 ## Migration from `main` to demo 11
 
 | On `main` | In demo 11 |
@@ -219,9 +244,9 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
 | `tss:modifiedAt`, `tss:committedUntil` | remove (consumers use HTTP validators) |
 | `tss:mutable false` | `tss:immutable true` (required on a Parquet source and on an Arrow source in the IPC file format) |
 | `tss:mutable true` | leave out (or `tss:immutable false`), and remove the summaries |
-| a growing `tss:EmbeddedRDFSource` in plain Turtle | an RDF Message Log: `VERSION "1.2-messages"`, and `MESSAGE` after the description and after each point |
+| a growing `tss:EmbeddedRDFSource` in plain Turtle, or a log message with several points | an RDF Message Log: `VERSION "1.2-messages"`, and `MESSAGE` after the description and after each point |
 | `prov:generatedAtTime` on a summary | `tss:generatedAtTime` |
-| `"…"^^xsd:dateTime` for any time, time field `tss:datatype xsd:dateTime` | `"…"^^xsd:dateTimeStamp`, with a timezone |
+| a time without a timezone | the same time with a timezone, such as `Z` or `+02:00` (`xsd:dateTime` stays; `xsd:dateTimeStamp` is allowed too) |
 | `tss:key` with several fields, or a non-time field | the time field only, or leave `tss:key` out |
 | JSON points with native numbers or booleans | JSON strings in the lexical form of the datatype |
 
@@ -231,9 +256,12 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
 - **Arrow format not checked by SHACL.** The shapes cannot tell an Arrow IPC file from a stream (that is in the first bytes of the data file), so they don't check that an Arrow source in the file format states `tss:immutable true`.
 - **The PR's `tss.ttl` still has an old duplicate block.** The `tss.ttl` of PR #25 (and of `main`) begins with an earlier "Properties of a field" section that defines 20 terms a second time, with older comments, `rdfs:isDefinedBy <>` and, for `tss:firstTime` and `tss:lastTime`, a second range (`xsd:dateTime` next to `xsd:dateTimeStamp`). Demo 11's `vocabulary/tss.ttl` has the PR's changes without that block, and keeps its `dcterms:license` and `dcterms:creator`; apart from these, the two files state the same triples.
 - **Left open in [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25):** the time window of a growing source is fixed; growing sources have no stored summaries; `tss:next` is left to the collection layer (LDES).
-- **Tool support for `xsd:dateTimeStamp`.** `main` preferred `xsd:dateTime` because `xsd:dateTimeStamp` "is not as well supported by RDF tooling". This is still true: pyshacl accepts `"2021-03-03T23:45:00"^^xsd:dateTimeStamp` without a timezone. The demo 11 SHACL shapes check the timezone with a separate rule (`S23`).
+- **Two datatypes for one moment.** With both `xsd:dateTime` and `xsd:dateTimeStamp` allowed, the same time can be two different RDF terms. SPARQL comparisons still work, but joins, `DISTINCT` and `GROUP BY` treat them as different values. Tools also differ: pyshacl accepts `"2021-03-03T23:45:00"^^xsd:dateTimeStamp` without a timezone, and rdflib writes `Z` as `+00:00` for `xsd:dateTime`. The SHACL shapes accept both datatypes and check the timezone with a separate rule (`S23`).
+- **Steps by position.** Without a step field, a row's time depends on its position in the data file. A CSV file with one value column writes a step without a reading as an empty line, and many CSV readers skip empty lines by default (pandas, for one), which moves every later row to an earlier time. The spec does not yet say how such a row is written, or that readers must keep it. The SHACL shapes cannot check this: they do not read the data file.
+- **The profile section of RDF Messages is still a TODO.** The profile follows the direction of the RDF Stream Processing Community Group, and may have to change when RDF Messages defines profiles.
+- **Points of an external source in PR #33.** In PR #33, the expansion of a Parquet source written as messages states `tss:hasPoint` on the `tss:ParquetSource`, while the specification says an external source has no `tss:hasPoint`, and the vocabulary gives `tss:hasPoint` the domain `tss:EmbeddedRDFSource`: a reasoner would infer that the Parquet source is an embedded RDF source too. Demo 11 streams such a source as a `tss:EmbeddedRDFSource` of its own, derived from it with `prov:wasDerivedFrom`.
 - **Summaries of a part of the window.** This open issue was removed, not resolved.
-- **Not in the repository.** Demo 11 also has SHACL shapes (`SHACL/embedded_shapes.ttl`, `SHACL/external_shapes.ttl`) and example metadata documents. The repository has neither, so they are not covered by this changelog.
+- **Not in the repository.** Demo 11 also has SHACL shapes (`SHACL/embedded_shapes.ttl`, `SHACL/external_shapes.ttl`), example metadata documents and the `messages/` example. The repository has none of these, so, apart from the short mention in §14, they are not covered by this changelog.
 - **Name of the URL and the repository.** The specification is now "RDF Time Series Sources", but its URL (`knowledgeonwebscale.github.io/rdf-timeseriessnippets/`) and its repository still say snippets. Renaming them is a separate step, with redirects.
 - **The rdftss library** (`rdftss-python/`) still uses `tss:Snippet` and the `...Snippet` classes, so it does not read the demo 11 documents until it is updated.
 - **HTML not rebuilt.** The Bikeshed output has not been regenerated from the demo 11 `spec.bs`.

@@ -29,11 +29,11 @@ ex:grootdok-source
     # Immutable: final, no reading is added any more. Only an immutable source has stored summaries.
     tss:immutable true ;
     tss:producedBy ex:station-grootdok ;
-    tss:from "2021-03-03T23:45:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2025-12-18T23:15:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2021-03-03T23:45:00Z"^^xsd:dateTime ;
+    tss:until "2025-12-18T23:15:00Z"^^xsd:dateTime ;
     tss:dataFile <../data/waterinfo_289423042.csv> ;
     # The "Timestamp" column of the data file holds UTC times such as 2021-03-03T23:45:00Z:
-    # xsd:dateTimeStamp texts (a timezone is required).
+    # xsd:dateTime texts (a timezone is required).
     tss:timeField ex:grootdok-time-field ;
     tss:key ex:grootdok-time-field ;
     tss:hasField ex:grootdok-ts_id-field,
@@ -79,9 +79,9 @@ ex:grootdok-ts_id-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:grootdok-time-field
@@ -89,7 +89,7 @@ ex:grootdok-time-field
     tss:columnName "Timestamp" ;
     tss:columnIndex 1 ;
     rdfs:label "Timestamp"@en ;
-    tss:datatype xsd:dateTimeStamp ;
+    tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC)"@en ;
     tss:fieldDescription [
         dcterms:description "Observation time (UTC)"@en
@@ -98,9 +98,9 @@ ex:grootdok-time-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:grootdok-ec20-field
@@ -126,13 +126,13 @@ ex:grootdok-ec20-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
         tss:observedMinimum "125.57"^^xsd:double ;
         tss:observedMaximum "19035.51"^^xsd:double ;
         tss:mean "4429.554312357016"^^xsd:double ;
         tss:median "3375.36"^^xsd:double ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:grootdok-interpolation-type-field
@@ -151,9 +151,9 @@ ex:grootdok-interpolation-type-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:grootdok-quality-code-field
@@ -172,9 +172,9 @@ ex:grootdok-quality-code-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:grootdok-quality-code-name-field
@@ -193,9 +193,9 @@ ex:grootdok-quality-code-name-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:grootdok-quality-code-description-field
@@ -214,9 +214,9 @@ ex:grootdok-quality-code-description-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .
 
 ex:grootdok-quality-code-color-field
@@ -237,7 +237,7 @@ ex:grootdok-quality-code-color-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "94853"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTimeStamp ;
-        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTimeStamp ;
-        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTimeStamp
+        tss:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+        tss:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+        tss:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime
     ] .

@@ -41,7 +41,7 @@ With RDF Time Series Sources, a publisher keeps the readings compact and describ
 - Each field states the datatype of its values and, for a data file or JSON points, its column name; optionally, it states what they observe, in which unit, with which sensor, of which feature of interest. In RDF points, the IRI of the field names its values, so it needs no column name.
 - A data file can give the time of each row as a step on a regular [=Time Grid=], and state the values of a field as differences from a baseline (`tss:valueEncoding`).
 
-The metadata also states the [=Time Window=] of the readings, whether readings may still be added, and, once no reading is added any more, an optional [=Stored Summary=] of each field. A consumer can follow a source to which readings are still added, and only fetch the new readings with HTTP Range requests ([[#following]]).
+The metadata also states the [=Time Window=] of the readings, whether readings may still be added, and, once no reading is added any more, an optional [=Stored Summary=] of each field. A consumer can follow a source to which readings are still added, and only fetch the new readings with HTTP Range requests ([[#following]]). Streamed as RDF messages, the readings follow the RDF Message Stream Profile of this specification ([[#message-profile]]).
 
 ## Namespaces ## {#namespaces}
 
@@ -70,8 +70,8 @@ ex:source
     a tss:EmbeddedRDFSource ;
     rdfs:label "Conductivity readings"@en ;
     tss:producedBy ex:producer ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:time-field ;
     tss:key ex:time-field ;
     tss:hasField ex:time-field,
@@ -80,7 +80,7 @@ ex:source
 ex:time-field
     a tss:Field ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:value-field
     a tss:Field ;
@@ -94,27 +94,27 @@ ex:value-field
     tss:featureOfInterest ex:feature-1 .
 MESSAGE
 ex:source tss:hasPoint [
-    ex:time-field "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    ex:time-field "2024-05-12T08:00:00Z"^^xsd:dateTime ;
     ex:value-field "4810.5"^^xsd:double
 ] .
 MESSAGE
 ex:source tss:hasPoint [
-    ex:time-field "2024-05-12T08:15:00Z"^^xsd:dateTimeStamp ;
+    ex:time-field "2024-05-12T08:15:00Z"^^xsd:dateTime ;
     ex:value-field "4722.4"^^xsd:double
 ] .
 MESSAGE
 ex:source tss:hasPoint [
-    ex:time-field "2024-05-12T08:30:00Z"^^xsd:dateTimeStamp ;
+    ex:time-field "2024-05-12T08:30:00Z"^^xsd:dateTime ;
     ex:value-field "4751.9"^^xsd:double
 ] .
 MESSAGE
 ex:source tss:hasPoint [
-    ex:time-field "2024-05-12T09:15:00Z"^^xsd:dateTimeStamp ;
+    ex:time-field "2024-05-12T09:15:00Z"^^xsd:dateTime ;
     ex:value-field "4719.3"^^xsd:double
 ] .
 MESSAGE
 ex:source tss:hasPoint [
-    ex:time-field "2024-05-12T09:45:00Z"^^xsd:dateTimeStamp ;
+    ex:time-field "2024-05-12T09:45:00Z"^^xsd:dateTime ;
     ex:value-field "4783.6"^^xsd:double
 ] .
 MESSAGE
@@ -173,7 +173,7 @@ An <dfn>Embedded Source</dfn> keeps its points in the metadata: a `tss:EmbeddedR
 
 The <dfn id="dfn-time-grid">Time Grid</dfn> of an external source is a series of times at regular steps: step 0 at `tss:timeBase`, and every next step `tss:timeStep` later ([[#time-grid]]).
 
-The <dfn>Step Field</dfn> of an external source with a time grid is the field whose column holds the step of each row (`tss:stepField`).
+The <dfn>Step Field</dfn> of an external source with a time grid is the field whose column holds the step of each row (`tss:stepField`). Without one, the step of a row is its position in the data file.
 
 An <dfn>Empty Value</dfn> is the absence of a value: an empty CSV cell, a Parquet or Arrow null, an RDF point without a triple for the field, a JSON point without the field's key or with `null` for it, or the empty text `""`. A text that holds only spaces is not empty. Consequently, the empty string cannot be a value: an empty text and no value are the same thing.
 
@@ -214,7 +214,7 @@ A metadata document MUST describe at least one source. Each source in the docume
 <tr><td><code>tss:header</code></td><td><code>xsd:boolean</code></td><td>optional, for a <code>tss:CSVSource</code>; default <code>true</code></td><td>not allowed</td></tr>
 <tr><td><code>tss:timeBase</code></td><td>a time ([[#times]])</td><td>optional, together with <code>tss:timeStep</code></td><td>not allowed</td></tr>
 <tr><td><code>tss:timeStep</code></td><td><code>xsd:duration</code>, more than zero</td><td>optional, together with <code>tss:timeBase</code></td><td>not allowed</td></tr>
-<tr><td><code>tss:stepField</code></td><td>one of its fields</td><td>required with a time grid; not allowed without one</td><td>not allowed</td></tr>
+<tr><td><code>tss:stepField</code></td><td>one of its fields</td><td>optional with a time grid; not allowed without one</td><td>not allowed</td></tr>
 <tr><td><code>tss:producedBy</code></td><td>IRI</td><td>optional</td><td>optional</td></tr>
 <tr><td><code>rdfs:label</code></td><td>literal</td><td>optional, any number</td><td>optional, any number</td></tr>
 <tr><td><code>tss:sourceDescription</code></td><td>a node, any vocabulary</td><td>optional</td><td>optional</td></tr>
@@ -249,13 +249,13 @@ All sources of a document MUST be embedded sources, or all MUST be external sour
 
 ### Times ### {#times}
 
-A time of a source is a date and a time of day with a timezone, such as `"2024-05-12T08:00:00Z"`: an `xsd:dateTimeStamp` [[XMLSCHEMA11-2]], an `xsd:dateTime` whose timezone cannot be left out. The times of a source are:
+A time of a source is a date and a time of day with a timezone, such as `"2024-05-12T08:00:00Z"`: an `xsd:dateTime` [[XMLSCHEMA11-2]] whose timezone is not left out. The times of a source are:
 
 - on the source: `tss:from`, `tss:until` and `tss:timeBase`;
 - on a [=Stored Summary=]: `tss:firstTime`, `tss:lastTime` and `tss:generatedAtTime`;
 - in each point: its value for the [=Time Field=].
 
-The `tss:datatype` of the time field MUST be `xsd:dateTimeStamp`. A time stated in the metadata MUST be a literal with datatype `xsd:dateTimeStamp`. Every time MUST have a timezone: `Z` or an offset such as `+02:00`; a time without one is not valid. Times are compared as the moments they stand for: two times that are the same moment are the same time.
+The `tss:datatype` of the time field MUST be `xsd:dateTime` or `xsd:dateTimeStamp`. A time stated in the metadata MUST be a literal with one of these two datatypes. Every time MUST have a timezone: `Z` or an offset such as `+02:00`; a time without one is not valid, also when its datatype is `xsd:dateTime`, which allows one to be left out elsewhere. A publisher SHOULD use `xsd:dateTime`: `xsd:dateTimeStamp` says the same, as an `xsd:dateTime` whose timezone cannot be left out, but fewer RDF systems support it. Times are compared as the moments they stand for: two times that are the same moment are the same time.
 
 ### The time field and the key ### {#time-and-key}
 
@@ -359,8 +359,8 @@ ex:weather-source
     a tss:EmbeddedRDFSource ;
     rdfs:label "Weather station readings"@en ;
     tss:immutable true ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-12T09:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-12T09:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:weather-time-field ;
     tss:hasField ex:weather-time-field,
         ex:temperature-field,
@@ -368,7 +368,7 @@ ex:weather-source
 
 ex:weather-time-field
     a tss:Field ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:temperature-field
     a tss:Field ;
@@ -389,18 +389,18 @@ ex:humidity-field
     tss:featureOfInterest ex:outside-air .
 
 ex:weather-source tss:hasPoint [
-    ex:weather-time-field "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    ex:weather-time-field "2024-05-12T08:00:00Z"^^xsd:dateTime ;
     ex:temperature-field "18.2"^^xsd:double ;
     ex:humidity-field "61.0"^^xsd:double
 ] .
 
 ex:weather-source tss:hasPoint [
-    ex:weather-time-field "2024-05-12T08:10:00Z"^^xsd:dateTimeStamp ;
+    ex:weather-time-field "2024-05-12T08:10:00Z"^^xsd:dateTime ;
     ex:temperature-field "18.4"^^xsd:double
 ] .
 
 ex:weather-source tss:hasPoint [
-    ex:weather-time-field "2024-05-12T08:20:00Z"^^xsd:dateTimeStamp ;
+    ex:weather-time-field "2024-05-12T08:20:00Z"^^xsd:dateTime ;
     ex:temperature-field "18.9"^^xsd:double ;
     ex:humidity-field "59.5"^^xsd:double
 ] .
@@ -420,8 +420,8 @@ Two series in one embedded source: a value, and a status that describes it.
 ex:two-series-source
     a tss:EmbeddedRDFSource ;
     tss:immutable true ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:two-series-time-field ;
     tss:key ex:two-series-time-field ;
     tss:hasField ex:two-series-time-field,
@@ -430,7 +430,7 @@ ex:two-series-source
 
 ex:two-series-time-field
     a tss:Field ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:two-series-value-field
     a tss:Field ;
@@ -444,13 +444,13 @@ ex:two-series-status-field
     tss:describesField ex:two-series-value-field .
 
 ex:two-series-source tss:hasPoint [
-    ex:two-series-time-field "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    ex:two-series-time-field "2024-05-12T08:00:00Z"^^xsd:dateTime ;
     ex:two-series-value-field "4810.5"^^xsd:double ;
     ex:two-series-status-field "ok"^^xsd:string
 ] .
 
 ex:two-series-source tss:hasPoint [
-    ex:two-series-time-field "2024-05-12T08:15:00Z"^^xsd:dateTimeStamp ;
+    ex:two-series-time-field "2024-05-12T08:15:00Z"^^xsd:dateTime ;
     ex:two-series-value-field "4722.4"^^xsd:double ;
     ex:two-series-status-field "estimated"^^xsd:string
 ] .
@@ -485,7 +485,7 @@ An [=Embedded Source=] keeps its points in the metadata. Its class says how they
 
 A `tss:EmbeddedRDFSource` keeps its points as RDF. The source links to each [=Point=] with `tss:hasPoint`, and a point is a point of exactly one source. Every node that a source links to with `tss:hasPoint` is a point: its type follows from that link, so a point states no `rdf:type`. It needs no identifier either, so it is usually a blank node, written as one statement at the end of the document, as in <a href="#example-embedded-source">the embedded example</a>.
 
-The metadata document of a [=Growing Source=] of this class MUST be an RDF Message Log [[RDF-MESSAGES]], such as Turtle or TriG that announces the version label `1.2-messages`. Its first message describes the sources and their fields, and every next message holds one or more points. A [=Write=] then adds a point by appending one message ([[#updating]]), and a consumer reads the new points without reading the document again ([[#following]]). The metadata document is read as the RDF merge of its messages: since blank node identifiers are scoped to the message they occur in, the blank nodes of two points are never the same node. A writer MUST end every message of the log of a growing source with a message delimiter (`MESSAGE`, or `@message .`), so a consumer can tell a complete message from one that is still being written. A delimiter right before the end of the document does not start a new message [[RDF-MESSAGES]].
+The metadata document of a [=Growing Source=] of this class MUST be an RDF Message Log [[RDF-MESSAGES]], such as Turtle or TriG that announces the version label `1.2-messages`. Its first message describes the sources and their fields, and every next message holds one point. A [=Write=] then adds a point by appending one message ([[#updating]]), and a consumer reads the new points without reading the document again ([[#following]]). The metadata document is read as the RDF merge of its messages: since blank node identifiers are scoped to the message they occur in, the blank nodes of two points are never the same node. A writer MUST end every message of the log of a growing source with a message delimiter (`MESSAGE`, or `@message .`), so a consumer can tell a complete message from one that is still being written. A delimiter right before the end of the document does not start a new message [[RDF-MESSAGES]]. The log follows the RDF Message Stream Profile of this specification ([[#message-profile]]).
 
 - Each value of a point is one triple: the point is the subject, the IRI of the field the predicate, and the object a literal with the field's `tss:datatype` ([[#datatypes]]).
 - The fields need no `tss:columnName`: the IRI of a field names its values. A field MAY state one, for example to name its column when the source is written to a data file; it has no effect on reading the RDF points.
@@ -514,8 +514,8 @@ The readings of <a href="#example-embedded-source">the embedded example</a> as J
 ex:json-source
     a tss:EmbeddedJSONSource ;
     tss:immutable false ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:json-time-field ;
     tss:hasField ex:json-time-field,
         ex:json-value-field ;
@@ -530,7 +530,7 @@ ex:json-source
 ex:json-time-field
     a tss:Field ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:json-value-field
     a tss:Field ;
@@ -562,7 +562,7 @@ An external source with a CSV file. It states its delimiter; the header line and
 ex:csv-source
     a tss:CSVSource ;
     tss:immutable true ;
-    tss:from "2024-05-01T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-01T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/data.csv> ;
     tss:delimiter ";" ;
     tss:timeField ex:csv-time-field ;
@@ -572,7 +572,7 @@ ex:csv-source
 ex:csv-time-field
     a tss:Field ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:csv-value-field
     a tss:Field ;
@@ -606,7 +606,7 @@ ex:headerless-time-field
     a tss:Field ;
     tss:columnName "time" ;
     tss:columnIndex 0 ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:headerless-value-field
     a tss:Field ;
@@ -642,7 +642,7 @@ A Parquet file ends with a footer that indexes its row groups, so rows cannot be
 <tr><td><code>DECIMAL(precision, scale)</code></td><td>decimal digits with a <code>.</code> and exactly <em>scale</em> fraction digits</td><td><code>xsd:decimal</code></td></tr>
 <tr><td><code>STRING</code>, <code>ENUM</code></td><td>the text</td><td><code>xsd:string</code>, or any other datatype that reads a text</td></tr>
 <tr><td><code>DATE</code></td><td><code>YYYY-MM-DD</code></td><td><code>xsd:date</code></td></tr>
-<tr><td><code>TIMESTAMP(isAdjustedToUTC = true)</code>, in milli-, micro- or nanoseconds</td><td><code>YYYY-MM-DDThh:mm:ss[.fraction]Z</code>, in UTC, with a fraction only when the value has one</td><td><code>xsd:dateTimeStamp</code>, or <code>xsd:dateTime</code> for a field that is not the time field</td></tr>
+<tr><td><code>TIMESTAMP(isAdjustedToUTC = true)</code>, in milli-, micro- or nanoseconds</td><td><code>YYYY-MM-DDThh:mm:ss[.fraction]Z</code>, in UTC, with a fraction only when the value has one</td><td><code>xsd:dateTime</code> or <code>xsd:dateTimeStamp</code></td></tr>
 <tr><td><code>TIMESTAMP(isAdjustedToUTC = false)</code></td><td><code>YYYY-MM-DDThh:mm:ss[.fraction]</code>, without timezone, so it cannot be the column of the time field ([[#times]])</td><td><code>xsd:dateTime</code></td></tr>
 <tr><td><code>TIME</code></td><td><code>hh:mm:ss[.fraction]</code></td><td><code>xsd:time</code></td></tr>
 </tbody>
@@ -683,7 +683,7 @@ The data file is read by its column names, as a Parquet file is: a field's colum
 <tr><td><code>Decimal</code>(precision, scale)</td><td>decimal digits with a <code>.</code> and exactly <em>scale</em> fraction digits</td><td><code>xsd:decimal</code></td></tr>
 <tr><td><code>Utf8</code>, <code>LargeUtf8</code>, <code>Utf8View</code></td><td>the text</td><td><code>xsd:string</code>, or any other datatype that reads a text</td></tr>
 <tr><td><code>Date</code> (in days or in milliseconds)</td><td><code>YYYY-MM-DD</code></td><td><code>xsd:date</code></td></tr>
-<tr><td><code>Timestamp</code> with a timezone, in seconds, milli-, micro- or nanoseconds</td><td><code>YYYY-MM-DDThh:mm:ss[.fraction]Z</code>, in UTC, with a fraction only when the value has one</td><td><code>xsd:dateTimeStamp</code>, or <code>xsd:dateTime</code> for a field that is not the time field</td></tr>
+<tr><td><code>Timestamp</code> with a timezone, in seconds, milli-, micro- or nanoseconds</td><td><code>YYYY-MM-DDThh:mm:ss[.fraction]Z</code>, in UTC, with a fraction only when the value has one</td><td><code>xsd:dateTime</code> or <code>xsd:dateTimeStamp</code></td></tr>
 <tr><td><code>Timestamp</code> without a timezone</td><td><code>YYYY-MM-DDThh:mm:ss[.fraction]</code>, without timezone, so it cannot be the column of the time field ([[#times]])</td><td><code>xsd:dateTime</code></td></tr>
 <tr><td><code>Time</code></td><td><code>hh:mm:ss[.fraction]</code></td><td><code>xsd:time</code></td></tr>
 </tbody>
@@ -715,13 +715,12 @@ Step n is at `tss:timeBase` + n × `tss:timeStep`: each part of the step (years,
 
 Note: With years or months, the steps are calendar steps, not equal lengths of time: a month has 28 to 31 days, and a day past the end of a month becomes its last day (2021-01-31 + P1M is 2021-02-28).
 
-With a time grid, a column of the data file holds the step of each row. The source names the field of that column, the [=Step Field=], with exactly one `tss:stepField`, as `tss:timeField` names the time field:
+A row's time is the time of its step: that is the row's value for the time field. The data file has no column for the time field, so the time field MUST NOT state a `tss:columnName` or a `tss:columnIndex`. The step of a row is given in one of two ways:
 
-- The step field MUST be one of the source's own fields (`tss:hasField`), and MUST NOT be its time field. Its `tss:datatype` MUST be `xsd:integer`.
-- Every row MUST have a step: a whole number of 0 or more. No two rows may be at the same step.
-- A row's time is the time of its step: that is the row's value for the time field. The data file has no column for the time field, so the time field MUST NOT state a `tss:columnName` or a `tss:columnIndex`.
+- **With a step field.** A column of the data file holds the step of each row. The source names the field of that column, the [=Step Field=], with one `tss:stepField`, as `tss:timeField` names the time field. The step field MUST be one of the source's own fields (`tss:hasField`), and MUST NOT be its time field. Its `tss:datatype` MUST be `xsd:integer`. Every row MUST have a step: a whole number of 0 or more. No two rows may be at the same step. Rows may be left out, and they may be in any order.
+- **Without a step field.** The step of a row is its position in the data file: the first row, after the header line of a CSV file, is at step 0, the next at step 1, and so on. In a Parquet or Arrow file, the rows are counted across its row groups or record batches, in the order of the file. Every step up to the last row then has a row: a step without readings is a row with an [=Empty Value=] for every field.
 
-A source without a time grid MUST NOT state a `tss:stepField`.
+A step field is useful when the data has gaps; data that has been cleaned up to one row per step does not need one, and leaves out the overhead of a step column. A source without a time grid MUST NOT state a `tss:stepField`.
 
 <div class="example" id="example-time-grid">
 The readings of <a href="#example-embedded-source">the embedded example</a> in a CSV file, on a time grid of 15 minutes from 08:00. The column `step` holds the step of each row; the time field has no column.
@@ -730,10 +729,10 @@ The readings of <a href="#example-embedded-source">the embedded example</a> in a
 ex:grid-source
     a tss:CSVSource ;
     tss:immutable true ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/grid.csv> ;
-    tss:timeBase "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeBase "2024-05-12T08:00:00Z"^^xsd:dateTime ;
     tss:timeStep "PT15M"^^xsd:duration ;
     tss:timeField ex:grid-time-field ;
     tss:stepField ex:grid-step-field ;
@@ -744,7 +743,7 @@ ex:grid-source
 
 ex:grid-time-field
     a tss:Field ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:grid-step-field
     a tss:Field ;
@@ -769,6 +768,43 @@ step,value
 ```
 
 Steps 3, 4 and 6 have no row. Step 5 is at 2024-05-12T08:00:00Z + 5 × PT15M, which is 2024-05-12T09:15:00Z.
+</div>
+
+<div class="example" id="example-time-grid-no-step">
+The first three readings, which have no gaps, on the same time grid without a step field. The source states no `tss:stepField` and its data file has no step column: each row is at the step of its position.
+
+```turtle
+ex:position-source
+    a tss:CSVSource ;
+    tss:immutable true ;
+    tss:dataFile <https://example.org/position.csv> ;
+    tss:timeBase "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:timeStep "PT15M"^^xsd:duration ;
+    tss:timeField ex:position-time-field ;
+    tss:key ex:position-time-field ;
+    tss:hasField ex:position-time-field,
+        ex:position-value-field .
+
+ex:position-time-field
+    a tss:Field ;
+    tss:datatype xsd:dateTime .
+
+ex:position-value-field
+    a tss:Field ;
+    tss:columnName "value" ;
+    tss:datatype xsd:double .
+```
+
+The data file:
+
+```
+value
+4810.5
+4722.4
+4751.9
+```
+
+The rows are at steps 0, 1 and 2: 08:00, 08:15 and 08:30.
 </div>
 
 ## Value encoding ## {#value-encoding}
@@ -798,7 +834,7 @@ ex:delta-source
 ex:delta-time-field
     a tss:Field ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:delta-value-field
     a tss:Field ;
@@ -858,13 +894,13 @@ ex:value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "5"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-        tss:lastTime "2024-05-12T09:45:00Z"^^xsd:dateTimeStamp ;
+        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+        tss:lastTime "2024-05-12T09:45:00Z"^^xsd:dateTime ;
         tss:observedMinimum "4719.3"^^xsd:double ;
         tss:observedMaximum "4810.5"^^xsd:double ;
         tss:mean "4757.54"^^xsd:double ;
         tss:median "4751.9"^^xsd:double ;
-        tss:generatedAtTime "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp
+        tss:generatedAtTime "2024-05-12T09:46:10Z"^^xsd:dateTime
     ] .
 ```
 </div>
@@ -878,13 +914,13 @@ ex:humidity-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "2"^^xsd:integer ;
         tss:missing "1"^^xsd:integer ;
-        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-        tss:lastTime "2024-05-12T08:20:00Z"^^xsd:dateTimeStamp ;
+        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+        tss:lastTime "2024-05-12T08:20:00Z"^^xsd:dateTime ;
         tss:observedMinimum "59.5"^^xsd:double ;
         tss:observedMaximum "61.0"^^xsd:double ;
         tss:mean "60.25"^^xsd:double ;
         tss:median "60.25"^^xsd:double ;
-        tss:generatedAtTime "2024-05-12T09:00:00Z"^^xsd:dateTimeStamp
+        tss:generatedAtTime "2024-05-12T09:00:00Z"^^xsd:dateTime
     ] .
 ```
 </div>
@@ -953,14 +989,14 @@ A [=Write=] that adds one point to a growing [=Embedded Source=]:
 2. Adds the new point, and leaves everything else as it is. In a `tss:EmbeddedRDFSource`, it appends one RDF Message to the metadata document: one statement that links the source to a new node with `tss:hasPoint`, with one triple for each of its values, followed by a message delimiter. In a `tss:EmbeddedJSONSource`, it writes a new `tss:points`: the existing points, unchanged and in the same order, followed by the new one as a JSON object whose values are JSON strings.
 3. Keeps the change only when the source still meets this specification.
 
-A Write that adds several points at once does the same for each of them; in a `tss:EmbeddedRDFSource`, it MAY put them in one message. A Write changes nothing else: not the time window, and not the description of the source or its fields ([[#change]]).
+A Write that adds several points at once does the same for each of them; in a `tss:EmbeddedRDFSource`, it appends one message for each point ([[#message-profile]]). A Write changes nothing else: not the time window, and not the description of the source or its fields ([[#change]]).
 
 <div class="example" id="example-write">
 A new point for <a href="#example-embedded-source">the embedded example</a>, appended to its RDF Message Log:
 
 ```turtle
 ex:source tss:hasPoint [
-    ex:time-field "2024-05-12T10:00:00Z"^^xsd:dateTimeStamp ;
+    ex:time-field "2024-05-12T10:00:00Z"^^xsd:dateTime ;
     ex:value-field "4766.2"^^xsd:double
 ] .
 MESSAGE
@@ -977,7 +1013,7 @@ The data file of a growing [=External Source=] only grows: rows are appended to 
 - **Arrow:** the data file is in the IPC streaming format ([[#arrow]]). A writer appends complete encapsulated messages only: record batches, and dictionary batches, including delta dictionary batches, when a dictionary-encoded column needs new values. The schema message at the start of the stream MUST NOT change. A writer MUST NOT write the end-of-stream marker while the source is growing.
 - **Parquet**, and Arrow in the IPC file format, cannot be appended to: such a source is never growing ([[#parquet]], [[#arrow]]).
 
-The time of a new row MUST lie in the [=Time Window=] of the source. On a [=Time Grid=], `tss:timeBase` and `tss:timeStep` do not change, so new rows continue the steps of the grid.
+The time of a new row MUST lie in the [=Time Window=] of the source. On a [=Time Grid=], `tss:timeBase` and `tss:timeStep` do not change, so new rows continue the steps of the grid. Without a [=Step Field=], a new row is at the step of its position, so a writer appends a row for every step, with empty values for a step without readings.
 
 ## Ending a growing source ## {#ending}
 
@@ -1026,8 +1062,8 @@ The RDF Message Log of a growing `tss:EmbeddedRDFSource`, and the data file of a
 </thead>
 <tbody>
 <tr><td><code>tss:EmbeddedRDFSource</code></td><td>an RDF Message [[RDF-MESSAGES]]</td><td>a message delimiter follows it</td><td>the version label, the prefixes and the base IRI that are in force at the end of the last complete message</td></tr>
-<tr><td><code>tss:CSVSource</code></td><td>a CSV record [[RFC4180]]</td><td>the line break that ends it follows; a line break inside a quoted cell does not end a record</td><td>the header line, and so the columns of the fields</td></tr>
-<tr><td><code>tss:ArrowSource</code></td><td>an encapsulated message of the IPC streaming format [[ARROW-IPC]]</td><td>all its bytes are there: the continuation marker, the length of its metadata, the metadata, and a body of the length that the metadata states</td><td>the schema, and the dictionaries so far</td></tr>
+<tr><td><code>tss:CSVSource</code></td><td>a CSV record [[RFC4180]]</td><td>the line break that ends it follows; a line break inside a quoted cell does not end a record</td><td>the header line, and so the columns of the fields; on a [=Time Grid=] without a [=Step Field=], the number of rows read</td></tr>
+<tr><td><code>tss:ArrowSource</code></td><td>an encapsulated message of the IPC streaming format [[ARROW-IPC]]</td><td>all its bytes are there: the continuation marker, the length of its metadata, the metadata, and a body of the length that the metadata states</td><td>the schema, and the dictionaries so far; on a [=Time Grid=] without a [=Step Field=], the number of rows read</td></tr>
 </tbody>
 </table>
 
@@ -1048,6 +1084,105 @@ A consumer MAY check that the bytes it read before did not change, by asking for
 ## Embedded JSON points ## {#following-json}
 
 The metadata document of a growing `tss:EmbeddedJSONSource` is not append-only: a [=Write=] rewrites `tss:points`. A consumer that follows it asks for the whole document again with a conditional request ([[#polling]]). The existing objects of `tss:points` do not change and stay in the same order ([[#updating-embedded]]): when the consumer has read *n* objects, it emits the objects after the first *n*. When the first *n* objects are not the ones it read, it falls back as in [[#range-requests]], step 4.
+
+# RDF Message Stream Profile # {#message-profile}
+
+RDF Time Series Sources is an RDF Message Stream Profile [[RDF-MESSAGES]]: it says which messages a stream of TSS readings holds, how these messages depend on each other, and where an RDF stream processing engine finds the focus nodes and the timestamp of each message.
+
+A stream that follows this profile is the RDF Message Stream or Log of a `tss:EmbeddedRDFSource` ([[#rdf-points]]): the description of the source and its fields first, then one message per point, and an ending message when the source is immutable. The merge of its messages is a metadata document that meets this specification. That is the log of a growing `tss:EmbeddedRDFSource`, and also the log of one that has ended ([[#ending]]).
+
+### Streaming a source of another class ### {#streaming-other-sources}
+
+Only a `tss:EmbeddedRDFSource` links to points with `tss:hasPoint`: an [=External Source=] keeps its points in its data file, and a `tss:EmbeddedJSONSource` in `tss:points` ([[#storage]]). A source of another class, such as a CSV, Parquet or Arrow source, is streamed as a `tss:EmbeddedRDFSource` of its own, which holds the same readings. Its description message describes this new source:
+
+- The new source states `prov:wasDerivedFrom` [[PROV-O]] with the IRI of the source it was read from, the original source.
+- The new source and its fields have IRIs of their own, as a field is a field of exactly one source ([[#fields]]). They MAY be IRIs in the stream itself, such as `<#source>` and `<#value>`.
+- It keeps what the original source states about its readings: its labels, `tss:producedBy` and `tss:sourceDescription`, its [=Time Window=] and [=Key=], and its fields with their datatypes, column names, meaning and descriptions.
+- It leaves out what describes a data file or JSON points: `tss:dataFile`, `tss:delimiter`, `tss:encoding`, `tss:header`, `tss:points`, the [=Time Grid=] and its [=Step Field=], `tss:columnIndex`, `tss:valueEncoding` and `tss:baseline`.
+- Each point states its time and its readings themselves: on a time grid, its time is the time of its step ([[#time-grid]]), and its values are the [=Decoded Values=] ([[#value-encoding]]). A point has no triple for an [=Empty Value=].
+- The new source is immutable when the original source is: its stream then ends with an ending message, with `tss:immutable true` and, optionally, the [=Stored Summaries=] of the original source, as they describe the same readings. While the original source grows, the stream grows with it: one point message for each new row.
+
+Note: The section on profiles in RDF Messages is still being written. This profile follows the direction of the RDF Stream Processing Community Group: a profile says what its messages look like, where their timestamps are, and how messages relate to each other.
+
+## Messages ## {#message-kinds}
+
+A stream that follows this profile holds three kinds of messages:
+
+<table class="data">
+<thead>
+<tr><th>Message</th><th>What it holds</th><th>Focus nodes</th><th>Timestamp</th></tr>
+</thead>
+<tbody>
+<tr><td>description message</td><td>the description of one or more sources and their fields, as in a metadata document, without points. In a stream of an immutable source, <code>tss:immutable true</code> and the [=Stored Summaries=] are left out: they are in the ending message</td><td>each source: the subject of an <code>rdf:type</code> that is a source class</td><td>none</td></tr>
+<tr><td>point message</td><td>one [=Point=] of one source: the source links to it with <code>tss:hasPoint</code>, and the point states its time and its values ([[#rdf-points]])</td><td>the point: the object of <code>tss:hasPoint</code></td><td>the time of the point</td></tr>
+<tr><td>ending message</td><td><code>tss:immutable true</code> for a source, and optionally the [=Stored Summaries=] of its fields ([[#ending]])</td><td>the source</td><td>none</td></tr>
+</tbody>
+</table>
+
+- The messages of a source are not independent: a point message is read with the description message of its source, as RDF Messages allows a profile to say. The description message of a source MUST come before its point messages, and its ending message after them.
+- A point message holds exactly one point of exactly one source, and nothing else.
+- The timestamp of a point message is the time of its point: the object of the triple whose predicate is the IRI of the [=Time Field=]. The description message names the time field (`tss:timeField`), so an engine reads the description message before it can find the timestamp of a point message.
+- The order of the messages is the order in which the points were written, which need not be the order of their times. An engine orders points by their timestamp.
+- Every message ends with a message delimiter, as [[#rdf-points]] requires for the log of a growing source.
+
+A consumer that starts reading a stream after its description message needs the description from elsewhere. Every point message names its source, so a publisher helps such a consumer by serving the metadata document of the source at the IRI of the source, or at an IRI that the source IRI redirects to.
+
+## Announcing the profile ## {#announcing-profile}
+
+The profile is identified by `tss:MessageStreamProfile`: a `prof:Profile` [[DX-PROF]] of RDF Messages. A publisher MAY announce that a stream or log follows the profile:
+
+- in the stream itself, in its first description message, by stating that the document or stream conforms to it: `<> dcterms:conformsTo tss:MessageStreamProfile`;
+- over HTTP, with a link to the profile [[RFC6906]]: `Link: <https://w3id.org/tss#MessageStreamProfile>; rel="profile"`.
+
+<div class="example" id="example-message-stream">
+<a href="#example-csv-source">The CSV example</a>, streamed as an RDF Message Log that follows the profile: a description message, one point message per row, and an ending message. The stream describes a `tss:EmbeddedRDFSource` of its own, `<#source>`, read from `ex:csv-source`; its fields are IRIs in the stream too.
+
+```turtle
+VERSION "1.2-messages"
+PREFIX : <#>
+PREFIX tss: <https://w3id.org/tss#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX prov: <http://www.w3.org/ns/prov#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX ex: <https://example.org/ex#>
+
+<> dcterms:conformsTo tss:MessageStreamProfile .
+
+:source
+    a tss:EmbeddedRDFSource ;
+    prov:wasDerivedFrom ex:csv-source ;
+    tss:from "2024-05-01T00:00:00Z"^^xsd:dateTime ;
+    tss:timeField :time ;
+    tss:hasField :time,
+        :value .
+
+:time
+    a tss:Field ;
+    tss:columnName "time" ;
+    tss:datatype xsd:dateTime .
+
+:value
+    a tss:Field ;
+    tss:columnName "value" ;
+    tss:datatype xsd:double .
+MESSAGE
+:source tss:hasPoint [
+    :time "2024-05-01T00:00:00Z"^^xsd:dateTime ;
+    :value "12.5"^^xsd:double
+] .
+MESSAGE
+:source tss:hasPoint [
+    :time "2024-05-01T00:15:00Z"^^xsd:dateTime ;
+    :value "12.7"^^xsd:double
+] .
+MESSAGE
+# ... one point message for each other row
+:source tss:immutable true .
+MESSAGE
+```
+
+The merge of the messages is the metadata document of an immutable `tss:EmbeddedRDFSource`. An engine finds the time field in the description message (`tss:timeField :time`), takes the timestamp of each point message from `:time`, and its focus node from `tss:hasPoint`.
+</div>
 
 # Vocabulary overview # {#vocabulary}
 
@@ -1080,6 +1215,7 @@ The metadata document of a growing `tss:EmbeddedJSONSource` is not append-only: 
 <tr><td><code>tss:observedProperty</code>, <code>tss:unit</code>, <code>tss:sensor</code>, <code>tss:featureOfInterest</code></td><td>property</td><td>field</td><td>[[#meaning]]</td></tr>
 <tr><td><code>tss:describesField</code>, <code>tss:fieldDescription</code></td><td>property</td><td>field</td><td>[[#describing]]</td></tr>
 <tr><td><code>tss:summary</code></td><td>property</td><td>field</td><td>[[#summaries]]</td></tr>
+<tr><td><code>tss:MessageStreamProfile</code></td><td>individual, a <code>prof:Profile</code></td><td>object of <code>dcterms:conformsTo</code></td><td>[[#message-profile]]</td></tr>
 <tr><td><code>tss:missingValuePolicy</code>, <code>tss:count</code>, <code>tss:missing</code>, <code>tss:firstTime</code>, <code>tss:lastTime</code>, <code>tss:observedMinimum</code>, <code>tss:observedMaximum</code>, <code>tss:mean</code>, <code>tss:median</code>, <code>tss:generatedAtTime</code></td><td>property</td><td>summary</td><td>[[#summaries]]</td></tr>
 </tbody>
 </table>

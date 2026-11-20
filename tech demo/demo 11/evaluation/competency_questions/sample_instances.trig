@@ -14,10 +14,10 @@ ex:csvSource
     tss:immutable true ;
     tss:timeField ex:csvTime ;
     tss:hasField ex:csvTime, ex:csvValue ;
-    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/csv.csv> .
-ex:csvTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
+ex:csvTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:csvValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -30,7 +30,7 @@ ex:csvSummary tss:count 3 ; tss:missing 0 ;
     tss:missingValuePolicy tss:ExcludeEmptyValues ;
     tss:observedMinimum "4722.4"^^xsd:double ;
     tss:observedMaximum "4810.5"^^xsd:double ;
-    tss:generatedAtTime "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp .
+    tss:generatedAtTime "2026-01-02T10:00:00Z"^^xsd:dateTime .
 }
 
 ex:parquetDocument {
@@ -39,9 +39,9 @@ ex:parquetSource
     tss:immutable true ;
     tss:timeField ex:parquetTime ;
     tss:hasField ex:parquetTime, ex:parquetValue ;
-    tss:from "2025-12-01T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2025-12-01T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/parquet.parquet> .
-ex:parquetTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "recorded_at" .
+ex:parquetTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "recorded_at" .
 ex:parquetValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -58,10 +58,10 @@ ex:arrowSource
     # to its data file, an Arrow IPC stream.
     tss:timeField ex:arrowTime ;
     tss:hasField ex:arrowTime, ex:arrowValue ;
-    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/arrow.arrows> .
-ex:arrowTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
+ex:arrowTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:arrowValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -77,13 +77,13 @@ ex:gridSource
     tss:immutable true ;
     tss:timeField ex:gridTime ;
     tss:hasField ex:gridTime, ex:gridValue, ex:gridStep ;
-    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/grid.csv> ;
-    tss:timeBase "2026-01-01T08:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeBase "2026-01-01T08:00:00Z"^^xsd:dateTime ;
     tss:timeStep "PT15M"^^xsd:duration ;
     tss:stepField ex:gridStep .
-ex:gridTime a tss:Field ; tss:datatype xsd:dateTimeStamp .
+ex:gridTime a tss:Field ; tss:datatype xsd:dateTime .
 ex:gridValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -100,10 +100,10 @@ ex:deltaSource
     tss:immutable true ;
     tss:timeField ex:deltaTime ;
     tss:hasField ex:deltaTime, ex:deltaValue ;
-    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/delta.csv> .
-ex:deltaTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
+ex:deltaTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:deltaValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -121,10 +121,10 @@ ex:otherPropertySource
     tss:immutable true ;
     tss:timeField ex:otherPropertyTime ;
     tss:hasField ex:otherPropertyTime, ex:otherPropertyValue ;
-    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/otherProperty.csv> .
-ex:otherPropertyTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
+ex:otherPropertyTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:otherPropertyValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:Temperature ;
@@ -140,10 +140,10 @@ ex:otherFeatureSource
     tss:immutable true ;
     tss:timeField ex:otherFeatureTime ;
     tss:hasField ex:otherFeatureTime, ex:otherFeatureValue ;
-    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/otherFeature.csv> .
-ex:otherFeatureTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
+ex:otherFeatureTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:otherFeatureValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -159,10 +159,10 @@ ex:beforeSource
     tss:immutable true ;
     tss:timeField ex:beforeTime ;
     tss:hasField ex:beforeTime, ex:beforeValue ;
-    tss:from "2025-12-31T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2025-12-31T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/before.csv> .
-ex:beforeTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
+ex:beforeTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:beforeValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -178,10 +178,10 @@ ex:afterSource
     tss:immutable true ;
     tss:timeField ex:afterTime ;
     tss:hasField ex:afterTime, ex:afterValue ;
-    tss:from "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-03T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2026-01-02T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-03T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/after.csv> .
-ex:afterTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
+ex:afterTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:afterValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -197,10 +197,10 @@ ex:jsonSource
     tss:immutable true ;
     tss:timeField ex:jsonTime ;
     tss:hasField ex:jsonTime, ex:jsonValue ;
-    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:points "[]"^^rdf:JSON .
-ex:jsonTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
+ex:jsonTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:jsonValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
@@ -216,9 +216,9 @@ ex:rdfSource
     tss:immutable true ;
     tss:timeField ex:rdfTime ;
     tss:hasField ex:rdfTime, ex:rdfValue ;
-    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp .
-ex:rdfTime a tss:Field ; tss:datatype xsd:dateTimeStamp .
+    tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime .
+ex:rdfTime a tss:Field ; tss:datatype xsd:dateTime .
 ex:rdfValue a tss:Field ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
