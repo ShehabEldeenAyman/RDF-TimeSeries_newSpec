@@ -22,7 +22,7 @@ These eight competency questions evaluate **semantic source discovery and retrie
 | CQ4 | Source access | Time/value field identities and column bindings |
 | CQ5 | Interpretation metadata | Datatype, observed property, unit, sensor, and feature |
 | CQ6 | Interpretation metadata | Declared time-grid and baseline-encoding parameters |
-| CQ7 | Source assessment | Final (immutable) or still growing |
+| CQ7 | Source assessment | Final (immutable) or still growing, and followed with Range requests |
 | CQ8 | Source assessment | Available declared summaries and their source windows |
 
 Each question follows the SemTS question/example/query pattern. The `id` and `interpretation` attributes are RDFTSS additions. Every query declares its own prefixes and uses stable ordering. Domain matching uses exact IRIs; no inference, label matching, or ontology alignment is assumed.

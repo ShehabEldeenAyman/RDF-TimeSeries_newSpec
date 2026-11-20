@@ -124,21 +124,23 @@ competency questions:
     interpretation: Parameters are optional independently so incomplete declarations remain visible. This is retrieval, not validation. No timestamp or measurement reconstruction is performed.
   Source assessment:
   - id: CQ7
-    question: Which selected sources are final, and which are still growing?
-    example: Compare a final CSV source with a growing Arrow stream.
+    question: Which selected sources are final, which are still growing, and can a consumer follow them with Range requests?
+    example: Compare a final CSV source with a growing Arrow stream that only grows, byte for byte.
     query: |
       PREFIX tss: <https://w3id.org/tss#>
       PREFIX ex: <https://example.org/rdftss-cq/>
       PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-      SELECT ?source ?profile ?immutable WHERE {
+      SELECT ?source ?profile ?immutable ?rangeRequests WHERE {
           VALUES ?source { ex:csvSource ex:arrowSource }
           VALUES ?profile { tss:CSVSource tss:ParquetSource tss:ArrowSource tss:EmbeddedJSONSource tss:EmbeddedRDFSource }
           ?source a ?profile .
           OPTIONAL { ?source tss:immutable ?declared }
           BIND (COALESCE(?declared, false) AS ?immutable)
+          OPTIONAL { ?source tss:rangeRequests ?promised }
+          BIND (COALESCE(?promised, false) AS ?rangeRequests)
       } ORDER BY ?source
-    interpretation: A source that does not state tss:immutable is growing (the default is false). The metadata does not say when a growing source last changed; a consumer finds that out with HTTP validators (ETag, Last-Modified). The query does not verify publisher behavior.
+    interpretation: A source that does not state tss:immutable is growing (the default is false). A growing source that states tss:rangeRequests true promises that its document or data file only grows, byte for byte, so a consumer fetches only the new bytes; otherwise (the default is false) it reads the whole resource again. The metadata does not say when a growing source last changed; a consumer finds that out with HTTP validators (ETag, Last-Modified). The query does not verify publisher behavior.
   - id: CQ8
     question: Which declared summaries are available for selected measurement fields, and what source windows do they describe?
     example: Retrieve available CSV statistics and preserve a Parquet result with no summary.

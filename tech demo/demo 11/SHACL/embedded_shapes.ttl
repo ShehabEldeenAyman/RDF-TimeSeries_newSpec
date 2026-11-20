@@ -69,6 +69,10 @@
 #                 S25 JSON keys: every field of a tss:EmbeddedJSONSource states a
 #                    tss:columnName, its key in the JSON points
 #   Optional:     S2 immutable (true: final; false or not stated: growing, append-only)
+#                 S28 range requests (true: while the source grows, its RDF Message Log only
+#                    grows, byte for byte, so a consumer fetches only the new messages with
+#                    HTTP Range requests); only on a tss:EmbeddedRDFSource, not on a
+#                    tss:EmbeddedJSONSource, whose tss:points is rewritten on every Write
 #                 S7 label    S8 produced by
 #                 S9 key: at most one tss:key, and it is the time field (the key is always the
 #                    time field, also when tss:key is not stated)
@@ -200,6 +204,14 @@ emb:SourceShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
         sh:message "tss:immutable must be one xsd:boolean: true (final: no point is added, changed or removed) or false (growing: points may be added, but none is changed or removed). Not stated means false." ;
+    ] ;
+    sh:property [
+        sh:name "S28 range requests" ;
+        sh:group emb:Optional ;
+        sh:path tss:rangeRequests ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:message "tss:rangeRequests must be one xsd:boolean: true (while the source grows, its RDF Message Log only grows, byte for byte, so a consumer may fetch only the new messages with HTTP Range requests) or false (the document may be written anew on every change). Not stated means false." ;
     ] ;
     sh:property [
         sh:name "S4 time field" ;
@@ -458,6 +470,17 @@ emb:TimezoneShape a sh:NodeShape ;
 
 emb:JSONSourceShape a sh:NodeShape ;
     sh:targetClass tss:EmbeddedJSONSource ;
+    # S28: a Write rewrites tss:points, so the bytes of the document do not only grow
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S28 range requests: a tss:EmbeddedJSONSource cannot state tss:rangeRequests true; a Write rewrites its tss:points, so the earlier bytes of its document change." ;
+        sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:rangeRequests ?value .
+                FILTER (?value = true)
+            }""" ;
+    ] ;
     sh:property [
         sh:name "S6 points" ;
         sh:group emb:Required ;

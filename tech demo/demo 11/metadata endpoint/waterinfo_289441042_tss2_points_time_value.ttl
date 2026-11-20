@@ -26,8 +26,11 @@ PREFIX unit: <http://qudt.org/vocab/unit/>
 # Its metadata document is therefore an RDF Message Log (RDF Messages, version label
 # "1.2-messages"): this first message describes the source and its fields, and each next message
 # holds one point. Every message ends with the delimiter MESSAGE, so a consumer that follows the
-# source knows the last message it read is complete, and fetches only the new messages with an
-# HTTP Range request (Range: bytes=N-).
+# source knows the last message it read is complete.
+# The source states tss:rangeRequests true: its publisher promises that the log only grows, byte
+# for byte, so a consumer fetches only the new messages with an HTTP Range request
+# (Range: bytes=N-). Without it, the publisher could write the log anew on every change, and a
+# consumer would read the whole log again.
 # While the source grows, its description does not change: a writer only appends messages.
 # A growing source has no stored summaries. To end the source, a writer appends one last
 # message with "ex:zevenaarshaven-tv-source tss:immutable true ." and, optionally, a
@@ -55,6 +58,7 @@ ex:zevenaarshaven-tv-source
     # The window of a growing source does not change, and every new point must lie in it, so the
     # window is left open at the end: the source states no tss:until.
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:rangeRequests true ;
     tss:hasField ex:zevenaarshaven-tv-time-field,
         ex:zevenaarshaven-tv-value-field .
 

@@ -35,9 +35,12 @@
 #              S24 one kind: every source of the document is external (no mixing)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
 #              S3 immutable (true: final; false or not stated: growing, append-only)
-#              S27 a tss:ParquetSource states tss:immutable true: a Parquet file cannot be
-#                  appended to. (So does a tss:ArrowSource in the Arrow IPC file format; its
-#                  format is in the first bytes of the data file, which these shapes do not read.)
+#              S28 range requests (true: while the source grows, the data file only grows,
+#                  byte for byte, so a consumer fetches only the new bytes with HTTP Range
+#                  requests; false or not stated: the file may be written anew on every change).
+#                  Not on a tss:ParquetSource: its file is rewritten on every append. (Nor on a
+#                  tss:ArrowSource in the Arrow IPC file format; its format is in the first
+#                  bytes of the data file, which these shapes do not read.)
 #              S5 key: at most one tss:key, and it is the time field (the key is always the
 #                 time field, also when tss:key is not stated)
 #              S18 time base (one time: the time of step 0)
@@ -166,6 +169,14 @@ ext:SourceShape a sh:NodeShape ;
         sh:maxCount 1 ;
         sh:datatype xsd:boolean ;
         sh:message "tss:immutable must be one xsd:boolean: true (final: no row is added, changed or removed) or false (growing: rows may be appended to the data file, but none is changed or removed). Not stated means false." ;
+    ] ;
+    sh:property [
+        sh:name "S28 range requests" ;
+        sh:group ext:Optional ;
+        sh:path tss:rangeRequests ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:message "tss:rangeRequests must be one xsd:boolean: true (while the source grows, its data file only grows, byte for byte, so a consumer may fetch only the new bytes with HTTP Range requests) or false (the file may be written anew on every change). Not stated means false." ;
     ] ;
     sh:property [
         sh:name "S4 time field" ;
@@ -867,20 +878,21 @@ ext:GrowingSourceSummaryShape a sh:NodeShape ;
     ] .
 
 
-# --- S27: a Parquet source is immutable -------------------------------------------
+# --- S28: range requests only where the bytes can only grow -----------------------
 # A Parquet file ends with a footer that indexes its row groups, so rows cannot be appended to
-# it: a tss:ParquetSource MUST state tss:immutable true. A tss:ArrowSource in the Arrow IPC
-# file format must too, but its format is in the first bytes of the data file ("ARROW1"),
-# which these shapes do not read.
+# it in place: a growing tss:ParquetSource is rewritten as a whole, and cannot promise that its
+# bytes only grow. The same holds for a tss:ArrowSource in the Arrow IPC file format, but its
+# format is in the first bytes of the data file ("ARROW1"), which these shapes do not read.
 
-ext:ParquetImmutableShape a sh:NodeShape ;
+ext:ParquetRangeRequestsShape a sh:NodeShape ;
     sh:targetClass tss:ParquetSource ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S27 Parquet immutable: a tss:ParquetSource must state tss:immutable true; rows cannot be appended to a Parquet file." ;
+        sh:message "S28 range requests: a tss:ParquetSource cannot state tss:rangeRequests true; a Parquet file is rewritten on every append, so its earlier bytes change." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
-            SELECT $this WHERE {
-                FILTER NOT EXISTS { $this tss:immutable ?immutable . FILTER (?immutable = true) }
+            SELECT $this ?value WHERE {
+                $this tss:rangeRequests ?value .
+                FILTER (?value = true)
             }""" ;
     ] .

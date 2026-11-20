@@ -55,11 +55,13 @@ ex:arrowDocument {
 ex:arrowSource
     a tss:ArrowSource ;
     # Growing: it does not state tss:immutable true, so record batches may still be appended
-    # to its data file, an Arrow IPC stream.
+    # to its data file, an Arrow IPC stream. It states tss:rangeRequests true: the stream only
+    # grows, byte for byte, so a consumer fetches only the new record batches with Range requests.
     tss:timeField ex:arrowTime ;
     tss:hasField ex:arrowTime, ex:arrowValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
+    tss:rangeRequests true ;
     tss:dataFile <https://example.org/rdftss-cq/data/arrow.arrows> .
 ex:arrowTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
 ex:arrowValue a tss:Field ;

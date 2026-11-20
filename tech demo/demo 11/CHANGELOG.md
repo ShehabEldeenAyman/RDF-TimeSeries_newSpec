@@ -21,8 +21,9 @@ Almost every change is breaking: a metadata document that conforms to `main` doe
 8. **The key is always the time field.** `tss:key` takes at most one value, and that value must be the time field.
 9. **`tss:modifiedAt`, `tss:committedUntil` and `tss:mutable` are removed.** The optional `tss:immutable` (default `false`) says whether a source is final; a consumer detects changes with HTTP validators.
 10. **Summaries use `tss:generatedAtTime`** in place of `prov:generatedAtTime`. Summaries get their own class, `tss:Summary`, and only an immutable source has them.
-11. **New: growing sources can be followed** ([PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25)). A growing `tss:EmbeddedRDFSource` is an RDF Message Log, data files only grow, a writer ends a source with `tss:immutable true`, and a consumer fetches only the new bytes with HTTP Range requests.
+11. **New: growing sources can be followed** ([PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25)). A growing `tss:EmbeddedRDFSource` is an RDF Message Log, a writer ends a source with `tss:immutable true`, and a consumer reads a growing source again as a whole, or, when the publisher states `tss:rangeRequests true` ([PR #35](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/35)), fetches only the new bytes with HTTP Range requests.
 12. **New: RDF Message Stream Profile** ([PR #33](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/33), issue #32). A stream of TSS readings holds a description message, one point message per point, and an ending message; the profile says where an engine finds their focus nodes and timestamps. New term `tss:MessageStreamProfile`. The `messages/` folder streams a conductivity source this way.
+13. **New: HTTP Range requests are opt-in** ([PR #35](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/35)). By default, a publisher may write the document or data file of a growing source anew on every change, and a consumer reads it again as a whole. A source that states `tss:rangeRequests true` promises that its bytes only grow, so a consumer fetches only the new bytes. Parquet sources and Arrow files in the IPC file format may now grow too, rewritten as a whole.
 
 ## 1. The name: RDF Time Series Sources
 
@@ -151,11 +152,11 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
 - **`tss:mutable` becomes `tss:immutable`**, named after `ldes:immutable`. It is optional, with default `false`. `true` means the source is final: no point is added, changed or removed, and its description does not change any more. `false`, or no `tss:immutable`, means the source is a new defined term, a **Growing Source**: it is append-only. An immutable source never becomes growing again. `tss:mutable true` is now the default, and `tss:mutable false` is `tss:immutable true`.
 - **`tss:committedUntil` is removed.** A consumer finds out whether a growing source changed with HTTP validators (`ETag`, `Last-Modified`) and `Cache-Control`, not from the metadata.
 - **A growing source's description does not change**: its class, fields, time window, data file and time grid stay as they are, and every new point MUST lie in the window. A Write no longer widens the window, sets a time of change or recomputes summaries: it only adds points.
-- **Some sources are always immutable**: a `tss:ParquetSource` (a Parquet file cannot be appended to) and a `tss:ArrowSource` in the Arrow IPC file format MUST state `tss:immutable true`.
-- **Arrow**: the IPC streaming format is now allowed, and a growing Arrow source MUST use it. A consumer tells the two formats apart by the first bytes of the file (`ARROW1` or `0xFFFFFFFF`).
+- **Some sources are always immutable**: a `tss:ParquetSource` (a Parquet file cannot be appended to) and a `tss:ArrowSource` in the Arrow IPC file format MUST state `tss:immutable true`. *Undone by [PR #35](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/35): such a source may grow, rewritten as a whole (see [§15](#15-new-range-requests-are-opt-in)).*
+- **Arrow**: the IPC streaming format is now allowed, and a growing Arrow source MUST use it (since PR #35: an Arrow source that states `tss:rangeRequests true`). A consumer tells the two formats apart by the first bytes of the file (`ARROW1` or `0xFFFFFFFF`).
 - **RDF Message Log**: the metadata document of a growing `tss:EmbeddedRDFSource` MUST be an RDF Message Log (RDF Messages, version label `1.2-messages`). The first message describes the source, each next message holds points, and every message ends with a delimiter (`MESSAGE` or `@message .`). The embedded example is now written this way.
 - **Writes** (`#updating`, renamed "Adding points to a growing source") are split in three: embedded sources (`#updating-embedded`: append one message, or rewrite `tss:points` with the existing points unchanged and in the same order), data files (`#appending-data-files`: complete CSV records ending with a line break; complete Arrow stream messages, no end-of-stream marker while growing), and **ending a growing source** (`#ending`: add `tss:immutable true` and, optionally, the summaries; in a log, as one last message, which never states `tss:immutable false`).
-- **New section: following a growing source** (`#following`): polling with conditional requests and `Cache-Control`, reading only the new bytes with `Range: bytes=N-` in units that a writer appends whole (an RDF message, a CSV record, an Arrow message), handling `206`, `416`, `200`, `404` and `410`, and a fallback to a full re-read. Embedded JSON points are re-read as a whole document.
+- **New section: following a growing source** (`#following`): polling with conditional requests and `Cache-Control`, reading only the new bytes with `Range: bytes=N-` in units that a writer appends whole (an RDF message, a CSV record, an Arrow message), handling `206`, `416`, `200`, `404` and `410`, and a fallback to a full re-read. Embedded JSON points are re-read as a whole document. *Since PR #35, Range requests are only for a source that states `tss:rangeRequests true`; every other source is re-read as a whole (see [§15](#15-new-range-requests-are-opt-in)).*
 - **Conformance**: a conforming consumer follows a growing source as `#following` says; a conforming writer also appends to data files and ends sources as the spec says.
 
 ## 11. Stored summaries
@@ -169,13 +170,13 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
 
 **Removed (7):** `tss:embedded`, `tss:format`, `tss:CSV`, `tss:Parquet`, `tss:modifiedAt`, `tss:committedUntil`, `tss:mutable`.
 
-**Added (19):**
+**Added (20):**
 
 | Kind | Terms |
 |---|---|
 | Classes | `tss:EmbeddedRDFSource`, `tss:EmbeddedJSONSource`, `tss:CSVSource`, `tss:ParquetSource`, `tss:ArrowSource`, `tss:Point`, `tss:Summary`, `tss:MissingValuePolicy`, `tss:ValueEncoding` |
 | Individuals | `tss:DeltaFromBaseline`, `tss:MessageStreamProfile` (a `prof:Profile`) |
-| Properties | `tss:immutable` (replaces `tss:mutable`), `tss:hasPoint`, `tss:timeBase`, `tss:timeStep`, `tss:stepField`, `tss:valueEncoding`, `tss:baseline`, `tss:generatedAtTime` |
+| Properties | `tss:immutable` (replaces `tss:mutable`), `tss:rangeRequests`, `tss:hasPoint`, `tss:timeBase`, `tss:timeStep`, `tss:stepField`, `tss:valueEncoding`, `tss:baseline`, `tss:generatedAtTime` |
 
 **Changed:**
 
@@ -199,7 +200,7 @@ This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pul
 ## 13. Document structure
 
 - **Abstract and introduction** describe the five source classes, RDF and JSON points, the time grid and value encoding.
-- **New sections:** `#storage` (rewritten as a class table), `#times`, `#rdf-points`, `#json-points`, `#arrow`, `#time-grid`, `#value-encoding`, `#message-profile`.
+- **New sections:** `#storage` (rewritten as a class table), `#times`, `#rdf-points`, `#json-points`, `#arrow`, `#time-grid`, `#value-encoding`, `#message-profile`, `#range-opt-in`, `#following-full`. Removed: `#following-json`, now part of `#following-full`.
 - **The "Open issues" section is removed:**
   - "Source or Snippet": resolved (Source: the class keeps its name, and the specification is renamed to match).
   - "Mutable external source": resolved (a growing data file only grows, see [§10](#10-changes-over-time)).
@@ -234,6 +235,20 @@ This section follows the third part of [PR #33](https://github.com/KNowledgeOnWe
 - **New example** in the specification: the CSV example streamed as a log of its own `tss:EmbeddedRDFSource`.
 - **New folder `messages/`**: a CSV source of five EC20 readings at Zevenaarshaven, streamed by `make_messages.py` into an RDF Message Log of 7 messages (description, five points, ending) of a `tss:EmbeddedRDFSource` derived from it. The merge of the log conforms to the embedded SHACL shapes.
 
+## 15. New: Range requests are opt-in
+
+This section follows [PR #35](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/35), "Make HTTP Range following opt-in with `tss:rangeRequests`".
+
+- **Growing no longer means appending in place.** A growing source is append-only in its points: none is changed or removed. By default, the bytes that hold them need not only grow: a publisher MAY write its metadata document or data file anew on every change, for example to compress, sort or re-serialise it. A consumer then reads it again as a whole (new section `#following-full`): a conditional request, and on `200 OK` it emits the points whose time it has not emitted yet.
+- **New property `tss:rangeRequests`** (optional, `xsd:boolean`, default `false`). `true` promises that, while the source grows, every representation of its RDF Message Log or data file, without content coding, is a byte prefix of every later one, and that the resource is not compressed as a whole (no `.csv.gz`). A consumer then fetches only the new bytes with `Range: bytes=N-` (`#range-requests`), and MUST NOT do so for a source that does not state it. Its server SHOULD answer Range requests. It does not change while the source grows.
+- **Only some sources may state `tss:rangeRequests true`**: a `tss:EmbeddedRDFSource`, a `tss:CSVSource`, and a `tss:ArrowSource` in the IPC streaming format. Not a `tss:ParquetSource` or an Arrow file in the IPC file format (rewritten on every append), and not a `tss:EmbeddedJSONSource` (a Write rewrites `tss:points`).
+- **Parquet sources and Arrow files in the IPC file format may grow**, rewritten as a whole. `tss:immutable true` is no longer required on them; SHACL check S27 is removed.
+- **Data files**: by default a producer MAY write the whole file anew, and a file that a consumer reads holds complete rows only. With `tss:rangeRequests true`, the earlier rules apply: CSV records and Arrow messages are appended in place, and the header line, schema and earlier records do not change.
+- **Time grid without a step field** (demo 11 addition): a rewrite keeps every row at its position, as the position of a row is its step.
+- **Examples**: the embedded example and the growing Arrow stream state `tss:rangeRequests true`, and so do the growing log `waterinfo_289441042_tss2_points_time_value.ttl` and the growing Arrow sample of the competency questions. CQ7 now also reports `tss:rangeRequests`.
+- **SHACL**: new check S28 in both shape files: `tss:rangeRequests` is at most one `xsd:boolean`, and is not `true` on a `tss:ParquetSource` or a `tss:EmbeddedJSONSource`.
+- **Conformance**: a conforming writer "only adds rows to the data file of a growing source as `#appending-data-files` says" (was: "only appends").
+
 ## Migration from `main` to demo 11
 
 | On `main` | In demo 11 |
@@ -242,7 +257,8 @@ This section follows the third part of [PR #33](https://github.com/KNowledgeOnWe
 | `a tss:Source ; tss:embedded false ; tss:format tss:CSV` | `a tss:CSVSource` |
 | `a tss:Source ; tss:embedded false ; tss:format tss:Parquet` | `a tss:ParquetSource` |
 | `tss:modifiedAt`, `tss:committedUntil` | remove (consumers use HTTP validators) |
-| `tss:mutable false` | `tss:immutable true` (required on a Parquet source and on an Arrow source in the IPC file format) |
+| `tss:mutable false` | `tss:immutable true` |
+| a growing source whose consumers fetch only the new bytes with Range requests | add `tss:rangeRequests true` (only on a `tss:EmbeddedRDFSource`, a `tss:CSVSource`, or a `tss:ArrowSource` in the IPC streaming format), and keep the bytes append-only |
 | `tss:mutable true` | leave out (or `tss:immutable false`), and remove the summaries |
 | a growing `tss:EmbeddedRDFSource` in plain Turtle, or a log message with several points | an RDF Message Log: `VERSION "1.2-messages"`, and `MESSAGE` after the description and after each point |
 | `prov:generatedAtTime` on a summary | `tss:generatedAtTime` |
@@ -253,7 +269,9 @@ This section follows the third part of [PR #33](https://github.com/KNowledgeOnWe
 ## Open points
 
 - **Tool support for RDF Message Logs.** rdflib 7.6 and pyshacl cannot parse `VERSION "1.2-messages"` or the `MESSAGE` delimiter, so the growing example (`waterinfo_289441042_tss2_points_time_value.ttl`) is validated as the merge of its messages: the document without its `VERSION` line and its delimiters.
-- **Arrow format not checked by SHACL.** The shapes cannot tell an Arrow IPC file from a stream (that is in the first bytes of the data file), so they don't check that an Arrow source in the file format states `tss:immutable true`.
+- **Arrow format not checked by SHACL.** The shapes cannot tell an Arrow IPC file from a stream (that is in the first bytes of the data file), so they don't check that an Arrow source that states `tss:rangeRequests true` is in the IPC streaming format.
+- **Byte ranges and content coding.** PR #35 says a server "MAY still compress a response with an HTTP content coding, as byte ranges then count the bytes without content coding". In RFC 9110, byte ranges count the bytes of the representation after its content coding. A consumer that sends `Accept-Encoding: identity` with a Range request, as `#range-requests` says, avoids the problem; the sentence itself is kept as in the PR.
+- **The name `tss:rangeRequests`** names the technique a consumer uses, not what the publisher promises (that the bytes only grow). Kept as in PR #35.
 - **The PR's `tss.ttl` still has an old duplicate block.** The `tss.ttl` of PR #25 (and of `main`) begins with an earlier "Properties of a field" section that defines 20 terms a second time, with older comments, `rdfs:isDefinedBy <>` and, for `tss:firstTime` and `tss:lastTime`, a second range (`xsd:dateTime` next to `xsd:dateTimeStamp`). Demo 11's `vocabulary/tss.ttl` has the PR's changes without that block, and keeps its `dcterms:license` and `dcterms:creator`; apart from these, the two files state the same triples.
 - **Left open in [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25):** the time window of a growing source is fixed; growing sources have no stored summaries; `tss:next` is left to the collection layer (LDES).
 - **Two datatypes for one moment.** With both `xsd:dateTime` and `xsd:dateTimeStamp` allowed, the same time can be two different RDF terms. SPARQL comparisons still work, but joins, `DISTINCT` and `GROUP BY` treat them as different values. Tools also differ: pyshacl accepts `"2021-03-03T23:45:00"^^xsd:dateTimeStamp` without a timezone, and rdflib writes `Z` as `+00:00` for `xsd:dateTime`. The SHACL shapes accept both datatypes and check the timezone with a separate rule (`S23`).
