@@ -32,10 +32,10 @@ Only supply trusted local RDF inputs. Turtle and TriG avoid remote JSON-LD conte
 The queries contain explicit example IRIs and dates. Before using real metadata, edit the YAML examples and corresponding SPARQL values together:
 
 - CQ1–CQ3: replace `ex:ElectricalConductivity`, `ex:WaterBodyA`, and the CQ2 interval with the intended domain resources and time window.
-- CQ4–CQ8: replace the selected snippet IRIs and observed property with the real ones.
+- CQ4–CQ8: replace the selected source IRIs and observed property with the real ones.
 - Prefix changes alone are insufficient if resource local names also differ.
 
-Do not merge alternative documents that reuse the same snippet/field IRIs as if they described different resources. Use separate runs or properly distinguish those resources when constructing a catalog. The supplied fixture gives every snippet and field a distinct IRI.
+Do not merge alternative documents that reuse the same source/field IRIs as if they described different resources. Use separate runs or properly distinguish those resources when constructing a catalog. The supplied fixture gives every source and field a distinct IRI.
 
 ## Interpreting execution
 

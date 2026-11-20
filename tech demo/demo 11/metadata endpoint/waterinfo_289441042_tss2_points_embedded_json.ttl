@@ -7,36 +7,36 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level snippet locators.
-# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Snippet windows are [from, until).
+# Source windows are [from, until).
 # tss:key is the time field: no two points have the same time.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # A copy of waterinfo_289441042_tss2_points_embedded.ttl whose points are JSON instead of RDF.
-# One embedded snippet contains both series, with one shared time field.
-# The snippet window applies to all fields; the points are five-reading samples.
-# A tss:EmbeddedJSONSnippet keeps its points in one rdf:JSON literal, tss:points: a JSON array
+# One embedded source contains both series, with one shared time field.
+# The source window applies to all fields; the points are five-reading samples.
+# A tss:EmbeddedJSONSource keeps its points in one rdf:JSON literal, tss:points: a JSON array
 # with one object per point, keyed by the fields' tss:columnName. Each value is a JSON string in
 # the lexical form of its field's tss:datatype. "", null or a missing key means no value; the
 # points are unordered (sort by the tss:timeField).
-# The snippet and its fields have their own IRIs (ex:zevenaarshaven-json-...), so the two documents
+# The source and its fields have their own IRIs (ex:zevenaarshaven-json-...), so the two documents
 # never describe the same node in two ways; the sensor, the feature of interest and the station
 # are the same real-world things, so they keep their IRIs.
 
-ex:zevenaarshaven-json-snippet
-    a tss:EmbeddedJSONSnippet ;
+ex:zevenaarshaven-json-source
+    a tss:EmbeddedJSONSource ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), JSON points"@en ;
-    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
-    tss:snippetDescription [
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
         ]
     ] ;
-    # Immutable: final, no reading is added any more. Only an immutable snippet has stored summaries.
+    # Immutable: final, no reading is added any more. Only an immutable source has stored summaries.
     tss:immutable true ;
     tss:producedBy ex:289441042 ;
     # The points' times are JSON strings in the form of an xsd:dateTimeStamp (a timezone is required), such as
@@ -57,7 +57,7 @@ ex:zevenaarshaven-json-snippet
       ]"""^^rdf:JSON .
 
 # Generated column summaries (calculated from the actual data, not example values).
-# Each summary covers the existing rows/points in the snippet's window [tss:from, tss:until);
+# Each summary covers the existing rows/points in the source's window [tss:from, tss:until);
 # a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
 # whitespace-only strings are not treated as empty. tss:count counts present values;

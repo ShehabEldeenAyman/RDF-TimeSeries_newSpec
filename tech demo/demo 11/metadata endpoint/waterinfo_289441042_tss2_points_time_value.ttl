@@ -8,37 +8,37 @@ PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
 PREFIX unit: <http://qudt.org/vocab/unit/>
 
-# Demo 7: experimental RDF time-series schema with field-level snippet locators.
-# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Snippet windows are [from, until).
+# Source windows are [from, until).
 # tss:key is the time field: no two points have the same time.
 # The fields state no tss:columnName: in RDF points, the IRI of a field is the predicate of its values.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # A copy of waterinfo_289441042_tss2_points_embedded.ttl with one series only: each point
 # holds just a time and a value (the EC20 reading); the quality code colour is left out.
-# The snippet and its fields have their own IRIs (ex:zevenaarshaven-tv-...), so the two documents
+# The source and its fields have their own IRIs (ex:zevenaarshaven-tv-...), so the two documents
 # never describe the same node in two ways; the sensor, the feature of interest and the station
 # are the same real-world things, so they keep their IRIs.
 
-# A growing snippet: it does not state tss:immutable true, so points may still be added to it.
+# A growing source: it does not state tss:immutable true, so points may still be added to it.
 # Its metadata document is therefore an RDF Message Log (RDF Messages, version label
-# "1.2-messages"): this first message describes the snippet and its fields, and each next message
+# "1.2-messages"): this first message describes the source and its fields, and each next message
 # holds one point. Every message ends with the delimiter MESSAGE, so a consumer that follows the
-# snippet knows the last message it read is complete, and fetches only the new messages with an
+# source knows the last message it read is complete, and fetches only the new messages with an
 # HTTP Range request (Range: bytes=N-).
-# While the snippet grows, its description does not change: a writer only appends messages.
-# A growing snippet has no stored summaries. To end the snippet, a writer appends one last
-# message with "ex:zevenaarshaven-tv-snippet tss:immutable true ." and, optionally, a
+# While the source grows, its description does not change: a writer only appends messages.
+# A growing source has no stored summaries. To end the source, a writer appends one last
+# message with "ex:zevenaarshaven-tv-source tss:immutable true ." and, optionally, a
 # tss:summary for each field.
 # The log never states tss:immutable false: the merge of all messages would then state both.
 
-ex:zevenaarshaven-tv-snippet
-    a tss:EmbeddedRDFSnippet ;
+ex:zevenaarshaven-tv-source
+    a tss:EmbeddedRDFSource ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time and value points"@en ;
-    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
-    tss:snippetDescription [
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
@@ -48,8 +48,8 @@ ex:zevenaarshaven-tv-snippet
     # The points' times are xsd:dateTimeStamp literals (a timezone is required), such as 2021-03-03T23:15:00Z.
     tss:timeField ex:zevenaarshaven-tv-time-field ;
     tss:key ex:zevenaarshaven-tv-time-field ;
-    # The window of a growing snippet does not change, and every new point must lie in it, so the
-    # window is left open at the end: the snippet states no tss:until.
+    # The window of a growing source does not change, and every new point must lie in it, so the
+    # window is left open at the end: the source states no tss:until.
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
     tss:hasField ex:zevenaarshaven-tv-time-field,
         ex:zevenaarshaven-tv-value-field .
@@ -80,30 +80,30 @@ ex:zevenaarshaven-tv-value-field
     ] .
 MESSAGE
 # Points: one message per point, appended at the end of the log; a Write appends one more.
-# tss:hasPoint links the snippet to each point. Each value has its field's IRI as predicate
+# tss:hasPoint links the source to each point. Each value has its field's IRI as predicate
 # and is typed with the field's tss:datatype; a missing value has no triple.
 # The points are unordered (sort by the value of the tss:timeField).
-ex:zevenaarshaven-tv-snippet tss:hasPoint [
+ex:zevenaarshaven-tv-source tss:hasPoint [
     ex:zevenaarshaven-tv-time-field "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-tv-value-field "4797.72"^^xsd:double
 ] .
 MESSAGE
-ex:zevenaarshaven-tv-snippet tss:hasPoint [
+ex:zevenaarshaven-tv-source tss:hasPoint [
     ex:zevenaarshaven-tv-time-field "2021-03-03T23:30:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-tv-value-field "4717.8"^^xsd:double
 ] .
 MESSAGE
-ex:zevenaarshaven-tv-snippet tss:hasPoint [
+ex:zevenaarshaven-tv-source tss:hasPoint [
     ex:zevenaarshaven-tv-time-field "2021-03-03T23:45:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-tv-value-field "4745.36"^^xsd:double
 ] .
 MESSAGE
-ex:zevenaarshaven-tv-snippet tss:hasPoint [
+ex:zevenaarshaven-tv-source tss:hasPoint [
     ex:zevenaarshaven-tv-time-field "2021-03-04T00:30:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-tv-value-field "4716.1"^^xsd:double
 ] .
 MESSAGE
-ex:zevenaarshaven-tv-snippet tss:hasPoint [
+ex:zevenaarshaven-tv-source tss:hasPoint [
     ex:zevenaarshaven-tv-time-field "2021-03-04T01:00:00Z"^^xsd:dateTimeStamp ;
     ex:zevenaarshaven-tv-value-field "4775.96"^^xsd:double
 ] .

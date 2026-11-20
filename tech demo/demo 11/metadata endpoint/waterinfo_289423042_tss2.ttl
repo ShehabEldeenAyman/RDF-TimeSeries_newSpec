@@ -6,27 +6,27 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level snippet locators.
-# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Snippet windows are [from, until).
+# Source windows are [from, until).
 # tss:key is the time field: no two rows have the same time.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
-# Shared snippet: provenance, time window, time field and column schema.
+# Shared source: provenance, time window, time field and column schema.
 
-ex:grootdok-snippet
-    a tss:CSVSnippet ;
+ex:grootdok-source
+    a tss:CSVSource ;
     rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Grootdok (BE)"@en ;
-    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
-    tss:snippetDescription [
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
         dcterms:spatial [
             a dcterms:Location ;
             rdfs:label "Kanaal Gent-Terneuzen Grootdok (BE)"@en
         ]
     ] ;
-    # Immutable: final, no reading is added any more. Only an immutable snippet has stored summaries.
+    # Immutable: final, no reading is added any more. Only an immutable source has stored summaries.
     tss:immutable true ;
     tss:producedBy ex:station-grootdok ;
     tss:from "2021-03-03T23:45:00Z"^^xsd:dateTimeStamp ;
@@ -52,7 +52,7 @@ ex:grootdok-snippet
 # Optional tss:fieldDescription records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
-# Each summary covers the existing rows/points in the snippet's window [tss:from, tss:until);
+# Each summary covers the existing rows/points in the source's window [tss:from, tss:until);
 # a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
 # whitespace-only strings are not treated as empty. tss:count counts present values;

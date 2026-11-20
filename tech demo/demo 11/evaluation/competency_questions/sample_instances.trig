@@ -9,8 +9,8 @@
 # No source files are supplied or fetched; embedded series are empty.
 
 ex:csvDocument {
-ex:csvSnippet
-    a tss:CSVSnippet ;
+ex:csvSource
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:timeField ex:csvTime ;
     tss:hasField ex:csvTime, ex:csvValue ;
@@ -34,8 +34,8 @@ ex:csvSummary tss:count 3 ; tss:missing 0 ;
 }
 
 ex:parquetDocument {
-ex:parquetSnippet
-    a tss:ParquetSnippet ;
+ex:parquetSource
+    a tss:ParquetSource ;
     tss:immutable true ;
     tss:timeField ex:parquetTime ;
     tss:hasField ex:parquetTime, ex:parquetValue ;
@@ -52,8 +52,8 @@ ex:parquetValue a tss:Field ;
 }
 
 ex:arrowDocument {
-ex:arrowSnippet
-    a tss:ArrowSnippet ;
+ex:arrowSource
+    a tss:ArrowSource ;
     # Growing: it does not state tss:immutable true, so record batches may still be appended
     # to its data file, an Arrow IPC stream.
     tss:timeField ex:arrowTime ;
@@ -72,8 +72,8 @@ ex:arrowValue a tss:Field ;
 }
 
 ex:gridDocument {
-ex:gridSnippet
-    a tss:CSVSnippet ;
+ex:gridSource
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:timeField ex:gridTime ;
     tss:hasField ex:gridTime, ex:gridValue, ex:gridStep ;
@@ -95,8 +95,8 @@ ex:gridStep a tss:Field ; tss:columnName "step" ; tss:datatype xsd:integer .
 }
 
 ex:deltaDocument {
-ex:deltaSnippet
-    a tss:CSVSnippet ;
+ex:deltaSource
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:timeField ex:deltaTime ;
     tss:hasField ex:deltaTime, ex:deltaValue ;
@@ -116,8 +116,8 @@ ex:deltaValue a tss:Field ;
 }
 
 ex:otherPropertyDocument {
-ex:otherPropertySnippet
-    a tss:CSVSnippet ;
+ex:otherPropertySource
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:timeField ex:otherPropertyTime ;
     tss:hasField ex:otherPropertyTime, ex:otherPropertyValue ;
@@ -135,8 +135,8 @@ ex:otherPropertyValue a tss:Field ;
 }
 
 ex:otherFeatureDocument {
-ex:otherFeatureSnippet
-    a tss:CSVSnippet ;
+ex:otherFeatureSource
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:timeField ex:otherFeatureTime ;
     tss:hasField ex:otherFeatureTime, ex:otherFeatureValue ;
@@ -154,8 +154,8 @@ ex:otherFeatureValue a tss:Field ;
 }
 
 ex:beforeDocument {
-ex:beforeSnippet
-    a tss:CSVSnippet ;
+ex:beforeSource
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:timeField ex:beforeTime ;
     tss:hasField ex:beforeTime, ex:beforeValue ;
@@ -173,8 +173,8 @@ ex:beforeValue a tss:Field ;
 }
 
 ex:afterDocument {
-ex:afterSnippet
-    a tss:CSVSnippet ;
+ex:afterSource
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:timeField ex:afterTime ;
     tss:hasField ex:afterTime, ex:afterValue ;
@@ -192,8 +192,8 @@ ex:afterValue a tss:Field ;
 }
 
 ex:jsonDocument {
-ex:jsonSnippet
-    a tss:EmbeddedJSONSnippet ;
+ex:jsonSource
+    a tss:EmbeddedJSONSource ;
     tss:immutable true ;
     tss:timeField ex:jsonTime ;
     tss:hasField ex:jsonTime, ex:jsonValue ;
@@ -211,8 +211,8 @@ ex:jsonValue a tss:Field ;
 }
 
 ex:rdfDocument {
-ex:rdfSnippet
-    a tss:EmbeddedRDFSnippet ;
+ex:rdfSource
+    a tss:EmbeddedRDFSource ;
     tss:immutable true ;
     tss:timeField ex:rdfTime ;
     tss:hasField ex:rdfTime, ex:rdfValue ;

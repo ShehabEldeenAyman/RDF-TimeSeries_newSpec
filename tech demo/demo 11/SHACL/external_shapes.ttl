@@ -7,13 +7,13 @@
 @prefix ext:  <https://w3id.org/tss/shapes/external#> .
 
 # =============================================================================
-# TSS conformance shapes for EXTERNAL data: a snippet whose readings are in a data file
+# TSS conformance shapes for EXTERNAL data: a source whose readings are in a data file
 # (tss:dataFile), with one tss:Field node per column of that file. Its class says how to read
-# the file: tss:CSVSnippet (a CSV file), tss:ParquetSnippet (an Apache Parquet file) or
-# tss:ArrowSnippet (an Apache Arrow IPC file). A time grid (tss:timeBase, tss:timeStep,
+# the file: tss:CSVSource (a CSV file), tss:ParquetSource (an Apache Parquet file) or
+# tss:ArrowSource (an Apache Arrow IPC file). A time grid (tss:timeBase, tss:timeStep,
 # tss:stepField) and a value encoding (tss:valueEncoding, tss:baseline) are only for such a
-# snippet; the embedded shapes do not allow them. A tss:EmbeddedJSONSnippet or a
-# tss:EmbeddedRDFSnippet is checked with embedded_shapes.ttl.
+# source; the embedded shapes do not allow them. A tss:EmbeddedJSONSource or a
+# tss:EmbeddedRDFSource is checked with embedded_shapes.ttl.
 #
 # Run:   pyshacl -s external_shapes.ttl "<metadata file>.ttl"
 # The metadata conforms when the report holds no sh:Violation. Warnings point at
@@ -24,19 +24,19 @@
 # field) is an xsd:dateTimeStamp: an xsd:dateTime whose timezone (Z or an offset such as
 # +02:00) cannot be left out. A time without a timezone does not conform (S23).
 #
-# The snippet (tss:ParquetSnippet, tss:CSVSnippet or tss:ArrowSnippet)
-#   Required:  S1 the snippet (one or more external snippets, each read on its own)
-#              S7 snippet class: every snippet states exactly one of the five snippet classes
-#                 (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet,
-#                 tss:CSVSnippet, tss:ArrowSnippet); the class says how to read the data file
+# The source (tss:ParquetSource, tss:CSVSource or tss:ArrowSource)
+#   Required:  S1 the source (one or more external sources, each read on its own)
+#              S7 source class: every source states exactly one of the five source classes
+#                 (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource,
+#                 tss:CSVSource, tss:ArrowSource); the class says how to read the data file
 #              S8  data file
 #              S4 time field                    S6  has field (at least one)
 #              S20 time field datatype (xsd:dateTimeStamp)
-#              S24 one kind: every snippet of the document is external (no mixing)
+#              S24 one kind: every source of the document is external (no mixing)
 #   Optional:  S2 from    S12 label    S13 produced by    S14 until
 #              S3 immutable (true: final; false or not stated: growing, append-only)
-#              S27 a tss:ParquetSnippet states tss:immutable true: a Parquet file cannot be
-#                  appended to. (So does a tss:ArrowSnippet in the Arrow IPC file format; its
+#              S27 a tss:ParquetSource states tss:immutable true: a Parquet file cannot be
+#                  appended to. (So does a tss:ArrowSource in the Arrow IPC file format; its
 #                  format is in the first bytes of the data file, which these shapes do not read.)
 #              S5 key: at most one tss:key, and it is the time field (the key is always the
 #                 time field, also when tss:key is not stated)
@@ -44,25 +44,25 @@
 #              S19 time step (one xsd:duration of more than zero)
 #              S18 and S19 come together: a tss:timeBase needs a tss:timeStep, and the other way round
 #              S21 step field: with a time grid, exactly one: the field whose column holds the
-#                  step of each row (one of the snippet's fields, tss:datatype xsd:integer, not
+#                  step of each row (one of the source's fields, tss:datatype xsd:integer, not
 #                  the time field); without a time grid, none
 #              S10 delimiter (one character; "," when not stated)
 #              S11 encoding ("utf-8" when not stated)
 #   Not allowed: S22 has point and points (tss:hasPoint, tss:points: the readings of an
-#                external snippet are the rows of its data file, not points in the metadata)
-#                S26 summary of a growing snippet: only a field of a snippet that states
+#                external source are the rows of its data file, not points in the metadata)
+#                S26 summary of a growing source: only a field of a source that states
 #                tss:immutable true has a tss:summary
-#   Not used:  S15 delimiter and encoding on a tss:ParquetSnippet or tss:ArrowSnippet (warning)
+#   Not used:  S15 delimiter and encoding on a tss:ParquetSource or tss:ArrowSource (warning)
 #   Required:  S23 timezone: every time in the metadata has a timezone (an xsd:dateTimeStamp).
 #              The times in the data file are not checked.
 #
 # The fields (tss:Field, and every object of tss:hasField)
-#   Required:  F1 the field: typed tss:Field, and a field of exactly one snippet
-#              F2 column name (unique within the snippet); the time field of a snippet with
+#   Required:  F1 the field: typed tss:Field, and a field of exactly one source
+#              F2 column name (unique within the source); the time field of a source with
 #                 a time grid is the one field without a column: no tss:columnName, no
 #                 tss:columnIndex (a row's time is the time of its step, S21)
 #              F3 datatype
-#   Optional:  F4 column index (unique within the snippet)   F5 label   F6 comment
+#   Optional:  F4 column index (unique within the source)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
 #              F10 summary (each summary attribute is also optional)
 #
@@ -73,7 +73,8 @@
 #   Not allowed:  D3 a tss:baseline without tss:valueEncoding tss:DeltaFromBaseline,
 #                    and a tss:valueEncoding on the time field (sh:Violation)
 #
-# The summary (optional tss:summary on a field): it covers the snippet's time window
+# The summary (optional tss:summary on a field of an immutable source; a field of a growing
+# source has none, S26): it covers the source's time window
 #   Not allowed: Q1 from, Q2 until: a summary has no window of its own
 #   Optional:  Q3 missing-value policy   Q4 count   Q5 missing
 #              Q6 first time   Q7 last time   Q8 observed minimum   Q9 observed maximum
@@ -123,30 +124,30 @@ ext:NotUsed a sh:PropertyGroup ;
     sh:order 3 .
 
 
-# --- S1 the snippet ------------------------------------------------------------
-# sh:targetNode makes tss:Snippet the focus node, so this check also runs (and fails)
-# when the metadata holds no external snippet at all.
+# --- S1 the source ------------------------------------------------------------
+# sh:targetNode makes tss:Source the focus node, so this check also runs (and fails)
+# when the metadata holds no external source at all.
 
-ext:SnippetExistsShape a sh:NodeShape ;
-    sh:targetNode tss:Snippet ;
+ext:SourceExistsShape a sh:NodeShape ;
+    sh:targetNode tss:Source ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S1 the snippet: the metadata must describe at least one external snippet, a tss:ParquetSnippet, tss:CSVSnippet or tss:ArrowSnippet; each snippet is read on its own. A tss:EmbeddedJSONSnippet or tss:EmbeddedRDFSnippet is checked with embedded_shapes.ttl." ;
+        sh:message "S1 the source: the metadata must describe at least one external source, a tss:ParquetSource, tss:CSVSource or tss:ArrowSource; each source is read on its own. A tss:EmbeddedJSONSource or tss:EmbeddedRDFSource is checked with embedded_shapes.ttl." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this WHERE {
                 FILTER NOT EXISTS {
-                    ?snippet a ?class .
-                    FILTER (?class IN (tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                    ?source a ?class .
+                    FILTER (?class IN (tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
                 }
             }""" ;
     ] .
 
 
-# --- The snippet ---------------------------------------------------------------
+# --- The source ---------------------------------------------------------------
 
-ext:SnippetShape a sh:NodeShape ;
-    sh:targetClass tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet ;
+ext:SourceShape a sh:NodeShape ;
+    sh:targetClass tss:ParquetSource, tss:CSVSource, tss:ArrowSource ;
 
     # Required
     sh:property [
@@ -172,7 +173,7 @@ ext:SnippetShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "The snippet needs exactly one tss:timeField: the field that holds the time of each row." ;
+        sh:message "The source needs exactly one tss:timeField: the field that holds the time of each row." ;
     ] ;
     sh:property [
         sh:name "S5 key" ;
@@ -180,7 +181,7 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:key ;
         sh:maxCount 1 ;
         sh:nodeKind sh:BlankNodeOrIRI ;
-        sh:message "tss:key must be one field, the time field: its values identify a row. A snippet without tss:key has its time field as key." ;
+        sh:message "tss:key must be one field, the time field: its values identify a row. A source without tss:key has its time field as key." ;
     ] ;
     sh:property [
         sh:name "S6 has field" ;
@@ -188,7 +189,7 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:hasField ;
         sh:minCount 1 ;
         sh:class tss:Field ;
-        sh:message "The snippet needs at least one tss:hasField, and each of them must be a described tss:Field." ;
+        sh:message "The source needs at least one tss:hasField, and each of them must be a described tss:Field." ;
     ] ;
     sh:property [
         sh:name "S8 data file" ;
@@ -197,7 +198,7 @@ ext:SnippetShape a sh:NodeShape ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
-        sh:message "The snippet needs exactly one tss:dataFile: the IRI of the file with the readings." ;
+        sh:message "The source needs exactly one tss:dataFile: the IRI of the file with the readings." ;
     ] ;
 
     # S10 and S11: optional (a CSV file without them is read with "," and "utf-8"); when present, well-formed
@@ -252,7 +253,7 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:timeBase ;
         sh:maxCount 1 ;
         sh:datatype xsd:dateTimeStamp ;
-        sh:message "tss:timeBase must be one xsd:dateTimeStamp (with a timezone): the time of step 0 of the snippet's time grid." ;
+        sh:message "tss:timeBase must be one xsd:dateTimeStamp (with a timezone): the time of step 0 of the source's time grid." ;
     ] ;
     sh:property [
         sh:name "S19 time step" ;
@@ -260,7 +261,7 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:timeStep ;
         sh:maxCount 1 ;
         sh:datatype xsd:duration ;
-        sh:message "tss:timeStep must be one xsd:duration, such as \"PT15M\": the time between two steps of the snippet's time grid." ;
+        sh:message "tss:timeStep must be one xsd:duration, such as \"PT15M\": the time between two steps of the source's time grid." ;
     ] ;
     sh:property [
         sh:name "S21 step field" ;
@@ -268,28 +269,28 @@ ext:SnippetShape a sh:NodeShape ;
         sh:path tss:stepField ;
         sh:maxCount 1 ;
         sh:class tss:Field ;
-        sh:message "tss:stepField must be one described tss:Field: the field whose column holds the step of each row on the snippet's time grid." ;
+        sh:message "tss:stepField must be one described tss:Field: the field whose column holds the step of each row on the source's time grid." ;
     ] ;
-    # Not allowed: the readings of an external snippet are the rows of its data file
+    # Not allowed: the readings of an external source are the rows of its data file
     sh:property [
         sh:name "S22 has point" ;
         sh:group ext:NotAllowed ;
         sh:path tss:hasPoint ;
         sh:maxCount 0 ;
-        sh:message "S22 not allowed: tss:hasPoint links the RDF points of a tss:EmbeddedRDFSnippet; the readings of an external snippet are the rows of its data file." ;
+        sh:message "S22 not allowed: tss:hasPoint links the RDF points of a tss:EmbeddedRDFSource; the readings of an external source are the rows of its data file." ;
     ] ;
     sh:property [
         sh:name "S22 points" ;
         sh:group ext:NotAllowed ;
         sh:path tss:points ;
         sh:maxCount 0 ;
-        sh:message "S22 not allowed: tss:points holds the JSON points of a tss:EmbeddedJSONSnippet; the readings of an external snippet are the rows of its data file." ;
+        sh:message "S22 not allowed: tss:points holds the JSON points of a tss:EmbeddedJSONSource; the readings of an external source are the rows of its data file." ;
     ] ;
 
-    # S4: the time field is a field of this snippet; S5: the key is the time field
+    # S4: the time field is a field of this source; S5: the key is the time field
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S4 time field: tss:timeField must be one of the snippet's own fields (tss:hasField)." ;
+        sh:message "S4 time field: tss:timeField must be one of the source's own fields (tss:hasField)." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -299,7 +300,7 @@ ext:SnippetShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S5 key: tss:key is {?value}, but the key of a snippet is its time field (tss:timeField): no two rows have the same time." ;
+        sh:message "S5 key: tss:key is {?value}, but the key of a source is its time field (tss:timeField): no two rows have the same time." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -308,11 +309,11 @@ ext:SnippetShape a sh:NodeShape ;
             }""" ;
     ] ;
 
-    # S20: the time field's values are times of the snippet, and every time of a snippet is an
+    # S20: the time field's values are times of the source, and every time of a source is an
     # xsd:dateTimeStamp
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a snippet is an xsd:dateTimeStamp (with a timezone)." ;
+        sh:message "S20 time field datatype: the time field's tss:datatype is {?value}, but every time of a source is an xsd:dateTimeStamp (with a timezone)." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -341,7 +342,7 @@ ext:SnippetShape a sh:NodeShape ;
     # without a step the grid has no steps, and without a base its steps are at no time
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S18 time base: the snippet has a tss:timeStep ({?value}), so it needs a tss:timeBase: the time of step 0." ;
+        sh:message "S18 time base: the source has a tss:timeStep ({?value}), so it needs a tss:timeBase: the time of step 0." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -351,7 +352,7 @@ ext:SnippetShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S19 time step: the snippet has a tss:timeBase ({?value}), so it needs a tss:timeStep: the time between two steps." ;
+        sh:message "S19 time step: the source has a tss:timeBase ({?value}), so it needs a tss:timeStep: the time between two steps." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -378,11 +379,11 @@ ext:SnippetShape a sh:NodeShape ;
     ] ;
 
     # S21: a data file has no tss:stepIndex, so with a time grid a column holds the step of
-    # each row. The snippet names its field with tss:stepField, as tss:timeField names the
+    # each row. The source names its field with tss:stepField, as tss:timeField names the
     # time field. The data file has no time column: a row's time is the time of its step.
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S21 step field: the snippet has a time grid (tss:timeBase, tss:timeStep), so it needs a tss:stepField: the field whose column holds the step of each row." ;
+        sh:message "S21 step field: the source has a time grid (tss:timeBase, tss:timeStep), so it needs a tss:stepField: the field whose column holds the step of each row." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT DISTINCT $this WHERE {
@@ -392,7 +393,7 @@ ext:SnippetShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S21 step field: the snippet has no time grid (tss:timeBase, tss:timeStep), so its tss:stepField ({?value}) gives no time." ;
+        sh:message "S21 step field: the source has no time grid (tss:timeBase, tss:timeStep), so its tss:stepField ({?value}) gives no time." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -403,7 +404,7 @@ ext:SnippetShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S21 step field: tss:stepField ({?value}) must be one of the snippet's own fields (tss:hasField), and not its tss:timeField." ;
+        sh:message "S21 step field: tss:stepField ({?value}) must be one of the source's own fields (tss:hasField), and not its tss:timeField." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -423,11 +424,11 @@ ext:SnippetShape a sh:NodeShape ;
     ] .
 
 
-# --- S15: not used on a Parquet or Arrow snippet ---------------------------------
+# --- S15: not used on a Parquet or Arrow source ---------------------------------
 # A shape of its own, because a SPARQL check takes its severity from its shape.
 
-ext:ParquetArrowSnippetShape a sh:NodeShape ;
-    sh:targetClass tss:ParquetSnippet, tss:ArrowSnippet ;
+ext:ParquetArrowSourceShape a sh:NodeShape ;
+    sh:targetClass tss:ParquetSource, tss:ArrowSource ;
     sh:severity sh:Warning ;
     sh:sparql [
         a sh:SPARQLConstraint ;
@@ -442,55 +443,55 @@ ext:ParquetArrowSnippetShape a sh:NodeShape ;
     ] .
 
 
-# --- S7: the snippet class ------------------------------------------------------------
-# Every snippet, that is every node with a tss:hasField and every node typed tss:Snippet or one
-# of its five classes, states exactly one of the five snippet classes: the class says where its
+# --- S7: the source class ------------------------------------------------------------
+# Every source, that is every node with a tss:hasField and every node typed tss:Source or one
+# of its five classes, states exactly one of the five source classes: the class says where its
 # points are and how to read them.
 
-ext:SnippetClassShape a sh:NodeShape ;
+ext:SourceClassShape a sh:NodeShape ;
     sh:targetSubjectsOf tss:hasField ;
-    sh:targetClass tss:Snippet, tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet,
-        tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet ;
+    sh:targetClass tss:Source, tss:EmbeddedJSONSource, tss:EmbeddedRDFSource,
+        tss:ParquetSource, tss:CSVSource, tss:ArrowSource ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S7 snippet class: the snippet states none of the five snippet classes (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet), so nothing says where its points are." ;
+        sh:message "S7 source class: the source states none of the five source classes (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource), so nothing says where its points are." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this WHERE {
                 FILTER NOT EXISTS {
                     $this a ?class .
-                    FILTER (?class IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                    FILTER (?class IN (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
                 }
             }""" ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S7 snippet class: the snippet states two snippet classes, {?value} and {?other}; a snippet states exactly one." ;
+        sh:message "S7 source class: the source states two source classes, {?value} and {?other}; a source states exactly one." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT DISTINCT $this ?value ?other WHERE {
                 $this a ?value, ?other .
-                FILTER (?value IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
-                FILTER (?other IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet, tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet))
+                FILTER (?value IN (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
+                FILTER (?other IN (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
                 FILTER (STR(?value) < STR(?other))
             }""" ;
     ] .
 
 
-# --- S24: one kind of snippet per document --------------------------------------
-# A document describes embedded snippets or external snippets, never both, so that one set
-# of rules (and one shapes file) reads all of its snippets.
+# --- S24: one kind of source per document --------------------------------------
+# A document describes embedded sources or external sources, never both, so that one set
+# of rules (and one shapes file) reads all of its sources.
 
 ext:OneKindShape a sh:NodeShape ;
-    sh:targetClass tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet ;
+    sh:targetClass tss:ParquetSource, tss:CSVSource, tss:ArrowSource ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S24 one kind: the document also describes the embedded snippet {?value}; all snippets of a document are embedded, or all are external, never both." ;
+        sh:message "S24 one kind: the document also describes the embedded source {?value}; all sources of a document are embedded, or all are external, never both." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
                 ?value a ?class .
-                FILTER (?class IN (tss:EmbeddedJSONSnippet, tss:EmbeddedRDFSnippet))
+                FILTER (?class IN (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource))
             }""" ;
     ] .
 
@@ -500,7 +501,7 @@ ext:OneKindShape a sh:NodeShape ;
 # does not conform. (The sh:datatype checks only compare the datatype IRI; S23 reads the text.)
 
 ext:TimezoneShape a sh:NodeShape ;
-    sh:targetClass tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet ;
+    sh:targetClass tss:ParquetSource, tss:CSVSource, tss:ArrowSource ;
     sh:sparql [
         a sh:SPARQLConstraint ;
         sh:message "S23 timezone: {?value} ({?where}) has no timezone. Every time MUST have a timezone, such as Z or +02:00 (xsd:dateTimeStamp)." ;
@@ -508,10 +509,10 @@ ext:TimezoneShape a sh:NodeShape ;
         sh:select """
             SELECT DISTINCT $this ?value ?where WHERE {
                 {
-                    # A time of the snippet
+                    # A time of the source
                     $this ?property ?value .
                     FILTER (?property IN (tss:from, tss:until, tss:timeBase))
-                    BIND (CONCAT("the snippet's ", REPLACE(STR(?property), "^.*#", "tss:")) AS ?where)
+                    BIND (CONCAT("the source's ", REPLACE(STR(?property), "^.*#", "tss:")) AS ?where)
                 } UNION {
                     # A time of a summary
                     $this tss:hasField ?field .
@@ -541,12 +542,12 @@ ext:FieldShape a sh:NodeShape ;
         sh:message "A field must be typed tss:Field." ;
     ] ;
     sh:property [
-        sh:name "F1 the field belongs to a snippet" ;
+        sh:name "F1 the field belongs to a source" ;
         sh:group ext:Required ;
         sh:path [ sh:inversePath tss:hasField ] ;
         sh:minCount 1 ;
         sh:maxCount 1 ;
-        sh:message "A field must be a field (tss:hasField) of exactly one snippet." ;
+        sh:message "A field must be a field (tss:hasField) of exactly one source." ;
     ] ;
     sh:property [
         sh:name "F2 column name" ;
@@ -677,16 +678,16 @@ ext:FieldShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "D3 value encoding: this is the snippet's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding ({?value})." ;
+        sh:message "D3 value encoding: this is the source's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding ({?value})." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?snippet tss:timeField $this .
+                ?source tss:timeField $this .
                 $this tss:valueEncoding ?value .
             }""" ;
     ] ;
 
-    # F2: every field reads a column of the data file, except the time field of a snippet with
+    # F2: every field reads a column of the data file, except the time field of a source with
     # a time grid: the data file has no time column, and a row's time is the time of its step
     # (S21). That time field has no column, so a time in the file can't disagree with the step.
     sh:sparql [
@@ -696,28 +697,28 @@ ext:FieldShape a sh:NodeShape ;
         sh:select """
             SELECT $this WHERE {
                 FILTER NOT EXISTS { $this tss:columnName ?name }
-                FILTER NOT EXISTS { ?snippet tss:timeField $this ; tss:timeBase|tss:timeStep ?grid }
+                FILTER NOT EXISTS { ?source tss:timeField $this ; tss:timeBase|tss:timeStep ?grid }
             }""" ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F2 column name: this is the tss:timeField of a snippet with a time grid, so it has no column in the data file, but it has {?value} (tss:columnName or tss:columnIndex): a row's time is the time of its step (tss:stepField)." ;
+        sh:message "F2 column name: this is the tss:timeField of a source with a time grid, so it has no column in the data file, but it has {?value} (tss:columnName or tss:columnIndex): a row's time is the time of its step (tss:stepField)." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT DISTINCT $this ?value WHERE {
-                ?snippet tss:timeField $this ; tss:timeBase|tss:timeStep ?grid .
+                ?source tss:timeField $this ; tss:timeBase|tss:timeStep ?grid .
                 $this tss:columnName|tss:columnIndex ?value .
             }""" ;
     ] ;
 
-    # F2 and F4: two fields of the same snippet can't read the same column
+    # F2 and F4: two fields of the same source can't read the same column
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F2 column name: another field of the same snippet has the column name {?value}." ;
+        sh:message "F2 column name: another field of the same source has the column name {?value}." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?snippet tss:hasField $this, ?other .
+                ?source tss:hasField $this, ?other .
                 $this tss:columnName ?value .
                 ?other tss:columnName ?value .
                 FILTER (?other != $this)
@@ -725,11 +726,11 @@ ext:FieldShape a sh:NodeShape ;
     ] ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "F4 column index: another field of the same snippet has the column index {?value}." ;
+        sh:message "F4 column index: another field of the same source has the column index {?value}." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
-                ?snippet tss:hasField $this, ?other .
+                ?source tss:hasField $this, ?other .
                 $this tss:columnIndex ?value .
                 ?other tss:columnIndex ?value .
                 FILTER (?other != $this)
@@ -760,14 +761,14 @@ ext:SummaryShape a sh:NodeShape ;
         sh:group ext:NotAllowed ;
         sh:path tss:from ;
         sh:maxCount 0 ;
-        sh:message "Q1 not allowed: a summary has no window of its own; it covers the snippet's time window, so it has no tss:from." ;
+        sh:message "Q1 not allowed: a summary has no window of its own; it covers the source's time window, so it has no tss:from." ;
     ] ;
     sh:property [
         sh:name "Q2 until" ;
         sh:group ext:NotAllowed ;
         sh:path tss:until ;
         sh:maxCount 0 ;
-        sh:message "Q2 not allowed: a summary has no window of its own; it covers the snippet's time window, so it has no tss:until." ;
+        sh:message "Q2 not allowed: a summary has no window of its own; it covers the source's time window, so it has no tss:until." ;
     ] ;
     sh:property [
         sh:name "Q3 missing-value policy" ;
@@ -853,16 +854,16 @@ ext:SummaryShape a sh:NodeShape ;
     ] .
 
 
-# --- S26: no stored summary on a growing snippet ---------------------------------
-# A snippet that does not state tss:immutable true is growing: points may still be added, so a
+# --- S26: no stored summary on a growing source ---------------------------------
+# A source that does not state tss:immutable true is growing: points may still be added, so a
 # summary would be outdated by the next Write, and its description does not change while it
-# grows. A writer adds the summaries when it ends the snippet, together with tss:immutable true.
+# grows. A writer adds the summaries when it ends the source, together with tss:immutable true.
 
-ext:GrowingSnippetSummaryShape a sh:NodeShape ;
-    sh:targetClass tss:ParquetSnippet, tss:CSVSnippet, tss:ArrowSnippet ;
+ext:GrowingSourceSummaryShape a sh:NodeShape ;
+    sh:targetClass tss:ParquetSource, tss:CSVSource, tss:ArrowSource ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S26 summary of a growing snippet: field {?value} has a tss:summary, but the snippet does not state tss:immutable true. Only a field of an immutable snippet has a stored summary." ;
+        sh:message "S26 summary of a growing source: field {?value} has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this ?value WHERE {
@@ -873,17 +874,17 @@ ext:GrowingSnippetSummaryShape a sh:NodeShape ;
     ] .
 
 
-# --- S27: a Parquet snippet is immutable -------------------------------------------
+# --- S27: a Parquet source is immutable -------------------------------------------
 # A Parquet file ends with a footer that indexes its row groups, so rows cannot be appended to
-# it: a tss:ParquetSnippet MUST state tss:immutable true. A tss:ArrowSnippet in the Arrow IPC
+# it: a tss:ParquetSource MUST state tss:immutable true. A tss:ArrowSource in the Arrow IPC
 # file format must too, but its format is in the first bytes of the data file ("ARROW1"),
 # which these shapes do not read.
 
 ext:ParquetImmutableShape a sh:NodeShape ;
-    sh:targetClass tss:ParquetSnippet ;
+    sh:targetClass tss:ParquetSource ;
     sh:sparql [
         a sh:SPARQLConstraint ;
-        sh:message "S27 Parquet immutable: a tss:ParquetSnippet must state tss:immutable true; rows cannot be appended to a Parquet file." ;
+        sh:message "S27 Parquet immutable: a tss:ParquetSource must state tss:immutable true; rows cannot be appended to a Parquet file." ;
         sh:prefixes <https://w3id.org/tss/shapes/external> ;
         sh:select """
             SELECT $this WHERE {

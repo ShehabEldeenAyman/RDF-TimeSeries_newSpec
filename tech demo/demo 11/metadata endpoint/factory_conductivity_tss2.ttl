@@ -7,28 +7,28 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level snippet locators.
-# The new TSS schema, field, snippet and locator terms are proposal vocabulary.
+# Demo 7: experimental RDF time-series schema with field-level source locators.
+# The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
-# Snippet windows are [from, until).
+# Source windows are [from, until).
 # tss:key is the time field: no two rows have the same time.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
-# Shared snippet: provenance, time window, time field and column schema.
+# Shared source: provenance, time window, time field and column schema.
 
-ex:factory-snippet
-    a tss:CSVSnippet ;
+ex:factory-source
+    a tss:CSVSource ;
     rdfs:label "Factory water conductivity, 2025"@en ;
-    # Optional tss:snippetDescription; publishers may use any RDF vocabulary and properties.
-    tss:snippetDescription [
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
         dcterms:spatial [
             a s4inma:Factory ;
             # Illustrative site description: the factory name and coordinates were not supplied.
             rdfs:label "Factory site"@en
         ]
     ] ;
-    # Immutable: final, no reading is added any more. Only an immutable snippet has stored summaries.
+    # Immutable: final, no reading is added any more. Only an immutable source has stored summaries.
     tss:immutable true ;
     tss:producedBy ex:system1 ;
     tss:from "2025-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -60,7 +60,7 @@ ex:factory-snippet
 # Optional tss:fieldDescription records use Dublin Core here; any RDF vocabulary may be used.
 
 # Generated column summaries (calculated from the actual data, not example values).
-# Each summary covers the existing rows/points in the snippet's window [tss:from, tss:until);
+# Each summary covers the existing rows/points in the source's window [tss:from, tss:until);
 # a summary has no window of its own.
 # tss:ExcludeEmptyValues excludes nulls, absent keys and empty strings ("");
 # whitespace-only strings are not treated as empty. tss:count counts present values;
@@ -421,11 +421,11 @@ ex:factory-ro1de_feed_conductivity-field
     rdfs:comment "Feed conductivity to RO1D and RO1E combined"@en ;
     tss:minimum 0 ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    rdfs:comment "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1de_feed ;
     tss:featureOfInterest ex:ro1de_feed ;
     tss:fieldDescription [
-        dcterms:description "Feed conductivity to RO1D and RO1E combined"@en, "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:description "Feed conductivity to RO1D and RO1E combined"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1de_feed, ex:ro1de_feed
     ] ;
@@ -451,11 +451,11 @@ ex:factory-ro1d_feed_conductivity-field
     rdfs:comment "Feed conductivity to RO1D (after chemical injection)"@en ;
     tss:minimum 0 ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    rdfs:comment "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1d_feed ;
     tss:featureOfInterest ex:ro1d_feed ;
     tss:fieldDescription [
-        dcterms:description "Feed conductivity to RO1D (after chemical injection)"@en, "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:description "Feed conductivity to RO1D (after chemical injection)"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1d_feed, ex:ro1d_feed
     ] ;
@@ -481,11 +481,11 @@ ex:factory-ro1e_feed_conductivity-field
     rdfs:comment "Feed conductivity to RO1E"@en ;
     tss:minimum 0 ;
     tss:observedProperty quantitykind:ElectricConductivity ;
-    rdfs:comment "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
+    rdfs:comment "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
     tss:sensor ex:sensor-ro1e_feed ;
     tss:featureOfInterest ex:ro1e_feed ;
     tss:fieldDescription [
-        dcterms:description "Feed conductivity to RO1E"@en, "Unit not confirmed: the snippet system labels this sensor m3/h, which is not a conductivity unit."@en ;
+        dcterms:description "Feed conductivity to RO1E"@en, "Unit not confirmed: the source system labels this sensor m3/h, which is not a conductivity unit."@en ;
         dcterms:subject quantitykind:ElectricConductivity ;
         dcterms:relation ex:sensor-ro1e_feed, ex:ro1e_feed
     ] ;
