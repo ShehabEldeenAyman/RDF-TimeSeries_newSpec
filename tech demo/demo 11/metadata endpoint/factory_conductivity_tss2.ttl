@@ -74,7 +74,7 @@ ex:factory-source
 # tss:generatedAtTime records when they were calculated: once, from the final readings.
 
 ex:factory-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "datetime" ;
     tss:columnIndex 0 ;
     rdfs:label "datetime"@en ;
@@ -93,7 +93,7 @@ ex:factory-time-field
     ] .
 
 ex:factory-ro1_a_permeate_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ro1_a_permeate_conductivity" ;
     tss:columnIndex 1 ;
     rdfs:label "RO1 train A permeate conductivity, 2025"@en ;
@@ -125,7 +125,7 @@ ex:factory-ro1_a_permeate_conductivity-field
     ] .
 
 ex:factory-ro1_b_permeate_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ro1_b_permeate_conductivity" ;
     tss:columnIndex 2 ;
     rdfs:label "RO1 train B permeate conductivity, 2025"@en ;
@@ -157,7 +157,7 @@ ex:factory-ro1_b_permeate_conductivity-field
     ] .
 
 ex:factory-ro1_c_permeate_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ro1_c_permeate_conductivity" ;
     tss:columnIndex 3 ;
     rdfs:label "RO1 train C permeate conductivity, 2025"@en ;
@@ -189,7 +189,7 @@ ex:factory-ro1_c_permeate_conductivity-field
     ] .
 
 ex:factory-ro2_a_permeate_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ro2_a_permeate_conductivity" ;
     tss:columnIndex 4 ;
     rdfs:label "RO2 train A permeate conductivity, 2025"@en ;
@@ -221,7 +221,7 @@ ex:factory-ro2_a_permeate_conductivity-field
     ] .
 
 ex:factory-ro2_b_permeate_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ro2_b_permeate_conductivity" ;
     tss:columnIndex 5 ;
     rdfs:label "RO2 train B permeate conductivity, 2025"@en ;
@@ -253,7 +253,7 @@ ex:factory-ro2_b_permeate_conductivity-field
     ] .
 
 ex:factory-cooling_water_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "cooling_water_conductivity" ;
     tss:columnIndex 6 ;
     rdfs:label "Cooling water conductivity (including drinking-water blend), 2025"@en ;
@@ -285,7 +285,7 @@ ex:factory-cooling_water_conductivity-field
     ] .
 
 ex:factory-boiler_feed_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "boiler_feed_conductivity" ;
     tss:columnIndex 7 ;
     rdfs:label "Boiler feed water conductivity, 2025"@en ;
@@ -317,7 +317,7 @@ ex:factory-boiler_feed_conductivity-field
     ] .
 
 ex:factory-boiler_water_delivery_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "boiler_water_delivery_conductivity" ;
     tss:columnIndex 8 ;
     rdfs:label "Delivered boiler water conductivity, 2025"@en ;
@@ -349,7 +349,7 @@ ex:factory-boiler_water_delivery_conductivity-field
     ] .
 
 ex:factory-dockwater_blowdown_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "dockwater_blowdown_conductivity" ;
     tss:columnIndex 9 ;
     rdfs:label "Dock water and blowdown conductivity, 2025"@en ;
@@ -381,7 +381,7 @@ ex:factory-dockwater_blowdown_conductivity-field
     ] .
 
 ex:factory-venturi_reject_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "venturi_reject_conductivity" ;
     tss:columnIndex 10 ;
     rdfs:label "Venturi reject conductivity, 2025"@en ;
@@ -413,7 +413,7 @@ ex:factory-venturi_reject_conductivity-field
     ] .
 
 ex:factory-ro1de_feed_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ro1de_feed_conductivity" ;
     tss:columnIndex 11 ;
     rdfs:label "RO1D+E combined feed conductivity, 2025"@en ;
@@ -443,7 +443,7 @@ ex:factory-ro1de_feed_conductivity-field
     ] .
 
 ex:factory-ro1d_feed_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ro1d_feed_conductivity" ;
     tss:columnIndex 12 ;
     rdfs:label "RO1D feed conductivity (after chemical injection), 2025"@en ;
@@ -473,7 +473,7 @@ ex:factory-ro1d_feed_conductivity-field
     ] .
 
 ex:factory-ro1e_feed_conductivity-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ro1e_feed_conductivity" ;
     tss:columnIndex 13 ;
     rdfs:label "RO1E feed conductivity, 2025"@en ;

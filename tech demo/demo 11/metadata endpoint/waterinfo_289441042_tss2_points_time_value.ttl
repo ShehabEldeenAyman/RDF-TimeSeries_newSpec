@@ -12,12 +12,13 @@ PREFIX unit: <http://qudt.org/vocab/unit/>
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
 # Source windows are [from, until).
-# tss:key is the time field: no two points have the same time.
-# The fields state no tss:columnName: in RDF points, the IRI of a field is the predicate of its values.
+# tss:key is the time field: no two rows have the same time.
+# The time field is a tss:ContextField and the EC20 field a tss:ValueField. A point states its
+# time with tss:time and its reading with tss:value; the fields state no tss:columnName.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # A copy of waterinfo_289441042_tss2_points_embedded.ttl with one series only: each point
-# holds just a time and a value (the EC20 reading); the quality code colour is left out.
+# holds just a time and a reading (EC20); the quality code colour is left out.
 # The source and its fields have their own IRIs (ex:zevenaarshaven-tv-...), so the two documents
 # never describe the same node in two ways; the sensor, the feature of interest and the station
 # are the same real-world things, so they keep their IRIs.
@@ -25,7 +26,7 @@ PREFIX unit: <http://qudt.org/vocab/unit/>
 # A growing source: it does not state tss:immutable true, so points may still be added to it.
 # Its metadata document is therefore an RDF Message Log (RDF Messages, version label
 # "1.2-messages"): this first message describes the source and its fields, and each next message
-# holds one point. Every message ends with the delimiter MESSAGE, so a consumer that follows the
+# holds one row: here one point, as the source has one value field. Every message ends with the delimiter MESSAGE, so a consumer that follows the
 # source knows the last message it read is complete.
 # The source states tss:rangeRequests true: its publisher promises that the log only grows, byte
 # for byte, so a consumer fetches only the new messages with an HTTP Range request
@@ -38,7 +39,7 @@ PREFIX unit: <http://qudt.org/vocab/unit/>
 # The log never states tss:immutable false: the merge of all messages would then state both.
 
 # The log follows the RDF Message Stream Profile of the specification: a description message,
-# then one point message per point (the timestamp is the point's value for the time field).
+# then one row message per row (the timestamp is tss:time on its points).
 <> dcterms:conformsTo tss:MessageStreamProfile .
 
 ex:zevenaarshaven-tv-source
@@ -63,7 +64,7 @@ ex:zevenaarshaven-tv-source
         ex:zevenaarshaven-tv-value-field .
 
 ex:zevenaarshaven-tv-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
     tss:fieldDescription [
@@ -71,7 +72,7 @@ ex:zevenaarshaven-tv-time-field
     ] .
 
 ex:zevenaarshaven-tv-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;
@@ -87,32 +88,39 @@ ex:zevenaarshaven-tv-value-field
         dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven
     ] .
 MESSAGE
-# Points: one message per point, appended at the end of the log; a Write appends one more.
-# tss:hasPoint links the source to each point. Each value has its field's IRI as predicate
-# and is typed with the field's tss:datatype; a missing value has no triple.
-# The points are unordered (sort by the value of the tss:timeField).
+# Rows: one message per row, appended at the end of the log; a Write appends one more.
+# tss:hasPoint links the source to each point: one EC20 reading, with its value field
+# (tss:field), its time (tss:time) and its reading (tss:value), typed with the field's
+# tss:datatype. The source has one value field, so a point MAY leave out tss:field; this log
+# states it anyway, so that a consumer that starts reading after the first message still knows
+# which field each reading belongs to. The points are unordered (sort by tss:time).
 ex:zevenaarshaven-tv-source tss:hasPoint [
-    ex:zevenaarshaven-tv-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-tv-value-field "4797.72"^^xsd:double
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:value "4797.72"^^xsd:double
 ] .
 MESSAGE
 ex:zevenaarshaven-tv-source tss:hasPoint [
-    ex:zevenaarshaven-tv-time-field "2021-03-03T23:30:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-tv-value-field "4717.8"^^xsd:double
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-03T23:30:00Z"^^xsd:dateTime ;
+    tss:value "4717.8"^^xsd:double
 ] .
 MESSAGE
 ex:zevenaarshaven-tv-source tss:hasPoint [
-    ex:zevenaarshaven-tv-time-field "2021-03-03T23:45:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-tv-value-field "4745.36"^^xsd:double
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-03T23:45:00Z"^^xsd:dateTime ;
+    tss:value "4745.36"^^xsd:double
 ] .
 MESSAGE
 ex:zevenaarshaven-tv-source tss:hasPoint [
-    ex:zevenaarshaven-tv-time-field "2021-03-04T00:30:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-tv-value-field "4716.1"^^xsd:double
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T00:30:00Z"^^xsd:dateTime ;
+    tss:value "4716.1"^^xsd:double
 ] .
 MESSAGE
 ex:zevenaarshaven-tv-source tss:hasPoint [
-    ex:zevenaarshaven-tv-time-field "2021-03-04T01:00:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-tv-value-field "4775.96"^^xsd:double
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T01:00:00Z"^^xsd:dateTime ;
+    tss:value "4775.96"^^xsd:double
 ] .
 MESSAGE

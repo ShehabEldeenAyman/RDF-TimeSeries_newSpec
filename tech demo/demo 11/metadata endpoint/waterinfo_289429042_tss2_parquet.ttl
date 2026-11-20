@@ -64,7 +64,7 @@ ex:rodenhuizedok-source
 # tss:generatedAtTime records when they were calculated: once, from the final readings.
 
 ex:rodenhuizedok-ts_id-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "ts_id" ;
     rdfs:label "ts_id"@en ;
     tss:datatype xsd:integer ;
@@ -82,7 +82,7 @@ ex:rodenhuizedok-ts_id-field
     ] .
 
 ex:rodenhuizedok-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Timestamp" ;
     rdfs:label "Timestamp"@en ;
     tss:datatype xsd:dateTime ;
@@ -100,7 +100,7 @@ ex:rodenhuizedok-time-field
     ] .
 
 ex:rodenhuizedok-ec20-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "Value" ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Rodenhuizedok (BE)"@en ;
     tss:datatype xsd:double ;
@@ -131,7 +131,7 @@ ex:rodenhuizedok-ec20-field
     ] .
 
 ex:rodenhuizedok-interpolation-type-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Interpolation Type" ;
     rdfs:label "Interpolation Type"@en ;
     tss:datatype xsd:integer ;
@@ -151,7 +151,7 @@ ex:rodenhuizedok-interpolation-type-field
     ] .
 
 ex:rodenhuizedok-quality-code-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Quality Code" ;
     rdfs:label "Quality Code"@en ;
     tss:datatype xsd:integer ;
@@ -171,7 +171,7 @@ ex:rodenhuizedok-quality-code-field
     ] .
 
 ex:rodenhuizedok-quality-code-name-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Quality Code Name" ;
     rdfs:label "Quality Code Name"@en ;
     tss:datatype xsd:string ;
@@ -191,7 +191,7 @@ ex:rodenhuizedok-quality-code-name-field
     ] .
 
 ex:rodenhuizedok-quality-code-description-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Quality Code Description" ;
     rdfs:label "Quality Code Description"@en ;
     tss:datatype rdf:langString ;
@@ -212,12 +212,11 @@ ex:rodenhuizedok-quality-code-description-field
     ] .
 
 ex:rodenhuizedok-quality-code-color-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Quality Code Color" ;
     rdfs:label "Quality Code Color"@en ;
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)."@en ;
-    tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:rodenhuizedok-ec20-field ;
     tss:fieldDescription [
         dcterms:description "Display colour of the quality code (RGBA)."@en ;

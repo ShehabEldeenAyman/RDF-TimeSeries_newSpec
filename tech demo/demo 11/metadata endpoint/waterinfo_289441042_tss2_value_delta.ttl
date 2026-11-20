@@ -58,7 +58,7 @@ ex:zevenaarshaven-vd-source
 # The value summary describes the readings (baseline + difference), not the differences in the file.
 
 ex:zevenaarshaven-vd-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "time" ;
     tss:columnIndex 0 ;
     rdfs:label "Observation time"@en ;
@@ -77,7 +77,7 @@ ex:zevenaarshaven-vd-time-field
     ] .
 
 ex:zevenaarshaven-vd-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value_delta" ;
     tss:columnIndex 1 ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;

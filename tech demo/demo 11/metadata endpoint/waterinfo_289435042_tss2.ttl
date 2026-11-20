@@ -66,7 +66,7 @@ ex:autrichehaven-source
 # tss:generatedAtTime records when they were calculated: once, from the final readings.
 
 ex:autrichehaven-ts_id-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "ts_id" ;
     tss:columnIndex 0 ;
     rdfs:label "ts_id"@en ;
@@ -85,7 +85,7 @@ ex:autrichehaven-ts_id-field
     ] .
 
 ex:autrichehaven-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Timestamp" ;
     tss:columnIndex 1 ;
     rdfs:label "Timestamp"@en ;
@@ -104,7 +104,7 @@ ex:autrichehaven-time-field
     ] .
 
 ex:autrichehaven-ec20-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "Value" ;
     tss:columnIndex 2 ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Autrichehaven (NL)"@en ;
@@ -136,7 +136,7 @@ ex:autrichehaven-ec20-field
     ] .
 
 ex:autrichehaven-interpolation-type-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Interpolation Type" ;
     tss:columnIndex 3 ;
     rdfs:label "Interpolation Type"@en ;
@@ -157,7 +157,7 @@ ex:autrichehaven-interpolation-type-field
     ] .
 
 ex:autrichehaven-quality-code-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Quality Code" ;
     tss:columnIndex 4 ;
     rdfs:label "Quality Code"@en ;
@@ -178,7 +178,7 @@ ex:autrichehaven-quality-code-field
     ] .
 
 ex:autrichehaven-quality-code-name-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Quality Code Name" ;
     tss:columnIndex 5 ;
     rdfs:label "Quality Code Name"@en ;
@@ -199,7 +199,7 @@ ex:autrichehaven-quality-code-name-field
     ] .
 
 ex:autrichehaven-quality-code-description-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Quality Code Description" ;
     tss:columnIndex 6 ;
     rdfs:label "Quality Code Description"@en ;
@@ -220,13 +220,12 @@ ex:autrichehaven-quality-code-description-field
     ] .
 
 ex:autrichehaven-quality-code-color-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "Quality Code Color" ;
     tss:columnIndex 7 ;
     rdfs:label "Quality Code Color"@en ;
     tss:datatype xsd:string ;
     rdfs:comment "Display colour of the quality code (RGBA)"@en ;
-    tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:autrichehaven-ec20-field ;
     tss:fieldDescription [
         dcterms:description "Display colour of the quality code (RGBA)"@en ;

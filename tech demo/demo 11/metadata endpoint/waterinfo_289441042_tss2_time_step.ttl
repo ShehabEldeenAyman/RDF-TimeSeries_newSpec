@@ -72,7 +72,7 @@ ex:zevenaarshaven-ts-source
 # The time field has no column (no tss:columnName, no tss:columnIndex): each row's time is computed
 # from the source's time grid (tss:timeBase, tss:timeStep) and the row's step.
 ex:zevenaarshaven-ts-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
     rdfs:comment "Observation time (UTC): tss:timeBase + step × tss:timeStep"@en ;
@@ -89,7 +89,7 @@ ex:zevenaarshaven-ts-time-field
     ] .
 
 ex:zevenaarshaven-ts-step-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "step" ;
     tss:columnIndex 0 ;
     rdfs:label "Step"@en ;
@@ -108,7 +108,7 @@ ex:zevenaarshaven-ts-step-field
     ] .
 
 ex:zevenaarshaven-ts-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value" ;
     tss:columnIndex 1 ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;

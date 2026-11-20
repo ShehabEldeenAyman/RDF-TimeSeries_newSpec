@@ -57,11 +57,20 @@
 #                S26 summary of a growing source: only a field of a source that states
 #                tss:immutable true has a tss:summary
 #   Not used:  S15 delimiter and encoding on a tss:ParquetSource or tss:ArrowSource (warning)
+#   Warning:   S29 value field: the source has at least one tss:ValueField
 #   Required:  S23 timezone: every time in the metadata has a timezone, also as an xsd:dateTime.
 #              The times in the data file are not checked.
 #
-# The fields (tss:Field, and every object of tss:hasField)
-#   Required:  F1 the field: typed tss:Field, and a field of exactly one source
+# The fields (every object of tss:hasField, and every tss:Field, tss:ValueField or
+# tss:ContextField)
+#   Required:  F1 the field: exactly one of tss:ValueField (its values are readings) and
+#                 tss:ContextField (its values give the context of a row: the time, the step,
+#                 a describing field, an identifier), and a field of exactly one source
+#              F11 field kind: the time field, the step field and every describing field are
+#                  context fields
+#              F12 context field: a context field states no tss:observedProperty, tss:sensor,
+#                  tss:featureOfInterest or tss:aboutUrl
+#              F15 describes field: a describing field describes a value field of its source
 #              F2 column name (unique within the source); the time field of a source with
 #                 a time grid is the one field without a column: no tss:columnName, no
 #                 tss:columnIndex (a row's time is the time of its step, S21)
@@ -69,6 +78,10 @@
 #   Optional:  F4 column index (unique within the source)   F5 label   F6 comment
 #              F7 minimum   F8 maximum (not below the minimum)
 #              F10 summary (each summary attribute is also optional)
+#              F13 field property: one IRI, only on a describing field, not rdf:type or a TSS
+#                  term, unique within the source (without one, a describing field's property is
+#                  made from the data file's IRI and its column name)
+#              F14 about URL: one text, a URI template for the IRIs of the points of a value field
 #
 # The value encoding of a field (optional tss:valueEncoding and tss:baseline on a field)
 #   Optional:     D1 value encoding (one IRI: tss:DeltaFromBaseline, each value is the
@@ -88,7 +101,7 @@
 # or compare observed extrema with the expected tss:minimum / tss:maximum range.
 #
 # Any other property (tss:header, tss:observedProperty, tss:unit, tss:sensor,
-# tss:featureOfInterest, tss:describesField, tss:language, ...) is allowed and not checked.
+# tss:featureOfInterest, tss:language, ...) is allowed and not checked.
 #
 # Every check is in one of these groups (sh:group):
 #   Required   sh:Violation  missing or malformed: the metadata does not conform
@@ -200,8 +213,8 @@ ext:SourceShape a sh:NodeShape ;
         sh:group ext:Required ;
         sh:path tss:hasField ;
         sh:minCount 1 ;
-        sh:class tss:Field ;
-        sh:message "The source needs at least one tss:hasField, and each of them must be a described tss:Field." ;
+        sh:nodeKind sh:BlankNodeOrIRI ;
+        sh:message "The source needs at least one tss:hasField, and each of them must be a field node: a tss:ValueField or a tss:ContextField (F1)." ;
     ] ;
     sh:property [
         sh:name "S8 data file" ;
@@ -280,8 +293,8 @@ ext:SourceShape a sh:NodeShape ;
         sh:group ext:Optional ;
         sh:path tss:stepField ;
         sh:maxCount 1 ;
-        sh:class tss:Field ;
-        sh:message "tss:stepField must be one described tss:Field: the field whose column holds the step of each row on the source's time grid." ;
+        sh:class tss:ContextField ;
+        sh:message "tss:stepField must be one tss:ContextField: the field whose column holds the step of each row on the source's time grid." ;
     ] ;
     # Not allowed: the readings of an external source are the rows of its data file
     sh:property [
@@ -534,17 +547,10 @@ ext:TimezoneShape a sh:NodeShape ;
 # Every tss:Field, and every object of tss:hasField (so an untyped field is checked too)
 
 ext:FieldShape a sh:NodeShape ;
-    sh:targetClass tss:Field ;
+    sh:targetClass tss:Field, tss:ValueField, tss:ContextField ;
     sh:targetObjectsOf tss:hasField ;
 
     # Required
-    sh:property [
-        sh:name "F1 the field" ;
-        sh:group ext:Required ;
-        sh:path rdf:type ;
-        sh:hasValue tss:Field ;
-        sh:message "A field must be typed tss:Field." ;
-    ] ;
     sh:property [
         sh:name "F1 the field belongs to a source" ;
         sh:group ext:Required ;
@@ -613,6 +619,22 @@ ext:FieldShape a sh:NodeShape ;
         sh:message "tss:maximum must be one number (xsd:integer, xsd:decimal, xsd:double or xsd:float)." ;
     ] ;
 
+    sh:property [
+        sh:name "F13 field property" ;
+        sh:group ext:Optional ;
+        sh:path tss:property ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "tss:property must be one IRI: the property that states the values of a describing field on the points it describes." ;
+    ] ;
+    sh:property [
+        sh:name "F14 about URL" ;
+        sh:group ext:Optional ;
+        sh:path tss:aboutUrl ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "tss:aboutUrl must be one text: a URI template (RFC 6570) that makes the IRI of each point of a value field." ;
+    ] ;
     sh:property [
         sh:name "F10 summary" ;
         sh:group ext:Optional ;
@@ -751,7 +773,97 @@ ext:FieldShape a sh:NodeShape ;
                 $this tss:minimum ?minimum ; tss:maximum ?value .
                 FILTER (?value < ?minimum)
             }""" ;
-    ] .
+    ] ;
+
+    # F1: every field is a value field (its values are readings) or a context field (its
+    # values give the context of a row: the time, the step, a describing field, an identifier)
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F1 the field: a field states one of tss:ValueField and tss:ContextField as its rdf:type: whether its values are readings or give the context of a row." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS { $this a ?kind . FILTER (?kind IN (tss:ValueField, tss:ContextField)) }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F1 the field: a field is a tss:ValueField or a tss:ContextField, not both." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this WHERE {
+                $this a tss:ValueField, tss:ContextField .
+            }""" ;
+    ] ;
+    # F11: the time field, the step field and every describing field are context fields
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F11 field kind: this field is {?role}, so it is a tss:ContextField, not a tss:ValueField: its values are not readings." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT DISTINCT $this ?role WHERE {
+                $this a tss:ValueField .
+                { ?source tss:timeField $this . BIND ("the time field" AS ?role) }
+                UNION { ?source tss:stepField $this . BIND ("the step field" AS ?role) }
+                UNION { $this tss:describesField ?described . BIND ("a describing field" AS ?role) }
+            }""" ;
+    ] ;
+    # F12: what a reading means is stated on a value field only
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F12 context field: a tss:ContextField states no {?value}: its values are not readings, so they observe nothing." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this a tss:ContextField ; ?value ?any .
+                FILTER (?value IN (tss:observedProperty, tss:sensor, tss:featureOfInterest, tss:aboutUrl))
+            }""" ;
+    ] ;
+    # F13: only a describing field states tss:property: the property that states its values on
+    # the points it describes. A point states its time and its reading with tss:time and tss:value.
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F13 field property: only a describing field (tss:describesField) states tss:property; a point states its time with tss:time and its reading with tss:value." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:property ?value .
+                FILTER NOT EXISTS { $this tss:describesField ?described }
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F13 field property: tss:property is {?value}, which is rdf:type or a term of the TSS vocabulary; a describing field states its values with a property of its own." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:property ?value .
+                FILTER (?value = <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> || STRSTARTS(STR(?value), "https://w3id.org/tss#"))
+            }""" ;
+    ] ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F13 field property: another describing field of the same source has the property {?value}." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                ?source tss:hasField $this, ?other .
+                $this tss:property ?value .
+                ?other tss:property ?value .
+                FILTER (?other != $this)
+            }""" ;
+    ] ;
+    # F15: a describing field describes a value field of its own source
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "F15 describes field: {?value} is not a value field (tss:ValueField) of the same source; a describing field says something about the readings of a value field in the same row." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:describesField ?value .
+                FILTER NOT EXISTS { ?source tss:hasField $this, ?value . ?value a tss:ValueField }
+            }""" ;
+    ] ; .
 
 # --- Optional field summaries --------------------------------------------------
 # No sh:minCount: neither the summary nor any of its attributes is mandatory.
@@ -894,5 +1006,23 @@ ext:ParquetRangeRequestsShape a sh:NodeShape ;
             SELECT $this ?value WHERE {
                 $this tss:rangeRequests ?value .
                 FILTER (?value = true)
+            }""" ;
+    ] .
+
+
+# --- S29: a source has at least one value field ----------------------------------
+# A shape of its own, because a SPARQL check takes its severity from its shape. A source
+# SHOULD have a value field: a source without one holds no readings.
+
+ext:ValueFieldShape a sh:NodeShape ;
+    sh:targetClass tss:ParquetSource, tss:CSVSource, tss:ArrowSource ;
+    sh:severity sh:Warning ;
+    sh:sparql [
+        a sh:SPARQLConstraint ;
+        sh:message "S29 value field: the source has no tss:ValueField, so it holds no readings." ;
+        sh:prefixes <https://w3id.org/tss/shapes/external> ;
+        sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS { $this tss:hasField ?field . ?field a tss:ValueField }
             }""" ;
     ] .

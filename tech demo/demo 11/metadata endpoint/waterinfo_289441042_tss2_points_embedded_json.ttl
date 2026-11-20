@@ -11,17 +11,18 @@
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
 # Source windows are [from, until).
-# tss:key is the time field: no two points have the same time.
+# tss:key is the time field: no two rows have the same time.
 # tss:columnIndex is optional when tss:columnName identifies a field; indices are zero-based.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
-# A copy of waterinfo_289441042_tss2_points_embedded.ttl whose points are JSON instead of RDF.
+# A copy of waterinfo_289441042_tss2_points_embedded.ttl whose rows are JSON instead of RDF points.
 # One embedded source contains both series, with one shared time field.
-# The source window applies to all fields; the points are five-reading samples.
-# A tss:EmbeddedJSONSource keeps its points in one rdf:JSON literal, tss:points: a JSON array
-# with one object per point, keyed by the fields' tss:columnName. Each value is a JSON string in
+# The source window applies to all fields; the rows are five-reading samples.
+# A tss:EmbeddedJSONSource keeps its rows in one rdf:JSON literal, tss:points: a JSON array
+# with one object per row, keyed by the fields' tss:columnName. Each value is a JSON string in
 # the lexical form of its field's tss:datatype. "", null or a missing key means no value; the
-# points are unordered (sort by the tss:timeField).
+# rows are unordered (sort by the tss:timeField). Expanded, each row is one point: an EC20
+# reading (tss:value), with its time (tss:time) and its quality colour.
 # The source and its fields have their own IRIs (ex:zevenaarshaven-json-...), so the two documents
 # never describe the same node in two ways; the sensor, the feature of interest and the station
 # are the same real-world things, so they keep their IRIs.
@@ -39,7 +40,7 @@ ex:zevenaarshaven-json-source
     # Immutable: final, no reading is added any more. Only an immutable source has stored summaries.
     tss:immutable true ;
     tss:producedBy ex:289441042 ;
-    # The points' times are JSON strings in the form of an xsd:dateTime (a timezone is required), such as
+    # The rows' times are JSON strings in the form of an xsd:dateTime (a timezone is required), such as
     # "2021-03-03T23:15:00Z".
     tss:timeField ex:zevenaarshaven-json-time-field ;
     tss:key ex:zevenaarshaven-json-time-field ;
@@ -71,7 +72,7 @@ ex:zevenaarshaven-json-source
 # tss:generatedAtTime records when they were calculated: once, from the final readings.
 
 ex:zevenaarshaven-json-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "time" ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
@@ -88,7 +89,7 @@ ex:zevenaarshaven-json-time-field
     ] .
 
 ex:zevenaarshaven-json-ec20-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "ec20" ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:double ;
@@ -118,11 +119,10 @@ ex:zevenaarshaven-json-ec20-value-field
     ] .
 
 ex:zevenaarshaven-json-quality-color-value-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "qualityColor" ;
     rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:string ;
-    tss:observedProperty ex:qualityCodeColor ;
     tss:describesField ex:zevenaarshaven-json-ec20-value-field ;
     tss:fieldDescription [
         dcterms:description "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;

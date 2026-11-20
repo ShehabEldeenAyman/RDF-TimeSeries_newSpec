@@ -11,8 +11,10 @@
 # The new TSS schema, field, source and locator terms are proposal vocabulary.
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
 # Source windows are [from, until).
-# tss:key is the time field: no two points have the same time.
-# The fields state no tss:columnName: in RDF points, the IRI of a field is the predicate of its values.
+# tss:key is the time field: no two rows have the same time.
+# Every field is a tss:ValueField (its values are readings) or a tss:ContextField (the time, and the
+# quality colour, which describes the EC20 readings). A point states its time with tss:time and its
+# reading with tss:value; the fields state no tss:columnName.
 # RDFS/catalog annotations and external datatype/unit identifiers are retained.
 
 # One embedded source contains both series, with one shared time field.
@@ -56,7 +58,7 @@ ex:zevenaarshaven-source
 # tss:generatedAtTime records when they were calculated: once, from the final readings.
 
 ex:zevenaarshaven-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
     tss:datatype xsd:dateTime ;
     tss:fieldDescription [
@@ -72,7 +74,7 @@ ex:zevenaarshaven-time-field
     ] .
 
 ex:zevenaarshaven-ec20-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;
@@ -101,10 +103,12 @@ ex:zevenaarshaven-ec20-value-field
     ] .
 
 ex:zevenaarshaven-quality-color-value-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
     tss:datatype xsd:string ;
-    tss:observedProperty ex:qualityCodeColor ;
+    # A describing field states its values on the points it describes, with its own property.
+    # As a context field, it states no tss:observedProperty.
+    tss:property ex:qualityCodeColor ;
     tss:describesField ex:zevenaarshaven-ec20-value-field ;
     tss:fieldDescription [
         dcterms:description "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
@@ -123,36 +127,39 @@ ex:zevenaarshaven-quality-color-value-field
 # Points: one RDF node per point, at the end of the document. This source is immutable, so it
 # is plain Turtle; a growing one is an RDF Message Log with one point per message
 # (see waterinfo_289441042_tss2_points_time_value.ttl).
-# tss:hasPoint links the source to each point. Each value has its field's IRI as predicate
-# and is typed with the field's tss:datatype; a missing value has no triple.
-# The points are unordered (sort by the value of the tss:timeField).
+# tss:hasPoint links the source to each point: one EC20 reading, with its time (tss:time), its
+# reading (tss:value) and the quality colour that describes it (ex:qualityCodeColor, the
+# tss:property of the quality colour field). Each value is typed with its field's tss:datatype;
+# a missing value has no triple. The source has one value field, so the points leave out
+# tss:field: every point is a point of ex:zevenaarshaven-ec20-value-field.
+# The points are unordered (sort by tss:time).
 
 ex:zevenaarshaven-source tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-03T23:15:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-ec20-value-field "4797.72"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+    tss:time "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:value "4797.72"^^xsd:double ;
+    ex:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .
 
 ex:zevenaarshaven-source tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-03T23:30:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-ec20-value-field "4717.8"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+    tss:time "2021-03-03T23:30:00Z"^^xsd:dateTime ;
+    tss:value "4717.8"^^xsd:double ;
+    ex:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .
 
 ex:zevenaarshaven-source tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-03T23:45:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-ec20-value-field "4745.36"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+    tss:time "2021-03-03T23:45:00Z"^^xsd:dateTime ;
+    tss:value "4745.36"^^xsd:double ;
+    ex:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .
 
 ex:zevenaarshaven-source tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-04T00:30:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-ec20-value-field "4716.1"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+    tss:time "2021-03-04T00:30:00Z"^^xsd:dateTime ;
+    tss:value "4716.1"^^xsd:double ;
+    ex:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .
 
 ex:zevenaarshaven-source tss:hasPoint [
-    ex:zevenaarshaven-time-field "2021-03-04T01:00:00Z"^^xsd:dateTime ;
-    ex:zevenaarshaven-ec20-value-field "4775.96"^^xsd:double ;
-    ex:zevenaarshaven-quality-color-value-field "rgba(0, 128, 0, 1.0)"^^xsd:string
+    tss:time "2021-03-04T01:00:00Z"^^xsd:dateTime ;
+    tss:value "4775.96"^^xsd:double ;
+    ex:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string
 ] .

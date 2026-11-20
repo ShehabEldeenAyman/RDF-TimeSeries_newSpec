@@ -17,8 +17,8 @@ ex:csvSource
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/csv.csv> .
-ex:csvTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
-ex:csvValue a tss:Field ;
+ex:csvTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
+ex:csvValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;
@@ -41,8 +41,8 @@ ex:parquetSource
     tss:hasField ex:parquetTime, ex:parquetValue ;
     tss:from "2025-12-01T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/parquet.parquet> .
-ex:parquetTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "recorded_at" .
-ex:parquetValue a tss:Field ;
+ex:parquetTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "recorded_at" .
+ex:parquetValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;
@@ -63,8 +63,8 @@ ex:arrowSource
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:rangeRequests true ;
     tss:dataFile <https://example.org/rdftss-cq/data/arrow.arrows> .
-ex:arrowTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
-ex:arrowValue a tss:Field ;
+ex:arrowTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
+ex:arrowValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;
@@ -85,15 +85,15 @@ ex:gridSource
     tss:timeBase "2026-01-01T08:00:00Z"^^xsd:dateTime ;
     tss:timeStep "PT15M"^^xsd:duration ;
     tss:stepField ex:gridStep .
-ex:gridTime a tss:Field ; tss:datatype xsd:dateTime .
-ex:gridValue a tss:Field ;
+ex:gridTime a tss:ContextField ; tss:datatype xsd:dateTime .
+ex:gridValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;
     tss:sensor ex:sensorA ;
     tss:unit unit:MicroS-PER-CentiM ;
     tss:columnName "value" .
-ex:gridStep a tss:Field ; tss:columnName "step" ; tss:datatype xsd:integer .
+ex:gridStep a tss:ContextField ; tss:columnName "step" ; tss:datatype xsd:integer .
 }
 
 ex:deltaDocument {
@@ -105,8 +105,8 @@ ex:deltaSource
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/delta.csv> .
-ex:deltaTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
-ex:deltaValue a tss:Field ;
+ex:deltaTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
+ex:deltaValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;
@@ -126,8 +126,8 @@ ex:otherPropertySource
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/otherProperty.csv> .
-ex:otherPropertyTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
-ex:otherPropertyValue a tss:Field ;
+ex:otherPropertyTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
+ex:otherPropertyValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:Temperature ;
     tss:featureOfInterest ex:WaterBodyA ;
@@ -145,8 +145,8 @@ ex:otherFeatureSource
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/otherFeature.csv> .
-ex:otherFeatureTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
-ex:otherFeatureValue a tss:Field ;
+ex:otherFeatureTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
+ex:otherFeatureValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyB ;
@@ -164,8 +164,8 @@ ex:beforeSource
     tss:from "2025-12-31T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/before.csv> .
-ex:beforeTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
-ex:beforeValue a tss:Field ;
+ex:beforeTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
+ex:beforeValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;
@@ -183,8 +183,8 @@ ex:afterSource
     tss:from "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-03T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <https://example.org/rdftss-cq/data/after.csv> .
-ex:afterTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
-ex:afterValue a tss:Field ;
+ex:afterTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
+ex:afterValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;
@@ -202,8 +202,8 @@ ex:jsonSource
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime ;
     tss:points "[]"^^rdf:JSON .
-ex:jsonTime a tss:Field ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
-ex:jsonValue a tss:Field ;
+ex:jsonTime a tss:ContextField ; tss:datatype xsd:dateTime ; tss:columnName "timestamp" .
+ex:jsonValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;
@@ -220,8 +220,8 @@ ex:rdfSource
     tss:hasField ex:rdfTime, ex:rdfValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTime ;
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTime .
-ex:rdfTime a tss:Field ; tss:datatype xsd:dateTime .
-ex:rdfValue a tss:Field ;
+ex:rdfTime a tss:ContextField ; tss:datatype xsd:dateTime .
+ex:rdfValue a tss:ValueField ;
     tss:datatype xsd:double ;
     tss:observedProperty ex:ElectricalConductivity ;
     tss:featureOfInterest ex:WaterBodyA ;

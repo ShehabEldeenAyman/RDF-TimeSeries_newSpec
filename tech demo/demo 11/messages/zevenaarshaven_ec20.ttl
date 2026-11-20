@@ -36,13 +36,13 @@ ex:zevenaarshaven-csv-source
         ex:zevenaarshaven-csv-quality-color-field .
 
 ex:zevenaarshaven-csv-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
     tss:columnName "time" ;
     tss:datatype xsd:dateTime .
 
 ex:zevenaarshaven-csv-ec20-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
     tss:columnName "ec20" ;
     tss:datatype xsd:double ;
@@ -66,13 +66,15 @@ ex:zevenaarshaven-csv-ec20-field
         tss:generatedAtTime "2026-11-20T12:00:00Z"^^xsd:dateTime
     ] .
 
-# A describing field: the quality code colour of each EC20 reading.
+# A describing field: the quality code colour of each EC20 reading. It is a context field: its
+# values are not readings, so it states no tss:observedProperty. Its values are stated on the
+# point of the EC20 reading they describe, with its own property, ex:qualityCodeColor.
 ex:zevenaarshaven-csv-quality-color-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Quality code colour of the EC20 values, Zevenaarshaven (NL)"@en ;
     tss:columnName "quality_color" ;
     tss:datatype xsd:string ;
-    tss:observedProperty ex:qualityCodeColor ;
+    tss:property ex:qualityCodeColor ;
     tss:describesField ex:zevenaarshaven-csv-ec20-field ;
     tss:summary [
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
