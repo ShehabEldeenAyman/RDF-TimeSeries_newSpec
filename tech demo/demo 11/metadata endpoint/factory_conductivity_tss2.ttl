@@ -28,12 +28,11 @@ ex:factory-snippet
             rdfs:label "Factory site"@en
         ]
     ] ;
-    tss:mutable false ;
+    # Immutable: final, no reading is added any more. Only an immutable snippet has stored summaries.
+    tss:immutable true ;
     tss:producedBy ex:system1 ;
     tss:from "2025-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    # Committed until: the last time the snippet and its data were checked to be up to date.
-    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTimeStamp ;
     tss:dataFile <../data/factory_conductivity.csv> ;
     # The "datetime" column of the data file holds times with a UTC offset such as
     # 2025-01-01T00:00:00+00:00: xsd:dateTimeStamp texts (a timezone is required).
@@ -72,7 +71,7 @@ ex:factory-snippet
 # All present readings are included regardless of quality codes or the expected range.
 # Observed extrema do not replace the expected tss:minimum / tss:maximum range.
 # For embedded data these summaries describe only the supplied sample points.
-# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# tss:generatedAtTime records when they were calculated: once, from the final readings.
 
 ex:factory-time-field
     a tss:Field ;

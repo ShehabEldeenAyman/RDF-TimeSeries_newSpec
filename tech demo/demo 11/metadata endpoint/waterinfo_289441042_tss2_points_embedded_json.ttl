@@ -36,7 +36,8 @@ ex:zevenaarshaven-json-snippet
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
         ]
     ] ;
-    tss:mutable false ;
+    # Immutable: final, no reading is added any more. Only an immutable snippet has stored summaries.
+    tss:immutable true ;
     tss:producedBy ex:289441042 ;
     # The points' times are JSON strings in the form of an xsd:dateTimeStamp (a timezone is required), such as
     # "2021-03-03T23:15:00Z".
@@ -44,8 +45,6 @@ ex:zevenaarshaven-json-snippet
     tss:key ex:zevenaarshaven-json-time-field ;
     tss:from "2021-03-03T23:15:00Z"^^xsd:dateTimeStamp ;
     tss:until "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
-    # Committed until: the last time the snippet and its data were checked to be up to date.
-    tss:committedUntil "2026-10-26T11:43:43Z"^^xsd:dateTimeStamp ;
     tss:hasField ex:zevenaarshaven-json-time-field,
         ex:zevenaarshaven-json-ec20-value-field,
         ex:zevenaarshaven-json-quality-color-value-field ;
@@ -69,7 +68,7 @@ ex:zevenaarshaven-json-snippet
 # All present readings are included regardless of quality codes or the expected range.
 # Observed extrema do not replace the expected tss:minimum / tss:maximum range.
 # For embedded data these summaries describe only the supplied sample points.
-# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# tss:generatedAtTime records when they were calculated: once, from the final readings.
 
 ex:zevenaarshaven-json-time-field
     a tss:Field ;

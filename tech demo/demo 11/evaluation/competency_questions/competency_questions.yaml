@@ -124,18 +124,21 @@ competency questions:
     interpretation: Parameters are optional independently so incomplete declarations remain visible. This is retrieval, not validation. No timestamp or measurement reconstruction is performed.
   Source assessment:
   - id: CQ7
-    question: What update policy is declared for selected sources, and when were they last checked?
-    example: Compare immutable CSV and append-only Parquet source descriptions.
+    question: Which selected sources are final, and which are still growing?
+    example: Compare a final CSV snippet with a growing Arrow stream.
     query: |
       PREFIX tss: <https://w3id.org/tss#>
       PREFIX ex: <https://example.org/rdftss-cq/>
       PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-      SELECT ?snippet ?mutable ?checkedAt WHERE {
-          VALUES ?snippet { ex:csvSnippet ex:parquetSnippet }
-          ?snippet tss:mutable ?mutable ; tss:committedUntil ?checkedAt .
+      SELECT ?snippet ?profile ?immutable WHERE {
+          VALUES ?snippet { ex:csvSnippet ex:arrowSnippet }
+          VALUES ?profile { tss:CSVSnippet tss:ParquetSnippet tss:ArrowSnippet tss:EmbeddedJSONSnippet tss:EmbeddedRDFSnippet }
+          ?snippet a ?profile .
+          OPTIONAL { ?snippet tss:immutable ?declared }
+          BIND (COALESCE(?declared, false) AS ?immutable)
       } ORDER BY ?snippet
-    interpretation: committedUntil is the declared check/write time, not the newest measurement or a completeness watermark. The query does not verify publisher behavior.
+    interpretation: A snippet that does not state tss:immutable is growing (the default is false). The metadata does not say when a growing snippet last changed; a consumer finds that out with HTTP validators (ETag, Last-Modified). The query does not verify publisher behavior.
   - id: CQ8
     question: Which declared summaries are available for selected measurement fields, and what snippet windows do they describe?
     example: Retrieve available CSV statistics and preserve a Parquet result with no summary.

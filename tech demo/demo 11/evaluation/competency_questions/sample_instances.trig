@@ -11,8 +11,7 @@
 ex:csvDocument {
 ex:csvSnippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:csvTime ;
     tss:hasField ex:csvTime, ex:csvValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -37,8 +36,7 @@ ex:csvSummary tss:count 3 ; tss:missing 0 ;
 ex:parquetDocument {
 ex:parquetSnippet
     a tss:ParquetSnippet ;
-    tss:mutable true ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:parquetTime ;
     tss:hasField ex:parquetTime, ex:parquetValue ;
     tss:from "2025-12-01T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -56,13 +54,13 @@ ex:parquetValue a tss:Field ;
 ex:arrowDocument {
 ex:arrowSnippet
     a tss:ArrowSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    # Growing: it does not state tss:immutable true, so record batches may still be appended
+    # to its data file, an Arrow IPC stream.
     tss:timeField ex:arrowTime ;
     tss:hasField ex:arrowTime, ex:arrowValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:dataFile <https://example.org/rdftss-cq/data/arrow.arrow> .
+    tss:dataFile <https://example.org/rdftss-cq/data/arrow.arrows> .
 ex:arrowTime a tss:Field ; tss:datatype xsd:dateTimeStamp ; tss:columnName "timestamp" .
 ex:arrowValue a tss:Field ;
     tss:datatype xsd:double ;
@@ -76,8 +74,7 @@ ex:arrowValue a tss:Field ;
 ex:gridDocument {
 ex:gridSnippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:gridTime ;
     tss:hasField ex:gridTime, ex:gridValue, ex:gridStep ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -100,8 +97,7 @@ ex:gridStep a tss:Field ; tss:columnName "step" ; tss:datatype xsd:integer .
 ex:deltaDocument {
 ex:deltaSnippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:deltaTime ;
     tss:hasField ex:deltaTime, ex:deltaValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -122,8 +118,7 @@ ex:deltaValue a tss:Field ;
 ex:otherPropertyDocument {
 ex:otherPropertySnippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:otherPropertyTime ;
     tss:hasField ex:otherPropertyTime, ex:otherPropertyValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -142,8 +137,7 @@ ex:otherPropertyValue a tss:Field ;
 ex:otherFeatureDocument {
 ex:otherFeatureSnippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:otherFeatureTime ;
     tss:hasField ex:otherFeatureTime, ex:otherFeatureValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -162,8 +156,7 @@ ex:otherFeatureValue a tss:Field ;
 ex:beforeDocument {
 ex:beforeSnippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:beforeTime ;
     tss:hasField ex:beforeTime, ex:beforeValue ;
     tss:from "2025-12-31T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -182,8 +175,7 @@ ex:beforeValue a tss:Field ;
 ex:afterDocument {
 ex:afterSnippet
     a tss:CSVSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:afterTime ;
     tss:hasField ex:afterTime, ex:afterValue ;
     tss:from "2026-01-02T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -202,8 +194,7 @@ ex:afterValue a tss:Field ;
 ex:jsonDocument {
 ex:jsonSnippet
     a tss:EmbeddedJSONSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:jsonTime ;
     tss:hasField ex:jsonTime, ex:jsonValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;
@@ -222,8 +213,7 @@ ex:jsonValue a tss:Field ;
 ex:rdfDocument {
 ex:rdfSnippet
     a tss:EmbeddedRDFSnippet ;
-    tss:mutable false ;
-    tss:committedUntil "2026-01-02T10:00:00Z"^^xsd:dateTimeStamp ;
+    tss:immutable true ;
     tss:timeField ex:rdfTime ;
     tss:hasField ex:rdfTime, ex:rdfValue ;
     tss:from "2026-01-01T00:00:00Z"^^xsd:dateTimeStamp ;

@@ -19,8 +19,9 @@ Almost every change is breaking: a metadata document that conforms to `main` doe
 6. **New: value encoding.** A data file can state values as differences from a baseline (`tss:valueEncoding`, `tss:baseline`, `tss:DeltaFromBaseline`).
 7. **Every time must have a timezone.** All times are `xsd:dateTimeStamp`.
 8. **The key is always the time field.** `tss:key` takes at most one value, and that value must be the time field.
-9. **`tss:modifiedAt` is removed.** `tss:committedUntil` is the only time of change.
-10. **Summaries use `tss:generatedAtTime`** in place of `prov:generatedAtTime`. Summaries get their own class, `tss:Summary`.
+9. **`tss:modifiedAt`, `tss:committedUntil` and `tss:mutable` are removed.** The optional `tss:immutable` (default `false`) says whether a snippet is final; a consumer detects changes with HTTP validators.
+10. **Summaries use `tss:generatedAtTime`** in place of `prov:generatedAtTime`. Summaries get their own class, `tss:Summary`, and only an immutable snippet has them.
+11. **New: growing snippets can be followed** ([PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25)). A growing `tss:EmbeddedRDFSnippet` is an RDF Message Log, data files only grow, a writer ends a snippet with `tss:immutable true`, and a consumer fetches only the new bytes with HTTP Range requests.
 
 ## 1. Source becomes Snippet
 
@@ -110,12 +111,12 @@ A field of an external snippet MAY state that its values are not the readings th
 | | `main` | demo 11 |
 |---|---|---|
 | Datatype of the time field | SHOULD be `xsd:dateTime`; `xsd:dateTimeStamp` allowed | MUST be `xsd:dateTimeStamp` |
-| Times in the metadata (`tss:committedUntil`, `tss:from`, `tss:until`, `tss:timeBase`, summary times) | `xsd:dateTime` | literals with datatype `xsd:dateTimeStamp` |
+| Times in the metadata (`tss:from`, `tss:until`, `tss:timeBase`, summary times) | `xsd:dateTime` | literals with datatype `xsd:dateTimeStamp` |
 | Timezone | SHOULD; a time without one is read as UTC | MUST; a time without one is not valid |
 
 - A new section, `#times`, lists every time of a snippet and says that times are compared as the moments they stand for.
 - In the Parquet and Arrow tables, a timestamp column without a timezone can no longer hold the time field. It may still be an `xsd:dateTime` value of another field.
-- In the vocabulary, the range of `tss:committedUntil`, `tss:from`, `tss:until`, `tss:timeBase`, `tss:firstTime`, `tss:lastTime` and `tss:generatedAtTime` is now `xsd:dateTimeStamp`.
+- In the vocabulary, the range of `tss:from`, `tss:until`, `tss:timeBase`, `tss:firstTime`, `tss:lastTime` and `tss:generatedAtTime` is now `xsd:dateTimeStamp`.
 - `sosa:resultTime` in the observations example stays `xsd:dateTime`, the range that SOSA declares.
 
 ## 8. The key is the time field
@@ -139,27 +140,37 @@ A field of an external snippet MAY state that its values are not the readings th
 
 ## 10. Changes over time
 
-- **`tss:modifiedAt` is removed**, from the snippet table, the examples, the write steps and the vocabulary, along with its `rdfs:subPropertyOf dcterms:modified`. `tss:committedUntil` is the only time of change, and every write sets it.
-- **`tss:mutable` on an external snippet now has a meaning**: `true` means rows may be added to the file, but no row is changed or removed. This resolves the open issue on `main` about whether external snippets are append-only.
-- **Writes** now cover both embedded forms: they append a `tss:hasPoint` statement or rewrite `tss:points`. A new example, `example-write`, shows a point being added.
+This section follows [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25), "Defining how to follow a growing snippet" (closes issues #18, #20, #21 and #23).
+
+- **`tss:modifiedAt` is removed**, from the snippet table, the examples, the write steps and the vocabulary, along with its `rdfs:subPropertyOf dcterms:modified`.
+- **`tss:mutable` becomes `tss:immutable`**, named after `ldes:immutable`. It is optional, with default `false`. `true` means the snippet is final: no point is added, changed or removed, and its description does not change any more. `false`, or no `tss:immutable`, means the snippet is a new defined term, a **Growing Snippet**: it is append-only. An immutable snippet never becomes growing again. `tss:mutable true` is now the default, and `tss:mutable false` is `tss:immutable true`.
+- **`tss:committedUntil` is removed.** A consumer finds out whether a growing snippet changed with HTTP validators (`ETag`, `Last-Modified`) and `Cache-Control`, not from the metadata.
+- **A growing snippet's description does not change**: its class, fields, time window, data file and time grid stay as they are, and every new point MUST lie in the window. A Write no longer widens the window, sets a time of change or recomputes summaries: it only adds points.
+- **Some snippets are always immutable**: a `tss:ParquetSnippet` (a Parquet file cannot be appended to) and a `tss:ArrowSnippet` in the Arrow IPC file format MUST state `tss:immutable true`.
+- **Arrow**: the IPC streaming format is now allowed, and a growing Arrow snippet MUST use it. A consumer tells the two formats apart by the first bytes of the file (`ARROW1` or `0xFFFFFFFF`).
+- **RDF Message Log**: the metadata document of a growing `tss:EmbeddedRDFSnippet` MUST be an RDF Message Log (RDF Messages, version label `1.2-messages`). The first message describes the snippet, each next message holds points, and every message ends with a delimiter (`MESSAGE` or `@message .`). The embedded example is now written this way.
+- **Writes** (`#updating`, renamed "Adding points to a growing snippet") are split in three: embedded snippets (`#updating-embedded`: append one message, or rewrite `tss:points` with the existing points unchanged and in the same order), data files (`#appending-data-files`: complete CSV records ending with a line break; complete Arrow stream messages, no end-of-stream marker while growing), and **ending a growing snippet** (`#ending`: add `tss:immutable true` and, optionally, the summaries; in a log, as one last message, which never states `tss:immutable false`).
+- **New section: following a growing snippet** (`#following`): polling with conditional requests and `Cache-Control`, reading only the new bytes with `Range: bytes=N-` in units that a writer appends whole (an RDF message, a CSV record, an Arrow message), handling `206`, `416`, `200`, `404` and `410`, and a fallback to a full re-read. Embedded JSON points are re-read as a whole document.
+- **Conformance**: a conforming consumer follows a growing snippet as `#following` says; a conforming writer also appends to data files and ends snippets as the spec says.
 
 ## 11. Stored summaries
 
 - `prov:generatedAtTime` is now `tss:generatedAtTime`, an `rdfs:subPropertyOf prov:generatedAtTime` with range `xsd:dateTimeStamp`. The spec no longer uses PROV-O directly.
 - New classes: `tss:Summary`, the range of `tss:summary` and the domain of every summary attribute, and `tss:MissingValuePolicy`, of which `tss:ExcludeEmptyValues` is now an instance.
 - Summaries are computed from the decoded values (see [§6](#6-new-value-encoding)).
+- **Only an immutable snippet has summaries.** A field of a growing snippet MUST NOT have a `tss:summary`: a summary is computed once, from the final points, when the writer ends the snippet. A Write no longer recomputes summaries.
 
 ## 12. Vocabulary (`tss.ttl`)
 
-**Removed (7):** `tss:Source`, `tss:embedded`, `tss:format`, `tss:CSV`, `tss:Parquet`, `tss:modifiedAt`, `tss:sourceDescription`.
+**Removed (9):** `tss:Source`, `tss:embedded`, `tss:format`, `tss:CSV`, `tss:Parquet`, `tss:modifiedAt`, `tss:sourceDescription`, `tss:committedUntil`, `tss:mutable`.
 
-**Added (19):**
+**Added (20):**
 
 | Kind | Terms |
 |---|---|
 | Classes | `tss:Snippet`, `tss:EmbeddedRDFSnippet`, `tss:EmbeddedJSONSnippet`, `tss:CSVSnippet`, `tss:ParquetSnippet`, `tss:ArrowSnippet`, `tss:Point`, `tss:Summary`, `tss:MissingValuePolicy`, `tss:ValueEncoding` |
 | Individual | `tss:DeltaFromBaseline` |
-| Properties | `tss:hasPoint`, `tss:snippetDescription`, `tss:timeBase`, `tss:timeStep`, `tss:stepField`, `tss:valueEncoding`, `tss:baseline`, `tss:generatedAtTime` |
+| Properties | `tss:immutable` (replaces `tss:mutable`), `tss:hasPoint`, `tss:snippetDescription`, `tss:timeBase`, `tss:timeStep`, `tss:stepField`, `tss:valueEncoding`, `tss:baseline`, `tss:generatedAtTime` |
 
 **Changed:**
 
@@ -177,7 +188,8 @@ A field of an external snippet MAY state that its values are not the readings th
   A field of an RDF snippet is not a table column, and it may have no column name.
 - **`tss:key`** becomes an `owl:FunctionalProperty`.
 - **Ranges of the time properties** become `xsd:dateTimeStamp` (see [§7](#7-times-a-timezone-is-required)).
-- **Ontology header:** the two editors (Pieter Colpaert, Shehab Abdelfatah) are stated as `dcterms:creator` instead of `dcterms:contributor`; `dcterms:license` is added (CC BY 4.0); `dcterms:modified` and the description are updated.
+- **Comments** of `tss:EmbeddedRDFSnippet` (a growing one is an RDF Message Log), `tss:ParquetSnippet` and `tss:ArrowSnippet` (when they are always immutable), `tss:summary` and `tss:generatedAtTime` (only an immutable snippet has summaries) follow the new rules.
+- **Ontology header:** the two editors (Pieter Colpaert, Shehab Abdelfatah) are stated as `dcterms:creator` instead of `dcterms:contributor`; `dcterms:license` is added (CC BY 4.0); the version is now 0.3.0 (`owl:versionIRI <https://w3id.org/tss/0.3.0#>`), `dcterms:modified` is 2026-11-18, and the description is updated.
 
 ## 13. Document structure
 
@@ -185,7 +197,7 @@ A field of an external snippet MAY state that its values are not the readings th
 - **New sections:** `#storage` (rewritten as a class table), `#times`, `#rdf-points`, `#json-points`, `#arrow`, `#time-grid`, `#value-encoding`.
 - **The "Open issues" section is removed:**
   - "Source or Snippet": resolved (Snippet).
-  - "Mutable external source": resolved (append-only, see [§10](#10-changes-over-time)).
+  - "Mutable external source": resolved (a growing data file only grows, see [§10](#10-changes-over-time)).
   - "Empty string": kept, as a note under the Empty Value definition.
   - "Summaries of a part of the window": **dropped without a resolution**.
 - **Conformance:**
@@ -203,7 +215,10 @@ A field of an external snippet MAY state that its values are not the readings th
 | `a tss:Source ; tss:embedded false ; tss:format tss:CSV` | `a tss:CSVSnippet` |
 | `a tss:Source ; tss:embedded false ; tss:format tss:Parquet` | `a tss:ParquetSnippet` |
 | `tss:sourceDescription` | `tss:snippetDescription` |
-| `tss:modifiedAt` | remove (`tss:committedUntil` remains) |
+| `tss:modifiedAt`, `tss:committedUntil` | remove (consumers use HTTP validators) |
+| `tss:mutable false` | `tss:immutable true` (required on a Parquet snippet and on an Arrow snippet in the IPC file format) |
+| `tss:mutable true` | leave out (or `tss:immutable false`), and remove the summaries |
+| a growing `tss:EmbeddedRDFSnippet` in plain Turtle | an RDF Message Log: `VERSION "1.2-messages"`, and `MESSAGE` after the description and after each point |
 | `prov:generatedAtTime` on a summary | `tss:generatedAtTime` |
 | `"…"^^xsd:dateTime` for any time, time field `tss:datatype xsd:dateTime` | `"…"^^xsd:dateTimeStamp`, with a timezone |
 | `tss:key` with several fields, or a non-time field | the time field only, or leave `tss:key` out |
@@ -211,8 +226,9 @@ A field of an external snippet MAY state that its values are not the readings th
 
 ## Open points
 
-- **Version not bumped.** The vocabulary is still `owl:versionInfo "0.2.0"` with `owl:versionIRI <https://w3id.org/tss/0.2.0#>`, although the changes above break compatibility. It should probably become 0.3.0.
-- **`dcterms:modified` is out of date.** It still says 2026-11-09, but the vocabulary was edited after that date.
+- **Tool support for RDF Message Logs.** rdflib 7.6 and pyshacl cannot parse `VERSION "1.2-messages"` or the `MESSAGE` delimiter, so the growing example (`waterinfo_289441042_tss2_points_time_value.ttl`) is validated as the merge of its messages: the document without its `VERSION` line and its delimiters.
+- **Arrow format not checked by SHACL.** The shapes cannot tell an Arrow IPC file from a stream (that is in the first bytes of the data file), so they don't check that an Arrow snippet in the file format states `tss:immutable true`.
+- **Left open in [PR #25](https://github.com/KNowledgeOnWebScale/rdf-tss/pull/25):** the time window of a growing snippet is fixed; growing snippets have no stored summaries; `tss:next` is left to the collection layer (LDES).
 - **Tool support for `xsd:dateTimeStamp`.** `main` preferred `xsd:dateTime` because `xsd:dateTimeStamp` "is not as well supported by RDF tooling". This is still true: pyshacl accepts `"2021-03-03T23:45:00"^^xsd:dateTimeStamp` without a timezone. The demo 11 SHACL shapes check the timezone with a separate rule (`S23`).
 - **Summaries of a part of the window.** This open issue was removed, not resolved.
 - **Not in the repository.** Demo 11 also has SHACL shapes (`SHACL/embedded_shapes.ttl`, `SHACL/external_shapes.ttl`) and example metadata documents. The repository has neither, so they are not covered by this changelog.

@@ -28,12 +28,11 @@ ex:zevenaarshaven-vd-snippet
             rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
         ]
     ] ;
-    tss:mutable false ;
+    # Immutable: final, no reading is added any more. Only an immutable snippet has stored summaries.
+    tss:immutable true ;
     tss:producedBy ex:289441042 ;
     tss:from "2021-03-04T00:00:00Z"^^xsd:dateTimeStamp ;
     tss:until "2021-03-05T00:00:00Z"^^xsd:dateTimeStamp ;
-    # Committed until: the last time the snippet and its data were checked to be up to date.
-    tss:committedUntil "2026-11-05T12:20:10Z"^^xsd:dateTimeStamp ;
     tss:dataFile <../data/waterinfo_289441042_value_delta.csv> ;
     # The "time" column of the data file holds UTC times such as 2021-03-04T00:30:00Z:
     # xsd:dateTimeStamp texts (a timezone is required).
@@ -55,7 +54,7 @@ ex:zevenaarshaven-vd-snippet
 # Numeric aggregates are for the conductivity field, in its declared unit.
 # Mean is the unweighted arithmetic mean; median averages the middle two values for even counts.
 # Observed extrema do not replace the expected tss:minimum / tss:maximum range.
-# tss:generatedAtTime records calculation time; summaries are not refreshed automatically.
+# tss:generatedAtTime records when they were calculated: once, from the final readings.
 # The value summary describes the readings (baseline + difference), not the differences in the file.
 
 ex:zevenaarshaven-vd-time-field
