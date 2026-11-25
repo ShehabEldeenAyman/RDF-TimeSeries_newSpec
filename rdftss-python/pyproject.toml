@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rdftss"
-version = "0.1.0"
-description = "Read, query, discover, expand and convert RDF Time Series Snippets (TSS)."
+version = "0.2.0"
+description = "Read, query, discover, expand and convert RDF Time Series Sources (TSS)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
-authors = [{name = "RDF Time Series Snippets contributors"}]
+authors = [{name = "RDF Time Series Sources contributors"}]
 keywords = ["rdf", "sparql", "time series", "linked data", "sosa", "qudt", "parquet", "arrow", "csv"]
 classifiers = [
     "Programming Language :: Python :: 3",

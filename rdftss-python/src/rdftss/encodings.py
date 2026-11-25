@@ -1,6 +1,6 @@
 """Value encodings: how a data file states values that are not the readings themselves.
 
-A field of an external snippet may state ``tss:valueEncoding``. The specification defines one
+A field of an external source may state ``tss:valueEncoding``. The specification defines one
 encoding, ``tss:DeltaFromBaseline``: each value in the file is the difference from the field's
 ``tss:baseline``, and the reading (the *decoded value*) is the baseline + the value. The sum is
 computed exactly on the decimal values of the two texts, then read as the field's datatype:

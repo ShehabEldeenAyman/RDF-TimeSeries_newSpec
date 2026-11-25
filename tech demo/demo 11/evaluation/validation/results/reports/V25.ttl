@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-interpolation-type-field> ;
+            sh:resultMessage "F15 describes field: https://example.org/ex#grootdok-time-field is not a value field (tss:ValueField) of the same source; a describing field says something about the readings of a value field in the same row." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F15 describes field: {?value} is not a value field (tss:ValueField) of the same source; a describing field says something about the readings of a value field in the same row." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:describesField ?value .
+                FILTER NOT EXISTS { ?source tss:hasField $this, ?value . ?value a tss:ValueField }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#grootdok-time-field> ] .
+

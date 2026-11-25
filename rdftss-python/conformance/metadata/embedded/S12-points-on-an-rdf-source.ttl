@@ -1,0 +1,70 @@
+# An embedded source states tss:points.
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:source
+    a tss:EmbeddedRDFSource ;
+    rdfs:label "Conductivity readings"@en ;
+    tss:immutable true ;
+    tss:points "[]"^^rdf:JSON ;
+    tss:producedBy ex:producer ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
+    tss:timeField ex:time-field ;
+    tss:key ex:time-field ;
+    tss:hasField ex:time-field, ex:value-field .
+
+ex:time-field
+    a tss:ContextField ;
+    rdfs:label "Observation time"@en ;
+    tss:datatype xsd:dateTime .
+
+ex:value-field
+    a tss:ValueField ;
+    rdfs:label "Electrical conductivity"@en ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-1 ;
+    tss:featureOfInterest ex:feature-1 ;
+    tss:summary [
+        tss:missingValuePolicy tss:ExcludeEmptyValues ;
+        tss:count "3"^^xsd:integer ;
+        tss:missing "0"^^xsd:integer ;
+        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+        tss:lastTime "2024-05-12T08:30:00Z"^^xsd:dateTime ;
+        tss:observedMinimum "4722.4"^^xsd:double ;
+        tss:observedMaximum "4810.5"^^xsd:double ;
+        tss:mean "4761.6"^^xsd:double ;
+        tss:median "4751.9"^^xsd:double ;
+        tss:generatedAtTime "2024-05-12T09:46:10Z"^^xsd:dateTime
+    ] .
+
+ex:sensor-1 a sosa:Sensor ;
+    rdfs:label "Conductivity sensor 1"@en .
+
+ex:feature-1 a sosa:FeatureOfInterest ;
+    rdfs:label "Water of basin 1"@en .
+
+ex:source tss:hasPoint [
+    tss:time "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:value "4810.5"^^xsd:double
+] .
+
+ex:source tss:hasPoint [
+    tss:time "2024-05-12T08:15:00Z"^^xsd:dateTime ;
+    tss:value "4722.4"^^xsd:double
+] .
+
+ex:source tss:hasPoint [
+    tss:time "2024-05-12T08:30:00Z"^^xsd:dateTime ;
+    tss:value "4751.9"^^xsd:double
+] .

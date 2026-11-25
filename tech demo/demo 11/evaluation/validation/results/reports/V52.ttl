@@ -1,0 +1,27 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:detail [ a sh:ValidationResult ;
+                    sh:focusNode <https://example.org/ex#zevenaarshaven-json-ec20-value-field> ;
+                    sh:resultMessage "S25: a field of a tss:EmbeddedJSONSource needs a tss:columnName, its key in the JSON points." ;
+                    sh:resultPath <https://w3id.org/tss#columnName> ;
+                    sh:resultSeverity sh:Violation ;
+                    sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+                    sh:sourceShape [ sh:message "S25: a field of a tss:EmbeddedJSONSource needs a tss:columnName, its key in the JSON points." ;
+                            sh:minCount 1 ;
+                            sh:path <https://w3id.org/tss#columnName> ] ] ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-json-source> ;
+            sh:resultMessage "S25: every field of a tss:EmbeddedJSONSource needs a tss:columnName, its key in the JSON points." ;
+            sh:resultPath <https://w3id.org/tss#hasField> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:NodeConstraintComponent ;
+            sh:sourceShape [ sh:group <https://w3id.org/tss/shapes/embedded#Required> ;
+                    sh:message "S25: every field of a tss:EmbeddedJSONSource needs a tss:columnName, its key in the JSON points." ;
+                    sh:name "S25 JSON keys" ;
+                    sh:node <https://w3id.org/tss/shapes/embedded#JSONKeyShape> ;
+                    sh:path <https://w3id.org/tss#hasField> ] ;
+            sh:value <https://example.org/ex#zevenaarshaven-json-ec20-value-field> ] .
+

@@ -1,10 +1,11 @@
 VERSION "1.2-messages"
-# A growing snippet: it does not state tss:immutable true, so points may still be added.
-# The metadata document of a growing tss:EmbeddedRDFSnippet is an RDF Message Log: the first
-# message describes the snippet and its fields, each next message holds one point, and every
-# message ends with the delimiter MESSAGE. A writer adds a point by appending one message, and a
-# consumer that follows the snippet only reads the messages after the last one it read.
-# A growing snippet has no stored summaries, and its time window does not change.
+# A growing source: it does not state tss:immutable true, so rows may still be added.
+# The metadata document of a growing tss:EmbeddedRDFSource is an RDF Message Log: the first
+# message describes the source and its fields, each next message holds one row (here one point,
+# as the source has one value field), and every message ends with the delimiter MESSAGE. A writer
+# adds a row by appending one message, and a consumer that follows the source only reads the
+# messages after the last one it read.
+# A growing source has no stored summaries, and its time window does not change.
 PREFIX tss: <https://w3id.org/tss#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -12,39 +13,39 @@ PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
 PREFIX unit: <http://qudt.org/vocab/unit/>
 PREFIX ex: <https://example.org/ex#>
 
-ex:growing-snippet
-    a tss:EmbeddedRDFSnippet ;
+ex:growing-source
+    a tss:EmbeddedRDFSource ;
     rdfs:label "Conductivity readings, still growing"@en ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:growing-time-field ;
     tss:hasField ex:growing-time-field,
         ex:growing-value-field .
 
 ex:growing-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:growing-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity"@en ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
     tss:unit unit:MicroS-PER-CentiM .
 MESSAGE
-ex:growing-snippet tss:hasPoint [
-    ex:growing-time-field "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    ex:growing-value-field "4810.5"^^xsd:double
+ex:growing-source tss:hasPoint [
+    tss:time "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:value "4810.5"^^xsd:double
 ] .
 MESSAGE
-ex:growing-snippet tss:hasPoint [
-    ex:growing-time-field "2024-05-12T08:15:00Z"^^xsd:dateTimeStamp ;
-    ex:growing-value-field "4722.4"^^xsd:double
+ex:growing-source tss:hasPoint [
+    tss:time "2024-05-12T08:15:00Z"^^xsd:dateTime ;
+    tss:value "4722.4"^^xsd:double
 ] .
 MESSAGE
-ex:growing-snippet tss:hasPoint [
-    ex:growing-time-field "2024-05-12T08:30:00Z"^^xsd:dateTimeStamp ;
-    ex:growing-value-field "4751.9"^^xsd:double
+ex:growing-source tss:hasPoint [
+    tss:time "2024-05-12T08:30:00Z"^^xsd:dateTime ;
+    tss:value "4751.9"^^xsd:double
 ] .
 MESSAGE

@@ -24,7 +24,7 @@ from conftest import ROOT
 SUITE = ROOT / "conformance"
 MF = Namespace("http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")
 TSST = Namespace("https://w3id.org/tss/tests#")
-FILE_FORMATS = {rdftss.SnippetKind.PARQUET, rdftss.SnippetKind.ARROW}
+FILE_FORMATS = {rdftss.SourceKind.PARQUET, rdftss.SourceKind.ARROW}
 
 
 def manifest():
@@ -73,24 +73,24 @@ def run_metadata_test(graph, test):
 
 
 def run_read_test(graph, test):
-    snippet = rdftss.load(path_of(graph.value(test, MF.action))).snippet()
-    if snippet.kind in FILE_FORMATS:
+    source = rdftss.load(path_of(graph.value(test, MF.action))).source()
+    if source.kind in FILE_FORMATS:
         pytest.importorskip("pyarrow")
     result = graph.value(test, MF.result)
     if result == TSST.Error:
         with pytest.raises(rdftss.DataError):
-            snippet.read()
+            source.read()
         return
     with open(path_of(result), newline="", encoding="utf-8") as file:
         header, *rows = list(csv.reader(file))
-    fields = [snippet.field(URIRef(iri)) for iri in header[1:]]
-    points = sorted(snippet.read(), key=lambda point: point.instant)
+    fields = [source.field(URIRef(iri)) for iri in header[1:]]
+    read = sorted(source.read(), key=lambda row: row.instant)
     rows.sort(key=lambda row: instant(row[0]))
-    assert [point.instant for point in points] == [instant(row[0]) for row in rows]
-    for point, row in zip(points, rows):
+    assert [row.instant for row in read] == [instant(row[0]) for row in rows]
+    for got, row in zip(read, rows):
         for field, text in zip(fields, row[1:]):
-            assert same_value(point[field], text, field.datatype, point.text(field)), \
-                f"{point.time_text}, {field.name}: {point[field]!r}, expected {text!r}"
+            assert same_value(got[field], text, field.datatype, got.text(field)), \
+                f"{got.time_text}, {field.name}: {got[field]!r}, expected {text!r}"
 
 
 def run_summary_test(graph, test):
@@ -102,28 +102,30 @@ def run_summary_test(graph, test):
 
 
 def run_expansion_test(graph, test):
-    snippet = rdftss.load(path_of(graph.value(test, MF.action))).snippet()
+    source = rdftss.load(path_of(graph.value(test, MF.action))).source()
     with open(path_of(graph.value(test, MF.result)), newline="", encoding="utf-8") as file:
         expected = list(csv.DictReader(file))
-    remaining = list(snippet.observations())
+    remaining = list(source.points())
     assert len(remaining) == len(expected)
 
-    def matches(observation, row) -> bool:
-        iris = [(observation.snippet.node, "snippet"), (observation.observed_property, "observed_property"),
-                (observation.sensor, "sensor"), (observation.feature_of_interest, "feature_of_interest"),
-                (observation.unit, "unit")]
-        if any(str(iri or "") != row[column] for iri, column in iris):
+    def matches(point, row) -> bool:
+        if (str(point.source.node), str(point.field.node)) != (row["source"], row["field"]):
             return False
-        result = observation.result
-        if observation.time.instant != instant(row["time"]) or str(result.datatype) != row["datatype"]:
+        if row["point"] and str(point.node) != row["point"]:
             return False
-        if row["match"] == "text":
-            return str(result) == row["result"]
-        return same_value(result.toPython(), row["result"], result.datatype)
+        value = point.value
+        if point.time.instant != instant(row["time"]) or str(value.datatype) != row["datatype"]:
+            return False
+        if row["match"] == "text" and str(value) != row["value"]:
+            return False
+        if row["match"] != "text" and not same_value(value.toPython(), row["value"], value.datatype):
+            return False
+        describing = {str(field.field_property): str(literal) for field, literal in point.describing.items()}
+        return describing == dict(item.split("=", 1) for item in row["describing"].split("|") if item)
 
     for row in expected:
-        found = next((observation for observation in remaining if matches(observation, row)), None)
-        assert found is not None, f"No observation like {row}"
+        found = next((point for point in remaining if matches(point, row)), None)
+        assert found is not None, f"No point like {row}"
         remaining.remove(found)
 
 

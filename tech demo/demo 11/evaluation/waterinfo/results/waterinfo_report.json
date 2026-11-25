@@ -1,0 +1,215 @@
+[
+  {
+    "document": "waterinfo_289423042_tss2.ttl",
+    "ts_id": "289423042",
+    "message_log": false,
+    "messages": null,
+    "sources": [
+      {
+        "source": "grootdok-source",
+        "class": "CSVSource",
+        "data_file": "data/waterinfo_289423042.csv",
+        "checks": {
+          "D1 binding": [],
+          "D2 values": [],
+          "D3 key": [],
+          "D4 readings": [],
+          "D5 coverage": [],
+          "D6 summaries": []
+        },
+        "rows_read": 94853,
+        "rows_in_window": 94853,
+        "readings_compared": 94853,
+        "waterinfo_records_in_window": 94853,
+        "summary_values_compared": 36,
+        "passed": true
+      }
+    ]
+  },
+  {
+    "document": "waterinfo_289429042_tss2_parquet.ttl",
+    "ts_id": "289429042",
+    "message_log": false,
+    "messages": null,
+    "sources": [
+      {
+        "source": "rodenhuizedok-source",
+        "class": "ParquetSource",
+        "data_file": "data/waterinfo_289429042.parquet",
+        "checks": {
+          "D1 binding": [],
+          "D2 values": [],
+          "D3 key": [],
+          "D4 readings": [],
+          "D5 coverage": [],
+          "D6 summaries": []
+        },
+        "rows_read": 158022,
+        "rows_in_window": 158022,
+        "readings_compared": 158022,
+        "waterinfo_records_in_window": 158022,
+        "summary_values_compared": 36,
+        "passed": true
+      }
+    ]
+  },
+  {
+    "document": "waterinfo_289435042_tss2.ttl",
+    "ts_id": "289435042",
+    "message_log": false,
+    "messages": null,
+    "sources": [
+      {
+        "source": "autrichehaven-source",
+        "class": "CSVSource",
+        "data_file": "data/waterinfo_289435042.csv",
+        "checks": {
+          "D1 binding": [],
+          "D2 values": [],
+          "D3 key": [],
+          "D4 readings": [],
+          "D5 coverage": [],
+          "D6 summaries": []
+        },
+        "rows_read": 139928,
+        "rows_in_window": 139928,
+        "readings_compared": 139928,
+        "waterinfo_records_in_window": 139928,
+        "summary_values_compared": 36,
+        "passed": true
+      }
+    ]
+  },
+  {
+    "document": "waterinfo_289441042_tss2_points_embedded.ttl",
+    "ts_id": "289441042",
+    "message_log": false,
+    "messages": null,
+    "sources": [
+      {
+        "source": "zevenaarshaven-source",
+        "class": "EmbeddedRDFSource",
+        "data_file": null,
+        "checks": {
+          "D1 binding": [],
+          "D2 values": [],
+          "D3 key": [],
+          "D4 readings": [],
+          "D5 coverage": [],
+          "D6 summaries": []
+        },
+        "rows_read": 5,
+        "rows_in_window": 5,
+        "readings_compared": 5,
+        "summary_values_compared": 16,
+        "passed": true
+      }
+    ]
+  },
+  {
+    "document": "waterinfo_289441042_tss2_points_embedded_json.ttl",
+    "ts_id": "289441042",
+    "message_log": false,
+    "messages": null,
+    "sources": [
+      {
+        "source": "zevenaarshaven-json-source",
+        "class": "EmbeddedJSONSource",
+        "data_file": null,
+        "checks": {
+          "D1 binding": [],
+          "D2 values": [],
+          "D3 key": [],
+          "D4 readings": [],
+          "D5 coverage": [],
+          "D6 summaries": []
+        },
+        "rows_read": 5,
+        "rows_in_window": 5,
+        "readings_compared": 5,
+        "summary_values_compared": 16,
+        "passed": true
+      }
+    ]
+  },
+  {
+    "document": "waterinfo_289441042_tss2_points_time_value.ttl",
+    "ts_id": "289441042",
+    "message_log": true,
+    "messages": 6,
+    "sources": [
+      {
+        "source": "zevenaarshaven-tv-source",
+        "class": "EmbeddedRDFSource",
+        "data_file": null,
+        "checks": {
+          "D1 binding": [],
+          "D2 values": [],
+          "D3 key": [],
+          "D4 readings": [],
+          "D5 coverage": [],
+          "D6 summaries": []
+        },
+        "rows_read": 5,
+        "rows_in_window": 5,
+        "readings_compared": 5,
+        "summary_values_compared": 0,
+        "passed": true
+      }
+    ]
+  },
+  {
+    "document": "waterinfo_289441042_tss2_time_step.ttl",
+    "ts_id": "289441042",
+    "message_log": false,
+    "messages": null,
+    "sources": [
+      {
+        "source": "zevenaarshaven-ts-source",
+        "class": "CSVSource",
+        "data_file": "data/waterinfo_289441042_time_step.csv",
+        "checks": {
+          "D1 binding": [],
+          "D2 values": [],
+          "D3 key": [],
+          "D4 readings": [],
+          "D5 coverage": [],
+          "D6 summaries": []
+        },
+        "rows_read": 43,
+        "rows_in_window": 43,
+        "readings_compared": 43,
+        "waterinfo_records_in_window": 43,
+        "summary_values_compared": 16,
+        "passed": true
+      }
+    ]
+  },
+  {
+    "document": "waterinfo_289441042_tss2_value_delta.ttl",
+    "ts_id": "289441042",
+    "message_log": false,
+    "messages": null,
+    "sources": [
+      {
+        "source": "zevenaarshaven-vd-source",
+        "class": "CSVSource",
+        "data_file": "data/waterinfo_289441042_value_delta.csv",
+        "checks": {
+          "D1 binding": [],
+          "D2 values": [],
+          "D3 key": [],
+          "D4 readings": [],
+          "D5 coverage": [],
+          "D6 summaries": []
+        },
+        "rows_read": 43,
+        "rows_in_window": 43,
+        "readings_compared": 43,
+        "waterinfo_records_in_window": 43,
+        "summary_values_compared": 12,
+        "passed": true
+      }
+    ]
+  }
+]

@@ -1,0 +1,30 @@
+@prefix ns1: <https://w3id.org/tss#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-source> ;
+            sh:resultMessage "S6 points: a node has a reading or a time, but the source does not link to it with tss:hasPoint, so it is not one of its points." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S6 points: a node has a reading or a time, but the source does not link to it with tss:hasPoint, so it is not one of its points." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                {
+                    $this tss:hasField ?field .
+                    ?value tss:field ?field .
+                    FILTER NOT EXISTS { $this tss:hasPoint ?value }
+                } UNION {
+                    ?value tss:time|tss:value ?any .
+                    FILTER NOT EXISTS { ?value tss:field ?field }
+                    FILTER NOT EXISTS { ?anySource tss:hasPoint ?value }
+                }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns1:time "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+                    ns1:value 1e+00 ] ] .
+

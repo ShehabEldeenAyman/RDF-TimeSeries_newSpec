@@ -1,0 +1,1339 @@
+[
+  {
+    "id": "CQ1",
+    "category": "Semantic discovery",
+    "question": "Which sources describe a specified observed property for a specified feature of interest?",
+    "example": "Find the EC20 series of the water at Zevenaarshaven; the other three locations have their own features of interest.",
+    "interpretation": "Exact IRI matching of the observed property and the feature of interest; the Grootdok, Rodenhuizedok and Autrichehaven series observe the same property of other features.",
+    "answer": {
+      "results": {
+        "bindings": [
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-ec20-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-source"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ec20-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-source"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-source"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-source"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-source"
+            }
+          }
+        ]
+      },
+      "head": {
+        "vars": [
+          "source",
+          "field"
+        ]
+      }
+    },
+    "comparison": {
+      "expected": 5,
+      "retrieved": 5,
+      "match": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  {
+    "id": "CQ2",
+    "category": "Semantic discovery",
+    "question": "Which relevant sources have declared temporal windows overlapping a requested interval?",
+    "example": "Find EC20 series whose windows overlap [2025-10-07T07:45:00Z, 2025-12-18T23:15:00Z); the window of the Autrichehaven series ends at the start of that interval.",
+    "interpretation": "Absent bounds are open, as for the growing log. A window that ends where the interval starts does not overlap it, so the Autrichehaven series is not returned.",
+    "answer": {
+      "results": {
+        "bindings": [
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:45:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2025-12-18T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#rodenhuizedok-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2026-01-01T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2026-01-01T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2026-01-01T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          }
+        ]
+      },
+      "head": {
+        "vars": [
+          "source",
+          "from",
+          "until"
+        ]
+      }
+    },
+    "comparison": {
+      "expected": 5,
+      "retrieved": 5,
+      "match": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  {
+    "id": "CQ3",
+    "category": "Source access",
+    "question": "Where are the readings of relevant sources located, and how are they represented?",
+    "example": "Locate the CSV and Parquet files, or the embedded access predicates, of all EC20 series.",
+    "interpretation": "The data files resolve against the documents (../data/), which the runner does not read. Embedded results identify the source and its access predicate.",
+    "answer": {
+      "results": {
+        "bindings": [
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#autrichehaven-source"
+            },
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "dataFile": {
+              "type": "uri",
+              "value": "file:///home/shehab/Desktop/RDF-TimeSeries_newSpec/tech%20demo/demo%2011/data/waterinfo_289435042.csv"
+            },
+            "accessPredicate": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#dataFile"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-source"
+            },
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "dataFile": {
+              "type": "uri",
+              "value": "file:///home/shehab/Desktop/RDF-TimeSeries_newSpec/tech%20demo/demo%2011/data/waterinfo_289423042.csv"
+            },
+            "accessPredicate": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#dataFile"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#rodenhuizedok-source"
+            },
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#ParquetSource"
+            },
+            "dataFile": {
+              "type": "uri",
+              "value": "file:///home/shehab/Desktop/RDF-TimeSeries_newSpec/tech%20demo/demo%2011/data/waterinfo_289429042.parquet"
+            },
+            "accessPredicate": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#dataFile"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-source"
+            },
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedJSONSource"
+            },
+            "accessPredicate": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#points"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-source"
+            },
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedRDFSource"
+            },
+            "accessPredicate": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#hasPoint"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-source"
+            },
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "dataFile": {
+              "type": "uri",
+              "value": "file:///home/shehab/Desktop/RDF-TimeSeries_newSpec/tech%20demo/demo%2011/data/waterinfo_289441042_time_step.csv"
+            },
+            "accessPredicate": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#dataFile"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-source"
+            },
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedRDFSource"
+            },
+            "accessPredicate": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#hasPoint"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-source"
+            },
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "dataFile": {
+              "type": "uri",
+              "value": "file:///home/shehab/Desktop/RDF-TimeSeries_newSpec/tech%20demo/demo%2011/data/waterinfo_289441042_value_delta.csv"
+            },
+            "accessPredicate": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#dataFile"
+            }
+          }
+        ]
+      },
+      "head": {
+        "vars": [
+          "source",
+          "profile",
+          "dataFile",
+          "accessPredicate"
+        ]
+      }
+    },
+    "comparison": {
+      "expected": 8,
+      "retrieved": 8,
+      "match": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  {
+    "id": "CQ4",
+    "category": "Source access",
+    "question": "Which fields identify timestamps and the requested measurement, and how are they bound to the representation?",
+    "example": "Inspect the time and value bindings of the CSV, Parquet, JSON, RDF, time-grid and baseline-difference Waterinfo sources.",
+    "interpretation": "RDF points state their time and reading with tss:time and tss:value, so their fields need no column; the time field of the time grid has none either. Unbound values are not errors.",
+    "answer": {
+      "results": {
+        "bindings": [
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "valueField": {
+              "type": "uri",
+              "value": "https://example.org/ex#autrichehaven-ec20-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#autrichehaven-source"
+            },
+            "timeField": {
+              "type": "uri",
+              "value": "https://example.org/ex#autrichehaven-time-field"
+            },
+            "timeColumn": {
+              "type": "literal",
+              "value": "Timestamp"
+            },
+            "timeIndex": {
+              "type": "literal",
+              "value": "1",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "valueColumn": {
+              "type": "literal",
+              "value": "Value"
+            },
+            "valueIndex": {
+              "type": "literal",
+              "value": "2",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "valueField": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-ec20-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-source"
+            },
+            "timeField": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-time-field"
+            },
+            "timeColumn": {
+              "type": "literal",
+              "value": "Timestamp"
+            },
+            "timeIndex": {
+              "type": "literal",
+              "value": "1",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "valueColumn": {
+              "type": "literal",
+              "value": "Value"
+            },
+            "valueIndex": {
+              "type": "literal",
+              "value": "2",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#ParquetSource"
+            },
+            "valueField": {
+              "type": "uri",
+              "value": "https://example.org/ex#rodenhuizedok-ec20-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#rodenhuizedok-source"
+            },
+            "timeField": {
+              "type": "uri",
+              "value": "https://example.org/ex#rodenhuizedok-time-field"
+            },
+            "timeColumn": {
+              "type": "literal",
+              "value": "Timestamp"
+            },
+            "valueColumn": {
+              "type": "literal",
+              "value": "Value"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedJSONSource"
+            },
+            "valueField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-ec20-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-source"
+            },
+            "timeField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-time-field"
+            },
+            "timeColumn": {
+              "type": "literal",
+              "value": "time"
+            },
+            "valueColumn": {
+              "type": "literal",
+              "value": "ec20"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedRDFSource"
+            },
+            "valueField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ec20-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-source"
+            },
+            "timeField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-time-field"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "valueField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-source"
+            },
+            "timeField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-time-field"
+            },
+            "valueColumn": {
+              "type": "literal",
+              "value": "value"
+            },
+            "valueIndex": {
+              "type": "literal",
+              "value": "1",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedRDFSource"
+            },
+            "valueField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-source"
+            },
+            "timeField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-time-field"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "valueField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-source"
+            },
+            "timeField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-time-field"
+            },
+            "timeColumn": {
+              "type": "literal",
+              "value": "time"
+            },
+            "timeIndex": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "valueColumn": {
+              "type": "literal",
+              "value": "value_delta"
+            },
+            "valueIndex": {
+              "type": "literal",
+              "value": "1",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            }
+          }
+        ]
+      },
+      "head": {
+        "vars": [
+          "source",
+          "profile",
+          "timeField",
+          "timeColumn",
+          "timeIndex",
+          "valueField",
+          "valueColumn",
+          "valueIndex"
+        ]
+      }
+    },
+    "comparison": {
+      "expected": 8,
+      "retrieved": 8,
+      "match": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  {
+    "id": "CQ5",
+    "category": "Interpretation metadata",
+    "question": "What datatype and semantic context describe the selected measurement field?",
+    "example": "Retrieve the measurement context of the Grootdok EC20 field.",
+    "interpretation": "Reports the context that the publisher supplied.",
+    "answer": {
+      "results": {
+        "bindings": [
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-ec20-field"
+            },
+            "datatype": {
+              "type": "uri",
+              "value": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "property": {
+              "type": "uri",
+              "value": "http://qudt.org/vocab/quantitykind/ElectricConductivity"
+            },
+            "unit": {
+              "type": "uri",
+              "value": "http://qudt.org/vocab/unit/MicroS-PER-CentiM"
+            },
+            "sensor": {
+              "type": "uri",
+              "value": "https://example.org/ex#sensor-grootdok-ec20"
+            },
+            "feature": {
+              "type": "uri",
+              "value": "https://example.org/ex#water-grootdok"
+            }
+          }
+        ]
+      },
+      "head": {
+        "vars": [
+          "field",
+          "datatype",
+          "property",
+          "unit",
+          "sensor",
+          "feature"
+        ]
+      }
+    },
+    "comparison": {
+      "expected": 1,
+      "retrieved": 1,
+      "match": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  {
+    "id": "CQ6",
+    "category": "Interpretation metadata",
+    "question": "What declared parameters are needed to reconstruct timestamps or measurement values from a selected external source?",
+    "example": "Compare the direct Grootdok CSV with the time-grid and baseline-difference representations of one Zevenaarshaven day.",
+    "interpretation": "Retrieval only; ../waterinfo/check_waterinfo.py decodes the data files with these parameters and compares the readings with Waterinfo.",
+    "answer": {
+      "results": {
+        "bindings": [
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-source"
+            },
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-ec20-field"
+            },
+            "dataFile": {
+              "type": "uri",
+              "value": "file:///home/shehab/Desktop/RDF-TimeSeries_newSpec/tech%20demo/demo%2011/data/waterinfo_289423042.csv"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-source"
+            },
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-value-field"
+            },
+            "dataFile": {
+              "type": "uri",
+              "value": "file:///home/shehab/Desktop/RDF-TimeSeries_newSpec/tech%20demo/demo%2011/data/waterinfo_289441042_time_step.csv"
+            },
+            "timeBase": {
+              "type": "literal",
+              "value": "2021-03-04T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "timeStep": {
+              "type": "literal",
+              "value": "PT15M",
+              "datatype": "http://www.w3.org/2001/XMLSchema#duration"
+            },
+            "stepField": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-step-field"
+            },
+            "stepColumn": {
+              "type": "literal",
+              "value": "step"
+            },
+            "stepIndex": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            }
+          },
+          {
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-source"
+            },
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-value-field"
+            },
+            "dataFile": {
+              "type": "uri",
+              "value": "file:///home/shehab/Desktop/RDF-TimeSeries_newSpec/tech%20demo/demo%2011/data/waterinfo_289441042_value_delta.csv"
+            },
+            "encoding": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#DeltaFromBaseline"
+            },
+            "baseline": {
+              "type": "literal",
+              "value": "4750",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            }
+          }
+        ]
+      },
+      "head": {
+        "vars": [
+          "source",
+          "dataFile",
+          "field",
+          "timeBase",
+          "timeStep",
+          "stepField",
+          "stepColumn",
+          "stepIndex",
+          "encoding",
+          "baseline"
+        ]
+      }
+    },
+    "comparison": {
+      "expected": 3,
+      "retrieved": 3,
+      "match": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  {
+    "id": "CQ7",
+    "category": "Source assessment",
+    "question": "Which selected sources are final, which are still growing, and can a consumer follow them with Range requests?",
+    "example": "Compare the final Waterinfo sources with the growing Zevenaarshaven message log.",
+    "interpretation": "Defaults apply to omitted declarations. The query does not verify publisher behaviour; ../lifecycle/ checks the log and Range requests.",
+    "answer": {
+      "results": {
+        "bindings": [
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#autrichehaven-source"
+            },
+            "immutable": {
+              "type": "literal",
+              "value": "true",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            },
+            "rangeRequests": {
+              "type": "literal",
+              "value": "false",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-source"
+            },
+            "immutable": {
+              "type": "literal",
+              "value": "true",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            },
+            "rangeRequests": {
+              "type": "literal",
+              "value": "false",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#ParquetSource"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#rodenhuizedok-source"
+            },
+            "immutable": {
+              "type": "literal",
+              "value": "true",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            },
+            "rangeRequests": {
+              "type": "literal",
+              "value": "false",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedJSONSource"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-source"
+            },
+            "immutable": {
+              "type": "literal",
+              "value": "true",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            },
+            "rangeRequests": {
+              "type": "literal",
+              "value": "false",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedRDFSource"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-source"
+            },
+            "immutable": {
+              "type": "literal",
+              "value": "true",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            },
+            "rangeRequests": {
+              "type": "literal",
+              "value": "false",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-source"
+            },
+            "immutable": {
+              "type": "literal",
+              "value": "true",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            },
+            "rangeRequests": {
+              "type": "literal",
+              "value": "false",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#EmbeddedRDFSource"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-source"
+            },
+            "immutable": {
+              "type": "literal",
+              "value": "false",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            },
+            "rangeRequests": {
+              "type": "literal",
+              "value": "true",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            }
+          },
+          {
+            "profile": {
+              "type": "uri",
+              "value": "https://w3id.org/tss#CSVSource"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-source"
+            },
+            "immutable": {
+              "type": "literal",
+              "value": "true",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            },
+            "rangeRequests": {
+              "type": "literal",
+              "value": "false",
+              "datatype": "http://www.w3.org/2001/XMLSchema#boolean"
+            }
+          }
+        ]
+      },
+      "head": {
+        "vars": [
+          "source",
+          "profile",
+          "immutable",
+          "rangeRequests"
+        ]
+      }
+    },
+    "comparison": {
+      "expected": 8,
+      "retrieved": 8,
+      "match": true,
+      "missing": [],
+      "unexpected": []
+    }
+  },
+  {
+    "id": "CQ8",
+    "category": "Source assessment",
+    "question": "Which declared summaries are available for selected measurement fields, and what source windows do they describe?",
+    "example": "Retrieve the stored summaries of all EC20 series, and keep the growing log, which has none.",
+    "interpretation": "Publisher declarations; ../waterinfo/check_waterinfo.py recomputes them from the data. The growing log has no summary, so its summary variables stay unbound.",
+    "answer": {
+      "results": {
+        "bindings": [
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#autrichehaven-ec20-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#autrichehaven-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2025-10-07T07:45:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "summary": {
+              "type": "bnode",
+              "value": "nece110ca5d704a689d176d23662b63ceb8"
+            },
+            "count": {
+              "type": "literal",
+              "value": "139928",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "missing": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "minimum": {
+              "type": "literal",
+              "value": "552.92",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "maximum": {
+              "type": "literal",
+              "value": "40109.15",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "generatedAt": {
+              "type": "literal",
+              "value": "2026-10-22T14:02:30+00:00",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-ec20-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#grootdok-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:45:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2025-12-18T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "summary": {
+              "type": "bnode",
+              "value": "n7961bb62c50a4ff3a4ecd76ba2e59f64b8"
+            },
+            "count": {
+              "type": "literal",
+              "value": "94853",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "missing": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "minimum": {
+              "type": "literal",
+              "value": "125.57",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "maximum": {
+              "type": "literal",
+              "value": "19035.51",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "generatedAt": {
+              "type": "literal",
+              "value": "2026-10-22T14:02:30+00:00",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#rodenhuizedok-ec20-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#rodenhuizedok-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2026-01-01T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "summary": {
+              "type": "bnode",
+              "value": "n48b75053971a4d399db8d3c66a580a59b8"
+            },
+            "count": {
+              "type": "literal",
+              "value": "158022",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "missing": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "minimum": {
+              "type": "literal",
+              "value": "475.51",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "maximum": {
+              "type": "literal",
+              "value": "19526.76",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "generatedAt": {
+              "type": "literal",
+              "value": "2026-10-22T14:02:30+00:00",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-ec20-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-json-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2026-01-01T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "summary": {
+              "type": "bnode",
+              "value": "n77f9510730044f2895df7d052846a412b6"
+            },
+            "count": {
+              "type": "literal",
+              "value": "5",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "missing": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "minimum": {
+              "type": "literal",
+              "value": "4716.1",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "maximum": {
+              "type": "literal",
+              "value": "4797.72",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "generatedAt": {
+              "type": "literal",
+              "value": "2026-10-22T14:02:30+00:00",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ec20-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2026-01-01T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "summary": {
+              "type": "bnode",
+              "value": "n21da930112d84212995e0633bfe092fab6"
+            },
+            "count": {
+              "type": "literal",
+              "value": "5",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "missing": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "minimum": {
+              "type": "literal",
+              "value": "4716.1",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "maximum": {
+              "type": "literal",
+              "value": "4797.72",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "generatedAt": {
+              "type": "literal",
+              "value": "2026-10-22T14:02:30+00:00",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-ts-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-04T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2021-03-05T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "summary": {
+              "type": "bnode",
+              "value": "n7bd768646cc64062b8e1f7aead7c2a11b8"
+            },
+            "count": {
+              "type": "literal",
+              "value": "43",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "missing": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "minimum": {
+              "type": "literal",
+              "value": "4457.92",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "maximum": {
+              "type": "literal",
+              "value": "4883.63",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "generatedAt": {
+              "type": "literal",
+              "value": "2026-11-05T12:20:10+00:00",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-tv-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-03T23:15:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          },
+          {
+            "field": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-value-field"
+            },
+            "source": {
+              "type": "uri",
+              "value": "https://example.org/ex#zevenaarshaven-vd-source"
+            },
+            "from": {
+              "type": "literal",
+              "value": "2021-03-04T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "until": {
+              "type": "literal",
+              "value": "2021-03-05T00:00:00Z",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "summary": {
+              "type": "bnode",
+              "value": "n832f0ad56f3b4269a63589a18b9738d6b6"
+            },
+            "count": {
+              "type": "literal",
+              "value": "43",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "missing": {
+              "type": "literal",
+              "value": "0",
+              "datatype": "http://www.w3.org/2001/XMLSchema#integer"
+            },
+            "minimum": {
+              "type": "literal",
+              "value": "4457.92",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "maximum": {
+              "type": "literal",
+              "value": "4883.63",
+              "datatype": "http://www.w3.org/2001/XMLSchema#double"
+            },
+            "generatedAt": {
+              "type": "literal",
+              "value": "2026-11-05T12:20:10+00:00",
+              "datatype": "http://www.w3.org/2001/XMLSchema#dateTime"
+            }
+          }
+        ]
+      },
+      "head": {
+        "vars": [
+          "source",
+          "field",
+          "from",
+          "until",
+          "summary",
+          "count",
+          "missing",
+          "minimum",
+          "maximum",
+          "generatedAt"
+        ]
+      }
+    },
+    "comparison": {
+      "expected": 8,
+      "retrieved": 8,
+      "match": true,
+      "missing": [],
+      "unexpected": []
+    }
+  }
+]

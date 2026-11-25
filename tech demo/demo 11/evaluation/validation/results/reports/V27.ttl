@@ -1,0 +1,19 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-ec20-field> ;
+            sh:resultMessage "A field needs exactly one tss:datatype, an IRI such as xsd:double or xsd:dateTime." ;
+            sh:resultPath <https://w3id.org/tss#datatype> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+            sh:sourceShape [ sh:group <https://w3id.org/tss/shapes/external#Required> ;
+                    sh:maxCount 1 ;
+                    sh:message "A field needs exactly one tss:datatype, an IRI such as xsd:double or xsd:dateTime." ;
+                    sh:minCount 1 ;
+                    sh:name "F3 datatype" ;
+                    sh:nodeKind sh:IRI ;
+                    sh:path <https://w3id.org/tss#datatype> ] ] .
+

@@ -1,5 +1,5 @@
-# The JSON points example of the specification: the readings of embedded_rdf.ttl as one
-# rdf:JSON literal (tss:EmbeddedJSONSnippet). The keys are the fields' tss:columnName.
+# The JSON rows example of the specification: the readings of embedded_rdf.ttl as one
+# rdf:JSON literal (tss:EmbeddedJSONSource). The keys are the fields' tss:columnName.
 @prefix tss: <https://w3id.org/tss#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -8,11 +8,11 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:json-snippet
-    a tss:EmbeddedJSONSnippet ;
+ex:json-source
+    a tss:EmbeddedJSONSource ;
     rdfs:label "Conductivity readings, JSON points"@en ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:json-time-field ;
     tss:hasField ex:json-time-field,
         ex:json-value-field ;
@@ -25,12 +25,12 @@ ex:json-snippet
       ]"""^^rdf:JSON .
 
 ex:json-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:json-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;

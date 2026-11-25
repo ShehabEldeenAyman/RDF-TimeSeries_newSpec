@@ -1,35 +1,44 @@
-"""Converting snippets: to other storage classes, time grids and value encodings; subsets,
-splits and merges; and snippets made from observations.
+"""Converting sources: to other storage classes, time grids and value encodings; subsets,
+splits and merges; and sources made from observations.
 
 Every function writes a new metadata document (and data files) and returns it as a
 :class:`~rdftss.document.Document`, read back from what was written::
 
-    rdftss.convert(snippet, "parquet", document="out/readings.ttl")        # data: out/readings.parquet
-    rdftss.convert(snippet, "json", document="out/readings-json.ttl")      # points in the metadata
-    rdftss.convert(snippet, "csv", document="out/grid.ttl", time_grid="auto")
-    rdftss.convert(snippet, "csv", document="out/delta.ttl", encode={"value": "4750"})
-    rdftss.subset(snippet, ["value"], document="out/values.ttl")
-    rdftss.split(snippet, "day", document="out/days.ttl")
+    rdftss.convert(source, "parquet", document="out/readings.ttl")        # data: out/readings.parquet
+    rdftss.convert(source, "json", document="out/readings-json.ttl")      # rows in the metadata
+    rdftss.convert(source, "csv", document="out/grid.ttl", time_grid="auto")
+    rdftss.convert(source, "csv", document="out/delta.ttl", encode={"value": "4750"})
+    rdftss.subset(source, ["value"], document="out/values.ttl")
+    rdftss.split(source, "day", document="out/days.ttl")
     rdftss.merge([january, february], document="out/merged.ttl")
     rdftss.from_observations("observations.nt", iri="https://example.org/s", document="out/s.ttl")
 
-What stays the same: the points in the time window, their times (as moments) and their decoded
-values; the snippet's labels, window, summaries and every field's meaning (datatype, unit,
-observed property, sensor, ...); whether it is immutable (final) or growing; and what the document
-says about other things, such as the sensors. What changes is how the points are stored:
+What stays the same: the rows in the time window, their times (as moments) and their decoded
+values; the source's labels, window, summaries and every field's kind and meaning (datatype,
+unit, observed property, sensor, ...) and the field property of each describing field; whether
+it is immutable (final) or growing; and what the document says about other things, such as the
+sensors. What changes is how the rows are stored:
 
-- **Names.** By default the snippet and its fields get new IRIs, with a suffix such as
+- **Names.** By default the source and its fields get new IRIs, with a suffix such as
   ``-parquet``, so the new document never describes the same node in another way than the old
   one (``iri_suffix=None`` keeps the IRIs).
 - **Embedded classes** state every reading itself: a time grid becomes a time column and value
-  encodings are decoded.
+  encodings are decoded. A ``tss:EmbeddedRDFSource`` gets one point per value of a value field,
+  with ``tss:field``, ``tss:time`` and ``tss:value``; a point keeps the IRI that ``tss:aboutUrl``
+  made for it.
+- **Describing fields** state their field property with ``tss:property``: a default property is
+  made from the data file or the document, so it would change with them.
+- **A time grid without a step field** (rows by position) gets a step field, so that the steps
+  stay right whatever rows the window leaves out.
 - **Parquet and Arrow** store values, not texts: a value reads back with the lexical form of its
   column type (``3.0E1`` becomes ``30.0``, times become UTC ``...Z``). With ``keep_texts=True``
   every column is a string column, and every text stays exactly as it is.
-- **Immutable or growing.** A Parquet snippet is always immutable (rows can't be appended to a
-  Parquet file). A growing Arrow snippet is written in the Arrow IPC streaming format (``.arrows``),
-  an immutable one in the IPC file format. A growing snippet has no stored summaries, and a
-  growing ``tss:EmbeddedRDFSnippet`` is written as an RDF Message Log.
+- **Immutable or growing.** The copy is immutable when the source is. A growing source has no
+  stored summaries, and a growing ``tss:EmbeddedRDFSource`` is written as an RDF Message Log. An
+  Arrow source that grows or states ``tss:rangeRequests true`` is written in the Arrow IPC
+  streaming format (``.arrows``), an immutable one in the IPC file format.
+- **Range requests.** ``tss:rangeRequests true`` is kept for the classes that allow it (RDF, CSV,
+  Arrow) and left out for the others (JSON, Parquet).
 """
 from __future__ import annotations
 
@@ -37,11 +46,11 @@ import csv as csv_module
 import json
 import math
 import re
-import uuid
 from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import urljoin
 
 from rdflib import BNode, Graph, Literal, URIRef
 from rdflib.namespace import RDF, RDFS
@@ -51,35 +60,56 @@ from .analysis import mean_of, median_of, parse_period, period_bounds, period_ke
 from .document import Document, load
 from .encodings import DeltaFromBaseline
 from .errors import DataError, require
-from .expansion import describe_iris
-from .model import ALWAYS_IMMUTABLE, SNIPPET_CLASSES, CSVDialect, Snippet, SnippetKind, TimeWindow, local_name
+from .expansion import _base_iri
+from .model import SOURCE_CLASSES, CSVDialect, Source, SourceKind, TimeWindow, local_name
+from .templates import expand_template
 from .times import Duration, Time, TimeGridMath, parse_time, time_from_instant
-from .vocab import SOSA, QUDT, TSS, TSS_FROM, XSD
+from .vocab import QUDT, SOSA, TSS, TSS_FROM, XSD
 from .writing import document_turtle
 
-#: The short names of the snippet classes, used in IRI suffixes and file names.
-SHORT_NAMES = {SnippetKind.EMBEDDED_RDF: "rdf", SnippetKind.EMBEDDED_JSON: "json", SnippetKind.CSV: "csv",
-               SnippetKind.PARQUET: "parquet", SnippetKind.ARROW: "arrow"}
+#: The short names of the source classes, used in IRI suffixes and file names.
+SHORT_NAMES = {SourceKind.EMBEDDED_RDF: "rdf", SourceKind.EMBEDDED_JSON: "json", SourceKind.CSV: "csv",
+               SourceKind.PARQUET: "parquet", SourceKind.ARROW: "arrow"}
 
 STORAGE_PROPERTIES = (TSS.dataFile, TSS.delimiter, TSS.encoding, TSS.header, TSS.hasPoint, TSS.points,
                       TSS.timeBase, TSS.timeStep, TSS.stepField)
 COLUMN_PROPERTIES = (TSS.columnName, TSS.columnIndex, TSS.valueEncoding, TSS.baseline)
 #: Statements about changes that every target states afresh (and terms of earlier drafts, dropped).
-CHANGE_PROPERTIES = (TSS.immutable, TSS.mutable, TSS.committedUntil)
+CHANGE_PROPERTIES = (TSS.immutable, TSS.rangeRequests, TSS.mutable, TSS.committedUntil)
+
+
+def describe_iris(graph: Graph, iris) -> Graph:
+    """What ``graph`` says about ``iris``: the concise bounded description of each, without the
+    statements that use the TSS vocabulary, and with new blank node labels."""
+    tss = str(TSS)
+    without_tss = Graph()
+    for subject, predicate, value in graph:
+        if str(predicate).startswith(tss) or (isinstance(value, URIRef) and str(value).startswith(tss)):
+            continue
+        without_tss.add((subject, predicate, value))
+    description = Graph()
+    for iri in iris:
+        for triple in without_tss.cbd(iri):
+            description.add(triple)
+    fresh: dict = {}
+    copy = Graph()
+    for triple in description:
+        copy.add(tuple(fresh.setdefault(term, BNode()) if isinstance(term, BNode) else term for term in triple))
+    return copy
 
 
 # ---------------------------------------------------------------------------------------------
-# The plan of a target snippet
+# The plan of a target source
 # ---------------------------------------------------------------------------------------------
 
 @dataclass
 class _Column:
-    """One field of the target snippet. ``sources`` maps each source snippet (by id) to the field
+    """One field of the target source. ``origins`` maps each original source (by id) to the field
     that holds this column's values there (several only when merging)."""
 
     role: str                          # "time", "step" or "value"
     node: object                       # the field's node in the new document
-    sources: dict                      # id(snippet) -> Field
+    origins: dict                      # id(source) -> Field
     datatype: URIRef
     name: str | None = None            # the column name or JSON key
     index: int | None = None           # the column index (a CSV file without a header line)
@@ -90,18 +120,20 @@ class _Column:
 
 @dataclass
 class _Target:
-    kind: SnippetKind
+    kind: SourceKind
     node: object
     columns: list
     grid: TimeGridMath | None = None
     grid_from_source: bool = False
     csv: CSVDialect | None = None
-    window: TimeWindow | None = None   # None: the source window, unchanged
+    window: TimeWindow | None = None   # None: the original window, unchanged
     rename: dict = dataclass_field(default_factory=dict)
     removed: set = dataclass_field(default_factory=set)
     recompute_summaries: bool = False
     data_iri: URIRef | None = None
     immutable: bool = True
+    range_requests: bool = False
+    keep_iris: bool = False            # the source and its fields keep their IRIs (and so do IRI points)
 
 
 def _iri_with(node, suffix):
@@ -117,44 +149,45 @@ def _unique(name: str, used: set) -> str:
     return candidate
 
 
-def _plan(snippet: Snippet, kind: SnippetKind, points, *, fields=None, decode=False, encode=None, time_grid=None,
+def _plan(source: Source, kind: SourceKind, points, *, fields=None, decode=False, encode=None, time_grid=None,
           csv=None, iri_suffix="auto") -> _Target:
     suffix = f"-{SHORT_NAMES[kind]}" if iri_suffix == "auto" else (iri_suffix or "")
-    kept = list(snippet.fields)
+    kept = list(source.fields)
     if fields is not None:
-        wanted = {snippet.field(key) for key in fields} | {snippet.time_field}
-        if snippet.step_field is not None:
-            wanted.add(snippet.step_field)
-        kept = [field for field in snippet.fields if field in wanted]
+        wanted = {source.field(key) for key in fields} | {source.time_field}
+        if source.step_field is not None:
+            wanted.add(source.step_field)
+        kept = [field for field in source.fields if field in wanted]
     if kind.is_embedded and encode:
-        raise ValueError("An embedded snippet states its readings: it can't have a value encoding (encode=...)")
+        raise ValueError("An embedded source states its readings: it can't have a value encoding (encode=...)")
     if kind.is_embedded and time_grid not in (None, False):
-        raise ValueError("An embedded snippet states its own times: it can't have a time grid (time_grid=...)")
+        raise ValueError("An embedded source states its own times: it can't have a time grid (time_grid=...)")
 
     # The time grid of the target
     grid, grid_from_source = None, False
     if kind.is_external:
-        if time_grid is None and snippet.time_grid is not None:
-            grid = TimeGridMath(snippet.time_grid.base, snippet.time_grid.step)
-            grid_from_source = True
+        if time_grid is None and source.time_grid is not None:
+            grid = TimeGridMath(source.time_grid.base, source.time_grid.step)
+            # A grid by position gets a step field: the window may leave rows out
+            grid_from_source = source.time_grid.step_field is not None
         elif time_grid == "auto":
-            grid = detect_grid(points, snippet.window)
+            grid = detect_grid(points, source.window)
         elif time_grid not in (None, False):
             base, step = time_grid
             base = base if isinstance(base, Time) else parse_time(str(base))
             step = step if isinstance(step, Duration) else Duration.parse(str(step))
             grid = TimeGridMath(base, step)
-    removed = {field for field in snippet.fields if field not in kept}
-    if snippet.step_field is not None and not grid_from_source:
-        removed.add(snippet.step_field)
-        kept = [field for field in kept if field is not snippet.step_field]
+    removed = {field for field in source.fields if field not in kept}
+    if source.step_field is not None and not grid_from_source:
+        removed.add(source.step_field)
+        kept = [field for field in kept if field is not source.step_field]
 
     # The encodings of the target
     decode_all = decode is True
-    decoded = set() if decode in (None, False, True) else {snippet.field(key) for key in decode}
+    decoded = set() if decode in (None, False, True) else {source.field(key) for key in decode}
     encodings = {}
     for key, baseline in (encode or {}).items():
-        field = snippet.field(key)
+        field = source.field(key)
         if not field.is_numeric or field.is_time:
             raise ValueError(f"{field.name!r} is not a numeric field, so it can't be encoded as differences")
         if baseline == "auto":
@@ -164,21 +197,17 @@ def _plan(snippet: Snippet, kind: SnippetKind, points, *, fields=None, decode=Fa
         encodings[field] = DeltaFromBaseline(field.datatype, baseline_literal)
 
     def new_node(node):
-        # Blank nodes get new blank nodes, so the snippets made from one source (split) never share one
+        # Blank nodes get new blank nodes, so the sources made by splitting one source never share one
         return BNode() if isinstance(node, BNode) else _iri_with(node, suffix)
 
-    rename = {snippet.node: new_node(snippet.node)}
+    rename = {source.node: new_node(source.node)}
     columns = []
     used_names: set = set()
     for field in kept:
         node = new_node(field.node)
-        if kind == SnippetKind.EMBEDDED_RDF and not isinstance(node, URIRef):
-            base = rename[snippet.node]
-            # The values of RDF points need a field IRI as predicate
-            node = URIRef(f"{base}-{field.name}-field") if isinstance(base, URIRef) else URIRef(f"urn:uuid:{uuid.uuid4()}")
         rename[field.node] = node
         role = "time" if field.is_time else "step" if field.is_step else "value"
-        column = _Column(role, node, {id(snippet): field}, field.datatype, summary=False)
+        column = _Column(role, node, {id(source): field}, field.datatype, summary=False)
         if role == "value":
             if field in encodings:
                 column.encoding = encodings[field]
@@ -189,31 +218,32 @@ def _plan(snippet: Snippet, kind: SnippetKind, points, *, fields=None, decode=Fa
 
     # A new step field
     if grid is not None and not grid_from_source:
-        new_snippet = rename[snippet.node]
-        step_node = URIRef(f"{new_snippet}-step-field") if isinstance(new_snippet, URIRef) else BNode()
+        new_source = rename[source.node]
+        step_node = URIRef(f"{new_source}-step-field") if isinstance(new_source, URIRef) else BNode()
         columns.insert(1, _Column("step", step_node, {}, XSD.integer))
 
     # Column names and indexes
     has_header = True
-    if kind == SnippetKind.CSV:
+    if kind == SourceKind.CSV:
         dialect = csv if isinstance(csv, CSVDialect) else CSVDialect(**(csv or {}))
         has_header = dialect.header
     else:
         dialect = None
     position = 0
     for column in columns:
-        source = next(iter(column.sources.values()), None)
+        origin = next(iter(column.origins.values()), None)
         if column.role == "time" and grid is not None:
             continue  # on a time grid, the time field has no column
         # Every field gets a column name (also RDF points, where it is optional), so the names of
         # the fields stay the same in the new document
         default = "step" if column.role == "step" else "time" if column.role == "time" else "value"
-        column.name = _unique((source.column_name or source.name) if source is not None else default, used_names)
-        if kind == SnippetKind.CSV and not has_header:
+        column.name = _unique((origin.column_name or origin.name) if origin is not None else default, used_names)
+        if kind == SourceKind.CSV and not has_header:
             column.index = position
         position += 1
-    return _Target(kind, rename[snippet.node], columns, grid, grid_from_source, dialect, None, rename, removed,
-                   immutable=snippet.immutable or kind in ALWAYS_IMMUTABLE)
+    return _Target(kind, rename[source.node], columns, grid, grid_from_source, dialect, None, rename, removed,
+                   immutable=source.immutable, range_requests=source.range_requests and kind.allows_range_requests,
+                   keep_iris=not suffix)
 
 
 def auto_baseline(texts, datatype) -> str:
@@ -254,19 +284,19 @@ def _text(point, column: _Column, target: _Target) -> str | None:
         return point.time_text
     if column.role == "step":
         if target.grid_from_source:
-            source = column.sources[id(point.snippet)]
-            return point.texts.get(source)
+            origin = column.origins[id(point.source)]
+            return point.texts.get(origin)
         step = target.grid.step_of(point.moment)
         if step is None:
             raise DataError(f"lies at {point.time_text}, which is not on the time grid "
                             f"{target.grid.base.text} + n × {target.grid.step.text}", point.where)
         return str(step)
-    source = column.sources[id(point.snippet)]
-    if source not in point.values:
+    origin = column.origins[id(point.source)]
+    if origin not in point.values:
         return None
     if column.keep_raw:
-        return point.texts.get(source)
-    decoded = point.text(source)
+        return point.texts.get(origin)
+    decoded = point.text(origin)
     return column.encoding.encode(decoded) if column.encoding is not None else decoded
 
 
@@ -354,10 +384,10 @@ def _closure(graph: Graph, starts) -> set:
     return triples
 
 
-def _snippet_closure(snippet: Snippet) -> set:
-    graph = snippet.graph
-    starts = [snippet.node] + [field.node for field in snippet.fields] + list(graph.objects(snippet.node, TSS.hasPoint))
-    for field in snippet.fields:
+def _source_closure(source: Source) -> set:
+    graph = source.graph
+    starts = [source.node] + [field.node for field in source.fields] + list(graph.objects(source.node, TSS.hasPoint))
+    for field in source.fields:
         starts.extend(graph.objects(field.node, TSS.summary))
         starts.extend(graph.objects(field.node, TSS.fieldDescription))
     return _closure(graph, starts)
@@ -371,32 +401,32 @@ def _new_graph(document: Document) -> Graph:
 
 
 def _copy_context(document: Document, graph: Graph) -> None:
-    """Copy what the document says about everything but its snippets (sensors, features, ...)."""
+    """Copy what the document says about everything but its sources (sensors, features, ...)."""
     owned = set()
-    for snippet in document.snippets:
-        owned |= _snippet_closure(snippet)
+    for source in document.sources:
+        owned |= _source_closure(source)
     for triple in document.graph:
         if triple not in owned:
             graph.add(triple)
 
 
-def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_texts: bool, data_path) -> None:
-    """Add the target snippet's statements (and write its data file) into ``graph``."""
-    source_graph = snippet.graph
-    own = _snippet_closure(snippet)
-    point_nodes = set(source_graph.objects(snippet.node, TSS.hasPoint))
+def _add_source(source: Source, target: _Target, points, graph: Graph, keep_texts: bool, data_path) -> None:
+    """Add the target source's statements (and write its data file) into ``graph``."""
+    source_graph = source.graph
+    own = _source_closure(source)
+    point_nodes = set(source_graph.objects(source.node, TSS.hasPoint))
     skip_subjects = {subject for subject, _, _ in _closure(source_graph, point_nodes)} | point_nodes
     removed_nodes = {field.node for field in target.removed}
     for field in target.removed:
         skip_subjects |= {subject for subject, _, _ in _closure(source_graph, [field.node])}
-    field_nodes = {field.node for field in snippet.fields}
-    summary_columns = {column.sources[id(snippet)].node for column in target.columns
-                       if column.summary and id(snippet) in column.sources}
-    if not target.immutable:  # a growing snippet has no stored summaries
-        summary_nodes = [summary for field in snippet.fields for summary in source_graph.objects(field.node, TSS.summary)]
+    field_nodes = {field.node for field in source.fields}
+    summary_columns = {column.origins[id(source)].node for column in target.columns
+                       if column.summary and id(source) in column.origins}
+    if not target.immutable:  # a growing source has no stored summaries
+        summary_nodes = [summary for field in source.fields for summary in source_graph.objects(field.node, TSS.summary)]
         skip_subjects |= {subject for subject, _, _ in _closure(source_graph, summary_nodes)}
     if target.recompute_summaries:
-        for field in snippet.fields:
+        for field in source.fields:
             if field.node in summary_columns:
                 skip_subjects |= {subject for subject, _, _ in _closure(source_graph, list(source_graph.objects(field.node, TSS.summary)))}
 
@@ -412,8 +442,8 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
     for subject, predicate, value in own:
         if subject in skip_subjects:
             continue
-        if subject == snippet.node:
-            if (predicate == RDF.type and value in SNIPPET_CLASSES) or predicate in STORAGE_PROPERTIES:
+        if subject == source.node:
+            if (predicate == RDF.type and value in SOURCE_CLASSES) or predicate in STORAGE_PROPERTIES:
                 continue
             if predicate == TSS.hasField and value in removed_nodes:
                 continue
@@ -424,6 +454,8 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
         if subject in field_nodes:
             if predicate in COLUMN_PROPERTIES:
                 continue
+            if predicate == TSS.aboutUrl and target.kind == SourceKind.EMBEDDED_RDF:
+                continue  # the points of an RDF source are nodes already: they keep the IRIs it made
             if predicate == TSS.describesField and value in removed_nodes:
                 continue
             if target.recompute_summaries and predicate == TSS.summary and subject in summary_columns:
@@ -436,11 +468,19 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
     graph.add((node, RDF.type, target.kind.iri))
     if target.window is not None:
         if target.window.start is not None:
-            graph.add((node, TSS_FROM, Literal(target.window.start.text, datatype=XSD.dateTimeStamp)))
+            graph.add((node, TSS_FROM, Literal(target.window.start.text, datatype=XSD.dateTime, normalize=False)))
         if target.window.end is not None:
-            graph.add((node, TSS.until, Literal(target.window.end.text, datatype=XSD.dateTimeStamp)))
+            graph.add((node, TSS.until, Literal(target.window.end.text, datatype=XSD.dateTime, normalize=False)))
     if target.immutable:
         graph.add((node, TSS.immutable, Literal("true", datatype=XSD.boolean)))
+    if target.range_requests:
+        graph.add((node, TSS.rangeRequests, Literal("true", datatype=XSD.boolean)))
+    # A describing field keeps its field property: a default one is made from the data file or
+    # the document, so it would change with them
+    for column in target.columns:
+        origin = next(iter(column.origins.values()), None)
+        if origin is not None and origin.describes and origin.property is None and origin.field_property is not None:
+            graph.add((column.node, TSS.property, origin.field_property))
     if target.data_iri is not None:
         graph.add((node, TSS.dataFile, target.data_iri))
     if target.csv is not None:
@@ -448,14 +488,14 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
         graph.add((node, TSS.encoding, Literal(target.csv.encoding)))
         graph.add((node, TSS.header, Literal("true" if target.csv.header else "false", datatype=XSD.boolean)))
     if target.grid is not None:
-        graph.add((node, TSS.timeBase, Literal(target.grid.base.text, datatype=XSD.dateTimeStamp)))
+        graph.add((node, TSS.timeBase, Literal(target.grid.base.text, datatype=XSD.dateTime, normalize=False)))
         graph.add((node, TSS.timeStep, Literal(target.grid.step.text, datatype=XSD.duration)))
     for column in target.columns:
         if column.role == "step":
             graph.add((node, TSS.stepField, column.node))
-            if not column.sources:  # a new step field
+            if not column.origins:  # a new step field
                 graph.add((node, TSS.hasField, column.node))
-                graph.add((column.node, RDF.type, TSS.Field))
+                graph.add((column.node, RDF.type, TSS.ContextField))
                 graph.add((column.node, RDFS.label, Literal("Step", lang="en")))
                 graph.add((column.node, TSS.datatype, XSD.integer))
         if column.name is not None:
@@ -466,21 +506,16 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
             for predicate, value in column.encoding.statements():
                 graph.add((column.node, predicate, value))
 
-    rows = [[_text(point, column, target) for column in target.columns] for point in points]
+    table = [[_text(point, column, target) for column in target.columns] for point in points]
     if target.recompute_summaries and target.immutable:
         for index, column in enumerate(target.columns):
             if column.summary:
-                _add_summary(graph, column, points, [row[index] for row in rows])
-    if target.kind == SnippetKind.EMBEDDED_RDF:
-        for row in rows:
-            point = BNode()
-            graph.add((node, TSS.hasPoint, point))
-            for column, text in zip(target.columns, row):
-                if text is not None and text != "":
-                    graph.add((point, column.node, _literal(text, column)))
-    elif target.kind == SnippetKind.EMBEDDED_JSON:
+                _add_summary(graph, column, points, [row[index] for row in table])
+    if target.kind == SourceKind.EMBEDDED_RDF:
+        _add_rdf_points(node, target, points, table, graph)
+    elif target.kind == SourceKind.EMBEDDED_JSON:
         objects = []
-        for row in rows:
+        for row in table:
             item = {column.name: text for column, text in zip(target.columns, row) if text not in (None, "")}
             objects.append(json.dumps(item, ensure_ascii=False))
         text = "[\n" + ",\n".join(f"  {item}" for item in objects) + "\n]" if objects else "[]"
@@ -488,20 +523,65 @@ def _add_snippet(snippet: Snippet, target: _Target, points, graph: Graph, keep_t
     else:
         stored = [column for column in target.columns if column.name is not None]
         positions = [target.columns.index(column) for column in stored]
-        _write_data(target, stored, [[row[i] for i in positions] for row in rows], data_path, keep_texts)
+        _write_data(target, stored, [[row[i] for i in positions] for row in table], data_path, keep_texts)
+
+
+def _add_rdf_points(node, target: _Target, rows, table: list, graph: Graph) -> None:
+    """The points of a tss:EmbeddedRDFSource: one per value of a value field in a row, with its
+    value field, the time of its row, its reading, and the values of the describing fields that
+    describe its value field."""
+    time_column = next(column for column in target.columns if column.role == "time")
+    first = {id(column): next(iter(column.origins.values()), None) for column in target.columns}
+    value_columns = [(index, column) for index, column in enumerate(target.columns)
+                     if column.role == "value" and first[id(column)] is not None and first[id(column)].is_value]
+    by_field = {first[id(column)]: column for _, column in value_columns}
+    describing: dict = {}  # value column -> [(index, describing column, its field property)]
+    for index, column in enumerate(target.columns):
+        origin = first[id(column)]
+        if column.role == "value" and origin is not None and origin.describes and origin.field_property is not None:
+            for described in origin.describes:
+                if described in by_field:
+                    describing.setdefault(id(by_field[described]), []).append((index, column, origin.field_property))
+    for row, texts in zip(rows, table):
+        for index, column in value_columns:
+            text = texts[index]
+            if text is None or text == "":
+                continue
+            point = _point_node(row, column, target)
+            graph.add((node, TSS.hasPoint, point))
+            graph.add((point, TSS.field, column.node))
+            graph.add((point, TSS.time, _literal(row.time_text, time_column)))
+            graph.add((point, TSS.value, _literal(text, column)))
+            for other, describer, prop in describing.get(id(column), []):
+                if texts[other] not in (None, ""):
+                    graph.add((point, prop, _literal(texts[other], describer)))
+
+
+def _point_node(row, column: _Column, target: _Target):
+    """The node of a new point: the IRI that tss:aboutUrl makes for it, the IRI of the point it
+    copies (when the IRIs are kept), or a new blank node."""
+    origin = column.origins.get(id(row.source))
+    if origin is not None and origin.about_url is not None:
+        texts = {field.column_name: row.raw(field) for field in row.source.fields if field.column_name is not None}
+        base = _base_iri(row.source)
+        made = expand_template(origin.about_url, texts)
+        return URIRef(urljoin(base, made) if base else made)
+    if target.keep_iris and row.nodes and isinstance(row.nodes.get(origin), URIRef):
+        return row.nodes[origin]
+    return BNode()
 
 
 def _literal(text: str, column: _Column) -> Literal:
-    source = next(iter(column.sources.values()), None)
+    origin = next(iter(column.origins.values()), None)
     if column.datatype == RDF.langString:
-        language = source.language if source is not None else None
+        language = origin.language if origin is not None else None
         return Literal(text, lang=language) if language else Literal(text)
     return Literal(text, datatype=column.datatype, normalize=False)
 
 
 def _write_data(target: _Target, columns: list, rows: list, path: Path, keep_texts: bool) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if target.kind == SnippetKind.CSV:
+    if target.kind == SourceKind.CSV:
         dialect = target.csv
         with open(path, "w", encoding=dialect.encoding, newline="") as file:
             writer = csv_module.writer(file, delimiter=dialect.delimiter)
@@ -513,15 +593,16 @@ def _write_data(target: _Target, columns: list, rows: list, path: Path, keep_tex
     pa = require("pyarrow", "Writing Parquet and Arrow files", "files")
     arrays = [_arrow_array(pa, [row[index] for row in rows], column, keep_texts) for index, column in enumerate(columns)]
     table = pa.table(arrays, names=[column.name for column in columns])
-    if target.kind == SnippetKind.PARQUET:
+    if target.kind == SourceKind.PARQUET:
         import pyarrow.parquet as pq
 
         pq.write_table(table, str(path))
     else:
         import pyarrow.ipc
 
-        # A growing snippet's data file is an IPC stream, to which record batches can be appended
-        new_writer = pyarrow.ipc.new_file if target.immutable else pyarrow.ipc.new_stream
+        # The data file of a growing source, or of one that states tss:rangeRequests true, is an
+        # IPC stream, to which record batches can be appended
+        new_writer = pyarrow.ipc.new_stream if _streamed(target) else pyarrow.ipc.new_file
         with pa.OSFile(str(path), "wb") as sink, new_writer(sink, table.schema) as writer:
             writer.write_table(table)
 
@@ -551,8 +632,8 @@ def _add_summary(graph: Graph, column: _Column, points, texts: list) -> None:
         first = point if first is None or point.instant < first.instant else first
         last = point if last is None or point.instant > last.instant else last
         if numeric:
-            source = column.sources.get(id(point.snippet))
-            value = point.values.get(source) if source is not None else None
+            origin = column.origins.get(id(point.source))
+            value = point.values.get(origin) if origin is not None else None
             if value is not None:
                 numbers.append(value)
     summary = BNode()
@@ -561,8 +642,8 @@ def _add_summary(graph: Graph, column: _Column, points, texts: list) -> None:
     graph.add((summary, TSS["count"], Literal(str(count), datatype=XSD.integer)))
     graph.add((summary, TSS.missing, Literal(str(missing), datatype=XSD.integer)))
     if first is not None:
-        graph.add((summary, TSS.firstTime, Literal(first.time_text, datatype=XSD.dateTimeStamp)))
-        graph.add((summary, TSS.lastTime, Literal(last.time_text, datatype=XSD.dateTimeStamp)))
+        graph.add((summary, TSS.firstTime, Literal(first.time_text, datatype=XSD.dateTime, normalize=False)))
+        graph.add((summary, TSS.lastTime, Literal(last.time_text, datatype=XSD.dateTime, normalize=False)))
     if numbers and not any(isinstance(value, float) and math.isnan(value) for value in numbers):
         floating = column.datatype in xsd.FLOATING_TYPES
         graph.add((summary, TSS.observedMinimum, _number_literal(min(numbers), column.datatype)))
@@ -570,12 +651,18 @@ def _add_summary(graph: Graph, column: _Column, points, texts: list) -> None:
         graph.add((summary, TSS.mean, _number_literal(mean_of(numbers, floating), column.datatype)))
         graph.add((summary, TSS.median, _number_literal(median_of(numbers, floating), column.datatype)))
     now = datetime.now(timezone.utc).replace(microsecond=0)
-    graph.add((summary, TSS.generatedAtTime, Literal(now.isoformat().replace("+00:00", "Z"), datatype=XSD.dateTimeStamp)))
+    graph.add((summary, TSS.generatedAtTime, Literal(now.isoformat().replace("+00:00", "Z"), datatype=XSD.dateTime, normalize=False)))
+
+
+def _streamed(target: _Target) -> bool:
+    """Whether an Arrow target is written in the IPC streaming format: when it grows, or when it
+    states tss:rangeRequests true."""
+    return not target.immutable or target.range_requests
 
 
 def _suffix(target: _Target) -> str:
-    """The file name suffix of a target's data file: ``.arrows`` for a growing Arrow stream."""
-    return ".arrows" if target.kind == SnippetKind.ARROW and not target.immutable else target.kind.suffix
+    """The file name suffix of a target's data file: ``.arrows`` for an Arrow IPC stream."""
+    return ".arrows" if target.kind == SourceKind.ARROW and _streamed(target) else target.kind.suffix
 
 
 def _paths(target: _Target, document, data_file, stem: str):
@@ -591,64 +678,65 @@ def _paths(target: _Target, document, data_file, stem: str):
     return document_path, document_path.with_name(stem + _suffix(target))
 
 
-def _finish(graph: Graph, document_path: Path | None, source: Document) -> Document:
+def _finish(graph: Graph, document_path: Path | None, original: Document) -> Document:
     """Write the new document (when a path is given) and return it, read back."""
     if document_path is None:
-        return Document(graph, source="(converted)", access=source.access)
+        return Document(graph, location="(converted)", access=original.access)
     document_path.parent.mkdir(parents=True, exist_ok=True)
     document_path.write_text(document_turtle(graph, document_path=document_path), encoding="utf-8")
-    return load(document_path, allow_network=source.access.allow_network)
+    return load(document_path, allow_network=original.access.allow_network)
 
 
 # ---------------------------------------------------------------------------------------------
 # The functions
 # ---------------------------------------------------------------------------------------------
 
-def convert(snippet: Snippet, to=None, *, document=None, data_file=None, iri_suffix="auto", fields=None,
+def convert(source: Source, to=None, *, document=None, data_file=None, iri_suffix="auto", fields=None,
             decode=False, encode=None, time_grid=None, csv=None, keep_texts: bool = False,
             strict: bool = True) -> Document:
-    """The snippet in another storage class, as a new document.
+    """The source in another storage class, as a new document.
 
     - ``to``: ``"rdf"``, ``"json"``, ``"csv"``, ``"parquet"`` or ``"arrow"`` (or a
-      :class:`~rdftss.model.SnippetKind`); by default the snippet's own class.
+      :class:`~rdftss.model.SourceKind`); by default the source's own class.
     - ``document``: where to write the new metadata document (Turtle). Without it, the new
       document is only returned, in memory.
     - ``data_file``: where to write the data file of an external target; by default next to
       ``document``, with the same name and the class's suffix (``.csv``, ``.parquet``, ``.arrow``).
-    - ``iri_suffix``: added to the IRIs of the snippet and its fields; ``"auto"`` is ``-csv``,
+    - ``iri_suffix``: added to the IRIs of the source and its fields; ``"auto"`` is ``-csv``,
       ``-parquet``, ...; ``None`` keeps the IRIs.
     - ``fields``: keep only these fields (and the time and step fields).
     - ``decode``: ``True`` to write the decoded values of every field with a value encoding (and
       drop the encoding), or a list of fields.
     - ``encode``: ``{field: baseline}`` to state those fields as differences from a baseline
       (``tss:DeltaFromBaseline``); the baseline ``"auto"`` is the median, rounded.
-    - ``time_grid``: by default an external target keeps the snippet's time grid; ``False``
-      writes a time column instead; ``"auto"`` puts the points on a grid whose step is found from
-      the data; ``(base, step)``, such as ``("2024-05-12T00:00:00Z", "PT15M")``, sets it.
+    - ``time_grid``: by default an external target keeps the source's time grid (a grid by
+      position gets a step field); ``False`` writes a time column instead; ``"auto"`` puts the
+      rows on a grid whose step is found from the data; ``(base, step)``, such as
+      ``("2024-05-12T00:00:00Z", "PT15M")``, sets it.
     - ``csv``: the CSV settings of a CSV target: ``{"delimiter": ";", "header": False, "encoding": "utf-8"}``.
     - ``keep_texts``: Parquet and Arrow: store every value as text, exactly as it is.
-    - ``strict``: read the snippet strictly (stop at the first data error).
+    - ``strict``: read the source strictly (stop at the first data error).
     """
-    snippet.check_readable()
-    kind = SnippetKind.parse(to) if to is not None else snippet.kind
-    points = snippet.read(strict=strict)
-    target = _plan(snippet, kind, points, fields=fields, decode=decode, encode=encode, time_grid=time_grid,
+    source.check_readable()
+    kind = SourceKind.parse(to) if to is not None else source.kind
+    points = source.read(strict=strict)
+    target = _plan(source, kind, points, fields=fields, decode=decode, encode=encode, time_grid=time_grid,
                    csv=csv, iri_suffix=iri_suffix)
-    document_path, data_path = _paths(target, document, data_file, document and Path(document).stem or snippet.name)
+    document_path, data_path = _paths(target, document, data_file, document and Path(document).stem or source.name)
     if data_path is not None:
         target.data_iri = URIRef(data_path.resolve().as_uri())
-    graph = _new_graph(snippet.document)
-    _copy_context(snippet.document, graph)
-    _add_snippet(snippet, target, points, graph, keep_texts, data_path)
-    return _finish(graph, document_path, snippet.document)
+    graph = _new_graph(source.document)
+    _copy_context(source.document, graph)
+    _add_source(source, target, points, graph, keep_texts, data_path)
+    return _finish(graph, document_path, source.document)
 
 
-def subset(snippet: Snippet, fields, **options) -> Document:
-    """The snippet with only some of its fields (the time field, and the step field of a time
+def subset(source: Source, fields, **options) -> Document:
+    """The source with only some of its fields (the time field, and the step field of a time
     grid, are always kept). The options are those of :func:`convert`; the IRI suffix is
     ``-subset`` unless you give another."""
     options.setdefault("iri_suffix", "-subset")
-    return convert(snippet, options.pop("to", None), fields=fields, **options)
+    return convert(source, options.pop("to", None), fields=fields, **options)
 
 
 def _period_label(start: datetime, months: int, seconds: Decimal) -> str:
@@ -663,23 +751,23 @@ def _period_label(start: datetime, months: int, seconds: Decimal) -> str:
     return start.strftime("%Y-%m-%dT%H%M%S")
 
 
-def split(snippet: Snippet, every="month", *, to=None, document=None, folder=None, strict: bool = True,
+def split(source: Source, every="month", *, to=None, document=None, folder=None, strict: bool = True,
           keep_texts: bool = False) -> Document:
-    """Split a snippet into one snippet per period (``"day"``, ``"month"``, ``"year"``, ``"1h"``,
+    """Split a source into one source per period (``"day"``, ``"month"``, ``"year"``, ``"1h"``,
     ``"P7D"``, ...), in one new document.
 
     Only periods with points become parts. Each part gets the part of the window that lies in its
     period, the points in it, its own IRIs
-    (the snippet's and fields' IRIs with a suffix such as ``-2024-05``) and new stored summaries
+    (the source's and fields' IRIs with a suffix such as ``-2024-05``) and new stored summaries
     for the fields that had one. External parts get one data file each, in ``folder`` (by
     default the folder of ``document``). Periods are in UTC; months and years are calendar ones.
     """
-    snippet.check_readable()
-    kind = SnippetKind.parse(to) if to is not None else snippet.kind
+    source.check_readable()
+    kind = SourceKind.parse(to) if to is not None else source.kind
     if isinstance(every, str) and every in ("day", "month", "year", "hour", "week"):
         every = {"day": "1d", "month": "1 month", "year": "1y", "hour": "1h", "week": "1w"}[every]
     months, seconds = parse_period(every)
-    points = snippet.read(strict=strict)
+    points = source.read(strict=strict)
     groups: dict = {}
     for point in points:
         groups.setdefault(period_key(point, months, seconds), []).append(point)
@@ -687,23 +775,23 @@ def split(snippet: Snippet, every="month", *, to=None, document=None, folder=Non
     folder = Path(folder) if folder is not None else (document_path.parent if document_path else None)
     if kind.is_external and folder is None:
         raise ValueError("Say where to write the data files: folder=... or document=...")
-    graph = _new_graph(snippet.document)
-    _copy_context(snippet.document, graph)
-    stem = document_path.stem if document_path else snippet.name
+    graph = _new_graph(source.document)
+    _copy_context(source.document, graph)
+    stem = document_path.stem if document_path else source.name
     for key, part_points in sorted(groups.items()):
         start, end = period_bounds(key, months, seconds)
         label = _period_label(start, months, seconds)
-        target = _plan(snippet, kind, part_points, iri_suffix=f"-{label}")
-        target.window = _part_window(snippet.window, start, end)
+        target = _plan(source, kind, part_points, iri_suffix=f"-{label}")
+        target.window = _part_window(source.window, start, end)
         target.recompute_summaries = True
         for column in target.columns:
-            source = next(iter(column.sources.values()), None)
-            column.summary = source is not None and source.summary is not None
+            origin = next(iter(column.origins.values()), None)
+            column.summary = origin is not None and origin.summary is not None
         data_path = folder / f"{stem}-{label}{_suffix(target)}" if kind.is_external else None
         if data_path is not None:
             target.data_iri = URIRef(data_path.resolve().as_uri())
-        _add_snippet(snippet, target, part_points, graph, keep_texts, data_path)
-    return _finish(graph, document_path, snippet.document)
+        _add_source(source, target, part_points, graph, keep_texts, data_path)
+    return _finish(graph, document_path, source.document)
 
 
 def _part_window(window: TimeWindow, start: datetime, end: datetime) -> TimeWindow:
@@ -722,87 +810,88 @@ def _instant(moment: datetime) -> Decimal:
     return to_instant(moment)
 
 
-def merge(snippets, *, iri=None, to=None, document=None, data_file=None, strict: bool = True,
+def merge(sources, *, iri=None, to=None, document=None, data_file=None, strict: bool = True,
           keep_texts: bool = False) -> Document:
-    """One snippet with the points of several snippets that have the same fields (the same
+    """One source with the points of several sources that have the same fields (the same
     names and datatypes), such as the parts of :func:`split`.
 
-    The merged snippet takes its description from the first snippet, with the IRI ``iri``
-    (by default the first snippet's IRI with ``-merged``), the smallest window that holds all
+    The merged source takes its description from the first source, with the IRI ``iri``
+    (by default the first source's IRI with ``-merged``), the smallest window that holds all
     windows, decoded values and a time column, and new stored summaries for the fields that had
-    one. It is immutable when every snippet is (or when it is a Parquet snippet), else growing. Two points with the same time are an error."""
-    snippets = list(snippets)
-    if not snippets:
-        raise ValueError("merge needs at least one snippet")
-    first = snippets[0]
-    for snippet in snippets:
-        snippet.check_readable()
-    kind = SnippetKind.parse(to) if to is not None else first.kind
+    one. It is immutable when every source is, else growing. Two rows with the same time are an error."""
+    sources = list(sources)
+    if not sources:
+        raise ValueError("merge needs at least one source")
+    first = sources[0]
+    for source in sources:
+        source.check_readable()
+    kind = SourceKind.parse(to) if to is not None else first.kind
 
-    def signature(snippet):
-        return sorted((field.role, field.name, str(field.datatype)) for field in snippet.fields if not field.is_step)
+    def signature(source):
+        return sorted((field.role, field.name, str(field.datatype)) for field in source.fields if not field.is_step)
 
-    for other in snippets[1:]:
+    for other in sources[1:]:
         if signature(other) != signature(first):
             raise ValueError(f"{other.name} and {first.name} do not have the same fields (names, roles and "
                              "datatypes), so they can't be merged")
     points = []
     seen = {}
-    for snippet in snippets:
-        for point in snippet.read(strict=strict):
+    for source in sources:
+        for point in source.read(strict=strict):
             if point.instant in seen:
                 raise DataError(f"has the same time as a point of {seen[point.instant]}; no two points may have "
-                                "the same time", f"{snippet.name}, {point.where}")
-            seen[point.instant] = snippet.name
+                                "the same time", f"{source.name}, {point.where}")
+            seen[point.instant] = source.name
             points.append(point)
     points.sort(key=lambda point: point.instant)
 
     new_node = URIRef(iri) if iri is not None else _iri_with(first.node, "-merged")
-    target = _plan(first, kind, [p for p in points if p.snippet is first], decode=True, time_grid=False,
+    target = _plan(first, kind, [p for p in points if p.source is first], decode=True, time_grid=False,
                    iri_suffix=None)
     target.rename[first.node] = new_node
     target.node = new_node
     for column in target.columns:
-        source = next(iter(column.sources.values()))
-        new_field = URIRef(f"{new_node}-{source.name}") if isinstance(new_node, URIRef) else column.node
-        target.rename[source.node] = new_field
+        origin = next(iter(column.origins.values()))
+        new_field = URIRef(f"{new_node}-{origin.name}") if isinstance(new_node, URIRef) else column.node
+        target.rename[origin.node] = new_field
         column.node = new_field
-        for snippet in snippets[1:]:
-            column.sources[id(snippet)] = next(field for field in snippet.fields
-                                               if (field.role, field.name) == (source.role, source.name))
-        column.summary = source.summary is not None
+        for source in sources[1:]:
+            column.origins[id(source)] = next(field for field in source.fields
+                                               if (field.role, field.name) == (origin.role, origin.name))
+        column.summary = origin.summary is not None
     target.recompute_summaries = True
-    starts = [snippet.window.start for snippet in snippets]
-    ends = [snippet.window.end for snippet in snippets]
+    starts = [source.window.start for source in sources]
+    ends = [source.window.end for source in sources]
     target.window = TimeWindow(None if None in starts else min(starts, key=lambda t: t.instant),
                                None if None in ends else max(ends, key=lambda t: t.instant))
-    target.immutable = all(snippet.immutable for snippet in snippets) or kind in ALWAYS_IMMUTABLE
+    target.immutable = all(source.immutable for source in sources)
+    target.range_requests = all(source.range_requests for source in sources) and kind.allows_range_requests
     document_path, data_path = _paths(target, document, data_file, Path(document).stem if document else "merged")
     if data_path is not None:
         target.data_iri = URIRef(data_path.resolve().as_uri())
     graph = _new_graph(first.document)
     _copy_context(first.document, graph)
-    _add_snippet(first, target, points, graph, keep_texts, data_path)
+    _add_source(first, target, points, graph, keep_texts, data_path)
     return _finish(graph, document_path, first.document)
 
 
-def from_observations(source, *, iri: str, to="rdf", document=None, data_file=None, label: str | None = None,
+def from_observations(data, *, iri: str, to="rdf", document=None, data_file=None, label: str | None = None,
                       summaries: bool = True) -> Document:
-    """A snippet made from SOSA observations, the reverse of an expansion.
+    """A source made from SOSA observations: nodes with ``sosa:resultTime`` and ``sosa:hasSimpleResult``.
 
-    - ``source``: an rdflib graph, or a path or URL of an RDF document with the observations
+    - ``data``: an rdflib graph, or a path or URL of an RDF document with the observations
       (nodes with ``sosa:resultTime`` and ``sosa:hasSimpleResult``).
-    - ``iri``: the IRI of the new snippet; its fields get IRIs that start with it.
+    - ``iri``: the IRI of the new source; its fields get IRIs that start with it.
     - ``to``, ``document``, ``data_file``: the storage class and where to write (see :func:`convert`).
 
     Observations with the same observed property, sensor, feature of interest, unit and datatype
     become one field; all fields share one time field. ``tss:from`` is the first time and
-    ``tss:until`` one second after the last; the snippet is immutable (``tss:immutable true``). Every result time
+    ``tss:until`` one second after the last; the source is immutable (``tss:immutable true``). Every result time
     needs a timezone, and two different results of one field at the same time are an error.
     """
     from .rdf import parse_rdf
 
-    graph = source if isinstance(source, Graph) else parse_rdf(str(source))
+    graph = data if isinstance(data, Graph) else parse_rdf(str(data))
     groups: dict = {}
     rows: dict = {}
     times: dict = {}
@@ -829,7 +918,7 @@ def from_observations(source, *, iri: str, to="rdf", document=None, data_file=No
     if not rows:
         raise DataError("found no observations (nodes with sosa:hasSimpleResult)")
 
-    snippet = URIRef(iri)
+    source = URIRef(iri)
     out = Graph()
     for prefix, namespace in graph.namespaces():
         out.bind(prefix, namespace, override=False)
@@ -838,15 +927,15 @@ def from_observations(source, *, iri: str, to="rdf", document=None, data_file=No
     time_field = URIRef(f"{iri}-time")
     ordered = sorted(times.values(), key=lambda time: time.instant)
     until = time_from_instant(ordered[-1].instant + 1)
-    for triple in [(snippet, RDF.type, SnippetKind.EMBEDDED_RDF.iri), (snippet, TSS.immutable, Literal("true", datatype=XSD.boolean)),
-                   (snippet, TSS_FROM, Literal(ordered[0].text, datatype=XSD.dateTimeStamp)),
-                   (snippet, TSS.until, Literal(until.text, datatype=XSD.dateTimeStamp)),
-                   (snippet, TSS.timeField, time_field), (snippet, TSS.hasField, time_field),
-                   (time_field, RDF.type, TSS.Field), (time_field, TSS.datatype, XSD.dateTimeStamp),
+    for triple in [(source, RDF.type, SourceKind.EMBEDDED_RDF.iri), (source, TSS.immutable, Literal("true", datatype=XSD.boolean)),
+                   (source, TSS_FROM, Literal(ordered[0].text, datatype=XSD.dateTime, normalize=False)),
+                   (source, TSS.until, Literal(until.text, datatype=XSD.dateTime, normalize=False)),
+                   (source, TSS.timeField, time_field), (source, TSS.hasField, time_field),
+                   (time_field, RDF.type, TSS.ContextField), (time_field, TSS.datatype, XSD.dateTime),
                    (time_field, TSS.columnName, Literal("time")), (time_field, RDFS.label, Literal("Time", lang="en"))]:
         out.add(triple)
     if label:
-        out.add((snippet, RDFS.label, Literal(label)))
+        out.add((source, RDFS.label, Literal(label)))
     nodes, used_names, used_iris = {}, {"time"}, set()
     for key, number in sorted(groups.items(), key=lambda item: item[1]):
         observed, sensor, feature, unit, datatype, language = key
@@ -855,8 +944,8 @@ def from_observations(source, *, iri: str, to="rdf", document=None, data_file=No
                        else f"{base}-{local_name(sensor) or local_name(feature) or number}", used_names)
         field = URIRef(f"{iri}-{name}")
         nodes[key] = field
-        out.add((snippet, TSS.hasField, field))
-        out.add((field, RDF.type, TSS.Field))
+        out.add((source, TSS.hasField, field))
+        out.add((field, RDF.type, TSS.ValueField))
         out.add((field, TSS.columnName, Literal(name)))
         out.add((field, TSS.datatype, datatype))
         if language:
@@ -868,19 +957,20 @@ def from_observations(source, *, iri: str, to="rdf", document=None, data_file=No
                 if isinstance(value, URIRef):
                     used_iris.add(value)
     for instant, row in rows.items():
-        point = BNode()
-        out.add((snippet, TSS.hasPoint, point))
-        out.add((point, time_field, Literal(times[instant].text, datatype=XSD.dateTimeStamp)))
         for key, text in row.items():
             datatype, language = key[4], key[5]
-            out.add((point, nodes[key], Literal(text, lang=language) if language else
+            point = BNode()
+            out.add((source, TSS.hasPoint, point))
+            out.add((point, TSS.field, nodes[key]))
+            out.add((point, TSS.time, Literal(times[instant].text, datatype=XSD.dateTime, normalize=False)))
+            out.add((point, TSS.value, Literal(text, lang=language) if language else
                      Literal(text, datatype=datatype, normalize=False)))
     for triple in describe_iris(graph, used_iris):
         out.add(triple)
-    made = Document(out, source="(from observations)")
-    kind = SnippetKind.parse(to)
-    if summaries or kind != SnippetKind.EMBEDDED_RDF:
-        new = made.snippet()
+    made = Document(out, location="(from observations)")
+    kind = SourceKind.parse(to)
+    if summaries or kind != SourceKind.EMBEDDED_RDF:
+        new = made.source()
         points = new.read()
         target = _plan(new, kind, points, iri_suffix=None)
         if summaries:
@@ -892,6 +982,6 @@ def from_observations(source, *, iri: str, to="rdf", document=None, data_file=No
             target.data_iri = URIRef(data_path.resolve().as_uri())
         result = _new_graph(made)
         _copy_context(made, result)
-        _add_snippet(new, target, points, result, False, data_path)
+        _add_source(new, target, points, result, False, data_path)
         return _finish(result, document_path, made)
     return _finish(out, Path(document) if document else None, made)

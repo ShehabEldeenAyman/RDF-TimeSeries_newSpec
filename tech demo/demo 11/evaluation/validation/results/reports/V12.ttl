@@ -1,0 +1,17 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S22 not allowed: tss:hasPoint links the RDF points of a tss:EmbeddedRDFSource; the readings of an external source are the rows of its data file." ;
+            sh:resultPath <https://w3id.org/tss#hasPoint> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
+            sh:sourceShape [ sh:group <https://w3id.org/tss/shapes/external#NotAllowed> ;
+                    sh:maxCount 0 ;
+                    sh:message "S22 not allowed: tss:hasPoint links the RDF points of a tss:EmbeddedRDFSource; the readings of an external source are the rows of its data file." ;
+                    sh:name "S22 has point" ;
+                    sh:path <https://w3id.org/tss#hasPoint> ] ] .
+

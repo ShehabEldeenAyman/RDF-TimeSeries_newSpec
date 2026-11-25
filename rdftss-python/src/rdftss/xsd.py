@@ -1,6 +1,6 @@
 """XSD datatypes: which texts are valid values, and which Python values they stand for.
 
-Every value of a snippet is a text: a CSV cell, a JSON string, the lexical form of a literal, or
+Every value of a source is a text: a CSV cell, a JSON string, the lexical form of a literal, or
 a Parquet or Arrow value written in the lexical form of its type. A field's ``tss:datatype``
 says how to read that text. rdftss checks the lexical forms the specification lists, and keeps
 every text exactly as written: ``" 12 "`` is no ``xsd:double``, so it is reported, not read as 12.

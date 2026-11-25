@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-ec20-field> ;
+            sh:resultMessage "F13 field property: only a describing field (tss:describesField) states tss:property; a point states its time with tss:time and its reading with tss:value." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F13 field property: only a describing field (tss:describesField) states tss:property; a point states its time with tss:time and its reading with tss:value." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:property ?value .
+                FILTER NOT EXISTS { $this tss:describesField ?described }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#conductivity> ] .
+

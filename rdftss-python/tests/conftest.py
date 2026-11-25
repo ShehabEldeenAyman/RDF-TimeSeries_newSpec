@@ -7,7 +7,10 @@ import rdftss
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "examples"
+# The repository's working copy of the specification, when rdftss is next to it
 DEMO_11 = ROOT.parent / "tech demo" / "demo 11"
+#: Its public example documents (the Waterinfo ones; the others are not public data).
+DEMO_DOCUMENTS = sorted((DEMO_11 / "metadata endpoint").glob("waterinfo_*.ttl"))
 
 PREFIXES = """@prefix tss: <https://w3id.org/tss#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -20,18 +23,18 @@ PREFIXES = """@prefix tss: <https://w3id.org/tss#> .
 """
 
 
-def snippet_text(kind="CSVSnippet", extra="", time_field="", value_field="", window=True, fields="") -> str:
-    """A small snippet description: a time field and a double value field."""
-    bounds = ('    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;\n'
-              '    tss:until "2024-05-12T10:00:00Z"^^xsd:dateTimeStamp ;\n') if window else ""
+def source_text(kind="CSVSource", extra="", time_field="", value_field="", window=True, fields="") -> str:
+    """A small source description: a time field and a double value field."""
+    bounds = ('    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;\n'
+              '    tss:until "2024-05-12T10:00:00Z"^^xsd:dateTime ;\n') if window else ""
     return PREFIXES + f"""
 ex:s a tss:{kind} ;
     tss:immutable true ;
 {bounds}{extra}
     tss:timeField ex:time ;
     tss:hasField ex:time, ex:value{fields} .
-ex:time a tss:Field ; tss:datatype xsd:dateTimeStamp {time_field}.
-ex:value a tss:Field ; tss:datatype xsd:double ;
+ex:time a tss:ContextField ; tss:datatype xsd:dateTime {time_field}.
+ex:value a tss:ValueField ; tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ; tss:unit unit:MicroS-PER-CentiM {value_field}.
 """
 

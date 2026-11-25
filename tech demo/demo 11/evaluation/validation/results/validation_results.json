@@ -1,0 +1,1234 @@
+{
+  "versions": {
+    "python": "3.14.6",
+    "pyshacl": "0.40.2",
+    "rdflib": "7.6.0",
+    "configuration": "inference=none, allow_warnings=True, abort_on_first=False; RDF Message Logs as the merge of their messages"
+  },
+  "cases": [
+    {
+      "case": "waterinfo_289423042_tss2.ttl",
+      "kind": "valid document",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "waterinfo_289429042_tss2_parquet.ttl",
+      "kind": "valid document",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "waterinfo_289435042_tss2.ttl",
+      "kind": "valid document",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "waterinfo_289441042_tss2_time_step.ttl",
+      "kind": "valid document",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "waterinfo_289441042_tss2_value_delta.ttl",
+      "kind": "valid document",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "kind": "valid document",
+      "target": [],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "waterinfo_289441042_tss2_points_embedded_json.ttl",
+      "kind": "valid document",
+      "target": [],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "waterinfo_289441042_tss2_points_time_value.ttl",
+      "kind": "valid document",
+      "target": [],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-embedded-source",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-multi-sensor",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-describing-field",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-json-points",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-csv-source",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-csv-no-header",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-time-grid",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-time-grid-no-step",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-delta-from-baseline",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "external"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "spec: example-message-stream",
+      "kind": "valid example",
+      "target": [],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V01",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "missing time field",
+      "what": "the source states no tss:timeField",
+      "target": [
+        "S4"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S4",
+        "S5"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V02",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "missing time field",
+      "what": "the embedded source states no tss:timeField",
+      "target": [
+        "S4"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "S4",
+        "S9"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V03",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "source class",
+      "what": "the source states no source class",
+      "target": [
+        "S7"
+      ],
+      "shapes": [],
+      "violations": [
+        "S1",
+        "S7"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V04",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "source class",
+      "what": "the source states two source classes",
+      "target": [
+        "S7"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S7"
+      ],
+      "warnings": [
+        "S15"
+      ],
+      "passed": true
+    },
+    {
+      "case": "V05",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "time window",
+      "what": "tss:until comes before tss:from",
+      "target": [
+        "S14"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S14"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V06",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "timestamps",
+      "what": "tss:from has no timezone",
+      "target": [
+        "S23"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S23"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V07",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "summary on a growing source",
+      "what": "the source no longer states tss:immutable true, but its fields keep their summaries",
+      "target": [
+        "S26"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S26"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V08",
+      "kind": "invalid variant",
+      "base": "waterinfo_289429042_tss2_parquet.ttl",
+      "category": "lifecycle declaration",
+      "what": "a Parquet source states tss:rangeRequests true",
+      "target": [
+        "S28"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S28"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V09",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded_json.ttl",
+      "category": "lifecycle declaration",
+      "what": "an embedded JSON source states tss:rangeRequests true",
+      "target": [
+        "S28"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "S28"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V10",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_time_value.ttl",
+      "category": "representation",
+      "what": "tss:rangeRequests is not a boolean",
+      "target": [
+        "S28"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "S28"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V11",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "representation",
+      "what": "an embedded source states a data file",
+      "target": [
+        "S12"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "S12"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V12",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "representation",
+      "what": "an external source links to a point",
+      "target": [
+        "S22"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S22"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V13",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "representation",
+      "what": "one document describes an external and an embedded source",
+      "target": [
+        "S24"
+      ],
+      "shapes": [
+        "embedded",
+        "external"
+      ],
+      "violations": [
+        "F2",
+        "S24"
+      ],
+      "warnings": [
+        "F9"
+      ],
+      "passed": true
+    },
+    {
+      "case": "V14",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_time_step.ttl",
+      "category": "time grid",
+      "what": "a time base without a time step",
+      "target": [
+        "S19"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S19"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V15",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_time_step.ttl",
+      "category": "time grid",
+      "what": "a step field without a time grid",
+      "target": [
+        "S21"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F2",
+        "S21"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V16",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_time_step.ttl",
+      "category": "time grid",
+      "what": "the step field is not an integer",
+      "target": [
+        "S21"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "S21"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V17",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_time_step.ttl",
+      "category": "time grid",
+      "what": "the time field of a time grid names a column",
+      "target": [
+        "F2"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F2"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V18",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field roles",
+      "what": "a field states neither tss:ValueField nor tss:ContextField",
+      "target": [
+        "F1"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F1"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V19",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field roles",
+      "what": "a describing field is typed tss:ValueField",
+      "target": [
+        "F11"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F11"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V20",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field roles",
+      "what": "the time field is typed tss:ValueField",
+      "target": [
+        "F11"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F11"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V21",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field roles",
+      "what": "a context field states an observed property",
+      "target": [
+        "F12"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F12"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V22",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field roles",
+      "what": "a context field states tss:aboutUrl",
+      "target": [
+        "F12"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F12"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V23",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field roles",
+      "what": "a value field states tss:property",
+      "target": [
+        "F13"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F13"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V24",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "field roles",
+      "what": "the property of a describing field is a TSS term",
+      "target": [
+        "F13"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "F13",
+        "P4"
+      ],
+      "warnings": [
+        "P6"
+      ],
+      "passed": true
+    },
+    {
+      "case": "V25",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field roles",
+      "what": "a describing field describes a context field",
+      "target": [
+        "F15"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F15"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V26",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field declarations",
+      "what": "two fields name the same column",
+      "target": [
+        "F2"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F2"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V27",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field declarations",
+      "what": "the value field states no datatype",
+      "target": [
+        "F3"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F3"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V28",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "field declarations",
+      "what": "the expected maximum is below the minimum",
+      "target": [
+        "F8"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F8"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V29",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "field declarations",
+      "what": "a field of an embedded RDF source states tss:aboutUrl",
+      "target": [
+        "F14"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "F14"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V30",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_value_delta.ttl",
+      "category": "encoding",
+      "what": "tss:DeltaFromBaseline without a baseline",
+      "target": [
+        "D1"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "D1"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V31",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_value_delta.ttl",
+      "category": "encoding",
+      "what": "the baseline is not a literal of the field's datatype",
+      "target": [
+        "D2"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "D2"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V32",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "encoding",
+      "what": "a baseline without tss:DeltaFromBaseline",
+      "target": [
+        "D3"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "D3"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V33",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_value_delta.ttl",
+      "category": "encoding",
+      "what": "the time field states a value encoding",
+      "target": [
+        "D3"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "D1",
+        "D3"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V34",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "encoding",
+      "what": "a field of an embedded source states a value encoding",
+      "target": [
+        "D3"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "D3"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V35",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "duplicate points",
+      "what": "two points of the value field have the same time",
+      "target": [
+        "P3"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P3"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V36",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "duplicate points",
+      "what": "the same moment written in two ways",
+      "target": [
+        "P3"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P3"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V37",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "out-of-window timestamps",
+      "what": "a point after tss:until",
+      "target": [
+        "P2"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P2"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V38",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "out-of-window timestamps",
+      "what": "a point before tss:from",
+      "target": [
+        "P2"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P2"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V39",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_time_value.ttl",
+      "category": "out-of-window timestamps",
+      "what": "a point at tss:from minus one step, in the growing log",
+      "target": [
+        "P2"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P2"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V40",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a point without tss:time",
+      "target": [
+        "P1"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P1"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V41",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a point without tss:value",
+      "target": [
+        "P9"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P9"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V42",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a point with two readings",
+      "target": [
+        "P7"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P7"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V43",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a reading that is not an xsd:double",
+      "target": [
+        "P4"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P4"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V44",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a reading with another datatype than its field",
+      "target": [
+        "P4"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P4"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V45",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a describing value with another datatype than its field",
+      "target": [
+        "P4"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P4"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V46",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "two value fields, and points without tss:field",
+      "target": [
+        "P8"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P8"
+      ],
+      "warnings": [
+        "F9"
+      ],
+      "passed": true
+    },
+    {
+      "case": "V47",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a point whose tss:field is a context field",
+      "target": [
+        "P8"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P10",
+        "P8"
+      ],
+      "warnings": [
+        "F9"
+      ],
+      "passed": true
+    },
+    {
+      "case": "V48",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a describing value on a point of a field that it does not describe",
+      "target": [
+        "P10"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "P10"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V49",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "points",
+      "what": "a node with a reading that no source links to",
+      "target": [
+        "S6"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "S6"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V50",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "timestamps",
+      "what": "a point time without a timezone",
+      "target": [
+        "S23"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "S23"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V51",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded_json.ttl",
+      "category": "representation",
+      "what": "an embedded JSON source without tss:points",
+      "target": [
+        "S6"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "S6"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V52",
+      "kind": "invalid variant",
+      "base": "waterinfo_289441042_tss2_points_embedded_json.ttl",
+      "category": "representation",
+      "what": "a field of an embedded JSON source without a column name (its key)",
+      "target": [
+        "S25"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [
+        "S25"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V53",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "summaries",
+      "what": "a summary count that is not an integer",
+      "target": [
+        "Q4"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F10",
+        "Q4"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V54",
+      "kind": "invalid variant",
+      "base": "waterinfo_289423042_tss2.ttl",
+      "category": "summaries",
+      "what": "a field with two summaries",
+      "target": [
+        "F10"
+      ],
+      "shapes": [
+        "external"
+      ],
+      "violations": [
+        "F10"
+      ],
+      "warnings": [],
+      "passed": true
+    },
+    {
+      "case": "V55",
+      "kind": "warning variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "warning",
+      "what": "a point with a property that no field states",
+      "target": [
+        "P6"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [
+        "P6"
+      ],
+      "passed": true
+    },
+    {
+      "case": "V56",
+      "kind": "warning variant",
+      "base": "waterinfo_289441042_tss2_points_embedded.ttl",
+      "category": "warning",
+      "what": "a reading above the expected maximum",
+      "target": [
+        "P5"
+      ],
+      "shapes": [
+        "embedded"
+      ],
+      "violations": [],
+      "warnings": [
+        "P5"
+      ],
+      "passed": true
+    }
+  ]
+}

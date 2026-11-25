@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ts-source> ;
+            sh:resultMessage "S19 time step: the source has a tss:timeBase (2021-03-04T00:00:00Z), so it needs a tss:timeStep: the time between two steps." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S19 time step: the source has a tss:timeBase ({?value}), so it needs a tss:timeStep: the time between two steps." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:timeBase ?value .
+                FILTER NOT EXISTS { $this tss:timeStep ?step }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#SourceShape> ;
+            sh:value "2021-03-04T00:00:00Z"^^xsd:dateTime ] .
+

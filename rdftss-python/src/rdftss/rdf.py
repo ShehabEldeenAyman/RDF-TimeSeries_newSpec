@@ -25,15 +25,15 @@ That switch is global in rdflib (pyshacl's ``validate()`` flips it too), so :dat
 makes the code that flips it take turns. :func:`exact_turtle` writes Turtle in which numbers and
 booleans keep their text as well.
 
-**RDF Message Logs.** The metadata document of a growing ``tss:EmbeddedRDFSnippet`` is an RDF
+**RDF Message Logs.** The metadata document of a growing ``tss:EmbeddedRDFSource`` is an RDF
 Message Log: Turtle or TriG that announces the version label ``1.2-messages`` and ends every
 message with a delimiter, ``MESSAGE`` or ``@message .``, on a line of its own::
 
     VERSION "1.2-messages"
     PREFIX ex: <https://example.org/>
-    ex:snippet a tss:EmbeddedRDFSnippet ; ...
+    ex:source a tss:EmbeddedRDFSource ; ...
     MESSAGE
-    ex:snippet tss:hasPoint [ ex:time "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ; ... ] .
+    ex:source tss:hasPoint [ tss:time "2024-05-12T08:00:00Z"^^xsd:dateTime ; ... ] .
     MESSAGE
 
 rdflib can't read the version directive or the delimiters, so :func:`parse_rdf` reads such a
@@ -120,20 +120,20 @@ def _directives(text: str) -> list[str]:
     return [match.group(0).strip() for line in text.splitlines() if (match := _DIRECTIVE.match(line))]
 
 
-def read_rdf(source=None, *, data=None, format: str | None = None, base: str | None = None) -> RDFDocument:
+def read_rdf(location=None, *, data=None, format: str | None = None, base: str | None = None) -> RDFDocument:
     """Like :func:`parse_rdf`, and also says whether the document is an RDF Message Log."""
     text = data.decode("utf-8") if isinstance(data, bytes) else data
-    if text is None and source is not None and not hasattr(source, "read"):
+    if text is None and location is not None and not hasattr(location, "read"):
         try:
-            return RDFDocument(parse_rdf(source, format=format, base=base))
+            return RDFDocument(parse_rdf(location, format=format, base=base))
         except DocumentError as error:
-            text = _text_of(source)  # maybe an RDF Message Log, which rdflib can't read
+            text = _text_of(location)  # maybe an RDF Message Log, which rdflib can't read
             if text is None or not is_message_log(text):
                 raise error from None
-            base = base or _address_of(source)
-            format = format or ("trig" if str(source).lower().endswith(".trig") else "turtle")
+            base = base or _address_of(location)
+            format = format or ("trig" if str(location).lower().endswith(".trig") else "turtle")
     if text is None or not is_message_log(text):
-        return RDFDocument(parse_rdf(source, data=data, format=format, base=base))
+        return RDFDocument(parse_rdf(location, data=data, format=format, base=base))
 
     messages, rest = split_messages(text)
     notes = []
@@ -151,12 +151,12 @@ def read_rdf(source=None, *, data=None, format: str | None = None, base: str | N
     return RDFDocument(_as_graph(dataset), messages=len(messages), incomplete=bool(notes), notes=notes)
 
 
-def _text_of(source) -> str | None:
+def _text_of(location) -> str | None:
     """The text of a local file or a URL, or ``None`` when it can't be fetched."""
     try:
         from rdflib.parser import create_input_source
 
-        stream = create_input_source(source=source).getByteStream()
+        stream = create_input_source(source=location).getByteStream()
         content = stream.read()
         stream.close()
         return content.decode("utf-8") if isinstance(content, bytes) else content
@@ -164,17 +164,17 @@ def _text_of(source) -> str | None:
         return None
 
 
-def _address_of(source) -> str | None:
+def _address_of(location) -> str | None:
     from pathlib import Path
 
-    text = str(source)
+    text = str(location)
     return text if "://" in text else Path(text).resolve().as_uri()
 
 
-def parse_rdf(source=None, *, data=None, format: str | None = None, base: str | None = None) -> Graph:
+def parse_rdf(location=None, *, data=None, format: str | None = None, base: str | None = None) -> Graph:
     """Parse RDF into an rdflib :class:`~rdflib.Graph`, keeping every literal's text exactly.
 
-    - ``source``: a path, a URL, or a file object; or ``data``: the RDF text itself.
+    - ``location``: a path, a URL, or a file object; or ``data``: the RDF text itself.
     - ``format``: an rdflib format name (``"turtle"``, ``"nt"``, ``"xml"``, ``"trig"``,
       ``"json-ld"``, ...). By default rdflib finds it from the file name or media type.
     - ``base``: the IRI that relative IRIs are resolved against. By default, the document's
@@ -188,11 +188,11 @@ def parse_rdf(source=None, *, data=None, format: str | None = None, base: str | 
     if text is not None and is_message_log(text):
         return read_rdf(data=text, format=format, base=base).graph
     dataset = Dataset(default_union=True)
-    _parse_into(dataset, source=source, data=data, format=format, base=base)
+    _parse_into(dataset, location=location, data=data, format=format, base=base)
     return _as_graph(dataset)
 
 
-def _parse_into(dataset: Dataset, *, source=None, data=None, format=None, base=None) -> None:
+def _parse_into(dataset: Dataset, *, location=None, data=None, format=None, base=None) -> None:
     with NORMALIZE_LOCK:
         normalize = rdflib.NORMALIZE_LITERALS
         rdflib.NORMALIZE_LITERALS = False
@@ -205,14 +205,14 @@ def _parse_into(dataset: Dataset, *, source=None, data=None, format=None, base=N
             with warnings.catch_warnings():  # rdflib 7.6 uses its own deprecated Dataset.default_context
                 warnings.filterwarnings("ignore", message=".*default_context is deprecated", category=DeprecationWarning)
                 warnings.filterwarnings("ignore", message="ConjunctiveGraph is deprecated", category=DeprecationWarning)
-                dataset.parse(source=source, data=data, format=format, publicID=base)
+                dataset.parse(source=location, data=data, format=format, publicID=base)
         except FileNotFoundError:
             hint = ""
-            if isinstance(source, str) and ("\n" in source or "@prefix" in source):
+            if isinstance(location, str) and ("\n" in location or "@prefix" in location):
                 hint = " To read RDF text, use rdftss.loads(text)."
-            raise DocumentError(f"There is no file {str(source)[:120]!r}.{hint}") from None
+            raise DocumentError(f"There is no file {str(location)[:120]!r}.{hint}") from None
         except Exception as error:  # rdflib and urllib raise many kinds of errors
-            what = "the text" if data is not None else repr(str(source))
+            what = "the text" if data is not None else repr(str(location))
             raise DocumentError(f"Can't read {what} as RDF: {error}") from None
         finally:
             rdflib.NORMALIZE_LITERALS = normalize

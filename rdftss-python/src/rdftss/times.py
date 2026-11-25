@@ -1,7 +1,8 @@
 """Times, durations and the time grid.
 
-A time of a snippet is an ``xsd:dateTimeStamp``: a date and a time of day with a timezone,
-such as ``2024-05-12T08:00:00Z`` or ``2024-05-12T10:00:00+02:00``. Times are compared as the
+A time of a source is an ``xsd:dateTime`` with a timezone (or an ``xsd:dateTimeStamp``, which
+says the same): a date and a time of day, such as ``2024-05-12T08:00:00Z`` or
+``2024-05-12T10:00:00+02:00``. Times are compared as the
 moments they stand for, so those two are the same time.
 
 Python's :class:`~datetime.datetime` stops at microseconds, while an XSD time may have more
@@ -79,8 +80,8 @@ class Time:
 def parse_time(text: str, *, require_timezone: bool = True) -> Time:
     """Read an ``xsd:dateTime`` text, checking that it is a real date and time.
 
-    With ``require_timezone=True`` (the default) the text must be an ``xsd:dateTimeStamp``:
-    it must end with ``Z`` or an offset such as ``+02:00``.
+    With ``require_timezone=True`` (the default) the text must have a timezone, as every time of
+    a source has: it must end with ``Z`` or an offset such as ``+02:00``.
 
     Raises :class:`ValueError`, with the reason, for a text that is not a valid time.
 

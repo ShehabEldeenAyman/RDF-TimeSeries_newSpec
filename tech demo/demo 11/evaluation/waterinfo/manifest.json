@@ -1,0 +1,232 @@
+{
+  "retrieved": "2026-11-23T14:26:22Z",
+  "service": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS",
+  "access": "public web service, no authentication",
+  "selection": "the time window [from, until) declared by each metadata document",
+  "stations": [
+    {
+      "ts_id": "289441042",
+      "ts_name": "P.15",
+      "station_name": "Kanaal Gent-Terneuzen Zevenaarshaven (NL) VITO",
+      "station_no": "BWO_VITO_IOW51",
+      "stationparameter_name": "EC20",
+      "ts_unitsymbol": "µS/cm",
+      "station_latitude": "51.3048160523352",
+      "station_longitude": "3.83322672308566",
+      "from": "2021-03-04T00:15:00.000+01:00",
+      "to": "2026-03-23T16:45:00.000+01:00",
+      "request": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289423042%2C289429042%2C289435042%2C289441042&returnfields=ts_id%2Cts_name%2Cstation_name%2Cstation_no%2Cstationparameter_name%2Cts_unitsymbol%2Cstation_latitude%2Cstation_longitude%2Ccoverage"
+    },
+    {
+      "ts_id": "289429042",
+      "ts_name": "P.15",
+      "station_name": "Kanaal Gent-Terneuzen Rodenhuizedok (BE) VITO",
+      "station_no": "BWO_VITO_IOW49",
+      "stationparameter_name": "EC20",
+      "ts_unitsymbol": "µS/cm",
+      "station_latitude": "51.1458784523762",
+      "station_longitude": "3.79617883707828",
+      "from": "2021-03-04T00:15:00.000+01:00",
+      "to": "2026-03-23T13:00:00.000+01:00",
+      "request": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289423042%2C289429042%2C289435042%2C289441042&returnfields=ts_id%2Cts_name%2Cstation_name%2Cstation_no%2Cstationparameter_name%2Cts_unitsymbol%2Cstation_latitude%2Cstation_longitude%2Ccoverage"
+    },
+    {
+      "ts_id": "289423042",
+      "ts_name": "P.15",
+      "station_name": "Kanaal Gent-Terneuzen Grootdok (BE) VITO",
+      "station_no": "HIS_BWO_VITO_IOW48",
+      "stationparameter_name": "EC20",
+      "ts_unitsymbol": "µS/cm",
+      "station_latitude": "51.0880013723859",
+      "station_longitude": "3.73367594508742",
+      "from": "2021-03-04T00:45:00.000+01:00",
+      "to": "2025-12-19T00:00:00.000+01:00",
+      "request": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289423042%2C289429042%2C289435042%2C289441042&returnfields=ts_id%2Cts_name%2Cstation_name%2Cstation_no%2Cstationparameter_name%2Cts_unitsymbol%2Cstation_latitude%2Cstation_longitude%2Ccoverage"
+    },
+    {
+      "ts_id": "289435042",
+      "ts_name": "P.15",
+      "station_name": "Kanaal Gent-Terneuzen Autrichehaven (NL) VITO",
+      "station_no": "HIS_BWO_VITO_IOW50",
+      "stationparameter_name": "EC20",
+      "ts_unitsymbol": "µS/cm",
+      "station_latitude": "51.2643487123471",
+      "station_longitude": "3.83805143708034",
+      "from": "2021-03-04T00:15:00.000+01:00",
+      "to": "2025-10-07T09:30:00.000+02:00",
+      "request": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesList&datasource=1&format=json&ts_id=289423042%2C289429042%2C289435042%2C289441042&returnfields=ts_id%2Cts_name%2Cstation_name%2Cstation_no%2Cstationparameter_name%2Cts_unitsymbol%2Cstation_latitude%2Cstation_longitude%2Ccoverage"
+    }
+  ],
+  "series": [
+    {
+      "ts_id": "289423042",
+      "name": "Grootdok (BE)",
+      "from": "2021-03-03T23:45:00Z",
+      "until": "2025-12-18T23:15:00Z",
+      "documents": [
+        "waterinfo_289423042_tss2.ttl"
+      ],
+      "file": "data/waterinfo_289423042.csv",
+      "rows": 94853,
+      "sha256": "cde01670a31e029f67086cea7ab044ab624632365df6b289176bca0afe88b337",
+      "requests": [
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289423042&from=2021-03-03T23%3A45%3A00Z&to=2022-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 1201,
+          "raw_file": "data/raw/289423042_2021.json",
+          "sha256": "012ac51c467fafe19f8e60d2801f942325e5a33aefadc79974ebb1382154b3b5"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289423042&from=2022-01-01T00%3A00%3A00Z&to=2023-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 3257,
+          "raw_file": "data/raw/289423042_2022.json",
+          "sha256": "b6cea26a14685f2ea71783d4f5e0cbf314a4451ddb7cbbb127e9d45d56d6bfff"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289423042&from=2023-01-01T00%3A00%3A00Z&to=2024-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 29148,
+          "raw_file": "data/raw/289423042_2023.json",
+          "sha256": "bee82867117d816da52804e0af10faff31f4c2fa3c80386daccf0dada54f0de5"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289423042&from=2024-01-01T00%3A00%3A00Z&to=2025-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 33073,
+          "raw_file": "data/raw/289423042_2024.json",
+          "sha256": "6a3c8913f4b2bcdaa36bf01d3132110ab0855cbe2aec35f5cd7f937757fcc508"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289423042&from=2025-01-01T00%3A00%3A00Z&to=2025-12-18T23%3A15%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 28176,
+          "raw_file": "data/raw/289423042_2025.json",
+          "sha256": "a979ef86945254f7ec2a6068a033238732f7af6d1a418ddb96b3adb6bc6ff0f8"
+        }
+      ]
+    },
+    {
+      "ts_id": "289429042",
+      "name": "Rodenhuizedok (BE)",
+      "from": "2021-03-03T23:15:00Z",
+      "until": "2026-01-01T00:00:00Z",
+      "documents": [
+        "waterinfo_289429042_tss2_parquet.ttl"
+      ],
+      "file": "data/waterinfo_289429042.parquet",
+      "rows": 158022,
+      "sha256": "9fed41db44117854826074c3d503ff5b4136a043e284f8dc5a6ced24f53ee942",
+      "requests": [
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289429042&from=2021-03-03T23%3A15%3A00Z&to=2022-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 25935,
+          "raw_file": "data/raw/289429042_2021.json",
+          "sha256": "2e5a5ed9e74dbdf6560a6b83863a1b5d516f5a70c201c313e8798b60f2dd6a04"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289429042&from=2022-01-01T00%3A00%3A00Z&to=2023-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 32823,
+          "raw_file": "data/raw/289429042_2022.json",
+          "sha256": "b9e17d708b96eedc34aed2d4c77df92992b0f8101e7b560f4130efcbede9d4d6"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289429042&from=2023-01-01T00%3A00%3A00Z&to=2024-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 31752,
+          "raw_file": "data/raw/289429042_2023.json",
+          "sha256": "03eafb2ac46e8566e3ce75f18eb64958fbeb82aa1d3092b663198f7a98bb90a8"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289429042&from=2024-01-01T00%3A00%3A00Z&to=2025-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 32707,
+          "raw_file": "data/raw/289429042_2024.json",
+          "sha256": "cf7291e6e676fc504d3451f3952168922465d4cb7f5e5edd3759e9ac995de057"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289429042&from=2025-01-01T00%3A00%3A00Z&to=2026-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 34810,
+          "raw_file": "data/raw/289429042_2025.json",
+          "sha256": "c927a3626cea1fbcd47fabeeb878733021a5ca477adb4ac6d48cf188ec40a97e"
+        }
+      ]
+    },
+    {
+      "ts_id": "289435042",
+      "name": "Autrichehaven (NL)",
+      "from": "2021-03-03T23:15:00Z",
+      "until": "2025-10-07T07:45:00Z",
+      "documents": [
+        "waterinfo_289435042_tss2.ttl"
+      ],
+      "file": "data/waterinfo_289435042.csv",
+      "rows": 139928,
+      "sha256": "c61ce969d550255ef079cb68ea8e9148d1ce53f9b5d022d37b8a9cafdf135a3e",
+      "requests": [
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289435042&from=2021-03-03T23%3A15%3A00Z&to=2022-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 24407,
+          "raw_file": "data/raw/289435042_2021.json",
+          "sha256": "b2a00fbb2c7cb26f73257d395514867e1b002c321d88315faeb9f29c28a04031"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289435042&from=2022-01-01T00%3A00%3A00Z&to=2023-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 29223,
+          "raw_file": "data/raw/289435042_2022.json",
+          "sha256": "4c3f6ae6895ba5f15ca0dc48e06fe52d0530c132bee0326616aedde4f42fbeed"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289435042&from=2023-01-01T00%3A00%3A00Z&to=2024-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 31784,
+          "raw_file": "data/raw/289435042_2023.json",
+          "sha256": "5cebcd058fce215644d632d6ed292d96b7892484ae9c8e4db92b7ff80e3cdf1f"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289435042&from=2024-01-01T00%3A00%3A00Z&to=2025-01-01T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 27938,
+          "raw_file": "data/raw/289435042_2024.json",
+          "sha256": "de8c64a18abf1a1f837382f2215bb193886ee92b1b9117a324a83b0d6c6577e4"
+        },
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289435042&from=2025-01-01T00%3A00%3A00Z&to=2025-10-07T07%3A45%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 26580,
+          "raw_file": "data/raw/289435042_2025.json",
+          "sha256": "ff964c5a756dd2d3832d1f75ced99216a38d33164a86e9a65e9f5a4f893e5fa8"
+        }
+      ]
+    },
+    {
+      "ts_id": "289441042",
+      "name": "Zevenaarshaven (NL)",
+      "from": "2021-03-03T23:15:00Z",
+      "until": "2021-03-05T00:00:00Z",
+      "documents": [
+        "waterinfo_289441042_tss2_points_embedded.ttl",
+        "waterinfo_289441042_tss2_points_embedded_json.ttl",
+        "waterinfo_289441042_tss2_points_time_value.ttl"
+      ],
+      "file": "data/waterinfo_289441042.csv",
+      "rows": 46,
+      "sha256": "3bc7032fd406be32a2d4ff09d14e4cb681c74bd57a319041e60af687ed335257",
+      "requests": [
+        {
+          "url": "https://download.waterinfo.be/tsmdownload/KiWIS/KiWIS?service=kisters&type=queryServices&request=getTimeseriesValues&datasource=1&format=json&timezone=UTC&ts_id=289441042&from=2021-03-03T23%3A15%3A00Z&to=2021-03-05T00%3A00%3A00Z&returnfields=Timestamp%2CValue%2CInterpolation+Type%2CQuality+Code%2CQuality+Code+Name%2CQuality+Code+Description%2CQuality+Code+Color",
+          "rows_returned": 47,
+          "raw_file": "data/raw/289441042_2021.json",
+          "sha256": "0f2784226ea99bed924a62a97c351c175f70f6e7288883a3985b53e338043891"
+        }
+      ]
+    }
+  ],
+  "derived": [
+    {
+      "file": "data/waterinfo_289441042_time_step.csv",
+      "derived_from": "data/waterinfo_289441042.csv",
+      "transformation": "rows of 2021-03-04T00:00:00Z..2021-03-05T00:00:00Z; step = (time - 2021-03-04T00:00:00Z) / PT15M",
+      "rows": 43,
+      "sha256": "9dd9d40a1a1710ce784fb4c2f608d653c04362d632afb42b9c134600cf2c237e"
+    },
+    {
+      "file": "data/waterinfo_289441042_value_delta.csv",
+      "derived_from": "data/waterinfo_289441042.csv",
+      "transformation": "rows of 2021-03-04T00:00:00Z..2021-03-05T00:00:00Z; value_delta = value - 4750, exact decimal",
+      "rows": 43,
+      "sha256": "7678c31b63d49ba5f3871c560209ff9d1e6c3232b0ff5c0375d1a905638cabe5"
+    }
+  ]
+}

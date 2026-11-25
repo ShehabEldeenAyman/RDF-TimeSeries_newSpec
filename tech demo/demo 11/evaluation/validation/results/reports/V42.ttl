@@ -1,0 +1,31 @@
+@prefix ns1: <https://w3id.org/tss#> .
+@prefix ns2: <https://example.org/ex#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode ns2:zevenaarshaven-source ;
+            sh:resultMessage "P7 one value: a point has more than one value for https://w3id.org/tss#value." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "P7 one value: a point has more than one value for {?property}." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value ?property WHERE {
+                $this tss:hasPoint ?value .
+                ?value ?property ?first, ?second .
+                FILTER (!sameTerm(?first, ?second))
+                FILTER (?property IN (tss:field, tss:time, tss:value)
+                    || EXISTS { $this tss:hasField ?describing . ?describing tss:property ?property })
+                # An empty text is no value
+                FILTER ((!isLiteral(?first) || STR(?first) != "") && (!isLiteral(?second) || STR(?second) != ""))
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns2:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string ;
+                    ns1:time "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+                    ns1:value 1e+00,
+                        4.79772e+03 ] ] .
+

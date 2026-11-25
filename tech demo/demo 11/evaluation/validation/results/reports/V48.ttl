@@ -1,0 +1,30 @@
+@prefix ns1: <https://example.org/ex#> .
+@prefix ns2: <https://w3id.org/tss#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode ns1:zevenaarshaven-source ;
+            sh:resultMessage "P10 describing: a point states https://example.org/ex#qualityCodeColor, the property of the describing field https://example.org/ex#zevenaarshaven-quality-color-value-field, which does not describe the value field of the point." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "P10 describing: a point states {?property}, the property of the describing field {?describing}, which does not describe the value field of the point." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value ?property ?describing WHERE {
+                $this tss:hasField ?describing .
+                ?describing tss:property ?property .
+                $this tss:hasPoint ?value .
+                ?value ?property ?any .
+                { ?value tss:field ?field } UNION { FILTER NOT EXISTS { ?value tss:field ?anyField1 } $this tss:hasField ?field . ?field a tss:ValueField . FILTER NOT EXISTS { $this tss:hasField ?otherField1 . ?otherField1 a tss:ValueField . FILTER (?otherField1 != ?field) } }
+                FILTER NOT EXISTS { ?describing tss:describesField ?field }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns1:qualityCodeColor "red"^^xsd:string ;
+                    ns2:field ns1:second-field ;
+                    ns2:time "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+                    ns2:value 1e+00 ] ] .
+

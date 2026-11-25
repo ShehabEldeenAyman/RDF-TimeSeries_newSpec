@@ -1,0 +1,60 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ec20-value-field> ;
+            sh:resultMessage "P4 datatype: abc (the point at 2021-03-03T23:15:00Z) is not a valid value of the field's tss:datatype." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "P4 datatype: {?value} (the point at {?when}) is not a valid value of the field's tss:datatype." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT $this ?value ?when WHERE {
+                ?source tss:hasField $this .
+                $this tss:datatype ?datatype .
+                { ?source tss:timeField $this ; tss:hasPoint ?point . ?point tss:time ?value . }
+                UNION { $this a tss:ValueField . ?source tss:hasPoint ?point . ?point tss:value ?value . { ?point tss:field $this } UNION { FILTER NOT EXISTS { ?point tss:field ?anyField1 } ?source tss:hasField $this . $this a tss:ValueField . FILTER NOT EXISTS { ?source tss:hasField ?otherField1 . ?otherField1 a tss:ValueField . FILTER (?otherField1 != $this) } } }
+                UNION { $this tss:property ?property . ?source tss:hasPoint ?point . ?point ?property ?value . }
+                FILTER (isLiteral(?value) && DATATYPE(?value) = ?datatype && STR(?value) != "")
+                OPTIONAL { ?point tss:time ?time }
+                BIND (COALESCE(STR(?time), "(no time)") AS ?when)
+                BIND (STR(?value) AS ?text)
+                BIND (xsd:dateTime(?text) AS ?moment)
+                # A date: its day at midnight, without its timezone (xsd:dateTime("2021-03-04Z")
+                # gives no value, although "2021-03-04Z" is a valid xsd:date)
+                BIND (xsd:dateTime(CONCAT(REPLACE(?text, "(Z|[+-][0-9]{2}:[0-9]{2})$", ""), "T00:00:00")) AS ?day)
+                FILTER (
+                    (?datatype IN (xsd:double, xsd:float)
+                        && !REGEX(?text, "^([+-]?(([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?|INF)|NaN)$"))
+                    || (?datatype = xsd:decimal
+                        && !REGEX(?text, "^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)$"))
+                    || (?datatype IN (xsd:integer, xsd:long, xsd:int, xsd:short, xsd:byte)
+                        && !REGEX(?text, "^[+-]?[0-9]+$"))
+                    || (?datatype IN (xsd:nonNegativeInteger, xsd:unsignedLong, xsd:unsignedInt, xsd:unsignedShort, xsd:unsignedByte)
+                        && !REGEX(?text, "^[+]?[0-9]+$"))
+                    || (?datatype = xsd:positiveInteger
+                        && !REGEX(?text, "^[+]?[0-9]*[1-9][0-9]*$"))
+                    || (?datatype = xsd:nonPositiveInteger
+                        && !REGEX(?text, "^(-[0-9]+|[+]?0+)$"))
+                    || (?datatype = xsd:negativeInteger
+                        && !REGEX(?text, "^-[0-9]*[1-9][0-9]*$"))
+                    || (?datatype = xsd:boolean
+                        && !REGEX(?text, "^(true|false|1|0)$"))
+                    || (?datatype = xsd:dateTime
+                        && (!REGEX(?text, "^-?[0-9]{4,}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})?$")
+                            || !BOUND(?moment)))
+                    # xsd:dateTimeStamp: an xsd:dateTime whose timezone can't be left out
+                    || (?datatype = xsd:dateTimeStamp
+                        && (!REGEX(?text, "^-?[0-9]{4,}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$")
+                            || !BOUND(?moment)))
+                    || (?datatype = xsd:date
+                        && (!REGEX(?text, "^-?[0-9]{4,}-[0-9]{2}-[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})?$")
+                            || !BOUND(?day)))
+                )
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldValuesShape> ;
+            sh:value "abc"^^xsd:double ] .
+

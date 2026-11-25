@@ -1,26 +1,30 @@
-"""Expanding snippets into observations.
+"""Expanding sources into points, as the specification says (#expanding).
 
-Every value of a measured field (a field with a ``tss:observedProperty``, other than the time
-field) inside the time window becomes one observation. An observation holds a link back to its
-snippet, the field's observed property, sensor, feature of interest and unit, the time of its
-point (on a time grid: the time of its step) and the decoded value as result, with the field's
-datatype; a value without a value encoding keeps its text as written.
+A source of any class can be expanded into its points as RDF, in the shape of the points of a
+``tss:EmbeddedRDFSource``. For each row in the time window, and for each value field with a value
+in it, there is one point::
 
->>> result = snippet.expand("observations.nt")       # streamed to a file   # doctest: +SKIP
->>> print(result)                                    # counts, size, per field   # doctest: +SKIP
->>> graph = snippet.expand().graph                   # in memory, for small snippets   # doctest: +SKIP
->>> for observation in snippet.observations():      # no RDF at all   # doctest: +SKIP
-...     observation.time, observation.result
+    <source> tss:hasPoint _:point .
+    _:point tss:field <value field> ;
+        tss:time "2024-05-12T08:00:00Z"^^xsd:dateTime ;    # the time of the row
+        tss:value "4810.5"^^xsd:double ;                   # the reading: the decoded value
+        ex:status "ok" .                                   # the value of each describing field
 
-The observations are written with SOSA, QUDT and Dublin Core by default, as the specification's
-informative mapping says (:class:`SOSAMapping`). To use another vocabulary, subclass
-:class:`ObservationMapping`.
+The point is the RDF point itself for a ``tss:EmbeddedRDFSource``, the IRI that ``tss:aboutUrl``
+makes when the value field states one, and a new blank node otherwise. The expansion of a source
+is its metadata document without ``tss:points``, with the points added, and with the default
+``tss:property`` of each describing field that states none, so that it can be read without the
+specification. A value without a value encoding keeps its text as written.
 
-The output holds no TSS vocabulary and no description of the snippet or its fields. It does hold
-what the metadata says about the IRIs the observations use (observed properties, sensors,
-features of interest, units): the concise bounded description of each, without the statements
-that use the TSS vocabulary. Blank nodes copied from the metadata get new labels, so they never
-merge with an observation.
+>>> result = source.expand("points.nt")      # streamed to a file   # doctest: +SKIP
+>>> graph = source.expand().graph            # in memory, for small sources   # doctest: +SKIP
+>>> for point in source.points():            # no RDF at all   # doctest: +SKIP
+...     point.field.name, point.time.text, point.value
+
+With ``derive=True``, the output also holds what the alignment of the TSS vocabulary with SOSA,
+SAREF and QUDT derives (see :mod:`rdftss.alignment`): each point is then also a
+``sosa:Observation`` and a ``saref:Measurement``, with its result time, its result, and the
+observed property, sensor, feature of interest and unit of its field.
 """
 from __future__ import annotations
 
@@ -30,33 +34,49 @@ import tempfile
 import warnings
 from dataclasses import dataclass, field as dataclass_field
 from pathlib import Path
+from urllib.parse import urljoin
 
 from rdflib import BNode, Dataset, Graph, Literal, URIRef
-from rdflib.namespace import DCTERMS, RDF
+from rdflib.namespace import RDF
 
+from .errors import DataError, Issue
 from .rdf import exact_turtle
+from .templates import expand_template, template_variables
 from .times import Time
-from .vocab import QUDT, SOSA, TSS, XSD
+from .vocab import TSS
 
-#: Observations are written to the output in batches of this many.
+#: Points are written to the output in batches of this many.
 BATCH_SIZE = 10_000
 
 
-@dataclass(frozen=True)
-class Observation:
-    """One observation: a value of a measured field, at the time of its point.
+def literal(text: str, field) -> Literal:
+    """A value as an RDF literal with its field's datatype (or language), keeping its text."""
+    if field.datatype == RDF.langString:
+        return Literal(text, lang=field.language) if field.language else Literal(text)
+    if field.datatype is None:
+        return Literal(text)
+    return Literal(text, datatype=field.datatype, normalize=False)
 
-    - ``snippet``, ``field``, ``point``: where it comes from.
-    - ``time``: the time of the point (a :class:`~rdftss.times.Time`: ``.text``, ``.datetime``).
-    - ``result``: the decoded value as an RDF literal with the field's datatype (or language).
-    - ``observed_property``, ``sensor``, ``feature_of_interest``, ``unit``: from the field.
+
+@dataclass(frozen=True)
+class Point:
+    """One point: one reading, the value of a value field in a row.
+
+    - ``source``, ``field`` (its value field), ``row``: where it comes from.
+    - ``node``: the IRI or blank node of the point.
+    - ``time``: the time of its row (a :class:`~rdftss.times.Time`: ``.text``, ``.datetime``).
+    - ``value``: its reading: the decoded value as an RDF literal with the field's datatype (or language).
+    - ``describing``: the values of the describing fields that describe it, as literals, by field.
+    - ``observed_property``, ``sensor``, ``feature_of_interest``, ``unit``: from its field.
     """
 
-    snippet: object
+    source: object
     field: object
-    point: object
+    row: object
+    node: object
     time: Time
-    result: Literal
+    value: Literal
+    describing: dict = dataclass_field(default_factory=dict)
 
     @property
     def observed_property(self):
@@ -74,93 +94,85 @@ class Observation:
     def unit(self):
         return self.field.unit
 
+    def triples(self):
+        """The triples of the point, as the expansion states them."""
+        node = self.node
+        yield self.source.node, TSS.hasPoint, node
+        yield node, TSS.field, self.field.node
+        yield node, TSS.time, Literal(self.time.text, datatype=self.source.time_field.datatype, normalize=False)
+        yield node, TSS.value, self.value
+        for describer, value in self.describing.items():
+            yield node, describer.field_property, value
 
-def observations(snippet, *, strict: bool = True):
-    """The observations of a snippet, one by one, in the order of its points (a generator).
 
-    Reading follows the specification: only points in the time window, a point without a time
-    and a value not in its lexical form are errors (with ``strict=True``)."""
-    measured = snippet.measured_fields
-    if not measured:
+def _base_iri(source) -> str | None:
+    """The IRI that point IRIs and default properties are resolved against: the data file of an
+    external source, the metadata document of an embedded one."""
+    return source.data_file if source.kind is not None and source.kind.is_external else source.document.base
+
+
+def points(source, *, strict: bool = True, window: bool = True, fields=None, issues=None):
+    """The points of a source, one by one (a generator), in the order of its rows.
+
+    - ``strict``: stop at the first data error (the default), or leave bad values out.
+    - ``window``: only the rows in the time window (the default, as the expansion does).
+    - ``fields``: only the points of these value fields.
+    - ``issues``: a list that gets the problems found, with ``strict=False``.
+    """
+    value_fields = source.value_fields if fields is None else \
+        [field for field in (source.field(key) for key in fields) if field.is_value]
+    if not value_fields:
         return
-    for point in snippet.iter_points(strict=strict, fields=measured):
-        for field in measured:
-            if field not in point.values:
+    needed = set(value_fields)
+    for field in value_fields:
+        needed.update(field.described_by)
+        if field.about_url is not None:
+            names = set(template_variables(field.about_url))
+            needed.update(other for other in source.fields if other.column_name in names)
+    by_column = {field.column_name: field for field in source.fields if field.column_name is not None}
+    base = _base_iri(source)
+    made: set = set()
+    for row in source.iter_rows(strict=strict, window=window, fields=list(needed), issues=issues):
+        for field in value_fields:
+            if field not in row.values:
                 continue
-            text = point.text(field)
-            if field.datatype == RDF.langString:
-                result = Literal(text, lang=field.language) if field.language else Literal(text)
-            elif field.datatype is None:
-                result = Literal(text)
-            else:
-                result = Literal(text, datatype=field.datatype, normalize=False)
-            yield Observation(snippet, field, point, point.moment, result)
-
-
-class ObservationMapping:
-    """How an :class:`Observation` is written in RDF. Subclass it to use another vocabulary:
-
-    - :meth:`triples` gives the triples of one observation, whose node is ``node``;
-    - :meth:`used_iris` gives the IRIs whose description the output should carry;
-    - ``prefixes`` are bound in the Turtle preview.
-    """
-
-    prefixes: dict = {}
-
-    def triples(self, observation: Observation, node):
-        raise NotImplementedError
-
-    def used_iris(self, observation: Observation):
-        """The IRIs whose concise bounded description is copied into the output: by default the
-        observed property, the sensor, the feature of interest and the unit."""
-        return [iri for iri in (observation.observed_property, observation.sensor,
-                                observation.feature_of_interest, observation.unit) if isinstance(iri, URIRef)]
-
-
-class SOSAMapping(ObservationMapping):
-    """The specification's informative mapping to SOSA, QUDT and Dublin Core:
-
-    ============================  ================================================
-    the observation               a blank node of type ``sosa:Observation``
-    the snippet                   ``dcterms:source`` (only when the snippet has an IRI)
-    the observed property         ``sosa:observedProperty``
-    the sensor                    ``sosa:madeBySensor``
-    the feature of interest       ``sosa:hasFeatureOfInterest``
-    the unit                      ``qudt:hasUnit``
-    the time of the point         ``sosa:resultTime`` (an ``xsd:dateTime``)
-    the result                    ``sosa:hasSimpleResult``
-    ============================  ================================================
-    """
-
-    prefixes = {"sosa": SOSA, "qudt": QUDT, "dcterms": DCTERMS, "xsd": XSD}
-
-    def triples(self, observation: Observation, node):
-        yield node, RDF.type, SOSA.Observation
-        if isinstance(observation.snippet.node, URIRef):
-            yield node, DCTERMS.source, observation.snippet.node
-        yield node, SOSA.observedProperty, observation.observed_property
-        if observation.sensor is not None:
-            yield node, SOSA.madeBySensor, observation.sensor
-        if observation.feature_of_interest is not None:
-            yield node, SOSA.hasFeatureOfInterest, observation.feature_of_interest
-        if observation.unit is not None:
-            yield node, QUDT.hasUnit, observation.unit
-        yield node, SOSA.resultTime, Literal(observation.time.text, datatype=XSD.dateTime, normalize=False)
-        yield node, SOSA.hasSimpleResult, observation.result
+            node = row.nodes.get(field) if row.nodes else None
+            if node is None and field.about_url is not None:
+                texts = {name: row.raw(other) for name, other in by_column.items()}
+                iri = URIRef(urljoin(base, expand_template(field.about_url, texts)) if base
+                             else expand_template(field.about_url, texts))
+                if iri in made:
+                    message = (f"field {field.name!r}: tss:aboutUrl gives the IRI {iri} to two points; "
+                               "no two points of a source have the same IRI")
+                    if strict:
+                        raise DataError(message, row.where)
+                    if issues is not None:
+                        issues.append(Issue("error", message, row.where))
+                    continue
+                made.add(iri)
+                node = iri
+            if node is None:
+                node = BNode()
+            describing = {describer: literal(row.text(describer), describer)
+                          for describer in field.described_by
+                          if describer in row.values and describer.field_property is not None}
+            yield Point(source, field, row, node, row.moment, literal(row.text(field), field), describing)
 
 
 @dataclass
 class ExpansionResult:
     """What an expansion made.
 
-    - ``observations``, ``triples``: how many; ``per_field``: observations per field IRI (or name).
+    - ``points``, ``triples``: how many; ``per_field``: points per field IRI (or name).
+    - ``derived``: how many triples the alignment derived (with ``derive=True``).
     - ``path`` and ``size`` (bytes) of the output file, or ``graph`` for an expansion in memory.
-    - ``preview``: the first observations and the descriptions, as Turtle.
-    - ``notes``: snippets that gave no observations, and why.
+    - ``preview``: the first points, as Turtle.
+    - ``notes``: sources that gave no points, and why.
     """
 
-    observations: int = 0
+    points: int = 0
     triples: int = 0
+    derived: int = 0
     per_field: dict = dataclass_field(default_factory=dict)
     path: Path | None = None
     size: int | None = None
@@ -169,7 +181,9 @@ class ExpansionResult:
     notes: list = dataclass_field(default_factory=list)
 
     def __str__(self) -> str:
-        lines = [f"Observations: {self.observations:,}", f"Triples:      {self.triples:,}"]
+        lines = [f"Points:       {self.points:,}", f"Triples:      {self.triples:,}"]
+        if self.derived:
+            lines.append(f"Derived:      {self.derived:,} (through the alignment with SOSA, SAREF and QUDT)")
         if self.path is not None:
             lines.append(f"Output:       {self.path} ({self.size:,} bytes)")
         if self.per_field:
@@ -179,122 +193,129 @@ class ExpansionResult:
         return "\n".join(lines)
 
 
-def describe_iris(graph: Graph, iris) -> Graph:
-    """What ``graph`` says about ``iris``: the concise bounded description of each, without the
-    statements that use the TSS vocabulary, and with new blank node labels."""
-    tss = str(TSS)
-    without_tss = Graph()
-    for subject, predicate, value in graph:
-        if str(predicate).startswith(tss) or (isinstance(value, URIRef) and str(value).startswith(tss)):
-            continue
-        without_tss.add((subject, predicate, value))
-    description = Graph()
-    for iri in iris:
-        for triple in without_tss.cbd(iri):
-            description.add(triple)
-    fresh: dict = {}
-    copy = Graph()
-    for triple in description:
-        copy.add(tuple(fresh.setdefault(term, BNode()) if isinstance(term, BNode) else term for term in triple))
-    return copy
-
-
-def _snippets_of(target) -> list:
-    if hasattr(target, "snippets"):
-        return list(target.snippets)
+def _sources_of(target) -> list:
+    if hasattr(target, "sources"):
+        return list(target.sources)
     if isinstance(target, (list, tuple)):
         return list(target)
     return [target]
 
 
-def expand(target, destination=None, *, format: str | None = None, mapping: ObservationMapping | None = None,
-           strict: bool = True, preview: int = 200, batch_size: int = BATCH_SIZE) -> ExpansionResult:
-    """Expand snippets into observations.
+def metadata_graph(documents, *, default_properties: bool = True) -> Graph:
+    """The metadata documents without ``tss:points``, with the default ``tss:property`` of each
+    describing field that states none."""
+    graph = Graph()
+    for document in documents:
+        for prefix, namespace in document.graph.namespaces():
+            graph.bind(prefix, namespace, override=False)
+        for triple in document.graph:
+            if triple[1] != TSS.points:
+                graph.add(triple)
+        if default_properties:
+            for source in document.sources:
+                for field in source.describing_fields:
+                    if field.property is None and field.default_property is not None:
+                        graph.add((field.node, TSS.property, field.default_property))
+    return graph
 
-    - ``target``: a snippet, a document (every snippet) or a list of snippets.
+
+def expand(target, destination=None, *, format: str | None = None, strict: bool = True, derive: bool = False,
+           metadata: bool = True, preview: int = 200, batch_size: int = BATCH_SIZE) -> ExpansionResult:
+    """Expand sources into their points as RDF (the specification's #expanding).
+
+    - ``target``: a source, a document (every source) or a list of sources.
     - ``destination``: a path or a binary file to write to; ``None`` builds an rdflib graph in
-      memory (``result.graph``), which suits small snippets only.
-    - ``format``: ``"nt"`` (N-Triples, the default) or ``"nquads"`` (N-Quads, one named graph per
-      snippet IRI); by default from the file name (``.nq`` is N-Quads).
-    - ``mapping``: the vocabulary (:class:`SOSAMapping` by default).
+      memory (``result.graph``), which suits small sources only.
+    - ``format``: ``"nt"`` (N-Triples, the default) or ``"nquads"`` (N-Quads: the metadata in the
+      default graph, the points of each source in a graph named by the source); by default from
+      the file name (``.nq`` is N-Quads).
     - ``strict``: stop at the first data error (the default), or leave bad values out.
-    - ``preview``: how many observations to put in ``result.preview``.
+    - ``derive``: also write what the alignment with SOSA, SAREF and QUDT derives.
+    - ``metadata``: also write the metadata documents (the default), as the specification's
+      expansion does; ``False`` writes only the points.
+    - ``preview``: how many points to put in ``result.preview``.
 
     The output is written in batches, so memory stays bounded. A file is first written next to
     its destination and only replaces it when the whole expansion worked.
     """
-    mapping = mapping or SOSAMapping()
-    snippets = _snippets_of(target)
+    from .alignment import derive as derive_from
+
+    sources = _sources_of(target)
     if format is None:
         name = str(destination) if isinstance(destination, (str, os.PathLike)) else ""
         format = "nquads" if name.endswith((".nq", ".nquads")) else "nt"
     if format not in ("nt", "nquads"):
         raise ValueError("format must be 'nt' (N-Triples) or 'nquads' (N-Quads)")
+    for source in sources:
+        source.check_readable()
+    documents = list({id(source.document): source.document for source in sources}.values())
+    described = metadata_graph(documents)
     result = ExpansionResult()
-    used: dict = {}  # document -> the IRIs its observations use
     preview_graph = Graph()
-    for prefix, namespace in mapping.prefixes.items():
-        preview_graph.bind(prefix, namespace)
+    preview_nodes: set = set()
+    for prefix, namespace in described.namespaces():
+        preview_graph.bind(prefix, namespace, override=False)
+
+    def with_derived(batch: Graph, nodes: set) -> Graph:
+        if not derive:
+            return batch
+        for triple in derive_from(batch, context=described):
+            if triple[0] in nodes:
+                batch.add(triple)
+                result.derived += 1
+                if triple[0] in preview_nodes:
+                    preview_graph.add(triple)
+        return batch
 
     def batches():
-        """(snippet, graph) batches of observations."""
-        number = 0
-        for snippet in snippets:
-            if not snippet.measured_fields:
-                result.notes.append(f"{snippet.name} has no measured field (no tss:observedProperty), "
-                                    "so it gives no observations")
+        """(source or None, graph) batches: the metadata first, then the points."""
+        if metadata:
+            head = Graph(store="SimpleMemory")
+            for triple in described:
+                head.add(triple)
+            if derive:
+                extra = derive_from(described)
+                result.derived += len(extra)
+                for triple in extra:
+                    head.add(triple)
+            yield None, head
+        for source in sources:
+            if not source.value_fields:
+                result.notes.append(f"{source.name} has no value field (tss:ValueField), so it has no points")
                 continue
-            for prefix, namespace in snippet.graph.namespaces():
-                preview_graph.bind(prefix, namespace, override=False)
-            iris = used.setdefault(id(snippet.document), (snippet.document, set()))[1]
             batch = Graph(store="SimpleMemory")
-            in_batch = 0
-            for observation in observations(snippet, strict=strict):
-                number += 1
-                in_batch += 1
-                node = BNode(f"o{number}")
-                for triple in mapping.triples(observation, node):
+            nodes: set = set()
+            for point in points(source, strict=strict):
+                for triple in point.triples():
                     batch.add(triple)
-                    if result.observations < preview:
+                    if result.points < preview:
                         preview_graph.add(triple)
-                iris.update(mapping.used_iris(observation))
-                result.observations += 1
-                key = observation.field.iri or observation.field.name
+                if result.points < preview:
+                    preview_nodes.add(point.node)
+                nodes.add(point.node)
+                result.points += 1
+                key = point.field.iri or point.field.name
                 result.per_field[key] = result.per_field.get(key, 0) + 1
-                if in_batch >= batch_size:
-                    yield snippet, batch
-                    batch = Graph(store="SimpleMemory")
-                    in_batch = 0
+                if len(nodes) >= batch_size:
+                    yield source, with_derived(batch, nodes)
+                    batch, nodes = Graph(store="SimpleMemory"), set()
             if len(batch):
-                yield snippet, batch
-
-    def descriptions() -> Graph:
-        graph = Graph()
-        for document, iris in used.values():
-            for triple in describe_iris(document.graph, iris):
-                graph.add(triple)
-        return graph
+                yield source, with_derived(batch, nodes)
 
     if destination is None:
         graph = Graph()
-        for prefix, namespace in preview_graph.namespaces():
+        for prefix, namespace in described.namespaces():
             graph.bind(prefix, namespace, override=False)
         for _, batch in batches():
             for triple in batch:
                 graph.add(triple)
-        for triple in descriptions():
-            graph.add(triple)
         result.graph = graph
         result.triples = len(graph)
     else:
         def write(output) -> None:
-            for snippet, batch in batches():
+            for source, batch in batches():
                 result.triples += len(batch)
-                _write_batch(batch, output, format, snippet)
-            extra = descriptions()
-            result.triples += len(extra)
-            if len(extra):
-                _write_batch(extra, output, format, None)
+                _write_batch(batch, output, format, source)
 
         if hasattr(destination, "write"):
             write(destination)
@@ -311,20 +332,18 @@ def expand(target, destination=None, *, format: str | None = None, mapping: Obse
                     os.remove(temporary)
             result.path = path
             result.size = path.stat().st_size
-    for triple in descriptions():
-        preview_graph.add(triple)
     result.preview = exact_turtle(preview_graph) if len(preview_graph) else ""
     return result
 
 
-def _write_batch(batch: Graph, output, format: str, snippet) -> None:
+def _write_batch(batch: Graph, output, format: str, source) -> None:
     """Write one batch with rdflib's line-based writers (N-Triples or N-Quads). Nothing carries
     over from one line to the next, so batches can follow each other in one file."""
     if format == "nt":
         batch.serialize(destination=output, format="nt", encoding="utf-8")
         return
     dataset = Dataset()
-    name = snippet.node if snippet is not None and isinstance(snippet.node, URIRef) else None
+    name = source.node if source is not None and isinstance(source.node, URIRef) else None
     graph = dataset.graph(name) if name is not None else dataset.default_graph
     for triple in batch:
         graph.add(triple)

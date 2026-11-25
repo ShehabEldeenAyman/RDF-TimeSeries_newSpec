@@ -6,7 +6,7 @@
 
 A stored summary is not refreshed by itself: its ``tss:generatedAtTime`` says when it was
 computed, and a consumer can compute the same numbers from the data to check it. That is what
-this module does. For every field with a ``tss:summary``, it reads the points in the snippet's
+this module does. For every field with a ``tss:summary``, it reads the rows in the source's
 time window, computes the numbers from the field's decoded values, and names each number the
 summary states that the data does not give:
 
@@ -68,7 +68,7 @@ class SummaryCheck:
         return self.problem is None and not self.differences
 
     def __str__(self) -> str:
-        name = self.field.snippet.document.short(self.field.node)
+        name = self.field.source.document.short(self.field.node)
         if self.problem:
             return f"{name}: not checked: {self.problem}"
         if not self.differences:
@@ -115,29 +115,29 @@ class SummaryReport:
 
 
 def verify_summaries(target, *, strict: bool = True, tolerance: float = 1e-12) -> SummaryReport:
-    """Recompute the stored summaries of a document's snippets, of one snippet, or of a list of
-    snippets, from their data, and compare them with what the metadata states.
+    """Recompute the stored summaries of a document's sources, of one source, or of a list of
+    sources, from their data, and compare them with what the metadata states.
 
-    - ``strict``: read the data strictly; a snippet whose data has an error is reported as not
+    - ``strict``: read the data strictly; a source whose data has an error is reported as not
       checked. With ``strict=False`` the bad values are left out of the numbers.
     - ``tolerance``: the relative difference allowed between floating-point numbers.
     """
     from .document import Document
-    from .model import Snippet
+    from .model import Source
 
     if isinstance(target, Document):
-        snippets = target.snippets
-    elif isinstance(target, Snippet):
-        snippets = [target]
+        sources = target.sources
+    elif isinstance(target, Source):
+        sources = [target]
     else:
-        snippets = list(target)
+        sources = list(target)
     checks = []
-    for snippet in snippets:
-        fields = [field for field in snippet.fields if field.summary is not None]
+    for source in sources:
+        fields = [field for field in source.fields if field.summary is not None]
         if not fields:
             continue
         try:
-            points = snippet.read(strict=strict, fields=fields)
+            rows = source.read(strict=strict, fields=fields)
         except RDFTSSError as error:
             checks += [SummaryCheck(field, field.summary, None, [], problem=f"the data can't be read: {error}")
                        for field in fields]
@@ -148,10 +148,10 @@ def verify_summaries(target, *, strict: bool = True, tolerance: float = 1e-12) -
             policy = summary.missing_value_policy
             if policy is not None and policy != TSS.ExcludeEmptyValues:
                 checks.append(SummaryCheck(field, summary, None, compared, problem=(
-                    f"its missing-value policy is {snippet.document.short(policy)}; the specification "
+                    f"its missing-value policy is {source.document.short(policy)}; the specification "
                     "defines only tss:ExcludeEmptyValues")))
                 continue
-            statistics = points.statistics(field)
+            statistics = rows.statistics(field)
             checks.append(SummaryCheck(field, summary, statistics, compared,
                                        statistics.differences(summary, tolerance=tolerance)))
     return SummaryReport(checks)

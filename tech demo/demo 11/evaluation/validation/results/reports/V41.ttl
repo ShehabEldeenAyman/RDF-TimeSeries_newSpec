@@ -1,0 +1,24 @@
+@prefix ns1: <https://example.org/ex#> .
+@prefix ns2: <https://w3id.org/tss#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode ns1:zevenaarshaven-source ;
+            sh:resultMessage "P9 value: a point has no reading: no tss:value." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "P9 value: a point has no reading: no tss:value." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:hasPoint ?value .
+                FILTER NOT EXISTS { ?value tss:value ?reading . FILTER (STR(?reading) != "") }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns1:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string ;
+                    ns2:time "2021-03-03T23:15:00+00:00"^^xsd:dateTime ] ] .
+

@@ -37,6 +37,17 @@ The queries contain explicit example IRIs and dates. Before using real metadata,
 
 Do not merge alternative documents that reuse the same source/field IRIs as if they described different resources. Use separate runs or properly distinguish those resources when constructing a catalog. The supplied fixture gives every source and field a distinct IRI.
 
+## The Waterinfo metadata documents
+
+`--waterinfo` loads the Waterinfo metadata documents of `../../metadata endpoint/` as the catalog. A growing RDF Message Log is read as the merge of its messages. `--expected` compares each answer with the expected rows of a YAML file, and prints the missing and unexpected rows:
+
+```bash
+python evaluation_runner.py --waterinfo --questions waterinfo_questions.yaml \
+    --expected waterinfo_expected.yaml --output results/waterinfo_results.json
+```
+
+The last line printed says how many questions retrieved exactly the expected rows. With `--output`, the comparison of each question is stored with its answer.
+
 ## Interpreting execution
 
 Exit status 0 means query execution completed; it does **not** mean answers are correct or metadata conforms. Empty results are printed normally and require interpretation. Invalid question IDs, missing files, and parsing/query errors return a nonzero exit status. No SHACL validation or automatic reasoning is run.

@@ -1,0 +1,59 @@
+# The specification's multi-sensor example: two value fields, three rows, five points.
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:weather-source
+    a tss:EmbeddedRDFSource ;
+    tss:immutable true ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-12T09:00:00Z"^^xsd:dateTime ;
+    tss:timeField ex:weather-time-field ;
+    tss:hasField ex:weather-time-field, ex:temperature-field, ex:humidity-field .
+
+ex:weather-time-field
+    a tss:ContextField ;
+    tss:datatype xsd:dateTime .
+
+ex:temperature-field
+    a tss:ValueField ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:Temperature ;
+    tss:unit unit:DEG_C .
+
+ex:humidity-field
+    a tss:ValueField ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:RelativeHumidity ;
+    tss:unit unit:PERCENT_RH .
+
+ex:weather-source tss:hasPoint [
+    tss:field ex:temperature-field ;
+    tss:time "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:value "18.2"^^xsd:double
+], [
+    tss:field ex:humidity-field ;
+    tss:time "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:value "61.0"^^xsd:double
+] .
+
+ex:weather-source tss:hasPoint [
+    tss:field ex:temperature-field ;
+    tss:time "2024-05-12T08:10:00Z"^^xsd:dateTime ;
+    tss:value "18.4"^^xsd:double
+] .
+
+ex:weather-source tss:hasPoint [
+    tss:field ex:temperature-field ;
+    tss:time "2024-05-12T08:20:00Z"^^xsd:dateTime ;
+    tss:value "18.9"^^xsd:double
+], [
+    tss:field ex:humidity-field ;
+    tss:time "2024-05-12T08:20:00Z"^^xsd:dateTime ;
+    tss:value "59.5"^^xsd:double
+] .

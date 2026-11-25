@@ -1,0 +1,27 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms true ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ec20-value-field> ;
+            sh:resultMessage "P5 range: 20000 (the point at 2021-03-03T23:15:00Z) is above the field's expected tss:maximum 10000; the range is informative, so the value is still valid." ;
+            sh:resultSeverity sh:Warning ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "P5 range: {?value} (the point at {?when}) is above the field's expected tss:maximum {?maximum}; the range is informative, so the value is still valid." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT $this ?value ?when ?maximum WHERE {
+                ?source tss:hasField $this .
+                $this a tss:ValueField ; tss:maximum ?maximum .
+                ?source tss:hasPoint ?point . ?point tss:value ?value .
+                { ?point tss:field $this } UNION { FILTER NOT EXISTS { ?point tss:field ?anyField1 } ?source tss:hasField $this . $this a tss:ValueField . FILTER NOT EXISTS { ?source tss:hasField ?otherField1 . ?otherField1 a tss:ValueField . FILTER (?otherField1 != $this) } }
+                OPTIONAL { ?point tss:time ?time }
+                BIND (COALESCE(STR(?time), "(no time)") AS ?when)
+                BIND (xsd:double(STR(?value)) AS ?number)
+                FILTER (isNumeric(?value) && BOUND(?number) && ?number > ?maximum)
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldRangeShape> ;
+            sh:value 2e+04 ] .
+

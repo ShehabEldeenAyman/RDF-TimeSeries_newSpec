@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-json-source> ;
+            sh:resultMessage "S28 range requests: a tss:EmbeddedJSONSource cannot state tss:rangeRequests true; a Write rewrites its tss:points, so the earlier bytes of its document change." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S28 range requests: a tss:EmbeddedJSONSource cannot state tss:rangeRequests true; a Write rewrites its tss:points, so the earlier bytes of its document change." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:rangeRequests ?value .
+                FILTER (?value = true)
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#JSONSourceShape> ;
+            sh:value true ] .
+

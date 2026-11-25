@@ -7,18 +7,18 @@
 
 The package holds the two shapes files of the specification, in ``rdftss/shapes/``:
 
-- ``embedded_shapes.ttl``, for documents whose snippets hold their points
-  (``tss:EmbeddedRDFSnippet``, ``tss:EmbeddedJSONSnippet``). They also check the RDF points.
-- ``external_shapes.ttl``, for documents whose snippets have a data file (``tss:CSVSnippet``,
-  ``tss:ParquetSnippet``, ``tss:ArrowSnippet``). They check the metadata, not the data file.
+- ``embedded_shapes.ttl``, for documents whose sources hold their rows
+  (``tss:EmbeddedRDFSource``, ``tss:EmbeddedJSONSource``). They also check the RDF points.
+- ``external_shapes.ttl``, for documents whose sources have a data file (``tss:CSVSource``,
+  ``tss:ParquetSource``, ``tss:ArrowSource``). They check the metadata, not the data file.
 
-By default the snippet classes of the document choose the file. A document with both kinds of
-snippets, or with no snippet class at all, is checked with both files, so that S24 (one kind of
-snippet) or S1 (the snippet) says what is wrong.
+By default the source classes of the document choose the file. A document with both kinds of
+sources, or with no source class at all, is checked with both files, so that S24 (one kind of
+source) or S1 (the source) says what is wrong.
 
-Every check has an ID: S for the snippet, F for a field, P for an RDF point, D for a value
+Every check has an ID: S for the source, F for a field, P for an RDF point, D for a value
 encoding and Q for a summary, such as S23 (every time has a timezone). The IDs are those of the
-shapes files. The two files number some snippet checks differently (the snippet class is S3 in
+shapes files. The two files number some source checks differently (the source class is S3 in
 the embedded file and S7 in the external one), so an ID goes with its file: ``result.shapes``.
 
 The document is validated as it was read, with every literal's text exactly as written, so that
@@ -44,10 +44,10 @@ from .rdf import NORMALIZE_LOCK, exact_turtle, parse_rdf
 from .vocab import TSS
 
 SHAPES_FOLDER = Path(__file__).resolve().parent / "shapes"
-#: The bundled shapes files, by kind of snippet.
+#: The bundled shapes files, by kind of source.
 SHAPES_FILES = {"embedded": "embedded_shapes.ttl", "external": "external_shapes.ttl"}
-EMBEDDED_CLASSES = (TSS.EmbeddedRDFSnippet, TSS.EmbeddedJSONSnippet)
-EXTERNAL_CLASSES = (TSS.CSVSnippet, TSS.ParquetSnippet, TSS.ArrowSnippet)
+EMBEDDED_CLASSES = (TSS.EmbeddedRDFSource, TSS.EmbeddedJSONSource)
+EXTERNAL_CLASSES = (TSS.CSVSource, TSS.ParquetSource, TSS.ArrowSource)
 SEVERITIES = {SH.Violation: "Violation", SH.Warning: "Warning", SH.Info: "Info"}
 _CHECK_ID = re.compile(r"^[A-Z][0-9]+$")
 
@@ -70,7 +70,7 @@ def shapes_graph(kind: str) -> Graph:
 
 
 def shapes_for(document) -> list[str]:
-    """Which bundled shapes files check a document, from the snippet classes it states."""
+    """Which bundled shapes files check a document, from the source classes it states."""
     classes = set(document.graph.objects(None, RDF.type))
     embedded = any(kind in classes for kind in EMBEDDED_CLASSES)
     external = any(kind in classes for kind in EXTERNAL_CLASSES)
@@ -87,7 +87,7 @@ class ValidationResult:
     - ``check``: the check's ID, such as ``"S23"`` (``""`` for a shape without one), and
       ``name``, such as ``"S23 timezone"``; ``group``: ``"Required"``, ``"Optional"`` or
       ``"Not allowed"`` for a property check (``None`` for a check written in SPARQL).
-    - ``focus``: the node the result is about (a snippet, a field, a point, ...), ``path``: the
+    - ``focus``: the node the result is about (a source, a field, a point, ...), ``path``: the
       property, and ``value``: the value at fault, when the check gives them.
     - ``message``: what is wrong; ``shapes``: which shapes file found it.
     """
@@ -122,7 +122,7 @@ class ValidationReport:
     results: list
     shapes: list
     graph: Graph = dataclass_field(repr=False)
-    source: str = ""
+    location: str = ""
 
     @property
     def violations(self) -> list:
@@ -151,7 +151,7 @@ class ValidationReport:
         def many(count: int, word: str) -> str:
             return f"{count} {word}{'' if count == 1 else 's'}"
 
-        lines = [f"{self.source or 'The document'}: {'CONFORMS' if self.conforms else 'DOES NOT CONFORM'} "
+        lines = [f"{self.location or 'The document'}: {'CONFORMS' if self.conforms else 'DOES NOT CONFORM'} "
                  f"({many(counts['Violation'], 'violation')}, {many(counts['Warning'], 'warning')}) "
                  f"with the {' and '.join(self.shapes)} shapes"]
         lines += [f"  {result}" for result in self.results[:50]]
@@ -177,15 +177,15 @@ def _results_of(report_graph: Graph, shapes: Graph, shapes_name: str, short) -> 
     found = []
     for result in report_graph.objects(node, SH.result):
         severity = report_graph.value(result, SH.resultSeverity)
-        source = report_graph.value(result, SH.sourceShape)
-        name = shapes.value(source, SH.name) or report_graph.value(source, SH.name)
+        shape = report_graph.value(result, SH.sourceShape)
+        name = shapes.value(shape, SH.name) or report_graph.value(shape, SH.name)
         message = str(report_graph.value(result, SH.resultMessage) or "")
         check = _first_word(name)
         if not _CHECK_ID.match(check):
             check = _first_word(message) if _CHECK_ID.match(_first_word(message)) else ""
         if not name:
             name = message.split(":")[0] if check and message.startswith(check) else check
-        group_node = shapes.value(source, SH.group)
+        group_node = shapes.value(shape, SH.group)
         group = str(shapes.value(group_node, RDFS.label)) if group_node is not None else None
         focus = report_graph.value(result, SH.focusNode)
         found.append(ValidationResult(
@@ -205,7 +205,7 @@ def validate(document, *, shapes=None) -> ValidationReport:
     """Validate a metadata document with SHACL shapes, and give a :class:`ValidationReport`.
 
     - ``document``: a :class:`~rdftss.document.Document`, or a path or URL to load.
-    - ``shapes``: ``None`` (the bundled shapes that fit the document's snippet classes),
+    - ``shapes``: ``None`` (the bundled shapes that fit the document's source classes),
       ``"embedded"`` or ``"external"`` (one bundled file), or your own shapes: a path or an
       rdflib Graph.
 
@@ -258,4 +258,4 @@ def validate(document, *, shapes=None) -> ValidationReport:
     merged.add((report, SH.conforms, Literal(conforms)))
     results.sort(key=_rank)
     return ValidationReport(conforms=conforms, results=results, shapes=[name for name, _ in chosen], graph=merged,
-                            source=str(document.source or ""))
+                            location=str(document.location or ""))

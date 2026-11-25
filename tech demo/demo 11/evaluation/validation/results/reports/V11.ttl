@@ -1,0 +1,17 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-source> ;
+            sh:resultMessage "S12 not allowed: an embedded source keeps its points in the metadata itself, so it has no tss:dataFile." ;
+            sh:resultPath <https://w3id.org/tss#dataFile> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
+            sh:sourceShape [ sh:group <https://w3id.org/tss/shapes/embedded#NotAllowed> ;
+                    sh:maxCount 0 ;
+                    sh:message "S12 not allowed: an embedded source keeps its points in the metadata itself, so it has no tss:dataFile." ;
+                    sh:name "S12 data file" ;
+                    sh:path <https://w3id.org/tss#dataFile> ] ] .
+

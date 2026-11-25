@@ -1,4 +1,4 @@
-# A field of an embedded snippet states a baseline.
+# A field of an embedded source states a baseline.
 @prefix tss: <https://w3id.org/tss#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -8,24 +8,24 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:snippet
-    a tss:EmbeddedRDFSnippet ;
+ex:source
+    a tss:EmbeddedRDFSource ;
     rdfs:label "Conductivity readings"@en ;
     tss:immutable true ;
     tss:producedBy ex:producer ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:time-field ;
     tss:key ex:time-field ;
     tss:hasField ex:time-field, ex:value-field .
 
 ex:time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:value-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity"@en ;
     tss:datatype xsd:double ;
     tss:baseline "4750"^^xsd:double ;
@@ -39,13 +39,13 @@ ex:value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "3"^^xsd:integer ;
         tss:missing "0"^^xsd:integer ;
-        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-        tss:lastTime "2024-05-12T08:30:00Z"^^xsd:dateTimeStamp ;
+        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+        tss:lastTime "2024-05-12T08:30:00Z"^^xsd:dateTime ;
         tss:observedMinimum "4722.4"^^xsd:double ;
         tss:observedMaximum "4810.5"^^xsd:double ;
         tss:mean "4761.6"^^xsd:double ;
         tss:median "4751.9"^^xsd:double ;
-        tss:generatedAtTime "2024-05-12T09:46:10Z"^^xsd:dateTimeStamp
+        tss:generatedAtTime "2024-05-12T09:46:10Z"^^xsd:dateTime
     ] .
 
 ex:sensor-1 a sosa:Sensor ;
@@ -54,17 +54,17 @@ ex:sensor-1 a sosa:Sensor ;
 ex:feature-1 a sosa:FeatureOfInterest ;
     rdfs:label "Water of basin 1"@en .
 
-ex:snippet tss:hasPoint [
-    ex:time-field "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    ex:value-field "4810.5"^^xsd:double
+ex:source tss:hasPoint [
+    tss:time "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:value "4810.5"^^xsd:double
 ] .
 
-ex:snippet tss:hasPoint [
-    ex:time-field "2024-05-12T08:15:00Z"^^xsd:dateTimeStamp ;
-    ex:value-field "4722.4"^^xsd:double
+ex:source tss:hasPoint [
+    tss:time "2024-05-12T08:15:00Z"^^xsd:dateTime ;
+    tss:value "4722.4"^^xsd:double
 ] .
 
-ex:snippet tss:hasPoint [
-    ex:time-field "2024-05-12T08:30:00Z"^^xsd:dateTimeStamp ;
-    ex:value-field "4751.9"^^xsd:double
+ex:source tss:hasPoint [
+    tss:time "2024-05-12T08:30:00Z"^^xsd:dateTime ;
+    tss:value "4751.9"^^xsd:double
 ] .

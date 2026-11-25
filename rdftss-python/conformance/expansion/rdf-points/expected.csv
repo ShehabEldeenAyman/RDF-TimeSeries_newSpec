@@ -1,4 +1,4 @@
-snippet,observed_property,sensor,feature_of_interest,unit,time,result,datatype,match
-https://example.org/ex#snippet,http://qudt.org/vocab/quantitykind/ElectricConductivity,https://example.org/ex#sensor-1,https://example.org/ex#feature-1,http://qudt.org/vocab/unit/MicroS-PER-CentiM,2024-05-12T08:00:00Z,4810.5,http://www.w3.org/2001/XMLSchema#double,text
-https://example.org/ex#snippet,http://qudt.org/vocab/quantitykind/ElectricConductivity,https://example.org/ex#sensor-1,https://example.org/ex#feature-1,http://qudt.org/vocab/unit/MicroS-PER-CentiM,2024-05-12T08:15:00Z,4722.4,http://www.w3.org/2001/XMLSchema#double,text
-https://example.org/ex#snippet,http://qudt.org/vocab/quantitykind/ElectricConductivity,https://example.org/ex#sensor-1,https://example.org/ex#feature-1,http://qudt.org/vocab/unit/MicroS-PER-CentiM,2024-05-12T08:30:00Z,4751.9,http://www.w3.org/2001/XMLSchema#double,text
+source,field,point,time,value,datatype,match,describing
+https://example.org/ex#source,https://example.org/ex#value-field,,2024-05-12T08:00:00Z,4810.5,http://www.w3.org/2001/XMLSchema#double,text,
+https://example.org/ex#source,https://example.org/ex#value-field,,2024-05-12T08:15:00Z,4722.4,http://www.w3.org/2001/XMLSchema#double,text,
+https://example.org/ex#source,https://example.org/ex#value-field,,2024-05-12T08:30:00Z,4751.9,http://www.w3.org/2001/XMLSchema#double,text,

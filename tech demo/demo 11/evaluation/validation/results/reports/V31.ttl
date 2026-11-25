@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-vd-value-field> ;
+            sh:resultMessage "D2 baseline: the baseline 4750 is not a literal with the field's tss:datatype." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "D2 baseline: the baseline {?value} is not a literal with the field's tss:datatype." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:baseline ?value ; tss:datatype ?datatype .
+                FILTER (!isLiteral(?value) || DATATYPE(?value) != ?datatype)
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value 4750 ] .
+

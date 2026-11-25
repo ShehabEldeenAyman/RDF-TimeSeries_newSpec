@@ -1,0 +1,19 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-ec20-field> ;
+            sh:resultMessage "tss:summary must point to one summary node; the summary and all its attributes may be omitted." ;
+            sh:resultPath <https://w3id.org/tss#summary> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
+            sh:sourceShape [ sh:group <https://w3id.org/tss/shapes/external#Optional> ;
+                    sh:maxCount 1 ;
+                    sh:message "tss:summary must point to one summary node; the summary and all its attributes may be omitted." ;
+                    sh:name "F10 summary" ;
+                    sh:node <https://w3id.org/tss/shapes/external#SummaryShape> ;
+                    sh:nodeKind sh:BlankNodeOrIRI ;
+                    sh:path <https://w3id.org/tss#summary> ] ] .
+

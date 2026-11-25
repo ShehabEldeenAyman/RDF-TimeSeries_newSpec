@@ -1,0 +1,20 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-json-source> ;
+            sh:resultMessage "A tss:EmbeddedJSONSource needs exactly one tss:points: an rdf:JSON literal with its points, a JSON array of objects." ;
+            sh:resultPath <https://w3id.org/tss#points> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+            sh:sourceShape [ sh:datatype rdf:JSON ;
+                    sh:group <https://w3id.org/tss/shapes/embedded#Required> ;
+                    sh:maxCount 1 ;
+                    sh:message "A tss:EmbeddedJSONSource needs exactly one tss:points: an rdf:JSON literal with its points, a JSON array of objects." ;
+                    sh:minCount 1 ;
+                    sh:name "S6 points" ;
+                    sh:path <https://w3id.org/tss#points> ] ] .
+

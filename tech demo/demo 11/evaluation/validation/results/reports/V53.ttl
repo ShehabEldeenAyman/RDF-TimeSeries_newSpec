@@ -1,0 +1,68 @@
+@prefix ns1: <https://w3id.org/tss#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode _:nafd8b14ca4a941a6901662fe880d1a0eb4 ;
+            sh:resultMessage "tss:count must be one non-negative xsd:integer when supplied." ;
+            sh:resultPath ns1:count ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:MinInclusiveConstraintComponent ;
+            sh:sourceShape _:ne38b1b46294a4f0f9a4c12eff0676039b107 ;
+            sh:value "many" ],
+        [ a sh:ValidationResult ;
+            sh:focusNode _:nafd8b14ca4a941a6901662fe880d1a0eb4 ;
+            sh:resultMessage "tss:count must be one non-negative xsd:integer when supplied." ;
+            sh:resultPath ns1:count ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+            sh:sourceShape _:ne38b1b46294a4f0f9a4c12eff0676039b107 ;
+            sh:value "many" ],
+        [ a sh:ValidationResult ;
+            sh:detail [ a sh:ValidationResult ;
+                    sh:focusNode _:nafd8b14ca4a941a6901662fe880d1a0eb4 ;
+                    sh:resultMessage "tss:count must be one non-negative xsd:integer when supplied." ;
+                    sh:resultPath ns1:count ;
+                    sh:resultSeverity sh:Violation ;
+                    sh:sourceConstraintComponent sh:MinInclusiveConstraintComponent ;
+                    sh:sourceShape _:ne38b1b46294a4f0f9a4c12eff0676039b107 ;
+                    sh:value "many" ],
+                [ a sh:ValidationResult ;
+                    sh:focusNode _:nafd8b14ca4a941a6901662fe880d1a0eb4 ;
+                    sh:resultMessage "tss:count must be one non-negative xsd:integer when supplied." ;
+                    sh:resultPath ns1:count ;
+                    sh:resultSeverity sh:Violation ;
+                    sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+                    sh:sourceShape _:ne38b1b46294a4f0f9a4c12eff0676039b107 ;
+                    sh:value "many" ] ;
+            sh:focusNode <https://example.org/ex#grootdok-ts_id-field> ;
+            sh:resultMessage "tss:summary must point to one summary node; the summary and all its attributes may be omitted." ;
+            sh:resultPath ns1:summary ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:NodeConstraintComponent ;
+            sh:sourceShape [ sh:group <https://w3id.org/tss/shapes/external#Optional> ;
+                    sh:maxCount 1 ;
+                    sh:message "tss:summary must point to one summary node; the summary and all its attributes may be omitted." ;
+                    sh:name "F10 summary" ;
+                    sh:node <https://w3id.org/tss/shapes/external#SummaryShape> ;
+                    sh:nodeKind sh:BlankNodeOrIRI ;
+                    sh:path ns1:summary ] ;
+            sh:value _:nafd8b14ca4a941a6901662fe880d1a0eb4 ] .
+
+_:ne38b1b46294a4f0f9a4c12eff0676039b107 sh:datatype xsd:integer ;
+    sh:group <https://w3id.org/tss/shapes/external#Optional> ;
+    sh:maxCount 1 ;
+    sh:message "tss:count must be one non-negative xsd:integer when supplied." ;
+    sh:minInclusive 0 ;
+    sh:name "Q4 count" ;
+    sh:path ns1:count .
+
+_:nafd8b14ca4a941a6901662fe880d1a0eb4 ns1:count "many" ;
+    ns1:firstTime "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+    ns1:generatedAtTime "2026-10-22T14:02:30+00:00"^^xsd:dateTime ;
+    ns1:lastTime "2025-12-18T23:00:00+00:00"^^xsd:dateTime ;
+    ns1:missing 0 ;
+    ns1:missingValuePolicy ns1:ExcludeEmptyValues .
+

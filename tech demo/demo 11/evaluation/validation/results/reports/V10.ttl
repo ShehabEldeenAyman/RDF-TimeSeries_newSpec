@@ -1,0 +1,19 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-tv-source> ;
+            sh:resultMessage "tss:rangeRequests must be one xsd:boolean: true (while the source grows, its RDF Message Log only grows, byte for byte, so a consumer may fetch only the new messages with HTTP Range requests) or false (the document may be written anew on every change). Not stated means false." ;
+            sh:resultPath <https://w3id.org/tss#rangeRequests> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
+            sh:sourceShape [ sh:datatype xsd:boolean ;
+                    sh:group <https://w3id.org/tss/shapes/embedded#Optional> ;
+                    sh:maxCount 1 ;
+                    sh:message "tss:rangeRequests must be one xsd:boolean: true (while the source grows, its RDF Message Log only grows, byte for byte, so a consumer may fetch only the new messages with HTTP Range requests) or false (the document may be written anew on every change). Not stated means false." ;
+                    sh:name "S28 range requests" ;
+                    sh:path <https://w3id.org/tss#rangeRequests> ] ;
+            sh:value "yes" ] .
+

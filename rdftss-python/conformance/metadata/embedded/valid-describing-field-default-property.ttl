@@ -1,0 +1,44 @@
+# A describing field without tss:property: its default property is the document IRI, '#' and its column name.
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:two-series-source
+    a tss:EmbeddedRDFSource ;
+    tss:immutable true ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
+    tss:timeField ex:two-series-time-field ;
+    tss:hasField ex:two-series-time-field, ex:two-series-value-field, ex:two-series-status-field .
+
+ex:two-series-time-field
+    a tss:ContextField ;
+    tss:datatype xsd:dateTime .
+
+ex:two-series-value-field
+    a tss:ValueField ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity .
+
+ex:two-series-status-field
+    a tss:ContextField ;
+    tss:columnName "status" ;
+    tss:datatype xsd:string ;
+    tss:describesField ex:two-series-value-field .
+
+ex:two-series-source tss:hasPoint [
+    tss:time "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:value "4810.5"^^xsd:double ;
+    <#status> "ok"^^xsd:string
+] .
+
+ex:two-series-source tss:hasPoint [
+    tss:time "2024-05-12T08:15:00Z"^^xsd:dateTime ;
+    tss:value "4722.4"^^xsd:double ;
+    <#status> "estimated"^^xsd:string
+] .

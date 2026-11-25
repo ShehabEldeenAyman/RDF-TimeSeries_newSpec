@@ -1,0 +1,101 @@
+@prefix ns1: <https://example.org/ex#> .
+@prefix ns2: <https://w3id.org/tss#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode ns1:second-field ;
+            sh:resultMessage "F9 points: the source has points, but none is a reading of this value field, so it has no values." ;
+            sh:resultSeverity sh:Warning ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b86 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldInPointsShape> ;
+            sh:value ns1:second-field ],
+        [ a sh:ValidationResult ;
+            sh:focusNode ns1:zevenaarshaven-source ;
+            sh:resultMessage "P8 field: a point states no tss:field, but its source does not have exactly one value field, so nothing says which field its reading belongs to." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b90 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns1:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string ;
+                    ns2:time "2021-03-03T23:15:00+00:00"^^xsd:dateTime ;
+                    ns2:value 4.79772e+03 ] ],
+        [ a sh:ValidationResult ;
+            sh:focusNode ns1:zevenaarshaven-source ;
+            sh:resultMessage "P8 field: a point states no tss:field, but its source does not have exactly one value field, so nothing says which field its reading belongs to." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b90 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns1:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string ;
+                    ns2:time "2021-03-03T23:45:00+00:00"^^xsd:dateTime ;
+                    ns2:value 4.74536e+03 ] ],
+        [ a sh:ValidationResult ;
+            sh:focusNode ns1:zevenaarshaven-source ;
+            sh:resultMessage "P8 field: a point states no tss:field, but its source does not have exactly one value field, so nothing says which field its reading belongs to." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b90 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns1:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string ;
+                    ns2:time "2021-03-04T00:30:00+00:00"^^xsd:dateTime ;
+                    ns2:value 4.7161e+03 ] ],
+        [ a sh:ValidationResult ;
+            sh:focusNode ns1:zevenaarshaven-source ;
+            sh:resultMessage "P8 field: a point states no tss:field, but its source does not have exactly one value field, so nothing says which field its reading belongs to." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b90 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns1:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string ;
+                    ns2:time "2021-03-03T23:30:00+00:00"^^xsd:dateTime ;
+                    ns2:value 4.7178e+03 ] ],
+        [ a sh:ValidationResult ;
+            sh:focusNode ns1:zevenaarshaven-source ;
+            sh:resultMessage "P8 field: a point states no tss:field, but its source does not have exactly one value field, so nothing says which field its reading belongs to." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b90 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointsShape> ;
+            sh:value [ ns1:qualityCodeColor "rgba(0, 128, 0, 1.0)"^^xsd:string ;
+                    ns2:time "2021-03-04T01:00:00+00:00"^^xsd:dateTime ;
+                    ns2:value 4.77596e+03 ] ],
+        [ a sh:ValidationResult ;
+            sh:focusNode ns1:zevenaarshaven-ec20-value-field ;
+            sh:resultMessage "F9 points: the source has points, but none is a reading of this value field, so it has no values." ;
+            sh:resultSeverity sh:Warning ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b86 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldInPointsShape> ;
+            sh:value ns1:zevenaarshaven-ec20-value-field ] .
+
+_:n9b1c220b8b7647f29d512a387b76d0b8b86 a sh:SPARQLConstraint ;
+    sh:message "F9 points: the source has points, but none is a reading of this value field, so it has no values." ;
+    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+    sh:select """
+            SELECT $this WHERE {
+                ?source tss:hasField $this .
+                $this a tss:ValueField .
+                FILTER EXISTS { ?source tss:hasPoint ?anyPoint }
+                FILTER NOT EXISTS {
+                    ?source tss:hasPoint ?point .
+                    { ?point tss:field $this } UNION { FILTER NOT EXISTS { ?point tss:field ?anyField1 } ?source tss:hasField $this . $this a tss:ValueField . FILTER NOT EXISTS { ?source tss:hasField ?otherField1 . ?otherField1 a tss:ValueField . FILTER (?otherField1 != $this) } }
+                }
+            }""" .
+
+_:n9b1c220b8b7647f29d512a387b76d0b8b90 a sh:SPARQLConstraint ;
+    sh:message "P8 field: a point states no tss:field, but its source does not have exactly one value field, so nothing says which field its reading belongs to." ;
+    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+    sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:hasPoint ?value .
+                FILTER NOT EXISTS { ?value tss:field ?field }
+                FILTER NOT EXISTS {
+                    $this tss:hasField ?only . ?only a tss:ValueField .
+                    FILTER NOT EXISTS { $this tss:hasField ?other . ?other a tss:ValueField . FILTER (?other != ?only) }
+                }
+            }""" .
+

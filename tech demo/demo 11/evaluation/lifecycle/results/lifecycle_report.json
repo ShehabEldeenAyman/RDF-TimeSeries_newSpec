@@ -1,0 +1,518 @@
+{
+  "readings": 46,
+  "progressions": {
+    "log": {
+      "states": 48,
+      "bytes": 14786,
+      "published_rows": 5,
+      "published_document_is_a_state": true,
+      "published_rows_are_the_first_readings": true
+    },
+    "csv": {
+      "states": 48,
+      "bytes": 1339
+    },
+    "arrow": {
+      "states": 49,
+      "bytes": 9768
+    }
+  },
+  "valid": {
+    "log": {
+      "L0 structure": [],
+      "L1 interpretation": [],
+      "L2 dependencies": [],
+      "L3 units": [],
+      "L4 finalisation": [],
+      "L5 byte prefix": []
+    },
+    "csv": {
+      "L0 structure": [],
+      "L1 interpretation": [],
+      "L2 dependencies": null,
+      "L3 units": [],
+      "L4 finalisation": [],
+      "L5 byte prefix": []
+    },
+    "arrow": {
+      "L0 structure": [],
+      "L1 interpretation": [],
+      "L2 dependencies": null,
+      "L3 units": [],
+      "L4 finalisation": [],
+      "L5 byte prefix": []
+    }
+  },
+  "variants": [
+    {
+      "id": "LV1",
+      "representation": "log",
+      "what": "the window of the source moves after 10 rows (tss:from earlier, every row still inside); the log states no tss:rangeRequests, so it may be written anew",
+      "target": "L1 interpretation",
+      "failed": [
+        "L1 interpretation"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L1 interpretation": [
+          "state 11: the description of the source differs from that of the previous state"
+        ]
+      }
+    },
+    {
+      "id": "LV2",
+      "representation": "log",
+      "what": "a row message comes before the description message",
+      "target": "L2 dependencies",
+      "failed": [
+        "L1 interpretation",
+        "L2 dependencies"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L1 interpretation": [
+          "state 1: the description of the source differs from that of the previous state"
+        ],
+        "L2 dependencies": [
+          "state 0: message 0 holds a row of <https://example.org/ex#zevenaarshaven-tv-source> before its description"
+        ]
+      }
+    },
+    {
+      "id": "LV3",
+      "representation": "log",
+      "what": "a row message comes after the ending message",
+      "target": "L4 finalisation",
+      "failed": [
+        "L4 finalisation"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L4 finalisation": [
+          "state 47: message 47 adds a row after the ending message"
+        ]
+      }
+    },
+    {
+      "id": "LV4",
+      "representation": "log",
+      "what": "a summary message after 10 rows, while the source grows",
+      "target": "L4 finalisation",
+      "failed": [
+        "L0 structure",
+        "L4 finalisation"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L0 structure": [
+          "state 48: SHACL violation F10",
+          "state 48: stored summary: stored count 10, recomputed 46",
+          "state 48: stored summary: stored lastTime 2021-03-04 03:30:00+00:00, recomputed 2021-03-04 23:00:00+00:00",
+          "state 48: stored summary: stored observedMinimum 4716.1, recomputed 4457.92",
+          "state 48: stored summary: stored observedMaximum 4797.72, recomputed 4883.63",
+          "state 48: stored summary: stored mean 4746.924, recomputed 4644.840434782608695652173913",
+          "state 48: stored summary: stored median 4745.05, recomputed 4640.185"
+        ],
+        "L4 finalisation": [
+          "state 11: message 11 adds a summary while the source grows"
+        ]
+      }
+    },
+    {
+      "id": "LV5",
+      "representation": "log",
+      "what": "two rows in one row message",
+      "target": "L3 units",
+      "failed": [
+        "L3 units"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L3 units": [
+          "state 11: row message 11 holds points at 2 times"
+        ]
+      }
+    },
+    {
+      "id": "LV6",
+      "representation": "log",
+      "what": "the ending message has no message delimiter",
+      "target": "L3 units",
+      "failed": [
+        "L3 units"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L3 units": [
+          "state 47: message 47 has no message delimiter"
+        ]
+      }
+    },
+    {
+      "id": "LV7",
+      "representation": "log",
+      "what": "the description states tss:immutable false",
+      "target": "L4 finalisation",
+      "failed": [
+        "L0 structure",
+        "L4 finalisation"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L0 structure": [
+          "state 47: SHACL violation S2"
+        ],
+        "L4 finalisation": [
+          "state 0: message 0 states tss:immutable false"
+        ]
+      }
+    },
+    {
+      "id": "LV8",
+      "representation": "log",
+      "what": "the log is written anew after 10 rows: the same messages, indented with tabs",
+      "target": "L5 byte prefix",
+      "failed": [
+        "L5 byte prefix"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L5 byte prefix": [
+          "state 11: the log does not start with the bytes of the previous state"
+        ]
+      }
+    },
+    {
+      "id": "LV9",
+      "representation": "log",
+      "what": "a Write is repeated: the same row is appended twice",
+      "target": "L0 structure",
+      "failed": [
+        "L0 structure"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L0 structure": [
+          "state 48: SHACL violation P3"
+        ]
+      }
+    },
+    {
+      "id": "VV1",
+      "representation": "log",
+      "what": "rows are written out of time order (two Writes swapped)",
+      "target": null,
+      "failed": [],
+      "as_expected": true,
+      "findings": {}
+    },
+    {
+      "id": "CV1",
+      "representation": "csv",
+      "what": "ending the source also adds tss:until",
+      "target": "L1 interpretation",
+      "failed": [
+        "L1 interpretation"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L1 interpretation": [
+          "state 47: the description of the source differs from that of the previous state"
+        ]
+      }
+    },
+    {
+      "id": "CV2",
+      "representation": "csv",
+      "what": "the value column is renamed in the header line after 10 records; the source states no tss:rangeRequests, so the file may be written anew",
+      "target": "L1 interpretation",
+      "failed": [
+        "L0 structure",
+        "L1 interpretation"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L0 structure": [
+          "state 47: the rows cannot be read: no column 'value' for https://example.org/ex#zevenaarshaven-gc-value-field"
+        ],
+        "L1 interpretation": [
+          "state 11: the header line names other columns"
+        ]
+      }
+    },
+    {
+      "id": "CV3",
+      "representation": "csv",
+      "what": "the file is sorted anew (newest first) after 10 records",
+      "target": "L5 byte prefix",
+      "failed": [
+        "L5 byte prefix"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L5 byte prefix": [
+          "state 11: the data file does not start with the bytes of the previous state"
+        ]
+      }
+    },
+    {
+      "id": "CV4",
+      "representation": "csv",
+      "what": "a state in which the last record has no line break",
+      "target": "L3 units",
+      "failed": [
+        "L3 units"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L3 units": [
+          "state 10: the data file ends with an incomplete record"
+        ]
+      }
+    },
+    {
+      "id": "CV5",
+      "representation": "csv",
+      "what": "the source is ended after 45 records, and the 46th is appended after that",
+      "target": "L4 finalisation",
+      "failed": [
+        "L0 structure",
+        "L4 finalisation"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L0 structure": [
+          "state 47: stored summary: stored count 45, recomputed 46",
+          "state 47: stored summary: stored lastTime 2021-03-04 22:15:00+00:00, recomputed 2021-03-04 23:00:00+00:00",
+          "state 47: stored summary: stored observedMaximum 4799.26, recomputed 4883.63",
+          "state 47: stored summary: stored mean 4639.534, recomputed 4644.840434782608695652173913",
+          "state 47: stored summary: stored median 4634.07, recomputed 4640.185"
+        ],
+        "L4 finalisation": [
+          "state 47: a row is added after the source ended"
+        ]
+      }
+    },
+    {
+      "id": "VV2",
+      "representation": "csv",
+      "what": "the source states no tss:rangeRequests, and the file is written anew (newest first) on every Write",
+      "target": null,
+      "failed": [],
+      "as_expected": true,
+      "findings": {}
+    },
+    {
+      "id": "AV1",
+      "representation": "arrow",
+      "what": "the data file is in the IPC file format, written anew on every Write",
+      "target": "L3 units",
+      "failed": [
+        "L3 units",
+        "L5 byte prefix"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L3 units": [
+          "state 0: the data file is in the IPC file format, not the streaming format"
+        ],
+        "L5 byte prefix": [
+          "state 1: the data file does not start with the bytes of the previous state"
+        ]
+      }
+    },
+    {
+      "id": "AV2",
+      "representation": "arrow",
+      "what": "the end-of-stream marker is written after 10 record batches, while the source grows",
+      "target": "L3 units",
+      "failed": [
+        "L0 structure",
+        "L3 units"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L0 structure": [
+          "state 47: read through its description, it holds 10 readings, not the 46 written",
+          "state 47: stored summary: stored count 46, recomputed 10",
+          "state 47: stored summary: stored lastTime 2021-03-04 23:00:00+00:00, recomputed 2021-03-04 03:30:00+00:00",
+          "state 47: stored summary: stored observedMinimum 4457.92, recomputed 4716.1",
+          "state 47: stored summary: stored observedMaximum 4883.63, recomputed 4797.72",
+          "state 47: stored summary: stored mean 4644.840434782609, recomputed 4746.924",
+          "state 47: stored summary: stored median 4640.185, recomputed 4745.05"
+        ],
+        "L3 units": [
+          "state 11: the end-of-stream marker is written while the source grows",
+          "state 11: messages follow the end-of-stream marker"
+        ]
+      }
+    },
+    {
+      "id": "AV3",
+      "representation": "arrow",
+      "what": "after 10 record batches, the stream is written anew with a float32 value column; the source states no tss:rangeRequests, so it may be written anew",
+      "target": "L1 interpretation",
+      "failed": [
+        "L0 structure",
+        "L1 interpretation"
+      ],
+      "as_expected": true,
+      "findings": {
+        "L0 structure": [
+          "state 47: read through its description, 45 of its 46 readings differ from those written",
+          "state 47: stored summary: stored observedMinimum 4457.92, recomputed 4457.919921875",
+          "state 47: stored summary: stored observedMaximum 4883.63, recomputed 4883.6298828125",
+          "state 47: stored summary: stored mean 4644.840434782609, recomputed 4644.840427564538043478260870",
+          "state 47: stored summary: stored median 4640.185, recomputed 4640.184814453125"
+        ],
+        "L1 interpretation": [
+          "state 11: the schema changed"
+        ]
+      }
+    }
+  ],
+  "http": [
+    {
+      "id": "H1",
+      "representation": "log",
+      "what": "the RDF Message Log, followed with Range requests",
+      "expected": "no fall-back; 416 when nothing was added",
+      "polls": 49,
+      "requests": 49,
+      "statuses": {
+        "200": 1,
+        "206": 47,
+        "416": 1
+      },
+      "bytes_received": 14786,
+      "bytes_whole_representation_every_poll": 484174,
+      "fallbacks": 0,
+      "rows_read_again": 0,
+      "points": 46,
+      "ended": true,
+      "correct": true
+    },
+    {
+      "id": "H2",
+      "representation": "csv",
+      "what": "the CSV data file, followed with Range requests",
+      "expected": "no fall-back; 416 when nothing was added",
+      "polls": 48,
+      "requests": 48,
+      "statuses": {
+        "200": 1,
+        "206": 46,
+        "416": 1
+      },
+      "bytes_received": 1339,
+      "bytes_whole_representation_every_poll": 32400,
+      "fallbacks": 0,
+      "rows_read_again": 0,
+      "points": 46,
+      "ended": false,
+      "correct": true
+    },
+    {
+      "id": "H3",
+      "representation": "arrow",
+      "what": "the Arrow IPC stream, followed with Range requests, until the end-of-stream marker",
+      "expected": "no fall-back; the consumer stops at the end-of-stream marker",
+      "polls": 49,
+      "requests": 49,
+      "statuses": {
+        "200": 1,
+        "206": 47,
+        "416": 1
+      },
+      "bytes_received": 9768,
+      "bytes_whole_representation_every_poll": 248824,
+      "fallbacks": 0,
+      "rows_read_again": 0,
+      "points": 46,
+      "ended": true,
+      "correct": true
+    },
+    {
+      "id": "H4",
+      "representation": "log",
+      "what": "the log is written anew after 10 rows (LV8); the consumer checks the last 32 bytes it read",
+      "expected": "one fall-back, and no row emitted twice",
+      "polls": 49,
+      "requests": 50,
+      "statuses": {
+        "200": 2,
+        "206": 48
+      },
+      "bytes_received": 23160,
+      "bytes_whole_representation_every_poll": 472342,
+      "fallbacks": 1,
+      "rows_read_again": 10,
+      "points": 46,
+      "ended": true,
+      "correct": true
+    },
+    {
+      "id": "H5",
+      "representation": "log",
+      "what": "the consumer also polls in the middle of every Write: half a message is served",
+      "expected": "a message is read only once its delimiter is there; no fall-back",
+      "polls": 96,
+      "requests": 96,
+      "statuses": {
+        "200": 1,
+        "206": 94,
+        "416": 1
+      },
+      "bytes_received": 19755,
+      "bytes_whole_representation_every_poll": 948552,
+      "fallbacks": 0,
+      "rows_read_again": 0,
+      "points": 46,
+      "ended": true,
+      "correct": true
+    },
+    {
+      "id": "H6",
+      "representation": "csv",
+      "what": "the server ignores Range requests: 200 with the whole file",
+      "expected": "a fall-back on every 200 after the first read; no row emitted twice",
+      "polls": 48,
+      "requests": 48,
+      "statuses": {
+        "200": 48
+      },
+      "bytes_received": 32400,
+      "bytes_whole_representation_every_poll": 32400,
+      "fallbacks": 47,
+      "rows_read_again": 1058,
+      "points": 46,
+      "ended": false,
+      "correct": true
+    },
+    {
+      "id": "H7",
+      "representation": "csv",
+      "what": "VV2: no tss:rangeRequests, the file written anew on every Write; the consumer reads the whole file again when its ETag changed (\u00a7following-full)",
+      "expected": "no Range request; 304 when nothing was added",
+      "polls": 48,
+      "requests": 48,
+      "statuses": {
+        "200": 47,
+        "304": 1
+      },
+      "bytes_received": 31724,
+      "bytes_whole_representation_every_poll": 32400,
+      "fallbacks": 0,
+      "rows_read_again": 1035,
+      "points": 46,
+      "ended": false,
+      "correct": true
+    }
+  ],
+  "versions": {
+    "python": "3.14.6",
+    "pyshacl": "0.40.2",
+    "rdflib": "7.6.0",
+    "pyarrow": "23.0.1"
+  }
+}

@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ts-time-field> ;
+            sh:resultMessage "F2 column name: this is the tss:timeField of a source with a time grid, so it has no column in the data file, but it has time (tss:columnName or tss:columnIndex): a row's time is the time of its step (tss:stepField, or the row's position in the data file)." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F2 column name: this is the tss:timeField of a source with a time grid, so it has no column in the data file, but it has {?value} (tss:columnName or tss:columnIndex): a row's time is the time of its step (tss:stepField, or the row's position in the data file)." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                ?source tss:timeField $this ; tss:timeBase|tss:timeStep ?grid .
+                $this tss:columnName|tss:columnIndex ?value .
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value "time" ] .
+

@@ -1,0 +1,89 @@
+# The expected answers of waterinfo_questions.yaml, written from the Waterinfo metadata documents
+# (../../metadata endpoint/waterinfo_*.ttl), not from the query results. For each CQ: the
+# variables compared, and the expected rows. `null` is an unbound variable. IRIs are written with
+# the prefixes below; a data file is compared by its file name, since it resolves against the
+# location of the document. Numbers and times are compared by value.
+prefixes:
+  ex: https://example.org/ex#
+  tss: https://w3id.org/tss#
+  xsd: http://www.w3.org/2001/XMLSchema#
+  quantitykind: http://qudt.org/vocab/quantitykind/
+  unit: http://qudt.org/vocab/unit/
+
+CQ1:
+  variables: [source, field]
+  rows:
+  - [ex:zevenaarshaven-json-source, ex:zevenaarshaven-json-ec20-value-field]
+  - [ex:zevenaarshaven-source, ex:zevenaarshaven-ec20-value-field]
+  - [ex:zevenaarshaven-ts-source, ex:zevenaarshaven-ts-value-field]
+  - [ex:zevenaarshaven-tv-source, ex:zevenaarshaven-tv-value-field]
+  - [ex:zevenaarshaven-vd-source, ex:zevenaarshaven-vd-value-field]
+
+CQ2:
+  variables: [source, from, until]
+  rows:
+  - [ex:grootdok-source, "2021-03-03T23:45:00Z", "2025-12-18T23:15:00Z"]
+  - [ex:rodenhuizedok-source, "2021-03-03T23:15:00Z", "2026-01-01T00:00:00Z"]
+  - [ex:zevenaarshaven-json-source, "2021-03-03T23:15:00Z", "2026-01-01T00:00:00Z"]
+  - [ex:zevenaarshaven-source, "2021-03-03T23:15:00Z", "2026-01-01T00:00:00Z"]
+  - [ex:zevenaarshaven-tv-source, "2021-03-03T23:15:00Z", null]
+
+CQ3:
+  variables: [source, profile, dataFile, accessPredicate]
+  rows:
+  - [ex:autrichehaven-source, tss:CSVSource, waterinfo_289435042.csv, tss:dataFile]
+  - [ex:grootdok-source, tss:CSVSource, waterinfo_289423042.csv, tss:dataFile]
+  - [ex:rodenhuizedok-source, tss:ParquetSource, waterinfo_289429042.parquet, tss:dataFile]
+  - [ex:zevenaarshaven-json-source, tss:EmbeddedJSONSource, null, tss:points]
+  - [ex:zevenaarshaven-source, tss:EmbeddedRDFSource, null, tss:hasPoint]
+  - [ex:zevenaarshaven-ts-source, tss:CSVSource, waterinfo_289441042_time_step.csv, tss:dataFile]
+  - [ex:zevenaarshaven-tv-source, tss:EmbeddedRDFSource, null, tss:hasPoint]
+  - [ex:zevenaarshaven-vd-source, tss:CSVSource, waterinfo_289441042_value_delta.csv, tss:dataFile]
+
+CQ4:
+  variables: [source, timeColumn, timeIndex, valueColumn, valueIndex]
+  rows:
+  - [ex:autrichehaven-source, Timestamp, "1", Value, "2"]
+  - [ex:grootdok-source, Timestamp, "1", Value, "2"]
+  - [ex:rodenhuizedok-source, Timestamp, null, Value, null]
+  - [ex:zevenaarshaven-json-source, time, null, ec20, null]
+  - [ex:zevenaarshaven-source, null, null, null, null]
+  - [ex:zevenaarshaven-ts-source, null, null, value, "1"]
+  - [ex:zevenaarshaven-tv-source, null, null, null, null]
+  - [ex:zevenaarshaven-vd-source, time, "0", value_delta, "1"]
+
+CQ5:
+  variables: [field, datatype, property, unit, sensor, feature]
+  rows:
+  - [ex:grootdok-ec20-field, xsd:double, quantitykind:ElectricConductivity, unit:MicroS-PER-CentiM, ex:sensor-grootdok-ec20, ex:water-grootdok]
+
+CQ6:
+  variables: [source, dataFile, field, timeBase, timeStep, stepField, stepColumn, stepIndex, encoding, baseline]
+  rows:
+  - [ex:grootdok-source, waterinfo_289423042.csv, ex:grootdok-ec20-field, null, null, null, null, null, null, null]
+  - [ex:zevenaarshaven-ts-source, waterinfo_289441042_time_step.csv, ex:zevenaarshaven-ts-value-field, "2021-03-04T00:00:00Z", PT15M, ex:zevenaarshaven-ts-step-field, step, "0", null, null]
+  - [ex:zevenaarshaven-vd-source, waterinfo_289441042_value_delta.csv, ex:zevenaarshaven-vd-value-field, null, null, null, null, null, tss:DeltaFromBaseline, "4750"]
+
+CQ7:
+  variables: [source, profile, immutable, rangeRequests]
+  rows:
+  - [ex:autrichehaven-source, tss:CSVSource, "true", "false"]
+  - [ex:grootdok-source, tss:CSVSource, "true", "false"]
+  - [ex:rodenhuizedok-source, tss:ParquetSource, "true", "false"]
+  - [ex:zevenaarshaven-json-source, tss:EmbeddedJSONSource, "true", "false"]
+  - [ex:zevenaarshaven-source, tss:EmbeddedRDFSource, "true", "false"]
+  - [ex:zevenaarshaven-ts-source, tss:CSVSource, "true", "false"]
+  - [ex:zevenaarshaven-tv-source, tss:EmbeddedRDFSource, "false", "true"]
+  - [ex:zevenaarshaven-vd-source, tss:CSVSource, "true", "false"]
+
+CQ8:
+  variables: [source, field, count, minimum, maximum]
+  rows:
+  - [ex:autrichehaven-source, ex:autrichehaven-ec20-field, "139928", "552.92", "40109.15"]
+  - [ex:grootdok-source, ex:grootdok-ec20-field, "94853", "125.57", "19035.51"]
+  - [ex:rodenhuizedok-source, ex:rodenhuizedok-ec20-field, "158022", "475.51", "19526.76"]
+  - [ex:zevenaarshaven-json-source, ex:zevenaarshaven-json-ec20-value-field, "5", "4716.1", "4797.72"]
+  - [ex:zevenaarshaven-source, ex:zevenaarshaven-ec20-value-field, "5", "4716.1", "4797.72"]
+  - [ex:zevenaarshaven-ts-source, ex:zevenaarshaven-ts-value-field, "43", "4457.92", "4883.63"]
+  - [ex:zevenaarshaven-tv-source, ex:zevenaarshaven-tv-value-field, null, null, null]
+  - [ex:zevenaarshaven-vd-source, ex:zevenaarshaven-vd-value-field, "43", "4457.92", "4883.63"]

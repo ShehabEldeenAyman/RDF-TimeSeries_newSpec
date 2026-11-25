@@ -1,12 +1,12 @@
 """The vocabularies rdftss uses, and the version of the specification it implements.
 
 Every term is an :class:`rdflib.URIRef`, so it does not matter which prefixes a document
-uses: ``tss:CSVSnippet``, ``t:CSVSnippet`` and ``<https://w3id.org/tss#CSVSnippet>`` are
+uses: ``tss:CSVSource``, ``t:CSVSource`` and ``<https://w3id.org/tss#CSVSource>`` are
 the same term.
 
 >>> from rdftss.vocab import TSS
->>> TSS.CSVSnippet
-rdflib.term.URIRef('https://w3id.org/tss#CSVSnippet')
+>>> TSS.CSVSource
+rdflib.term.URIRef('https://w3id.org/tss#CSVSource')
 
 ``from`` is a Python keyword, so ``tss:from`` is written ``TSS["from"]`` (or :data:`TSS_FROM`).
 """
@@ -16,19 +16,20 @@ from importlib import resources
 from pathlib import Path
 
 from rdflib import Graph, Namespace
-from rdflib.namespace import DCAT, DCTERMS, OWL, PROV, RDF, RDFS, SKOS
+from rdflib.namespace import DCAT, DCTERMS, OWL, PROF, PROV, RDF, RDFS, SKOS
 
-#: The version of the RDF Time Series Snippets vocabulary that rdftss implements
-#: (``owl:versionInfo`` of the bundled ``tss.ttl``, demo 11).
-SPEC_VERSION = "0.3.0"
+#: The version of the RDF Time Series Sources vocabulary that rdftss implements: the date of the
+#: bundled ``tss.ttl`` (its ``dcterms:modified``).
+SPEC_VERSION = "2026-11-20"
 
 #: Where the specification is published.
-SPEC_URL = "https://knowledgeonwebscale.github.io/rdf-timeseriessnippets/"
+SPEC_URL = "https://knowledgeonwebscale.github.io/rdf-tss/"
 
 TSS = Namespace("https://w3id.org/tss#")
 #: XML Schema datatypes. An open namespace, so terms such as ``XSD.dateTimeStamp`` always work.
 XSD = Namespace("http://www.w3.org/2001/XMLSchema#")
 SOSA = Namespace("http://www.w3.org/ns/sosa/")
+SAREF = Namespace("https://saref.etsi.org/core/")
 QUDT = Namespace("http://qudt.org/schema/qudt/")
 UNIT = Namespace("http://qudt.org/vocab/unit/")
 QUANTITYKIND = Namespace("http://qudt.org/vocab/quantitykind/")
@@ -45,19 +46,21 @@ WELL_KNOWN_PREFIXES: dict[str, Namespace] = {
     "rdfs": Namespace(str(RDFS)),
     "owl": Namespace(str(OWL)),
     "sosa": SOSA,
+    "saref": SAREF,
     "qudt": QUDT,
     "unit": UNIT,
     "quantitykind": QUANTITYKIND,
     "dcterms": Namespace(str(DCTERMS)),
     "dcat": Namespace(str(DCAT)),
     "prov": Namespace(str(PROV)),
+    "prof": Namespace(str(PROF)),
     "skos": Namespace(str(SKOS)),
     "csvw": CSVW,
 }
 
 
 def vocabulary_path() -> Path:
-    """The path of the bundled ``tss.ttl``: the vocabulary of demo 11, version :data:`SPEC_VERSION`."""
+    """The path of the bundled ``tss.ttl``: the vocabulary of the specification, version :data:`SPEC_VERSION`."""
     return Path(str(resources.files("rdftss") / "vocabulary" / "tss.ttl"))
 
 

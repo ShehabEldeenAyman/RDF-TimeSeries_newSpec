@@ -1,0 +1,37 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ts-source> ;
+            sh:resultMessage "S21 step field: the source has no time grid (tss:timeBase, tss:timeStep), so its tss:stepField (https://example.org/ex#zevenaarshaven-ts-step-field) gives no time." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S21 step field: the source has no time grid (tss:timeBase, tss:timeStep), so its tss:stepField ({?value}) gives no time." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:stepField ?value .
+                FILTER NOT EXISTS { $this tss:timeBase ?base }
+                FILTER NOT EXISTS { $this tss:timeStep ?step }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#SourceShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-ts-step-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ts-time-field> ;
+            sh:resultMessage "F2 column name: a field needs a tss:columnName: the name of its column in the data file." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F2 column name: a field needs a tss:columnName: the name of its column in the data file." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS { $this tss:columnName ?name }
+                FILTER NOT EXISTS { ?source tss:timeField $this ; tss:timeBase|tss:timeStep ?grid }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-ts-time-field> ] .
+

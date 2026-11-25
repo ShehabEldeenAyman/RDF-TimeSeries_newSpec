@@ -1,5 +1,6 @@
 """The documentation's code runs, requirements.txt lists every dependency, and the bundled
-vocabulary is the one of demo 11."""
+vocabulary and shapes are those of the specification (checked against the repository's working
+copy of the specification, when rdftss is next to it)."""
 import contextlib
 import io
 import re
@@ -9,9 +10,9 @@ import tempfile
 
 import pytest
 from rdflib import Literal, URIRef
-from rdflib.namespace import OWL
+from rdflib.namespace import DCTERMS
 
-from rdftss.vocab import SPEC_VERSION, vocabulary_graph, vocabulary_path
+from rdftss.vocab import SPEC_VERSION, XSD, vocabulary_graph, vocabulary_path
 
 from conftest import DEMO_11, EXAMPLES, ROOT
 
@@ -39,7 +40,7 @@ def test_the_quickstart_runs(tmp_path, monkeypatch):
     monkeypatch.setattr(tempfile, "mkdtemp", lambda **options: str(tmp_path))
     with contextlib.redirect_stdout(io.StringIO()) as output:
         runpy.run_path(str(EXAMPLES / "quickstart.py"), run_name="__main__")
-    assert "Same points: True" in output.getvalue()
+    assert "Same rows: True" in output.getvalue()
 
 
 def test_the_requirements_file_lists_every_dependency():
@@ -55,7 +56,7 @@ def test_the_requirements_file_lists_every_dependency():
 
 def test_the_bundled_vocabulary():
     graph = vocabulary_graph()
-    assert (URIRef("https://w3id.org/tss#"), OWL.versionInfo, Literal(SPEC_VERSION)) in graph
+    assert (URIRef("https://w3id.org/tss#"), DCTERMS.modified, Literal(SPEC_VERSION, datatype=XSD.date)) in graph
 
 
 @pytest.mark.skipif(not DEMO_11.exists(), reason="the demo 11 folder is not next to rdftss")

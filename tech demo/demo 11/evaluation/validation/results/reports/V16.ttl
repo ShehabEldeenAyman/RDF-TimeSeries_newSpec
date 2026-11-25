@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ts-source> ;
+            sh:resultMessage "S21 step field: the tss:datatype of the step field (https://example.org/ex#zevenaarshaven-ts-step-field) must be xsd:integer: a step is a whole number, 0 or more." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S21 step field: the tss:datatype of the step field ({?value}) must be xsd:integer: a step is a whole number, 0 or more." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:stepField ?value .
+                FILTER NOT EXISTS { ?value tss:datatype xsd:integer }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#SourceShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-ts-step-field> ] .
+

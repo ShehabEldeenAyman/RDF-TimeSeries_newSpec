@@ -11,19 +11,19 @@ Almost every change is breaking: a metadata document that conforms to `main` doe
 
 ## Demo 11 and the repository today
 
-On 2026-11-20 the repository, now [`KNowledgeOnWebScale/rdf-tss`](https://github.com/KNowledgeOnWebScale/rdf-tss), merged PRs #25, #28, #31, #33, #35 and #37. Its `main` (`aa7dcf7`) now holds almost everything this changelog lists. Demo 11's `spec/spec.bs` and `vocabulary/tss.ttl` are those of `main` at `aa7dcf7`, with these differences:
+On 2026-11-20 the repository, now [`KNowledgeOnWebScale/rdf-tss`](https://github.com/KNowledgeOnWebScale/rdf-tss), merged PRs #25, #28, #31, #33, #35 and #37. Its `main` (`c6338dc`, 2026-11-21) now holds almost everything this changelog lists; after the merges, it removed the `Warning: Not Ready` line from the header of the specification, and added `dcterms:license` (CC BY 4.0) to `tss.ttl`. Demo 11's `spec/spec.bs` and `vocabulary/tss.ttl` are those of `main` at `c6338dc`, with these differences:
 
-| Where | Repository `main` (`aa7dcf7`) | Demo 11 |
+| Where | Repository `main` (`c6338dc`) | Demo 11 |
 |---|---|---|
 | Introduction, field table | a stored summary is "optional" | optional only once no reading is added any more: "optional on a field of an immutable source; not allowed on a field of a growing source", as `#summaries` already requires |
 | `#updating` | a publisher MAY rewrite the file of a growing source, "as long as it holds the same rows" | also: on a time grid without a step field, a rewrite keeps every row at its position, since the position is its step |
 | Conformance, writer | "only appends to the data file" | "only adds rows to the data file": since PR #35, a writer MAY rewrite the file by default |
 | `#expanding` | the expansion "is its metadata document" with points | the expansion is not a metadata document: for an external source it states `tss:hasPoint`, which its metadata document does not |
 | `#message-profile` | a stream is the log of an embedded RDF source, or the expansion of any source written as messages; its example states `ex:csv-source tss:hasPoint` on a `tss:CSVSource` | a stream is the log of an embedded RDF source; a source of another class is streamed as a `tss:EmbeddedRDFSource` of its own, derived from it with `prov:wasDerivedFrom` (new section `#streaming-other-sources`, new example); a late joiner finds the description at the IRI of the source |
-| `tss.ttl` | `dcterms:contributor` | `dcterms:creator`, and `dcterms:license` (CC BY 4.0) |
+| `tss.ttl` | `dcterms:contributor` | `dcterms:creator` |
 | `tss.ttl` | comments of `tss:Summary` and `tss:MessageStreamProfile` | say that only an immutable source has summaries, and how a source of another class is streamed |
 
-Demo 11 also has what the repository does not: SHACL shapes, example metadata documents, competency questions and the `messages/` example. They follow the final model of fields, rows and points ([§16](#16-fields-rows-and-points)).
+Demo 11 also has what the repository does not: SHACL shapes, example metadata documents, competency questions and the `messages/` example. They follow the final model of fields, rows and points ([§16](#16-fields-rows-and-points)). The `evaluation/` folder evaluates them against public Waterinfo data. It checks the descriptions against the data, runs the competency questions with expected answers, applies the SHACL shapes to valid and invalid variants, and checks growing sources over successive states and over HTTP. See `evaluation/README.md` and `evaluation/RESULTS.md`.
 
 ## Summary
 

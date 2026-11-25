@@ -1,0 +1,36 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-vd-time-field> ;
+            sh:resultMessage "D3 value encoding: this is the source's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding (https://w3id.org/tss#DeltaFromBaseline)." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "D3 value encoding: this is the source's tss:timeField, whose values are the times themselves, so it can't have a tss:valueEncoding ({?value})." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                ?source tss:timeField $this .
+                $this tss:valueEncoding ?value .
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://w3id.org/tss#DeltaFromBaseline> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-vd-time-field> ;
+            sh:resultMessage "D1 value encoding: the field's values are differences (tss:DeltaFromBaseline), but it has no tss:baseline to add them to." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "D1 value encoding: the field's values are differences (tss:DeltaFromBaseline), but it has no tss:baseline to add them to." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this WHERE {
+                $this tss:valueEncoding tss:DeltaFromBaseline .
+                FILTER NOT EXISTS { $this tss:baseline ?baseline }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-vd-time-field> ] .
+

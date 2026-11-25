@@ -1,0 +1,23 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-time-field> ;
+            sh:resultMessage "F11 field kind: this field is the time field, so it is a tss:ContextField, not a tss:ValueField: its values are not readings." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F11 field kind: this field is {?role}, so it is a tss:ContextField, not a tss:ValueField: its values are not readings." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT DISTINCT $this ?role WHERE {
+                $this a tss:ValueField .
+                { ?source tss:timeField $this . BIND ("the time field" AS ?role) }
+                UNION { ?source tss:stepField $this . BIND ("the step field" AS ?role) }
+                UNION { $this tss:describesField ?described . BIND ("a describing field" AS ?role) }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#grootdok-time-field> ] .
+

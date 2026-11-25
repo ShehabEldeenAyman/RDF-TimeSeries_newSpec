@@ -1,0 +1,34 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "The source needs exactly one tss:timeField: the field that holds the time of each row." ;
+            sh:resultPath <https://w3id.org/tss#timeField> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:MinCountConstraintComponent ;
+            sh:sourceShape [ sh:group <https://w3id.org/tss/shapes/external#Required> ;
+                    sh:maxCount 1 ;
+                    sh:message "The source needs exactly one tss:timeField: the field that holds the time of each row." ;
+                    sh:minCount 1 ;
+                    sh:name "S4 time field" ;
+                    sh:nodeKind sh:BlankNodeOrIRI ;
+                    sh:path <https://w3id.org/tss#timeField> ] ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S5 key: tss:key is https://example.org/ex#grootdok-time-field, but the key of a source is its time field (tss:timeField): no two rows have the same time." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S5 key: tss:key is {?value}, but the key of a source is its time field (tss:timeField): no two rows have the same time." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:key ?value .
+                FILTER NOT EXISTS { $this tss:timeField ?value }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#SourceShape> ;
+            sh:value <https://example.org/ex#grootdok-time-field> ] .
+

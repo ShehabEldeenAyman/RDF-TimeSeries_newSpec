@@ -1,4 +1,4 @@
-"""Finding and opening the data files of external snippets, locally or on the web.
+"""Finding and opening the data files of external sources, locally or on the web.
 
 ``tss:dataFile`` is an IRI, resolved against the IRI of the metadata document. So a relative
 ``<../data/x.csv>`` is found next to a local document, and next to an online one too: a document
@@ -7,10 +7,10 @@ loaded from ``https://example.org/meta/doc.ttl`` with ``<data.csv>`` reads
 
 - ``file:`` IRIs (and plain paths): the local file;
 - ``http:`` and ``https:`` IRIs: downloaded (on by default; ``allow_network=False`` when loading
-  turns it off). A download is kept as long as its document, so reading a snippet twice reads
+  turns it off). A download is kept as long as its document, so reading a source twice reads
   the same data. With a ``cache_folder``, downloads are kept between runs, and checked with the
   server (ETag, Last-Modified) before they are reused, so a growing file is never stale;
-- a file or stream you give yourself: ``snippet.set_data_file(path_or_stream)``.
+- a file or stream you give yourself: ``source.set_data_file(path_or_stream)``.
 
 With ``data_folder``, a local data file must lie inside that folder: a document can then not make
 rdftss read other files on your computer (``../../secret.csv`` is refused).
@@ -50,39 +50,39 @@ class DataAccess:
     timeout: float = 60.0
 
 
-def data_source(snippet):
-    """What to read the data of an external snippet from: a local :class:`~pathlib.Path`, or the
-    file object given with ``snippet.set_data_file``. Raises :class:`DataFileError`."""
-    if snippet._data_override is not None:
-        source = snippet._data_override
-        if isinstance(source, (str, os.PathLike)):
-            return _checked_path(snippet, Path(source))
-        return source
-    iri = snippet.data_file
+def data_handle(source):
+    """What to read the data of an external source from: a local :class:`~pathlib.Path`, or the
+    file object given with ``source.set_data_file``. Raises :class:`DataFileError`."""
+    if source._data_override is not None:
+        override = source._data_override
+        if isinstance(override, (str, os.PathLike)):
+            return _checked_path(source, Path(override))
+        return override
+    iri = source.data_file
     if iri is None:
-        raise DataFileError(f"{snippet.name} states no tss:dataFile")
+        raise DataFileError(f"{source.name} states no tss:dataFile")
     scheme = urlparse(iri).scheme
     if scheme in ("http", "https"):
-        return download(iri, snippet.document)
+        return download(iri, source.document)
     if scheme == "file":
         parsed = urlparse(iri)
         if parsed.netloc not in ("", "localhost"):
             raise DataFileError(f"Can't open {iri}: the file is on another computer ({parsed.netloc})")
-        return _checked_path(snippet, Path(unquote(parsed.path)))
+        return _checked_path(source, Path(unquote(parsed.path)))
     if scheme == "" or (len(scheme) == 1 and os.name == "nt"):  # a plain path (or a Windows drive)
-        return _checked_path(snippet, Path(iri))
+        return _checked_path(source, Path(iri))
     raise DataFileError(f"Can't open the data file {iri}: rdftss reads file:, http: and https: data files")
 
 
-def _checked_path(snippet, path: Path) -> Path:
-    access = snippet.document.access
+def _checked_path(source, path: Path) -> Path:
+    access = source.document.access
     if access.data_folder is not None:
         folder = Path(access.data_folder).resolve()
         resolved = path.resolve()
         if resolved != folder and folder not in resolved.parents:
-            raise DataFileError(f"The data file {path} of {snippet.name} is outside the allowed data folder {folder}")
+            raise DataFileError(f"The data file {path} of {source.name} is outside the allowed data folder {folder}")
     if not path.is_file():
-        raise DataFileError(f"The data file {path} of {snippet.name} does not exist")
+        raise DataFileError(f"The data file {path} of {source.name} does not exist")
     return path
 
 
@@ -91,7 +91,7 @@ def download(url: str, document) -> Path:
     access = document.access
     if not access.allow_network:
         raise DataFileError(f"The data file {url} is online, and downloads are off (allow_network=False). "
-                            "Give a local copy with snippet.set_data_file(path), or load the document with "
+                            "Give a local copy with source.set_data_file(path), or load the document with "
                             "allow_network=True.")
     known = document.downloads.get(url)
     if known is not None and known.is_file():
@@ -178,8 +178,8 @@ def _cached_download(url: str, folder: Path, access: DataAccess) -> Path:
     return target
 
 
-def source_name(source) -> str:
-    """A name for a data source in messages."""
-    if isinstance(source, Path):
-        return source.name
-    return getattr(source, "name", "the data file")
+def data_name(data) -> str:
+    """A name for a data file or stream in messages."""
+    if isinstance(data, Path):
+        return data.name
+    return getattr(data, "name", "the data file")

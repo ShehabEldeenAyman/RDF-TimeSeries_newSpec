@@ -1,0 +1,386 @@
+VERSION "1.2-messages"
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX tss: <https://w3id.org/tss#>
+PREFIX ex: <https://example.org/ex#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+PREFIX unit: <http://qudt.org/vocab/unit/>
+
+# An RDF Time Series Sources (RDF-TSS) metadata document: https://knowledgeonwebscale.github.io/rdf-tss/
+# Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
+# Source windows are [from, until).
+# tss:key is the time field: no two rows have the same time.
+# The time field is a tss:ContextField and the EC20 field a tss:ValueField. A point states its
+# time with tss:time and its reading with tss:value; the fields state no tss:columnName.
+# RDFS/catalog annotations and external datatype/unit identifiers are retained.
+
+# A copy of waterinfo_289441042_tss2_points_embedded.ttl with one series only: each point
+# holds just a time and a reading (EC20); the quality code colour is left out.
+# The source and its fields have their own IRIs (ex:zevenaarshaven-tv-...), so the two documents
+# never describe the same node in two ways; the sensor, the feature of interest and the station
+# are the same real-world things, so they keep their IRIs.
+
+# A growing source: it does not state tss:immutable true, so points may still be added to it.
+# Its metadata document is therefore an RDF Message Log (RDF Messages, version label
+# "1.2-messages"): this first message describes the source and its fields, and each next message
+# holds one row: here one point, as the source has one value field. Every message ends with the delimiter MESSAGE, so a consumer that follows the
+# source knows the last message it read is complete.
+# The source states tss:rangeRequests true: its publisher promises that the log only grows, byte
+# for byte, so a consumer fetches only the new messages with an HTTP Range request
+# (Range: bytes=N-). Without it, the publisher could write the log anew on every change, and a
+# consumer would read the whole log again.
+# While the source grows, its description does not change: a writer only appends messages.
+# A growing source has no stored summaries. To end the source, a writer appends one last
+# message with "ex:zevenaarshaven-tv-source tss:immutable true ." and, optionally, a
+# tss:summary for each field.
+# The log never states tss:immutable false: the merge of all messages would then state both.
+
+# The log follows the RDF Message Stream Profile of the specification: a description message,
+# then one row message per row (the timestamp is tss:time on its points).
+<> dcterms:conformsTo tss:MessageStreamProfile .
+
+ex:zevenaarshaven-tv-source
+    a tss:EmbeddedRDFSource ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), time and value points"@en ;
+    # Optional tss:sourceDescription; publishers may use any RDF vocabulary and properties.
+    tss:sourceDescription [
+        dcterms:spatial [
+            a dcterms:Location ;
+            rdfs:label "Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en
+        ]
+    ] ;
+    tss:producedBy ex:289441042 ;
+    # The points' times are xsd:dateTime literals (a timezone is required), such as 2021-03-03T23:15:00Z.
+    tss:timeField ex:zevenaarshaven-tv-time-field ;
+    tss:key ex:zevenaarshaven-tv-time-field ;
+    # The window of a growing source does not change, and every new point must lie in it, so the
+    # window is left open at the end: the source states no tss:until.
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:rangeRequests true ;
+    tss:hasField ex:zevenaarshaven-tv-time-field,
+        ex:zevenaarshaven-tv-value-field .
+
+ex:zevenaarshaven-tv-time-field
+    a tss:ContextField ;
+    rdfs:label "Observation time"@en ;
+    tss:datatype xsd:dateTime ;
+    tss:fieldDescription [
+        dcterms:description "Observation time"@en
+    ] .
+
+ex:zevenaarshaven-tv-value-field
+    a tss:ValueField ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:datatype xsd:double ;
+    tss:minimum "0"^^xsd:double ;
+    # Example only: 10000 is a placeholder, not a real validated upper limit.
+    tss:maximum "10000"^^xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-zevenaarshaven-ec20 ;
+    tss:featureOfInterest ex:water-zevenaarshaven ;
+    tss:fieldDescription [
+        dcterms:description "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+        dcterms:subject quantitykind:ElectricConductivity ;
+        dcterms:relation ex:sensor-zevenaarshaven-ec20, ex:water-zevenaarshaven
+    ] .
+MESSAGE
+# Rows: one message per row, appended at the end of the log; a Write appends one more.
+# tss:hasPoint links the source to each point: one EC20 reading, with its value field
+# (tss:field), its time (tss:time) and its reading (tss:value), typed with the field's
+# tss:datatype. The source has one value field, so a point MAY leave out tss:field; this log
+# states it anyway, so that a consumer that starts reading after the first message still knows
+# which field each reading belongs to. The points are unordered (sort by tss:time).
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:value "4797.72"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-03T23:30:00Z"^^xsd:dateTime ;
+    tss:value "4717.8"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-03T23:45:00Z"^^xsd:dateTime ;
+    tss:value "4745.36"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T00:30:00Z"^^xsd:dateTime ;
+    tss:value "4716.1"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T01:00:00Z"^^xsd:dateTime ;
+    tss:value "4775.96"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T01:30:00Z"^^xsd:dateTime ;
+    tss:value "4716.67"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T01:45:00Z"^^xsd:dateTime ;
+    tss:value "4744.74"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T02:00:00Z"^^xsd:dateTime ;
+    tss:value "4747.38"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T02:15:00Z"^^xsd:dateTime ;
+    tss:value "4742.95"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T03:30:00Z"^^xsd:dateTime ;
+    tss:value "4764.56"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T04:30:00Z"^^xsd:dateTime ;
+    tss:value "4664.84"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T05:00:00Z"^^xsd:dateTime ;
+    tss:value "4679.96"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T06:15:00Z"^^xsd:dateTime ;
+    tss:value "4680.51"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T06:30:00Z"^^xsd:dateTime ;
+    tss:value "4627.68"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T07:00:00Z"^^xsd:dateTime ;
+    tss:value "4605.64"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T07:15:00Z"^^xsd:dateTime ;
+    tss:value "4594.24"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T08:00:00Z"^^xsd:dateTime ;
+    tss:value "4684.92"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T08:30:00Z"^^xsd:dateTime ;
+    tss:value "4634.07"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T08:45:00Z"^^xsd:dateTime ;
+    tss:value "4664.19"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T09:00:00Z"^^xsd:dateTime ;
+    tss:value "4560.51"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T09:15:00Z"^^xsd:dateTime ;
+    tss:value "4582.38"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T10:15:00Z"^^xsd:dateTime ;
+    tss:value "4622.68"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T10:30:00Z"^^xsd:dateTime ;
+    tss:value "4523.96"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T11:00:00Z"^^xsd:dateTime ;
+    tss:value "4717.35"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T11:30:00Z"^^xsd:dateTime ;
+    tss:value "4646.3"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T11:45:00Z"^^xsd:dateTime ;
+    tss:value "4589.06"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T12:00:00Z"^^xsd:dateTime ;
+    tss:value "4563.85"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T12:15:00Z"^^xsd:dateTime ;
+    tss:value "4521.09"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T13:30:00Z"^^xsd:dateTime ;
+    tss:value "4626.2"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T15:00:00Z"^^xsd:dateTime ;
+    tss:value "4534.55"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T15:30:00Z"^^xsd:dateTime ;
+    tss:value "4540.53"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T16:00:00Z"^^xsd:dateTime ;
+    tss:value "4457.92"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T16:15:00Z"^^xsd:dateTime ;
+    tss:value "4513.43"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T16:30:00Z"^^xsd:dateTime ;
+    tss:value "4622.07"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T16:45:00Z"^^xsd:dateTime ;
+    tss:value "4514.22"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T17:15:00Z"^^xsd:dateTime ;
+    tss:value "4597.75"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T18:00:00Z"^^xsd:dateTime ;
+    tss:value "4688.57"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T18:45:00Z"^^xsd:dateTime ;
+    tss:value "4465.16"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T19:00:00Z"^^xsd:dateTime ;
+    tss:value "4544.2"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T19:30:00Z"^^xsd:dateTime ;
+    tss:value "4679.15"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T21:00:00Z"^^xsd:dateTime ;
+    tss:value "4586.7"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T21:30:00Z"^^xsd:dateTime ;
+    tss:value "4499.79"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T21:45:00Z"^^xsd:dateTime ;
+    tss:value "4756.09"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T22:00:00Z"^^xsd:dateTime ;
+    tss:value "4799.26"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T22:15:00Z"^^xsd:dateTime ;
+    tss:value "4720.97"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:hasPoint [
+    tss:field ex:zevenaarshaven-tv-value-field ;
+    tss:time "2021-03-04T23:00:00Z"^^xsd:dateTime ;
+    tss:value "4883.63"^^xsd:double
+] .
+MESSAGE
+ex:zevenaarshaven-tv-source tss:immutable true .
+
+ex:zevenaarshaven-tv-value-field tss:summary [
+    tss:missingValuePolicy tss:ExcludeEmptyValues ;
+    tss:count "46"^^xsd:integer ;
+    tss:missing "0"^^xsd:integer ;
+    tss:firstTime "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:lastTime "2021-03-04T23:00:00Z"^^xsd:dateTime ;
+    tss:observedMinimum "4457.92"^^xsd:double ;
+    tss:observedMaximum "4883.63"^^xsd:double ;
+    tss:mean "4644.840434782609"^^xsd:double ;
+    tss:median "4640.185"^^xsd:double ;
+    tss:generatedAtTime "2026-11-23T14:26:22Z"^^xsd:dateTime
+] .
+MESSAGE

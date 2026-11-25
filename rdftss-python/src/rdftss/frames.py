@@ -1,8 +1,8 @@
-"""Points as tables: Apache Arrow, pandas and polars.
+"""Rows as tables: Apache Arrow, pandas and polars.
 
->>> table = snippet.to_arrow()            # doctest: +SKIP
->>> frame = snippet.to_pandas()           # indexed by time   # doctest: +SKIP
->>> frame = snippet.to_polars()           # doctest: +SKIP
+>>> table = source.to_arrow()            # doctest: +SKIP
+>>> frame = source.to_pandas()           # indexed by time   # doctest: +SKIP
+>>> frame = source.to_polars()           # doctest: +SKIP
 
 One column per field: the time field first (a UTC timestamp), then the other fields, with their
 decoded values typed by their datatype:
@@ -10,7 +10,7 @@ decoded values typed by their datatype:
 =================================  ===============================================
 Datatype                           Column type
 =================================  ===============================================
-the time field, xsd:dateTimeStamp  timestamp in UTC (microseconds by default)
+the time field                     timestamp in UTC (microseconds by default)
 xsd:dateTime                       timestamp in UTC, or without timezone
 xsd:double, xsd:float              float64
 xsd:decimal                        float64 (decimal128 with ``exact_decimals=True``)
@@ -21,7 +21,7 @@ anything else                      string
 =================================  ===============================================
 
 Each column carries the field's IRI, datatype, unit, observed property and label as Arrow field
-metadata (``table.schema.field("value").metadata``); the table carries the snippet's IRI.
+metadata (``table.schema.field("value").metadata``); the table carries the source's IRI.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ from .errors import require
 from .vocab import XSD
 
 
-def _column_names(snippet, fields, names: str) -> dict:
+def _column_names(source, fields, names: str) -> dict:
     if names not in ("name", "iri", "label"):
         raise ValueError("names must be 'name', 'iri' or 'label'")
     chosen = {}
@@ -86,27 +86,27 @@ def _typed_array(pa, field, values: list, exact_decimals: bool, time_unit: str):
                     type=pa.string())
 
 
-def to_arrow(points, *, snippet, names: str = "name", time_unit: str = "us", exact_decimals: bool = False):
-    """The points as a ``pyarrow.Table`` (see the module documentation).
+def to_arrow(rows, *, source, names: str = "name", time_unit: str = "us", exact_decimals: bool = False):
+    """The rows as a ``pyarrow.Table`` (see the module documentation).
 
-    - ``points``: any iterable of points (a :class:`~rdftss.points.Points`, or a
-      :class:`~rdftss.points.PointReader` to build the table while streaming).
+    - ``rows``: any iterable of rows (a :class:`~rdftss.rows.Rows`, or a
+      :class:`~rdftss.rows.RowReader` to build the table while streaming).
     - ``names``: name the columns by field ``"name"``, ``"iri"`` or ``"label"``.
     - ``time_unit``: ``"s"``, ``"ms"``, ``"us"`` or ``"ns"`` for the time column. The time column
       is made from the exact instants, so ``"ns"`` keeps nanoseconds.
     - ``exact_decimals``: ``xsd:decimal`` columns as decimal128 instead of float64.
     """
     pa = require("pyarrow", "Making Arrow tables", "files")
-    fields = list(snippet.fields)
-    time_field = snippet.time_field
+    fields = list(source.fields)
+    time_field = source.time_field
     per_second = {"s": 1, "ms": 1000, "us": 1_000_000, "ns": 1_000_000_000}[time_unit]
     instants = []
     columns = {field: [] for field in fields if field is not time_field}
-    for point in points:
-        instants.append(int((point.instant * per_second).to_integral_value(rounding="ROUND_FLOOR")))
+    for row in rows:
+        instants.append(int((row.instant * per_second).to_integral_value(rounding="ROUND_FLOOR")))
         for field, values in columns.items():
-            values.append(point.values.get(field))
-    chosen = _column_names(snippet, fields, names)
+            values.append(row.values.get(field))
+    chosen = _column_names(source, fields, names)
     arrays, schema_fields = [], []
     time_array = pa.array(instants, type=pa.int64()).cast(pa.timestamp(time_unit, tz="UTC"))
     arrays.append(time_array)
@@ -115,22 +115,22 @@ def to_arrow(points, *, snippet, names: str = "name", time_unit: str = "us", exa
         array = _typed_array(pa, field, values, exact_decimals, time_unit)
         arrays.append(array)
         schema_fields.append(pa.field(chosen[field], array.type, metadata=_metadata(field)))
-    metadata = {b"rdftss.snippet": str(snippet.node).encode(), b"rdftss.class": str(snippet.kind.iri).encode()}
+    metadata = {b"rdftss.source": str(source.node).encode(), b"rdftss.class": str(source.kind.iri).encode()}
     return pa.Table.from_arrays(arrays, schema=pa.schema(schema_fields, metadata=metadata))
 
 
-def to_pandas(points, *, snippet, index: bool = True, **options):
-    """The points as a pandas DataFrame, indexed by time (``index=False`` keeps the time as a
+def to_pandas(rows, *, source, index: bool = True, **options):
+    """The rows as a pandas DataFrame, indexed by time (``index=False`` keeps the time as a
     column). The other options are those of :func:`to_arrow`."""
     require("pandas", "Making pandas DataFrames", "pandas")
-    table = to_arrow(points, snippet=snippet, **options)
+    table = to_arrow(rows, source=source, **options)
     frame = table.to_pandas()
     if index:
         frame = frame.set_index(table.schema.names[0])
     return frame
 
 
-def to_polars(points, *, snippet, **options):
-    """The points as a polars DataFrame. The options are those of :func:`to_arrow`."""
+def to_polars(rows, *, source, **options):
+    """The rows as a polars DataFrame. The options are those of :func:`to_arrow`."""
     polars = require("polars", "Making polars DataFrames", "polars")
-    return polars.from_arrow(to_arrow(points, snippet=snippet, **options))
+    return polars.from_arrow(to_arrow(rows, source=source, **options))

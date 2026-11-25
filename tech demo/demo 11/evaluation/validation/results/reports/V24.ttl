@@ -1,0 +1,100 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-quality-color-value-field> ;
+            sh:resultMessage "P4 datatype: the point at 2021-03-03T23:15:00Z has a value for this field that is not a literal with the field's tss:datatype." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b99 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldValuesShape> ;
+            sh:value 4.79772e+03 ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-quality-color-value-field> ;
+            sh:resultMessage "P4 datatype: the point at 2021-03-04T00:30:00Z has a value for this field that is not a literal with the field's tss:datatype." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b99 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldValuesShape> ;
+            sh:value 4.7161e+03 ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-quality-color-value-field> ;
+            sh:resultMessage "P4 datatype: the point at 2021-03-04T01:00:00Z has a value for this field that is not a literal with the field's tss:datatype." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b99 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldValuesShape> ;
+            sh:value 4.77596e+03 ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-quality-color-value-field> ;
+            sh:resultMessage "F13 field property: tss:property is https://w3id.org/tss#value, which is rdf:type or a term of the TSS vocabulary; a describing field states its values with a property of its own." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F13 field property: tss:property is {?value}, which is rdf:type or a term of the TSS vocabulary; a describing field states its values with a property of its own." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:property ?value .
+                FILTER (?value = <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> || STRSTARTS(STR(?value), "https://w3id.org/tss#"))
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldShape> ;
+            sh:value <https://w3id.org/tss#value> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-source> ;
+            sh:resultMessage "P6 properties: a point has the property https://example.org/ex#qualityCodeColor, which is not tss:field, tss:time, tss:value or the property of a describing field of the source, so its values are not read." ;
+            sh:resultSeverity sh:Warning ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "P6 properties: a point has the property {?value}, which is not tss:field, tss:time, tss:value or the property of a describing field of the source, so its values are not read." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this tss:hasPoint ?point .
+                ?point ?value ?any .
+                FILTER (?value NOT IN (tss:field, tss:time, tss:value))
+                FILTER NOT EXISTS { $this tss:hasField ?describing . ?describing tss:property ?value }
+                # The default property of a describing field: the document IRI, '#', its column name
+                FILTER NOT EXISTS {
+                    $this tss:hasField ?default .
+                    ?default tss:describesField ?described ; tss:columnName ?name .
+                    FILTER NOT EXISTS { ?default tss:property ?property }
+                    FILTER (STRENDS(STR(?value), CONCAT("#", ENCODE_FOR_URI(?name))))
+                }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#PointPropertiesShape> ;
+            sh:value <https://example.org/ex#qualityCodeColor> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-quality-color-value-field> ;
+            sh:resultMessage "P4 datatype: the point at 2021-03-03T23:30:00Z has a value for this field that is not a literal with the field's tss:datatype." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b99 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldValuesShape> ;
+            sh:value 4.7178e+03 ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-quality-color-value-field> ;
+            sh:resultMessage "P4 datatype: the point at 2021-03-03T23:45:00Z has a value for this field that is not a literal with the field's tss:datatype." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:n9b1c220b8b7647f29d512a387b76d0b8b99 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldValuesShape> ;
+            sh:value 4.74536e+03 ] .
+
+_:n9b1c220b8b7647f29d512a387b76d0b8b99 a sh:SPARQLConstraint ;
+    sh:message "P4 datatype: the point at {?when} has a value for this field that is not a literal with the field's tss:datatype." ;
+    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+    sh:select """
+            SELECT $this ?value ?when WHERE {
+                ?source tss:hasField $this .
+                $this tss:datatype ?datatype .
+                { ?source tss:timeField $this ; tss:hasPoint ?point . ?point tss:time ?value . }
+                UNION { $this a tss:ValueField . ?source tss:hasPoint ?point . ?point tss:value ?value . { ?point tss:field $this } UNION { FILTER NOT EXISTS { ?point tss:field ?anyField1 } ?source tss:hasField $this . $this a tss:ValueField . FILTER NOT EXISTS { ?source tss:hasField ?otherField1 . ?otherField1 a tss:ValueField . FILTER (?otherField1 != $this) } } }
+                UNION { $this tss:property ?property . ?source tss:hasPoint ?point . ?point ?property ?value . }
+                OPTIONAL { ?point tss:time ?time }
+                BIND (COALESCE(STR(?time), "(no time)") AS ?when)
+                FILTER (!isLiteral(?value) || (STR(?value) != "" && DATATYPE(?value) != ?datatype))
+            }""" .
+

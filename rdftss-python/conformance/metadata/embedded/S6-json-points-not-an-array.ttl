@@ -8,22 +8,22 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:snippet
-    a tss:EmbeddedJSONSnippet ;
+ex:source
+    a tss:EmbeddedJSONSource ;
     rdfs:label "Conductivity readings"@en ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:time-field ;
     tss:hasField ex:time-field, ex:value-field ;
     tss:points """{ "time": "2024-05-12T08:00:00Z", "value": "4810.5" }"""^^rdf:JSON .
 
 ex:time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;

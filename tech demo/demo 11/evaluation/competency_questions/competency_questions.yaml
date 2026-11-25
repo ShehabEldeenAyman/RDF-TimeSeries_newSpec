@@ -79,7 +79,7 @@ competency questions:
           OPTIONAL { ?valueField tss:columnName ?valueColumn }
           OPTIONAL { ?valueField tss:columnIndex ?valueIndex }
       } ORDER BY ?source
-    interpretation: For RDF points, field IRIs are the predicates. JSON uses column names as keys. Derived time fields have no column; CQ6 retrieves grid parameters. Unbound values are not automatically errors.
+    interpretation: RDF points state their time and reading with tss:time and tss:value, so their fields need no column. JSON uses column names as keys. Derived time fields have no column; CQ6 retrieves grid parameters. Unbound values are not automatically errors.
   Interpretation metadata:
   - id: CQ5
     question: What datatype and semantic context describe the selected measurement field?

@@ -7,27 +7,27 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:noheader-snippet
-    a tss:CSVSnippet ;
+ex:noheader-source
+    a tss:CSVSource ;
     rdfs:label "Basin 1 conductivity, 2024-05-12 (noheader)"@en ;
     tss:immutable true ;
     tss:producedBy ex:producer ;
-    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <sample-data/readings_no_header.csv> ;
     tss:header false ;
     tss:timeField ex:noheader-time-field ;
     tss:hasField ex:noheader-time-field, ex:noheader-value-field, ex:noheader-quality-field .
 
 ex:noheader-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
     tss:columnName "time" ;
     tss:columnIndex 0 ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:noheader-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity"@en ;
     tss:columnName "value" ;
     tss:columnIndex 1 ;
@@ -40,7 +40,7 @@ ex:noheader-value-field
     tss:featureOfInterest ex:feature-1 .
 
 ex:noheader-quality-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Quality code"@en ;
     tss:columnName "quality" ;
     tss:columnIndex 2 ;

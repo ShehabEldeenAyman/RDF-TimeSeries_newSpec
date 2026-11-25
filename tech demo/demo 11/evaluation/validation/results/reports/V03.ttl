@@ -1,0 +1,40 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S7 source class: the source states none of the five source classes (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource), so nothing says where its points are." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S7 source class: the source states none of the five source classes (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource), so nothing says where its points are." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS {
+                    $this a ?class .
+                    FILTER (?class IN (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
+                }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#SourceClassShape> ;
+            sh:value <https://example.org/ex#grootdok-source> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://w3id.org/tss#Source> ;
+            sh:resultMessage "S1 the source: the metadata must describe at least one external source, a tss:ParquetSource, tss:CSVSource or tss:ArrowSource; each source is read on its own. A tss:EmbeddedJSONSource or tss:EmbeddedRDFSource is checked with embedded_shapes.ttl." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S1 the source: the metadata must describe at least one external source, a tss:ParquetSource, tss:CSVSource or tss:ArrowSource; each source is read on its own. A tss:EmbeddedJSONSource or tss:EmbeddedRDFSource is checked with embedded_shapes.ttl." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS {
+                    ?source a ?class .
+                    FILTER (?class IN (tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
+                }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#SourceExistsShape> ;
+            sh:value <https://w3id.org/tss#Source> ] .
+

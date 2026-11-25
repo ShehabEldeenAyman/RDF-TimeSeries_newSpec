@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ec20-value-field> ;
+            sh:resultMessage "F14 about URL: a field of a tss:EmbeddedRDFSource states no tss:aboutUrl; its points are RDF nodes already, blank nodes or IRIs." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F14 about URL: a field of a tss:EmbeddedRDFSource states no tss:aboutUrl; its points are RDF nodes already, blank nodes or IRIs." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                ?source a tss:EmbeddedRDFSource ; tss:hasField $this .
+                $this tss:aboutUrl ?value .
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldShape> ;
+            sh:value "https://example.org/obs/{time}" ] .
+

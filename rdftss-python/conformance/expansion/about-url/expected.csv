@@ -1,0 +1,2 @@
+source,field,point,time,value,datatype,match,describing
+https://example.org/ex#source,https://example.org/ex#value-field,https://example.org/obs/2024-05-12T08%3A00%3A00Z,2024-05-12T08:00:00Z,4810.5,http://www.w3.org/2001/XMLSchema#double,text,

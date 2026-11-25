@@ -1,0 +1,17 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ec20-value-field> ;
+            sh:resultMessage "D3 not allowed: a tss:valueEncoding is only for a field of a source with an external data file; every embedded point states the readings themselves." ;
+            sh:resultPath <https://w3id.org/tss#valueEncoding> ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraintComponent sh:MaxCountConstraintComponent ;
+            sh:sourceShape [ sh:group <https://w3id.org/tss/shapes/embedded#NotAllowed> ;
+                    sh:maxCount 0 ;
+                    sh:message "D3 not allowed: a tss:valueEncoding is only for a field of a source with an external data file; every embedded point states the readings themselves." ;
+                    sh:name "D3 value encoding" ;
+                    sh:path <https://w3id.org/tss#valueEncoding> ] ] .
+

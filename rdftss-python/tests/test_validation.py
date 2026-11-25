@@ -14,7 +14,7 @@ class TestValidation:
     def pyshacl(self):
         pytest.importorskip("pyshacl")
 
-    def test_the_snippet_classes_choose_the_shapes(self, example):
+    def test_the_source_classes_choose_the_shapes(self, example):
         assert example("embedded_json.ttl").validate().shapes == ["embedded"]
         assert example("readings_parquet.ttl").validate().shapes == ["external"]
 
@@ -22,7 +22,7 @@ class TestValidation:
         report = rdftss.loads(EMBEDDED.replace('tss:from "2024-05-12T08:00:00Z"', 'tss:from "2024-05-12T08:00:00"')).validate()
         assert not report and report.checks == {"S23"} and report.counts["Violation"] == 1
         result = report.violations[0]
-        assert (result.check, result.name, result.where, result.shapes) == ("S23", "S23 timezone", "ex:snippet", "embedded")
+        assert (result.check, result.name, result.where, result.shapes) == ("S23", "S23 timezone", "ex:source", "embedded")
         assert "DOES NOT CONFORM (1 violation, 0 warnings)" in str(report)
         assert "sh:ValidationReport" in report.to_turtle() and "S23 timezone" in report.to_turtle()
 
@@ -32,7 +32,8 @@ class TestValidation:
         assert result.group == "Optional" and result.name == "S2 immutable"
 
     def test_values_are_checked_as_written(self):
-        text = EMBEDDED.replace('ex:value-field "4810.5"^^xsd:double', 'ex:value-field " 4810.5 "^^xsd:double')
+        text = EMBEDDED.replace('tss:value "4810.5"^^xsd:double', 'tss:value " 4810.5 "^^xsd:double')
+        assert text != EMBEDDED
         assert "P4" in rdftss.loads(text).validate().checks
 
     def test_one_bundled_file(self, example):
@@ -44,7 +45,7 @@ class TestValidation:
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix tss: <https://w3id.org/tss#> .
 <#CommentShape> a sh:NodeShape ;
-    sh:targetClass tss:CSVSnippet ;
+    sh:targetClass tss:CSVSource ;
     sh:property [ sh:name "X1 comment" ; sh:path rdfs:comment ; sh:minCount 1 ] .
 """, encoding="utf-8")
         report = example("readings_csv.ttl").validate(shapes=shapes)
@@ -79,6 +80,6 @@ class TestSummaryVerification:
         report = rdftss.load(ROOT / "conformance" / "metadata" / "external" / "valid-csv.ttl").verify_summaries()
         assert report.not_checked and "can't be read" in report.not_checked[0].problem
 
-    def test_one_snippet(self, example):
-        assert example("embedded_rdf.ttl").snippet().verify_summaries().up_to_date
+    def test_one_source(self, example):
+        assert example("embedded_rdf.ttl").source().verify_summaries().up_to_date
         assert str(example("readings_csv.ttl").verify_summaries()) == "No stored summaries."

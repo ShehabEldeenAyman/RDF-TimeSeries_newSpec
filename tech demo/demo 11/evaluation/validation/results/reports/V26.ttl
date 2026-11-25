@@ -1,0 +1,33 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-interpolation-type-field> ;
+            sh:resultMessage "F2 column name: another field of the same source has the column name Interpolation Type." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b93 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value "Interpolation Type" ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-quality-code-field> ;
+            sh:resultMessage "F2 column name: another field of the same source has the column name Interpolation Type." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b93 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value "Interpolation Type" ] .
+
+_:ne38b1b46294a4f0f9a4c12eff0676039b93 a sh:SPARQLConstraint ;
+    sh:message "F2 column name: another field of the same source has the column name {?value}." ;
+    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+    sh:select """
+            SELECT $this ?value WHERE {
+                ?source tss:hasField $this, ?other .
+                $this tss:columnName ?value .
+                ?other tss:columnName ?value .
+                FILTER (?other != $this)
+            }""" .
+

@@ -8,25 +8,25 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:snippet
-    a tss:CSVSnippet ;
+ex:source
+    a tss:CSVSource ;
     rdfs:label "Conductivity readings"@en ;
     tss:immutable true ;
     tss:producedBy ex:producer ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <readings.csv> ;
     tss:timeField ex:time-field ;
     tss:key ex:time-field ;
     tss:hasField ex:time-field, ex:value-field .
 
 ex:time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;

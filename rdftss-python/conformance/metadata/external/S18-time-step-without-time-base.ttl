@@ -8,8 +8,8 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:snippet
-    a tss:CSVSnippet ;
+ex:source
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:dataFile <readings.csv> ;
     tss:timeStep "PT15M"^^xsd:duration ;
@@ -18,16 +18,16 @@ ex:snippet
     tss:hasField ex:time-field, ex:step-field, ex:value-field .
 
 ex:time-field
-    a tss:Field ;
-    tss:datatype xsd:dateTimeStamp .
+    a tss:ContextField ;
+    tss:datatype xsd:dateTime .
 
 ex:step-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "step" ;
     tss:datatype xsd:integer .
 
 ex:value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity .

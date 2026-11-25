@@ -1,0 +1,80 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S26 summary of a growing source: field https://example.org/ex#grootdok-quality-code-color-field has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b160 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#GrowingSourceSummaryShape> ;
+            sh:value <https://example.org/ex#grootdok-quality-code-color-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S26 summary of a growing source: field https://example.org/ex#grootdok-time-field has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b160 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#GrowingSourceSummaryShape> ;
+            sh:value <https://example.org/ex#grootdok-time-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S26 summary of a growing source: field https://example.org/ex#grootdok-ts_id-field has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b160 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#GrowingSourceSummaryShape> ;
+            sh:value <https://example.org/ex#grootdok-ts_id-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S26 summary of a growing source: field https://example.org/ex#grootdok-quality-code-name-field has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b160 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#GrowingSourceSummaryShape> ;
+            sh:value <https://example.org/ex#grootdok-quality-code-name-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S26 summary of a growing source: field https://example.org/ex#grootdok-interpolation-type-field has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b160 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#GrowingSourceSummaryShape> ;
+            sh:value <https://example.org/ex#grootdok-interpolation-type-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S26 summary of a growing source: field https://example.org/ex#grootdok-quality-code-description-field has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b160 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#GrowingSourceSummaryShape> ;
+            sh:value <https://example.org/ex#grootdok-quality-code-description-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S26 summary of a growing source: field https://example.org/ex#grootdok-quality-code-field has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b160 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#GrowingSourceSummaryShape> ;
+            sh:value <https://example.org/ex#grootdok-quality-code-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S26 summary of a growing source: field https://example.org/ex#grootdok-ec20-field has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b160 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#GrowingSourceSummaryShape> ;
+            sh:value <https://example.org/ex#grootdok-ec20-field> ] .
+
+_:ne38b1b46294a4f0f9a4c12eff0676039b160 a sh:SPARQLConstraint ;
+    sh:message "S26 summary of a growing source: field {?value} has a tss:summary, but the source does not state tss:immutable true. Only a field of an immutable source has a stored summary." ;
+    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:hasField ?value .
+                ?value tss:summary ?summary .
+                FILTER NOT EXISTS { $this tss:immutable ?immutable . FILTER (?immutable = true) }
+            }""" .
+

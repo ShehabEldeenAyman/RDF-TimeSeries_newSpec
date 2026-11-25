@@ -1,4 +1,4 @@
-# tss:encoding on an Arrow snippet has no effect (a warning).
+# tss:encoding on an Arrow source has no effect (a warning).
 @prefix tss: <https://w3id.org/tss#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
@@ -8,13 +8,13 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:snippet
-    a tss:ArrowSnippet ;
+ex:source
+    a tss:ArrowSource ;
     rdfs:label "Conductivity readings"@en ;
     tss:immutable true ;
     tss:producedBy ex:producer ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <readings.arrow> ;
     tss:encoding "utf-8" ;
     tss:timeField ex:time-field ;
@@ -22,12 +22,12 @@ ex:snippet
     tss:hasField ex:time-field, ex:value-field .
 
 ex:time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:minimum "0"^^xsd:double ;

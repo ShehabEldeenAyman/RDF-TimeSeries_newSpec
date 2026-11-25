@@ -6,11 +6,11 @@ can, but found something that breaks a rule of the specification.
 Every error is an :class:`RDFTSSError`, so ``except rdftss.RDFTSSError`` catches them all:
 
 - :class:`DocumentError`: the metadata document cannot be parsed, or lacks what reading a
-  snippet needs (no snippet class, no time field, ...).
+  source needs (no source class, no time field, ...).
 - :class:`DataError`: the data breaks a rule that the specification calls an error, such as a
-  point without a time, two points with the same time, or a value that is not in the lexical
+  row without a time, two rows with the same time, or a value that is not in the lexical
   form of its datatype. It says where: ``error.where`` is, for example, ``"CSV line 12"``.
-- :class:`DataFileError`: the data file of an external snippet cannot be found, opened or
+- :class:`DataFileError`: the data file of an external source cannot be found, opened or
   downloaded.
 - :class:`UnsupportedError`: something this library or the specification does not support,
   such as a Parquet column type that is not in the specification's table.
@@ -26,14 +26,14 @@ class RDFTSSError(Exception):
 
 
 class DocumentError(RDFTSSError):
-    """The metadata document cannot be read, or does not say what is needed to read a snippet."""
+    """The metadata document cannot be read, or does not say what is needed to read a source."""
 
 
 class DataError(RDFTSSError):
-    """The data of a snippet breaks a rule of the specification.
+    """The data of a source breaks a rule of the specification.
 
     ``where`` says where the problem is, such as ``"CSV line 12"``, ``"Parquet row 7"`` or
-    ``"the point at 2024-05-12T08:00:00Z"``.
+    ``"the row at 2024-05-12T08:00:00Z"``.
     """
 
     def __init__(self, message: str, where: str | None = None):
@@ -43,7 +43,7 @@ class DataError(RDFTSSError):
 
 
 class DataFileError(RDFTSSError):
-    """The data file of an external snippet cannot be found, opened or downloaded."""
+    """The data file of an external source cannot be found, opened or downloaded."""
 
 
 class UnsupportedError(RDFTSSError):
@@ -76,7 +76,7 @@ class Issue:
     - ``severity`` is ``"error"`` for a rule the specification states with MUST, and
       ``"warning"`` for a SHOULD, or for something that is allowed but probably a mistake.
     - ``message`` says what is wrong, in words.
-    - ``where`` says where: a snippet, a field, ``"CSV line 12"``, ...
+    - ``where`` says where: a source, a field, ``"CSV line 12"``, ...
     """
 
     severity: str

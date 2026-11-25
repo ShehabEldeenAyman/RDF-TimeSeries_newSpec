@@ -7,8 +7,7 @@
 @prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
 @prefix unit: <http://qudt.org/vocab/unit/> .
 
-# Demo 7: experimental RDF time-series schema with field-level source locators.
-# The new TSS schema, field, source and locator terms are proposal vocabulary.
+# An RDF Time Series Sources (RDF-TSS) metadata document: https://knowledgeonwebscale.github.io/rdf-tss/
 # Logical datatypes interpret CSV and embedded-point lexical values; native types stay in the file.
 # Source windows are [from, until).
 # tss:key is the time field: no two rows have the same time.

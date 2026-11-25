@@ -1,17 +1,19 @@
-"""The five readers: they turn the points of a snippet into rows of texts.
+"""The five readers: they turn the rows of a source into rows of texts.
 
 Each reader yields :class:`RawRow` objects: where the row is (for messages) and, per field, the
-value as a text (``None`` for an empty value). :mod:`rdftss.points` then applies the rules that
+value as a text (``None`` for an empty value). :mod:`rdftss.rows` then applies the rules that
 hold for every class: the time, the window, the key, the lexical forms and the value encodings.
 
 =========================  =================================================================
 Class                      How a value becomes a text
 =========================  =================================================================
-``EmbeddedRDFSnippet``     the lexical form of the literal (the field's IRI is the predicate)
-``EmbeddedJSONSnippet``    the JSON string under the field's ``tss:columnName``
-``CSVSnippet``             the cell in the field's column (by header name, or by index)
-``ParquetSnippet``         the value in the lexical form of its Parquet type
-``ArrowSnippet``           the value in the lexical form of its Arrow type
+``EmbeddedRDFSource``     the lexical form of the literal on the points of the row: ``tss:time``,
+                          ``tss:value`` of the point of a value field, or the field property of a
+                          describing field
+``EmbeddedJSONSource``    the JSON string under the field's ``tss:columnName``
+``CSVSource``             the cell in the field's column (by header name, or by index)
+``ParquetSource``         the value in the lexical form of its Parquet type
+``ArrowSource``           the value in the lexical form of its Arrow type
 =========================  =================================================================
 
 The Parquet and Arrow lexical forms follow the specification's tables: UTC timestamps end in
@@ -29,10 +31,10 @@ from rdflib import Literal
 from rdflib.namespace import RDF
 
 from . import xsd
-from .datafiles import data_source, source_name
+from .datafiles import data_handle, data_name
 from .errors import DataError, DataFileError, Issues, UnsupportedError, require
-from .model import SnippetKind
-from .times import time_from_epoch, time_of_day_from_count
+from .model import SourceKind
+from .times import parse_time, time_from_epoch, time_of_day_from_count
 from .vocab import TSS, XSD
 
 #: Rows are read from Parquet and Arrow files in batches of this many rows.
@@ -40,13 +42,15 @@ BATCH_ROWS = 65536
 
 
 class RawRow:
-    """One point as texts: ``where`` it is, and ``texts`` by field (``None`` for an empty value)."""
+    """One row as texts: ``where`` it is, and ``texts`` by field (``None`` for an empty value).
+    ``nodes``: for RDF points, the node of the point of each value field in the row."""
 
-    __slots__ = ("where", "texts")
+    __slots__ = ("where", "texts", "nodes")
 
-    def __init__(self, where: str, texts: dict):
+    def __init__(self, where: str, texts: dict, nodes: dict | None = None):
         self.where = where
         self.texts = texts
+        self.nodes = nodes
 
 
 class Reporter:
@@ -81,88 +85,156 @@ class Reporter:
             self.warning(message, where)
 
 
-def raw_rows(snippet, fields, reporter: Reporter):
-    """The rows of a snippet as :class:`RawRow` objects, with texts for ``fields``."""
+def raw_rows(source, fields, reporter: Reporter):
+    """The rows of a source as :class:`RawRow` objects, with texts for ``fields``."""
     readers = {
-        SnippetKind.EMBEDDED_RDF: _rdf_rows,
-        SnippetKind.EMBEDDED_JSON: _json_rows,
-        SnippetKind.CSV: _csv_rows,
-        SnippetKind.PARQUET: _parquet_rows,
-        SnippetKind.ARROW: _arrow_rows,
+        SourceKind.EMBEDDED_RDF: _rdf_rows,
+        SourceKind.EMBEDDED_JSON: _json_rows,
+        SourceKind.CSV: _csv_rows,
+        SourceKind.PARQUET: _parquet_rows,
+        SourceKind.ARROW: _arrow_rows,
     }
-    return readers[snippet.kind](snippet, fields, reporter)
+    return readers[source.kind](source, fields, reporter)
 
 
 # ---------------------------------------------------------------------------------------------
 # RDF points
 # ---------------------------------------------------------------------------------------------
 
-def _rdf_rows(snippet, fields, reporter: Reporter):
-    graph = snippet.graph
-    document = snippet.document
-    by_predicate = {field.node: field for field in snippet.fields}
+def _datatype_of(value: Literal):
+    """The datatype of a literal: a literal without a datatype is an xsd:string (RDF 1.1), or an
+    rdf:langString when it has a language."""
+    if value.datatype is not None:
+        return value.datatype
+    return RDF.langString if value.language else XSD.string
+
+
+def _rdf_rows(source, fields, reporter: Reporter):
+    """The rows of a tss:EmbeddedRDFSource. Each point states its value field (``tss:field``,
+    which it may leave out when the source has one value field), its time (``tss:time``), its
+    reading (``tss:value``) and the values of the describing fields of its value field, with
+    their field property. The points with the same time form one row."""
+    graph = source.graph
+    document = source.document
+    where_source = f"source {document.short(source.node)}"
+    time_field = source.time_field
+    value_fields = source.value_fields
+    single = value_fields[0] if len(value_fields) == 1 else None
+    by_node = {field.node: field for field in source.fields}
+    describing = {field.field_property: field for field in source.describing_fields if field.field_property is not None}
     wanted = set(fields)
-    time_field = snippet.time_field
-    point_nodes = sorted(set(graph.objects(snippet.node, TSS.hasPoint)), key=str)
-    for point in point_nodes:
+    rows: dict = {}  # instant -> [where, texts, nodes]
+    for point in sorted(set(graph.objects(source.node, TSS.hasPoint)), key=str):
         if isinstance(point, Literal):
-            reporter.error(f"tss:hasPoint must link to a point node, not the literal {str(point)!r}",
-                           f"snippet {document.short(snippet.node)}")
+            reporter.error(f"tss:hasPoint must link to a point node, not the literal {str(point)!r}", where_source)
             continue
-        owners = set(graph.subjects(TSS.hasPoint, point))
-        if len(owners) > 1:
-            reporter.warning_once(("shared point", point), "a point belongs to several snippets; each point belongs "
+        if len(set(graph.subjects(TSS.hasPoint, point))) > 1:
+            reporter.warning_once(("shared point", point), "a point belongs to several sources; each point belongs "
                                   "to exactly one", f"point {document.short(point)}")
-        texts: dict = {}
         problems: list[str] = []
-        seen: set = set()
-        doubled: set = set()
-        for predicate, value in graph.predicate_objects(point):
-            field = by_predicate.get(predicate)
-            if field is None:
-                reporter.warning_once(("not a field", predicate),
-                                      f"points use {document.short(predicate)}, which is not a field of the snippet: "
-                                      "its values are not values of the snippet",
-                                      f"snippet {document.short(snippet.node)}")
+
+        def one_literal(prop, datatype, what):
+            values = list(graph.objects(point, prop))
+            if len(values) != 1:
+                problems.append(f"states {len(values)} {document.short(prop)}; a point states exactly one, {what}")
+                return None
+            value = values[0]
+            if not isinstance(value, Literal):
+                problems.append(f"its {document.short(prop)} is the node {document.short(value)}; it must be a literal")
+                return None
+            if _datatype_of(value) != datatype:
+                problems.append(f"its {document.short(prop)} {document.short(value)} must have the datatype "
+                                f"{xsd.short_name(datatype)}")
+            return str(value)
+
+        # Its value field
+        stated = list(graph.objects(point, TSS.field))
+        field = None
+        if len(stated) > 1:
+            problems.append(f"states {len(stated)} tss:field; a point is a point of exactly one value field")
+        elif stated:
+            field = by_node.get(stated[0])
+            if field is None or not field.is_value:
+                problems.append(f"its tss:field {document.short(stated[0])} is not a value field of the source")
+                field = None
+        elif single is not None:
+            field = single
+        else:
+            problems.append("states no tss:field, and the source does not have exactly one value field, "
+                            "so the point does not say which field its reading is a value of")
+        # Its time and its reading
+        time_text = one_literal(TSS.time, time_field.datatype, "the time of its row")
+        value_text = one_literal(TSS.value, field.datatype, "its reading") if field is not None else None
+        if value_text == "":
+            problems.append("its tss:value is the empty text, which is no value: a point is one reading, so it "
+                            "states one")
+        # The values of describing fields, and other triples
+        described: dict = {}
+        for predicate, value in sorted(graph.predicate_objects(point), key=str):
+            if predicate in (TSS.field, TSS.time, TSS.value):
+                continue
+            describer = describing.get(predicate)
+            if describer is None:
+                reporter.warning_once(("other triple", predicate), f"points state {document.short(predicate)}, which "
+                                      "is not the field property of a describing field: its values are not values "
+                                      "of the source", where_source)
+                continue
+            if field is not None and field not in describer.describes:
+                problems.append(f"states {document.short(predicate)}, the field property of describing field "
+                                f"{describer.name!r}, which does not describe field {field.name!r}")
+                continue
+            if describer in described:
+                problems.append(f"states more than one value for describing field {describer.name!r}")
+                described[describer] = None
                 continue
             if not isinstance(value, Literal):
-                problems.append(f"field {field.name!r} has the node {document.short(value)} as its value; "
-                                "a value must be a literal")
-                doubled.add(field)
+                problems.append(f"the value of describing field {describer.name!r} is the node "
+                                f"{document.short(value)}; it must be a literal")
+                described[describer] = None
                 continue
-            if field in seen:
-                problems.append(f"field {field.name!r} has more than one value; a point has at most one value "
-                                "for each field")
-                doubled.add(field)
-                continue
-            seen.add(field)
-            if value.datatype != field.datatype and not (field.datatype == RDF.langString and value.language):
-                problems.append(f"field {field.name!r}: the literal {document.short(value)} must have the field's "
-                                f"datatype {xsd.short_name(field.datatype)}")
-            if field in wanted or field is time_field:
-                text = str(value)
-                texts[field] = text if text != "" else None
-        for field in doubled:
-            texts.pop(field, None)  # (in lenient mode) no value is better than an arbitrary one
-        time_text = texts.get(time_field)
-        where = f"the point at {time_text}" if time_text else f"a point without a time ({document.short(point)})"
+            if _datatype_of(value) != describer.datatype:
+                problems.append(f"describing field {describer.name!r}: the literal {document.short(value)} must have "
+                                f"the field's datatype {xsd.short_name(describer.datatype)}")
+            described[describer] = str(value)
+        name = field.name if field is not None else "?"
+        where = f"the point of {name!r} at {time_text}" if time_text else \
+            f"a point without a time ({document.short(point)})"
         for message in problems:
             reporter.error(message, where)
-        yield RawRow(where, texts)
-
-    # Every value of a field must be in a point of the snippet
-    points = set(point_nodes)
-    for field in snippet.fields:
-        for subject in graph.subjects(field.node, None, unique=True):
-            if subject not in points:
-                reporter.warning_once(("value outside points", field.node),
-                                      f"{document.short(subject)} states a value for field {field.name!r} but is no "
-                                      "point of the snippet; every value of a field must be in a point of its snippet",
-                                      f"snippet {document.short(snippet.node)}")
+        if time_text is None or field is None:
+            continue
+        try:
+            moment = parse_time(time_text, require_timezone=True)
+        except ValueError as error:
+            reporter.error(f"its time is not a valid time with a timezone: {error}", where)
+            continue
+        # The row of its time
+        if moment.instant not in rows:
+            rows[moment.instant] = [f"the row at {time_text}", {time_field: time_text}, {}]
+        _, texts, nodes = rows[moment.instant]
+        if field in nodes:
+            reporter.error(f"is the second point of field {field.name!r} at {time_text}; no two points of a value "
+                           "field have the same time", where)
+            continue
+        nodes[field] = point
+        if field in wanted and value_text is not None:
+            texts[field] = value_text if value_text != "" else None
+        for describer, text in described.items():
+            if describer not in wanted or text is None:
+                continue
+            text = text if text != "" else None
+            if texts.get(describer, text) != text:
+                reporter.error(f"describing field {describer.name!r} has two values in the row at {time_text}, "
+                               f"{texts[describer]!r} and {text!r}; a row has at most one value for each field", where)
+                continue
+            if text is not None:
+                texts[describer] = text
+    for where, texts, nodes in rows.values():
+        yield RawRow(where, texts, nodes)
 
 
 # ---------------------------------------------------------------------------------------------
-# JSON points
+# JSON rows
 # ---------------------------------------------------------------------------------------------
 
 class _JSONObject(list):
@@ -177,23 +249,23 @@ def _no_constants(name):
     raise ValueError(f"{name} is not valid JSON")
 
 
-def _json_rows(snippet, fields, reporter: Reporter):
-    document = snippet.document
-    where_snippet = f"snippet {document.short(snippet.node)}"
+def _json_rows(source, fields, reporter: Reporter):
+    document = source.document
+    where_source = f"source {document.short(source.node)}"
     try:
-        data = json.loads(str(snippet.points_literal), object_pairs_hook=_JSONObject,
+        data = json.loads(str(source.points_literal), object_pairs_hook=_JSONObject,
                           parse_float=_JSONNumber, parse_int=_JSONNumber, parse_constant=_no_constants)
     except ValueError as error:
-        reporter.error(f"tss:points is not valid JSON: {error}", where_snippet)
+        reporter.error(f"tss:points is not valid JSON: {error}", where_source)
         return
     if type(data) is not list:
-        reporter.error("tss:points must be a JSON array of JSON objects", where_snippet)
+        reporter.error("tss:points must be a JSON array of JSON objects", where_source)
         return
-    by_key = {field.column_name: field for field in snippet.fields if field.column_name is not None}
+    by_key = {field.column_name: field for field in source.fields if field.column_name is not None}
     wanted = set(fields)
-    time_field = snippet.time_field
+    time_field = source.time_field
     for index, item in enumerate(data, 1):
-        where = f"JSON point {index}"
+        where = f"JSON row {index}"
         if not isinstance(item, _JSONObject):
             reporter.error("is not a JSON object", where)
             continue
@@ -211,7 +283,7 @@ def _json_rows(snippet, fields, reporter: Reporter):
             field = by_key.get(key)
             if field is None:
                 reporter.warning_once(("json key", key), f"the key {key!r} is not the tss:columnName of a field: its "
-                                      "values are not values of the snippet", where)
+                                      "values are not values of the source", where)
                 continue
             if value is None:
                 text = None
@@ -232,7 +304,7 @@ def _json_rows(snippet, fields, reporter: Reporter):
                 texts[field] = text if text != "" else None
         time_text = texts.get(time_field)
         if time_text:
-            where = f"JSON point {index} ({time_text})"
+            where = f"JSON row {index} ({time_text})"
         for message in problems:
             reporter.error(message, where)
         yield RawRow(where, texts)
@@ -242,20 +314,20 @@ def _json_rows(snippet, fields, reporter: Reporter):
 # CSV files
 # ---------------------------------------------------------------------------------------------
 
-def _csv_rows(snippet, fields, reporter: Reporter):
-    dialect = snippet.csv
-    source = data_source(snippet)
-    name = source_name(source)
+def _csv_rows(source, fields, reporter: Reporter):
+    dialect = source.csv
+    data = data_handle(source)
+    name = data_name(data)
     encoding = dialect.encoding
     if codecs.lookup(encoding).name == "utf-8":
         encoding = "utf-8-sig"  # a byte order mark at the start is not part of the first column name
-    # In a growing snippet, a last record that no line break ends yet is still being written
-    unfinished = snippet.growing and not _ends_with_line_break(source)
-    if isinstance(source, Path):
-        stream = open(source, "r", encoding=encoding, newline="")
+    # In a growing source, a last record that no line break ends yet is still being written
+    unfinished = source.growing and not _ends_with_line_break(data)
+    if isinstance(data, Path):
+        stream = open(data, "r", encoding=encoding, newline="")
     else:
-        stream = io.TextIOWrapper(source, encoding=encoding, newline="")
-    columns = [field for field in fields if not (snippet.time_grid is not None and field is snippet.time_field)]
+        stream = io.TextIOWrapper(data, encoding=encoding, newline="")
+    columns = [field for field in fields if not (source.time_grid is not None and field is source.time_field)]
     try:
         reader = csv.reader(stream, delimiter=dialect.delimiter, strict=True)
         positions: dict = {}
@@ -279,9 +351,10 @@ def _csv_rows(snippet, fields, reporter: Reporter):
                     positions[field] = field.column_index
             needed = max(positions.values(), default=-1) + 1
             pending = None
+            positional = source.time_grid is not None and source.time_grid.by_position
             for cells in reader:
-                if not cells:
-                    continue  # an empty line
+                if not cells and not positional:
+                    continue  # an empty line (on a time grid by position, a step without readings)
                 where = f"CSV line {reader.line_num}"
                 if len(cells) < needed:
                     reporter.warning_once("short row", f"has {len(cells)} cells, fewer than the {needed} the fields "
@@ -296,7 +369,7 @@ def _csv_rows(snippet, fields, reporter: Reporter):
                 pending = RawRow(where, texts)
             if pending is not None and unfinished:
                 reporter.warning("the last record has no line break yet: it is still being written, so it is not "
-                                 "read (the snippet is growing)", pending.where)
+                                 "read (the source is growing)", pending.where)
             elif pending is not None:
                 yield pending
         except csv.Error as error:
@@ -307,23 +380,23 @@ def _csv_rows(snippet, fields, reporter: Reporter):
         stream.close()
 
 
-def _ends_with_line_break(source) -> bool:
+def _ends_with_line_break(data) -> bool:
     """Whether a data file ends with a line break (in UTF-8 and other ASCII-based encodings, or
     UTF-16); ``True`` when that can't be known (a file object that can't seek), and for an empty file."""
     try:
-        if isinstance(source, Path):
-            with open(source, "rb") as file:
+        if isinstance(data, Path):
+            with open(data, "rb") as file:
                 file.seek(0, io.SEEK_END)
                 size = file.tell()
                 file.seek(max(0, size - 2))
                 tail = file.read()
         else:
-            position = source.tell()
-            source.seek(0, io.SEEK_END)
-            size = source.tell()
-            source.seek(max(0, size - 2))
-            tail = source.read()
-            source.seek(position)
+            position = data.tell()
+            data.seek(0, io.SEEK_END)
+            size = data.tell()
+            data.seek(max(0, size - 2))
+            tail = data.read()
+            data.seek(position)
     except (OSError, AttributeError, ValueError):
         return True
     return size == 0 or tail.endswith((b"\n", b"\r", b"\n\x00", b"\r\x00"))
@@ -364,7 +437,7 @@ def allowed_datatypes(arrow_type, *, time_field: bool):
         return {XSD.date}
     if types.is_timestamp(arrow_type):
         if arrow_type.tz is not None:
-            return {XSD.dateTimeStamp} if time_field else {XSD.dateTimeStamp, XSD.dateTime}
+            return {XSD.dateTime, XSD.dateTimeStamp}
         return set() if time_field else {XSD.dateTime}
     if types.is_time(arrow_type):
         return {XSD.time}
@@ -430,12 +503,12 @@ def _special(value: float) -> str | None:
     return None
 
 
-def _match_columns(snippet, fields, schema, reporter: Reporter, label: str, name: str) -> dict:
+def _match_columns(source, fields, schema, reporter: Reporter, label: str, name: str) -> dict:
     """The column name of each field, after checking the column types against the datatypes."""
     names = list(schema.names)
     columns = {}
     for field in fields:
-        if snippet.time_grid is not None and field is snippet.time_field:
+        if source.time_grid is not None and field is source.time_field:
             continue
         count = names.count(field.column_name)
         if count == 0:
@@ -486,17 +559,17 @@ def _batch_rows(batches, columns: dict, label: str, reporter: Reporter):
             yield RawRow(f"{label} row {number}", texts)
 
 
-def _parquet_rows(snippet, fields, reporter: Reporter):
+def _parquet_rows(source, fields, reporter: Reporter):
     pa, _ = _arrow_types()
     import pyarrow.parquet as pq
 
-    source = data_source(snippet)
-    name = source_name(source)
+    data = data_handle(source)
+    name = data_name(data)
     try:
-        parquet = pq.ParquetFile(str(source) if isinstance(source, Path) else source)
+        parquet = pq.ParquetFile(str(data) if isinstance(data, Path) else data)
     except Exception as error:
         raise DataFileError(f"{name} can't be read as a Parquet file: {error}") from None
-    columns = _match_columns(snippet, fields, parquet.schema_arrow, reporter, "Parquet", name)
+    columns = _match_columns(source, fields, parquet.schema_arrow, reporter, "Parquet", name)
     selected = sorted(set(columns.values()))
     if not selected:  # (lenient mode, when no column could be used) every row, without values
         yield from (RawRow(f"Parquet row {n}", {}) for n in range(1, parquet.metadata.num_rows + 1))
@@ -508,17 +581,17 @@ def _parquet_rows(snippet, fields, reporter: Reporter):
 ARROW_FILE_MAGIC = b"ARROW1"
 
 
-def _first_bytes(source, count: int) -> bytes:
-    if isinstance(source, Path):
-        with open(source, "rb") as file:
+def _first_bytes(data, count: int) -> bytes:
+    if isinstance(data, Path):
+        with open(data, "rb") as file:
             return file.read(count)
-    start = source.read(count)
-    source.seek(0)
+    start = data.read(count)
+    data.seek(0)
     return start
 
 
-def _stream_batches(reader, snippet, name: str, reporter: Reporter):
-    """The record batches of an Arrow IPC stream. In a growing snippet's stream, a last message
+def _stream_batches(reader, source, name: str, reporter: Reporter):
+    """The record batches of an Arrow IPC stream. In a growing source's stream, a last message
     that is not complete yet is still being written: it is left out."""
     pa, _ = _arrow_types()
     while True:
@@ -527,7 +600,7 @@ def _stream_batches(reader, snippet, name: str, reporter: Reporter):
         except StopIteration:
             return
         except (pa.ArrowInvalid, OSError) as error:
-            if snippet.growing:
+            if source.growing:
                 reporter.warning("the last message of the Arrow stream is not complete (it is still being written), "
                                  "so it is not read", name)
                 return
@@ -535,16 +608,16 @@ def _stream_batches(reader, snippet, name: str, reporter: Reporter):
         yield batch
 
 
-def _arrow_rows(snippet, fields, reporter: Reporter):
+def _arrow_rows(source, fields, reporter: Reporter):
     """An Arrow data file is in the IPC file format or the IPC streaming format; the first bytes
     tell them apart (``ARROW1`` starts a file), not the file name."""
     pa, _ = _arrow_types()
     import pyarrow.ipc
 
-    source = data_source(snippet)
-    name = source_name(source)
-    is_file_format = _first_bytes(source, len(ARROW_FILE_MAGIC)) == ARROW_FILE_MAGIC
-    handle = pa.memory_map(str(source)) if isinstance(source, Path) else source
+    data = data_handle(source)
+    name = data_name(data)
+    is_file_format = _first_bytes(data, len(ARROW_FILE_MAGIC)) == ARROW_FILE_MAGIC
+    handle = pa.memory_map(str(data)) if isinstance(data, Path) else data
     try:
         try:
             if is_file_format:
@@ -552,15 +625,15 @@ def _arrow_rows(snippet, fields, reporter: Reporter):
                 batches = (reader.get_batch(index) for index in range(reader.num_record_batches))
             else:
                 reader = pyarrow.ipc.open_stream(handle)
-                batches = _stream_batches(reader, snippet, name, reporter)
+                batches = _stream_batches(reader, source, name, reporter)
         except pa.ArrowInvalid as error:
             what = "an Arrow IPC file" if is_file_format else "an Arrow IPC stream"
             raise DataFileError(f"{name} can't be read as {what}: {error}") from None
-        if is_file_format and snippet.growing:
-            reporter.warning("is in the Arrow IPC file format, which can't be appended to: the snippet must state "
-                             "tss:immutable true (a growing Arrow snippet uses the IPC streaming format)", name)
-        columns = _match_columns(snippet, fields, reader.schema, reporter, "Arrow", name)
+        if is_file_format and source.range_requests:
+            reporter.error("is in the Arrow IPC file format, but the source states tss:rangeRequests true: its "
+                           "bytes only grow, so its data file must be in the IPC streaming format", name)
+        columns = _match_columns(source, fields, reader.schema, reporter, "Arrow", name)
         yield from _batch_rows(batches, columns, "Arrow", reporter)
     finally:
-        if isinstance(source, Path):
+        if isinstance(data, Path):
             handle.close()

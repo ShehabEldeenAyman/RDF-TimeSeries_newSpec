@@ -7,12 +7,12 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:snippet
-    a tss:EmbeddedJSONSnippet ;
+ex:source
+    a tss:EmbeddedJSONSource ;
     rdfs:label "Conductivity readings"@en ;
     tss:immutable true ;
-    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:timeField ex:time-field ;
     tss:hasField ex:time-field, ex:value-field ;
     tss:points """[
@@ -22,12 +22,12 @@ ex:snippet
 ]"""^^rdf:JSON .
 
 ex:time-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity ;
@@ -36,8 +36,8 @@ ex:value-field
         tss:missingValuePolicy tss:ExcludeEmptyValues ;
         tss:count "2"^^xsd:integer ;
         tss:missing "1"^^xsd:integer ;
-        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
-        tss:lastTime "2024-05-12T08:30:00Z"^^xsd:dateTimeStamp ;
+        tss:firstTime "2024-05-12T08:00:00Z"^^xsd:dateTime ;
+        tss:lastTime "2024-05-12T08:30:00Z"^^xsd:dateTime ;
         tss:observedMinimum "4751.9"^^xsd:double ;
         tss:observedMaximum "4810.5"^^xsd:double ;
         tss:mean "4781.2"^^xsd:double ;

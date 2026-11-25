@@ -1,0 +1,53 @@
+@prefix tss: <https://w3id.org/tss#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+# A fixture of the lifecycle checks (evaluation/lifecycle/check_lifecycle.py): the EC20 readings
+# of Zevenaarshaven (data/waterinfo_289441042.csv), appended to a CSV data file one record per reading.
+# The source states tss:rangeRequests true: the data file only grows, byte for byte, so a
+# consumer fetches only the new bytes with HTTP Range requests.
+ex:zevenaarshaven-gc-source
+    a tss:CSVSource ;
+    rdfs:label "Waterinfo EC20, Kanaal Gent-Terneuzen Zevenaarshaven (NL), growing CSV"@en ;
+    tss:producedBy ex:289441042 ;
+    tss:from "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:rangeRequests true ;
+    tss:dataFile <zevenaarshaven_growing.csv> ;
+    tss:timeField ex:zevenaarshaven-gc-time-field ;
+    tss:key ex:zevenaarshaven-gc-time-field ;
+    tss:hasField ex:zevenaarshaven-gc-time-field, ex:zevenaarshaven-gc-value-field .
+
+ex:zevenaarshaven-gc-time-field
+    a tss:ContextField ;
+    rdfs:label "Observation time"@en ;
+    tss:columnName "time" ;
+    tss:datatype xsd:dateTime .
+
+ex:zevenaarshaven-gc-value-field
+    a tss:ValueField ;
+    rdfs:label "Electrical conductivity at 20 °C, Kanaal Gent-Terneuzen Zevenaarshaven (NL)"@en ;
+    tss:columnName "value" ;
+    tss:datatype xsd:double ;
+    tss:observedProperty quantitykind:ElectricConductivity ;
+    tss:unit unit:MicroS-PER-CentiM ;
+    tss:sensor ex:sensor-zevenaarshaven-ec20 ;
+    tss:featureOfInterest ex:water-zevenaarshaven .
+
+# The writer ended the source: it added tss:immutable true and the summary, and changed nothing else.
+ex:zevenaarshaven-gc-source tss:immutable true .
+
+ex:zevenaarshaven-gc-value-field tss:summary [
+    tss:missingValuePolicy tss:ExcludeEmptyValues ;
+    tss:count "46"^^xsd:integer ;
+    tss:missing "0"^^xsd:integer ;
+    tss:firstTime "2021-03-03T23:15:00Z"^^xsd:dateTime ;
+    tss:lastTime "2021-03-04T23:00:00Z"^^xsd:dateTime ;
+    tss:observedMinimum "4457.92"^^xsd:double ;
+    tss:observedMaximum "4883.63"^^xsd:double ;
+    tss:mean "4644.840434782609"^^xsd:double ;
+    tss:median "4640.185"^^xsd:double ;
+    tss:generatedAtTime "2026-11-23T14:26:22Z"^^xsd:dateTime
+] .

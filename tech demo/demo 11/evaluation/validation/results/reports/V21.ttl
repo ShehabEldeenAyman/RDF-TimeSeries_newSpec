@@ -1,0 +1,21 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-quality-code-field> ;
+            sh:resultMessage "F12 context field: a tss:ContextField states no https://w3id.org/tss#observedProperty: its values are not readings, so they observe nothing." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F12 context field: a tss:ContextField states no {?value}: its values are not readings, so they observe nothing." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                $this a tss:ContextField ; ?value ?any .
+                FILTER (?value IN (tss:observedProperty, tss:sensor, tss:featureOfInterest, tss:aboutUrl))
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://w3id.org/tss#observedProperty> ] .
+

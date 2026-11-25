@@ -1,4 +1,4 @@
-# Parquet data file (tss:ParquetSnippet): a UTC timestamp, a DOUBLE and a STRING column
+# Parquet data file (tss:ParquetSource): a UTC timestamp, a DOUBLE and a STRING column
 @prefix tss: <https://w3id.org/tss#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -7,25 +7,25 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:parquet-snippet
-    a tss:ParquetSnippet ;
+ex:parquet-source
+    a tss:ParquetSource ;
     rdfs:label "Basin 1 conductivity, 2024-05-12 (parquet)"@en ;
     tss:immutable true ;
     tss:producedBy ex:producer ;
-    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <sample-data/readings.parquet> ;
     tss:timeField ex:parquet-time-field ;
     tss:hasField ex:parquet-time-field, ex:parquet-value-field, ex:parquet-quality-field .
 
 ex:parquet-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:parquet-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity"@en ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
@@ -37,7 +37,7 @@ ex:parquet-value-field
     tss:featureOfInterest ex:feature-1 .
 
 ex:parquet-quality-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Quality code"@en ;
     tss:columnName "quality" ;
     tss:datatype xsd:string ;

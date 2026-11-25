@@ -1,0 +1,5 @@
+rdflib==7.6.0
+pyshacl==0.40.2
+pyarrow==23.0.1
+PyYAML==6.0.3
+requests==2.34.2

@@ -1,0 +1,92 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ec20-value-field> ;
+            sh:resultMessage "F9 points: the source has points, but none is a reading of this value field, so it has no values." ;
+            sh:resultSeverity sh:Warning ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F9 points: the source has points, but none is a reading of this value field, so it has no values." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT $this WHERE {
+                ?source tss:hasField $this .
+                $this a tss:ValueField .
+                FILTER EXISTS { ?source tss:hasPoint ?anyPoint }
+                FILTER NOT EXISTS {
+                    ?source tss:hasPoint ?point .
+                    { ?point tss:field $this } UNION { FILTER NOT EXISTS { ?point tss:field ?anyField1 } ?source tss:hasField $this . $this a tss:ValueField . FILTER NOT EXISTS { ?source tss:hasField ?otherField1 . ?otherField1 a tss:ValueField . FILTER (?otherField1 != $this) } }
+                }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#FieldInPointsShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-ec20-value-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-source> ;
+            sh:resultMessage "S24 one kind: the document also describes the external source https://example.org/ex#grootdok-source; all sources of a document are embedded, or all are external, never both." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S24 one kind: the document also describes the external source {?value}; all sources of a document are embedded, or all are external, never both." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/embedded> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                ?value a ?class .
+                FILTER (?class IN (tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/embedded#OneKindShape> ;
+            sh:value <https://example.org/ex#grootdok-source> ] .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-time-field> ;
+            sh:resultMessage "F2 column name: a field needs a tss:columnName: the name of its column in the data file." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b91 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-time-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-quality-color-value-field> ;
+            sh:resultMessage "F2 column name: a field needs a tss:columnName: the name of its column in the data file." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b91 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-quality-color-value-field> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S24 one kind: the document also describes the embedded source https://example.org/ex#zevenaarshaven-source; all sources of a document are embedded, or all are external, never both." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S24 one kind: the document also describes the embedded source {?value}; all sources of a document are embedded, or all are external, never both." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value WHERE {
+                ?value a ?class .
+                FILTER (?class IN (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource))
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#OneKindShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-source> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#zevenaarshaven-ec20-value-field> ;
+            sh:resultMessage "F2 column name: a field needs a tss:columnName: the name of its column in the data file." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b91 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#zevenaarshaven-ec20-value-field> ] .
+
+_:ne38b1b46294a4f0f9a4c12eff0676039b91 a sh:SPARQLConstraint ;
+    sh:message "F2 column name: a field needs a tss:columnName: the name of its column in the data file." ;
+    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+    sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS { $this tss:columnName ?name }
+                FILTER NOT EXISTS { ?source tss:timeField $this ; tss:timeBase|tss:timeStep ?grid }
+            }""" .
+

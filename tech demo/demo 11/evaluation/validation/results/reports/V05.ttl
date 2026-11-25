@@ -1,0 +1,24 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S14 until: tss:until must come after tss:from." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S14 until: tss:until must come after tss:from." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this ?value WHERE {
+                $this tss:from ?from ; tss:until ?value .
+                # The moments (S23 reports a time without a timezone; here it is read as UTC)
+                BIND (xsd:dateTime(IF(REGEX(STR(?from), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?from), CONCAT(STR(?from), "Z"))) AS ?start)
+                BIND (xsd:dateTime(IF(REGEX(STR(?value), "(Z|[+-][0-9]{2}:[0-9]{2})$"), STR(?value), CONCAT(STR(?value), "Z"))) AS ?end)
+                FILTER (BOUND(?start) && BOUND(?end) && ?end <= ?start)
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#SourceShape> ;
+            sh:value "2020-01-01T00:00:00Z"^^xsd:dateTime ] .
+

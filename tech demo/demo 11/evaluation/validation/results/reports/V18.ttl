@@ -1,0 +1,20 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-time-field> ;
+            sh:resultMessage "F1 the field: a field states one of tss:ValueField and tss:ContextField as its rdf:type: whether its values are readings or give the context of a row." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "F1 the field: a field states one of tss:ValueField and tss:ContextField as its rdf:type: whether its values are readings or give the context of a row." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT $this WHERE {
+                FILTER NOT EXISTS { $this a ?kind . FILTER (?kind IN (tss:ValueField, tss:ContextField)) }
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#FieldShape> ;
+            sh:value <https://example.org/ex#grootdok-time-field> ] .
+

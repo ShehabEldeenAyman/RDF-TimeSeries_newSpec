@@ -1,3 +1,3 @@
-snippet,observed_property,sensor,feature_of_interest,unit,time,result,datatype,match
-https://example.org/ex#snippet,http://qudt.org/vocab/quantitykind/ElectricConductivity,,,,2024-05-12T08:00:00Z,4810.5,http://www.w3.org/2001/XMLSchema#double,value
-https://example.org/ex#snippet,http://qudt.org/vocab/quantitykind/ElectricConductivity,,,,2024-05-12T08:15:00Z,4722.4,http://www.w3.org/2001/XMLSchema#double,value
+source,field,point,time,value,datatype,match,describing
+https://example.org/ex#source,https://example.org/ex#value-field,,2024-05-12T08:00:00Z,4810.5,http://www.w3.org/2001/XMLSchema#double,value,
+https://example.org/ex#source,https://example.org/ex#value-field,,2024-05-12T08:15:00Z,4722.4,http://www.w3.org/2001/XMLSchema#double,value,

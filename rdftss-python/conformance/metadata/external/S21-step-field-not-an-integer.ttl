@@ -8,27 +8,27 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:snippet
-    a tss:CSVSnippet ;
+ex:source
+    a tss:CSVSource ;
     tss:immutable true ;
     tss:dataFile <readings.csv> ;
-    tss:timeBase "2024-05-12T08:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeBase "2024-05-12T08:00:00Z"^^xsd:dateTime ;
     tss:timeStep "PT15M"^^xsd:duration ;
     tss:stepField ex:step-field ;
     tss:timeField ex:time-field ;
     tss:hasField ex:time-field, ex:step-field, ex:value-field .
 
 ex:time-field
-    a tss:Field ;
-    tss:datatype xsd:dateTimeStamp .
+    a tss:ContextField ;
+    tss:datatype xsd:dateTime .
 
 ex:step-field
-    a tss:Field ;
+    a tss:ContextField ;
     tss:columnName "step" ;
     tss:datatype xsd:decimal .
 
 ex:value-field
-    a tss:Field ;
+    a tss:ValueField ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
     tss:observedProperty quantitykind:ElectricConductivity .

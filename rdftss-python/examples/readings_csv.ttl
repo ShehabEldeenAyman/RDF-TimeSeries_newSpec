@@ -1,4 +1,4 @@
-# CSV data file with a header line and ';' as delimiter (tss:CSVSnippet)
+# CSV data file with a header line and ';' as delimiter (tss:CSVSource)
 @prefix tss: <https://w3id.org/tss#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
@@ -7,26 +7,26 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:csv-snippet
-    a tss:CSVSnippet ;
+ex:csv-source
+    a tss:CSVSource ;
     rdfs:label "Basin 1 conductivity, 2024-05-12 (csv)"@en ;
     tss:immutable true ;
     tss:producedBy ex:producer ;
-    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <sample-data/readings.csv> ;
     tss:delimiter ";" ;
     tss:timeField ex:csv-time-field ;
     tss:hasField ex:csv-time-field, ex:csv-value-field, ex:csv-quality-field .
 
 ex:csv-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
     tss:columnName "time" ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:csv-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity"@en ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
@@ -38,7 +38,7 @@ ex:csv-value-field
     tss:featureOfInterest ex:feature-1 .
 
 ex:csv-quality-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Quality code"@en ;
     tss:columnName "quality" ;
     tss:datatype xsd:string ;

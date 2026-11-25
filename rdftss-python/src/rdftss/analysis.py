@@ -1,16 +1,16 @@
-"""Analysing points: statistics, expected ranges, gaps, missing steps and resampling.
+"""Analysing rows: statistics, expected ranges, gaps, missing steps and resampling.
 
-These functions work on :class:`~rdftss.points.Points`; you usually call them as methods::
+These functions work on :class:`~rdftss.rows.Rows`; you usually call them as methods::
 
-    points = snippet.read()
-    points.statistics("value")            # Statistics(count=85, missing=0, mean=4750.1, ...)
-    points.outside_expected_range()       # values outside tss:minimum / tss:maximum
-    points.gaps()                         # usual step 0:15:00, 3 gaps, longest first
-    points.missing_steps()                # on a time grid: the steps without a row
-    points.resample("1h", "value", how="mean")
+    rows = source.read()
+    rows.statistics("value")            # Statistics(count=85, missing=0, mean=4750.1, ...)
+    rows.outside_expected_range()       # values outside tss:minimum / tss:maximum
+    rows.gaps()                         # usual step 0:15:00, 3 gaps, longest first
+    rows.missing_steps()                # on a time grid: the steps without a row
+    rows.resample("1h", "value", how="mean")
 
 The statistics use the definitions of the stored summaries (``tss:summary``): ``count`` is how
-many points have a value, ``missing`` how many have none; minimum, maximum, mean and median only
+many rows have a value, ``missing`` how many have none; minimum, maximum, mean and median only
 exist for numeric fields; the median of an even number of values is the mean of the middle two.
 Decimal and integer fields are computed exactly (as :class:`~decimal.Decimal`), double and float
 fields with :func:`math.fsum`. A NaN makes the minimum, maximum, mean and median NaN.
@@ -36,7 +36,7 @@ from .times import Duration, instant_to_datetime
 class Statistics:
     """The statistics of one field's values, defined as the stored summaries define them.
 
-    ``first_time`` and ``last_time`` are the times of the first and last point with a value
+    ``first_time`` and ``last_time`` are the times of the first and last row with a value
     (``first_time_text`` and ``last_time_text`` as written). ``minimum``, ``maximum``, ``mean``
     and ``median`` are ``None`` for a field that is not numeric, or that has no values."""
 
@@ -63,7 +63,7 @@ class Statistics:
         differs from these statistics, as ``{name: (stored, computed)}``. Attributes the summary
         does not state are not compared. An empty dict means the summary is up to date.
 
-        Times are compared as moments. Floating-point numbers are the same within a relative
+        Times are compared as moments. Floating-row numbers are the same within a relative
         ``tolerance``, since their sum depends on the order of the additions; decimals and
         integers must be equal."""
         summary = summary if summary is not None else self.field.summary
@@ -147,22 +147,22 @@ def median_of(values: list, floating: bool):
         return (Decimal(ordered[middle - 1]) + Decimal(ordered[middle])) / 2
 
 
-def statistics(points, field) -> Statistics:
-    """The :class:`Statistics` of ``field`` over ``points``."""
+def statistics(rows, field) -> Statistics:
+    """The :class:`Statistics` of ``field`` over ``rows``."""
     count = missing = 0
     first = last = None
     numbers = []
     numeric = field.is_numeric
-    for point in points:
-        value = point.values.get(field)
+    for row in rows:
+        value = row.values.get(field)
         if value is None:
             missing += 1
             continue
         count += 1
-        if first is None or point.instant < first.instant:
-            first = point
-        if last is None or point.instant > last.instant:
-            last = point
+        if first is None or row.instant < first.instant:
+            first = row
+        if last is None or row.instant > last.instant:
+            last = row
         if numeric:
             numbers.append(value)
     result = dict(field=field, count=count, missing=missing)
@@ -191,7 +191,7 @@ class RangeFlag:
 
     The specification calls such a value suspicious, not wrong: it stays in the data."""
 
-    point: object
+    row: object
     field: object
     value: object
     minimum: object
@@ -204,26 +204,26 @@ class RangeFlag:
 
     def __str__(self) -> str:
         bound = self.minimum if self.side == "below" else self.maximum
-        return f"{self.point.time_text}: {self.field.name} = {self.value} is {self.side} {bound}"
+        return f"{self.row.time_text}: {self.field.name} = {self.value} is {self.side} {bound}"
 
 
-def outside_expected_range(points, field=None) -> list[RangeFlag]:
+def outside_expected_range(rows, field=None) -> list[RangeFlag]:
     """The values outside the expected range of their field, in time order. With ``field=None``,
     every numeric field that states a ``tss:minimum`` or ``tss:maximum`` is checked."""
-    snippet = points.snippet
+    source = rows.source
     if field is not None:
         fields = [field]
     else:
-        fields = [f for f in snippet.fields if f.is_numeric and (f.minimum is not None or f.maximum is not None)]
+        fields = [f for f in source.fields if f.is_numeric and (f.minimum is not None or f.maximum is not None)]
     flags = []
-    for point in points:
+    for row in rows:
         for target in fields:
-            value = point.values.get(target)
+            value = row.values.get(target)
             if value is None or _is_nan(value):
                 continue
             if (target.minimum is not None and value < target.minimum) or \
                     (target.maximum is not None and value > target.maximum):
-                flags.append(RangeFlag(point, target, value, target.minimum, target.maximum))
+                flags.append(RangeFlag(row, target, value, target.minimum, target.maximum))
     return flags
 
 
@@ -239,8 +239,8 @@ def _timedelta(seconds: Decimal) -> timedelta:
 
 @dataclass(frozen=True)
 class Gap:
-    """A longer interval between two points than the usual step: from the point at ``start`` to
-    the next point at ``end``. ``missing`` is ``length`` minus the usual step."""
+    """A longer interval between two rows than the usual step: from the row at ``start`` to
+    the next row at ``end``. ``missing`` is ``length`` minus the usual step."""
 
     start: datetime
     end: datetime
@@ -253,7 +253,7 @@ class Gap:
 
 @dataclass(frozen=True)
 class GapReport:
-    """The usual time between two points (the most frequent interval), and every longer interval
+    """The usual time between two rows (the most frequent interval), and every longer interval
     (a :class:`Gap`), longest first. ``total_missing`` adds up the time the gaps miss."""
 
     usual_step: timedelta | None
@@ -271,7 +271,7 @@ class GapReport:
 
     def __str__(self) -> str:
         if self.usual_step is None:
-            return "Too few points to find gaps."
+            return "Too few rows to find gaps."
         lines = [f"Usual step: {describe_duration(self.usual_step)}; {self.count} gap(s), "
                  f"{describe_duration(self.total_missing)} missing in total."]
         for gap in self.longest():
@@ -281,9 +281,9 @@ class GapReport:
         return "\n".join(lines)
 
 
-def gaps(points) -> GapReport:
-    """The usual step and the gaps of a series of points (in time order)."""
-    instants = [point.instant for point in points]
+def gaps(rows) -> GapReport:
+    """The usual step and the gaps of a series of rows (in time order)."""
+    instants = [row.instant for row in rows]
     if len(instants) < 2:
         return GapReport(None, [], timedelta(0))
     intervals = [instants[i] - instants[i - 1] for i in range(1, len(instants))]
@@ -294,7 +294,7 @@ def gaps(points) -> GapReport:
     total = Decimal(0)
     for i, interval in enumerate(intervals, 1):
         if interval > usual:
-            found.append(Gap(points[i - 1].time, points[i].time, _timedelta(interval), _timedelta(interval - usual)))
+            found.append(Gap(rows[i - 1].time, rows[i].time, _timedelta(interval), _timedelta(interval - usual)))
             total += interval - usual
     found.sort(key=lambda gap: (-gap.length, gap.start))
     return GapReport(_timedelta(usual), found, _timedelta(total))
@@ -319,22 +319,22 @@ class MissingSteps:
         return f"{steps} ({_utc(self.start)}" + ("" if self.count == 1 else f" .. {_utc(self.end)}") + ")"
 
 
-def missing_steps(points, *, window: bool = False) -> list[MissingSteps]:
+def missing_steps(rows, *, window: bool = False) -> list[MissingSteps]:
     """The runs of grid steps without a row, between the first and the last row (with
     ``window=True``: between the first and the last step inside the time window)."""
-    snippet = points.snippet
-    grid = snippet.time_grid
+    source = rows.source
+    grid = source.time_grid
     if grid is None:
-        raise ValueError(f"{snippet.name} has no time grid; use gaps() to find the gaps between its points")
-    steps = sorted(point.step for point in points if point.step is not None)
+        raise ValueError(f"{source.name} has no time grid; use gaps() to find the gaps between its rows")
+    steps = sorted(row.step for row in rows if row.step is not None)
     if not steps:
         return []
     first, last = steps[0], steps[-1]
     if window:
-        if snippet.window.start is not None:
-            first = min(first, _first_step_from(grid, snippet.window.start))
-        if snippet.window.end is not None:
-            last = max(last, _last_step_before(grid, snippet.window.end))
+        if source.window.start is not None:
+            first = min(first, _first_step_from(grid, source.window.start))
+        if source.window.end is not None:
+            last = max(last, _last_step_before(grid, source.window.end))
     present = set(steps)
     runs = []
     n = first
@@ -414,14 +414,14 @@ def parse_period(every) -> tuple[int, Decimal]:
     return months, seconds
 
 
-def period_key(point, months: int, seconds: Decimal) -> int:
-    """The number of the period a point lies in: calendar months (in UTC) when ``months`` is set,
+def period_key(row, months: int, seconds: Decimal) -> int:
+    """The number of the period a row lies in: calendar months (in UTC) when ``months`` is set,
     else periods of ``seconds`` counted from 1970-01-01T00:00:00Z (weeks from a Monday)."""
     if months:
-        moment = point.moment.datetime.astimezone(timezone.utc)
+        moment = row.moment.datetime.astimezone(timezone.utc)
         return (moment.year * 12 + moment.month - 1) // months
     origin = _MONDAY if seconds % 604800 == 0 else Decimal(0)
-    return int(((point.instant - origin) / seconds).to_integral_value(rounding="ROUND_FLOOR"))
+    return int(((row.instant - origin) / seconds).to_integral_value(rounding="ROUND_FLOOR"))
 
 
 def period_bounds(key: int, months: int, seconds: Decimal) -> tuple[datetime, datetime]:
@@ -472,7 +472,7 @@ class Resampled(list):
 _AGGREGATIONS = ("mean", "min", "max", "sum", "count", "median", "first", "last")
 
 
-def resample(points, every, field, *, how: str = "mean", include_empty: bool = False) -> Resampled:
+def resample(rows, every, field, *, how: str = "mean", include_empty: bool = False) -> Resampled:
     """Group the values of ``field`` per period and aggregate each group.
 
     - ``every``: the period (see :func:`parse_period`). Fixed periods are aligned to UTC
@@ -480,7 +480,7 @@ def resample(points, every, field, *, how: str = "mean", include_empty: bool = F
     - ``how``: ``"mean"``, ``"min"``, ``"max"``, ``"sum"``, ``"count"``, ``"median"``,
       ``"first"`` or ``"last"``. Mean, sum and median need a numeric field.
     - ``include_empty``: also give the periods between the first and the last group that have
-      no point (with ``value=None`` and ``count=0``).
+      no row (with ``value=None`` and ``count=0``).
     """
     if how not in _AGGREGATIONS:
         raise ValueError(f"how={how!r}: use one of {', '.join(_AGGREGATIONS)}")
@@ -489,9 +489,9 @@ def resample(points, every, field, *, how: str = "mean", include_empty: bool = F
     months, seconds = parse_period(every)
     floating = field.datatype in xsd.FLOATING_TYPES
     groups: dict[int, list] = {}
-    for point in points:
-        values = groups.setdefault(period_key(point, months, seconds), [])
-        value = point.values.get(field)
+    for row in rows:
+        values = groups.setdefault(period_key(row, months, seconds), [])
+        value = row.values.get(field)
         if value is not None:
             values.append(value)
     keys = sorted(groups)

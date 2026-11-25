@@ -1,0 +1,49 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+[] a sh:ValidationReport ;
+    sh:conforms false ;
+    sh:result [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S7 source class: the source states two source classes, https://w3id.org/tss#CSVSource and https://w3id.org/tss#ParquetSource; a source states exactly one." ;
+            sh:resultSeverity sh:Violation ;
+            sh:sourceConstraint [ a sh:SPARQLConstraint ;
+                    sh:message "S7 source class: the source states two source classes, {?value} and {?other}; a source states exactly one." ;
+                    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+                    sh:select """
+            SELECT DISTINCT $this ?value ?other WHERE {
+                $this a ?value, ?other .
+                FILTER (?value IN (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
+                FILTER (?other IN (tss:EmbeddedJSONSource, tss:EmbeddedRDFSource, tss:ParquetSource, tss:CSVSource, tss:ArrowSource))
+                FILTER (STR(?value) < STR(?other))
+            }""" ] ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#SourceClassShape> ;
+            sh:value <https://w3id.org/tss#CSVSource> ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S15 not used: a Parquet or Arrow data file has no delimiter or text encoding, so tss:delimiter has no effect." ;
+            sh:resultSeverity sh:Warning ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b43 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#ParquetArrowSourceShape> ;
+            sh:value "," ],
+        [ a sh:ValidationResult ;
+            sh:focusNode <https://example.org/ex#grootdok-source> ;
+            sh:resultMessage "S15 not used: a Parquet or Arrow data file has no delimiter or text encoding, so tss:encoding has no effect." ;
+            sh:resultSeverity sh:Warning ;
+            sh:sourceConstraint _:ne38b1b46294a4f0f9a4c12eff0676039b43 ;
+            sh:sourceConstraintComponent sh:SPARQLConstraintComponent ;
+            sh:sourceShape <https://w3id.org/tss/shapes/external#ParquetArrowSourceShape> ;
+            sh:value "utf-8" ] .
+
+_:ne38b1b46294a4f0f9a4c12eff0676039b43 a sh:SPARQLConstraint ;
+    sh:message "S15 not used: a Parquet or Arrow data file has no delimiter or text encoding, so {?name} has no effect." ;
+    sh:prefixes <https://w3id.org/tss/shapes/external> ;
+    sh:select """
+            SELECT $this ?value ?name WHERE {
+                $this ?property ?value .
+                FILTER (?property IN (tss:delimiter, tss:encoding))
+                BIND (IF(?property = tss:delimiter, "tss:delimiter", "tss:encoding") AS ?name)
+            }""" .
+

@@ -7,27 +7,27 @@
 @prefix unit: <http://qudt.org/vocab/unit/> .
 @prefix ex: <https://example.org/ex#> .
 
-ex:grid-snippet
-    a tss:CSVSnippet ;
+ex:grid-source
+    a tss:CSVSource ;
     rdfs:label "Basin 1 conductivity, 2024-05-12 (grid)"@en ;
     tss:immutable true ;
     tss:producedBy ex:producer ;
-    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
-    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:from "2024-05-12T00:00:00Z"^^xsd:dateTime ;
+    tss:until "2024-05-13T00:00:00Z"^^xsd:dateTime ;
     tss:dataFile <sample-data/readings_grid.csv> ;
-    tss:timeBase "2024-05-12T00:00:00Z"^^xsd:dateTimeStamp ;
+    tss:timeBase "2024-05-12T00:00:00Z"^^xsd:dateTime ;
     tss:timeStep "PT15M"^^xsd:duration ;
     tss:stepField ex:grid-step-field ;
     tss:timeField ex:grid-time-field ;
     tss:hasField ex:grid-time-field, ex:grid-value-field, ex:grid-quality-field, ex:grid-step-field .
 
 ex:grid-time-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Observation time"@en ;
-    tss:datatype xsd:dateTimeStamp .
+    tss:datatype xsd:dateTime .
 
 ex:grid-value-field
-    a tss:Field ;
+    a tss:ValueField ;
     rdfs:label "Electrical conductivity"@en ;
     tss:columnName "value" ;
     tss:datatype xsd:double ;
@@ -39,14 +39,14 @@ ex:grid-value-field
     tss:featureOfInterest ex:feature-1 .
 
 ex:grid-quality-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Quality code"@en ;
     tss:columnName "quality" ;
     tss:datatype xsd:string ;
     tss:describesField ex:grid-value-field .
 
 ex:grid-step-field
-    a tss:Field ;
+    a tss:ContextField ;
     rdfs:label "Step"@en ;
     tss:columnName "step" ;
     tss:datatype xsd:integer .

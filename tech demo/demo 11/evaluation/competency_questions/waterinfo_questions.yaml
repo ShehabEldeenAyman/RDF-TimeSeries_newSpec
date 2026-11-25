@@ -1,0 +1,164 @@
+# The eight competency questions of competency_questions.yaml, asked of the Waterinfo metadata
+# documents of demo 11 (../../metadata endpoint/waterinfo_*.ttl). Each query is the query of the
+# same CQ with Waterinfo parameters: the observed property quantitykind:ElectricConductivity, the
+# features of interest of the four monitoring locations, and their sources.
+# The expected answers are in waterinfo_expected.yaml.
+competency questions:
+  Semantic discovery:
+  - id: CQ1
+    question: Which sources describe a specified observed property for a specified feature of interest?
+    example: Find the EC20 series of the water at Zevenaarshaven; the other three locations have their own features of interest.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/ex#>
+      PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+
+      SELECT DISTINCT ?source ?field WHERE {
+          ?source tss:hasField ?field .
+          ?field tss:observedProperty quantitykind:ElectricConductivity ;
+                 tss:featureOfInterest ex:water-zevenaarshaven .
+      } ORDER BY ?source ?field
+    interpretation: Exact IRI matching of the observed property and the feature of interest; the Grootdok, Rodenhuizedok and Autrichehaven series observe the same property of other features.
+  - id: CQ2
+    question: Which relevant sources have declared temporal windows overlapping a requested interval?
+    example: Find EC20 series whose windows overlap [2025-10-07T07:45:00Z, 2025-12-18T23:15:00Z); the window of the Autrichehaven series ends at the start of that interval.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+      SELECT DISTINCT ?source ?from ?until WHERE {
+          ?source tss:hasField ?field .
+          ?field tss:observedProperty quantitykind:ElectricConductivity .
+          OPTIONAL { ?source tss:from ?from }
+          OPTIONAL { ?source tss:until ?until }
+          FILTER (!BOUND(?from) || xsd:dateTime(STR(?from)) < "2025-12-18T23:15:00Z"^^xsd:dateTime)
+          FILTER (!BOUND(?until) || xsd:dateTime(STR(?until)) > "2025-10-07T07:45:00Z"^^xsd:dateTime)
+      } ORDER BY ?source
+    interpretation: Absent bounds are open, as for the growing log. A window that ends where the interval starts does not overlap it, so the Autrichehaven series is not returned.
+  Source access:
+  - id: CQ3
+    question: Where are the readings of relevant sources located, and how are they represented?
+    example: Locate the CSV and Parquet files, or the embedded access predicates, of all EC20 series.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+
+      SELECT DISTINCT ?source ?profile ?dataFile ?accessPredicate WHERE {
+          ?source tss:hasField ?field .
+          ?field tss:observedProperty quantitykind:ElectricConductivity .
+          VALUES ?profile { tss:CSVSource tss:ParquetSource tss:ArrowSource tss:EmbeddedJSONSource tss:EmbeddedRDFSource }
+          ?source a ?profile .
+          {
+              VALUES ?profile { tss:CSVSource tss:ParquetSource tss:ArrowSource }
+              ?source tss:dataFile ?dataFile .
+              BIND(tss:dataFile AS ?accessPredicate)
+          } UNION {
+              VALUES ?profile { tss:EmbeddedJSONSource }
+              BIND(tss:points AS ?accessPredicate)
+          } UNION {
+              VALUES ?profile { tss:EmbeddedRDFSource }
+              BIND(tss:hasPoint AS ?accessPredicate)
+          }
+      } ORDER BY ?source
+    interpretation: The data files resolve against the documents (../data/), which the runner does not read. Embedded results identify the source and its access predicate.
+  - id: CQ4
+    question: Which fields identify timestamps and the requested measurement, and how are they bound to the representation?
+    example: Inspect the time and value bindings of the CSV, Parquet, JSON, RDF, time-grid and baseline-difference Waterinfo sources.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+
+      SELECT DISTINCT ?source ?profile ?timeField ?timeColumn ?timeIndex
+                      ?valueField ?valueColumn ?valueIndex WHERE {
+          VALUES ?profile { tss:CSVSource tss:ParquetSource tss:ArrowSource tss:EmbeddedJSONSource tss:EmbeddedRDFSource }
+          ?source a ?profile ; tss:timeField ?timeField ; tss:hasField ?valueField .
+          ?valueField a tss:ValueField ; tss:observedProperty quantitykind:ElectricConductivity .
+          OPTIONAL { ?timeField tss:columnName ?timeColumn }
+          OPTIONAL { ?timeField tss:columnIndex ?timeIndex }
+          OPTIONAL { ?valueField tss:columnName ?valueColumn }
+          OPTIONAL { ?valueField tss:columnIndex ?valueIndex }
+      } ORDER BY ?source
+    interpretation: RDF points state their time and reading with tss:time and tss:value, so their fields need no column; the time field of the time grid has none either. Unbound values are not errors.
+  Interpretation metadata:
+  - id: CQ5
+    question: What datatype and semantic context describe the selected measurement field?
+    example: Retrieve the measurement context of the Grootdok EC20 field.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/ex#>
+      PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+
+      SELECT ?field ?datatype ?property ?unit ?sensor ?feature WHERE {
+          VALUES ?source { ex:grootdok-source }
+          ?source tss:hasField ?field .
+          ?field tss:observedProperty ?property ; tss:datatype ?datatype .
+          VALUES ?property { quantitykind:ElectricConductivity }
+          OPTIONAL { ?field tss:unit ?unit }
+          OPTIONAL { ?field tss:sensor ?sensor }
+          OPTIONAL { ?field tss:featureOfInterest ?feature }
+      } ORDER BY ?field
+    interpretation: Reports the context that the publisher supplied.
+  - id: CQ6
+    question: What declared parameters are needed to reconstruct timestamps or measurement values from a selected external source?
+    example: Compare the direct Grootdok CSV with the time-grid and baseline-difference representations of one Zevenaarshaven day.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX ex: <https://example.org/ex#>
+      PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+
+      SELECT ?source ?dataFile ?field ?timeBase ?timeStep ?stepField ?stepColumn ?stepIndex ?encoding ?baseline WHERE {
+          VALUES ?source { ex:grootdok-source ex:zevenaarshaven-ts-source ex:zevenaarshaven-vd-source }
+          ?source tss:dataFile ?dataFile ; tss:hasField ?field .
+          ?field tss:observedProperty quantitykind:ElectricConductivity .
+          OPTIONAL { ?source tss:timeBase ?timeBase }
+          OPTIONAL { ?source tss:timeStep ?timeStep }
+          OPTIONAL {
+              ?source tss:stepField ?stepField .
+              OPTIONAL { ?stepField tss:columnName ?stepColumn }
+              OPTIONAL { ?stepField tss:columnIndex ?stepIndex }
+          }
+          OPTIONAL { ?field tss:valueEncoding ?encoding }
+          OPTIONAL { ?field tss:baseline ?baseline }
+      } ORDER BY ?source
+    interpretation: Retrieval only; ../waterinfo/check_waterinfo.py decodes the data files with these parameters and compares the readings with Waterinfo.
+  Source assessment:
+  - id: CQ7
+    question: Which selected sources are final, which are still growing, and can a consumer follow them with Range requests?
+    example: Compare the final Waterinfo sources with the growing Zevenaarshaven message log.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+
+      SELECT DISTINCT ?source ?profile ?immutable ?rangeRequests WHERE {
+          VALUES ?profile { tss:CSVSource tss:ParquetSource tss:ArrowSource tss:EmbeddedJSONSource tss:EmbeddedRDFSource }
+          ?source a ?profile ; tss:hasField ?field .
+          ?field tss:observedProperty quantitykind:ElectricConductivity .
+          OPTIONAL { ?source tss:immutable ?declared }
+          BIND (COALESCE(?declared, false) AS ?immutable)
+          OPTIONAL { ?source tss:rangeRequests ?promised }
+          BIND (COALESCE(?promised, false) AS ?rangeRequests)
+      } ORDER BY ?source
+    interpretation: Defaults apply to omitted declarations. The query does not verify publisher behaviour; ../lifecycle/ checks the log and Range requests.
+  - id: CQ8
+    question: Which declared summaries are available for selected measurement fields, and what source windows do they describe?
+    example: Retrieve the stored summaries of all EC20 series, and keep the growing log, which has none.
+    query: |
+      PREFIX tss: <https://w3id.org/tss#>
+      PREFIX quantitykind: <http://qudt.org/vocab/quantitykind/>
+
+      SELECT ?source ?field ?from ?until ?summary ?count ?missing ?minimum ?maximum ?generatedAt WHERE {
+          ?source tss:hasField ?field .
+          ?field a tss:ValueField ; tss:observedProperty quantitykind:ElectricConductivity .
+          OPTIONAL { ?source tss:from ?from }
+          OPTIONAL { ?source tss:until ?until }
+          OPTIONAL {
+              ?field tss:summary ?summary .
+              OPTIONAL { ?summary tss:count ?count }
+              OPTIONAL { ?summary tss:missing ?missing }
+              OPTIONAL { ?summary tss:observedMinimum ?minimum }
+              OPTIONAL { ?summary tss:observedMaximum ?maximum }
+              OPTIONAL { ?summary tss:generatedAtTime ?generatedAt }
+          }
+      } ORDER BY ?source
+    interpretation: Publisher declarations; ../waterinfo/check_waterinfo.py recomputes them from the data. The growing log has no summary, so its summary variables stay unbound.

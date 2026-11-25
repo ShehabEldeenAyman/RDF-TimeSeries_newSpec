@@ -1,0 +1,12 @@
+# A document that describes no source; both shapes files report it.
+@prefix tss: <https://w3id.org/tss#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix sosa: <http://www.w3.org/ns/sosa/> .
+@prefix quantitykind: <http://qudt.org/vocab/quantitykind/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix ex: <https://example.org/ex#> .
+
+ex:time-field a tss:ContextField ;
+    tss:datatype xsd:dateTime .
