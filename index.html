@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waterinfo EC20 Parquet sources</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #1a1a1a; background: #fff; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: .35rem .6rem; border-bottom: 1px solid #ddd; text-align: left; vertical-align: top; }
+  .table { overflow-x: auto; }
+  @media (prefers-color-scheme: dark) { body { color: #e6e6e6; background: #161616; } th, td { border-color: #3a3a3a; } a { color: #8ab4f8; } }
+</style>
+</head>
+<body>
+<h1>Waterinfo EC20 readings in Parquet, with RDF-TSS metadata</h1>
+<p>Each Parquet file holds the readings of one time series of electrical conductivity at 20&nbsp;°C (EC20)
+from <a href="https://www.waterinfo.be">Waterinfo.be</a>. Each has a metadata document in the
+<a href="https://knowledgeonwebscale.github.io/rdf-tss/">RDF Time Series Sources (RDF-TSS)</a> vocabulary:
+a <code>tss:ParquetSource</code> whose <code>tss:dataFile</code> is the address of its Parquet file on this site,
+so a client that loads the document from anywhere finds the data.</p>
+<div class="table"><table>
+<tr><th>Series</th><th>Readings</th><th>Window [from, until)</th><th>Metadata document (Turtle)</th><th>Data file</th></tr>
+<tr><td>Kanaal Gent-Terneuzen Grootdok (BE)</td><td>94,853</td><td><code>[2021-03-03T23:45:00Z, 2025-12-18T23:15:00Z)</code></td><td><a href="metadata-endpoint/waterinfo_289423042_tss2_parquet.ttl">waterinfo_289423042_tss2_parquet.ttl</a></td><td><a href="data/waterinfo_289423042.parquet">waterinfo_289423042.parquet</a> (1.4 MB)</td></tr>
+<tr><td>Kanaal Gent-Terneuzen Rodenhuizedok (BE)</td><td>158,022</td><td><code>[2021-03-03T23:15:00Z, 2026-01-01T00:00:00Z)</code></td><td><a href="metadata-endpoint/waterinfo_289429042_tss2_parquet.ttl">waterinfo_289429042_tss2_parquet.ttl</a></td><td><a href="data/waterinfo_289429042.parquet">waterinfo_289429042.parquet</a> (2.3 MB)</td></tr>
+<tr><td>Kanaal Gent-Terneuzen Autrichehaven (NL)</td><td>139,928</td><td><code>[2021-03-03T23:15:00Z, 2025-10-07T07:45:00Z)</code></td><td><a href="metadata-endpoint/waterinfo_289435042_tss2_parquet.ttl">waterinfo_289435042_tss2_parquet.ttl</a></td><td><a href="data/waterinfo_289435042.parquet">waterinfo_289435042.parquet</a> (2.1 MB)</td></tr>
+<tr><td>Kanaal Gent-Terneuzen Zevenaarshaven (NL)</td><td>46</td><td><code>[2021-03-03T23:15:00Z, 2021-03-05T00:00:00Z)</code></td><td><a href="metadata-endpoint/waterinfo_289441042_tss2_parquet.ttl">waterinfo_289441042_tss2_parquet.ttl</a></td><td><a href="data/waterinfo_289441042.parquet">waterinfo_289441042.parquet</a> (0.0 MB)</td></tr>
+</table></div>
+<p>The readings were retrieved from the public KiWIS web service of Waterinfo.be.</p>
+</body>
+</html>
